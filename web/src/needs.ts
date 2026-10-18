@@ -40,6 +40,15 @@ const bearMessages: Record<NeedKind, string> = {
   quiet: "把小爪抱在身前，想静静陪着你",
 };
 
+const frogMessages: Record<NeedKind, string> = {
+  hungry: "前蹼摸摸肚子，想吃点东西",
+  tired: "前蹼揉揉眼睛，想收蹼休息",
+  dirty: "前蹼擦擦脸，想洗个泡泡澡",
+  playful: "伸出前蹼，陪我滚滚球？",
+  content: "轻轻挥蹼，开心得喉咙轻轻一鼓",
+  quiet: "收拢蹼足，想和你安静待一会儿",
+};
+
 // No timer, randomness, network request or reward: a saved state has exactly
 // one expression. Body needs take priority over an invitation to play.
 export function petNeed(pet: PetState | null): NeedSignal | null {
@@ -57,5 +66,5 @@ export function petNeed(pet: PetState | null): NeedSignal | null {
     .sort((a, b) => a.value / a.threshold - b.value / b.threshold)[0];
   const kind = needed?.kind ?? (mood <= 60
     ? (energy >= 45 ? "playful" : "quiet") : "content");
-  return { kind, text: (pet.species === 3 ? dolphinMessages : pet.species === 4 ? mushroomMessages : pet.species === 5 ? bearMessages : messages)[kind], urgent: !!urgent };
+  return { kind, text: (pet.species === 3 ? dolphinMessages : pet.species === 4 ? mushroomMessages : pet.species === 5 ? bearMessages : pet.species === 6 ? frogMessages : messages)[kind], urgent: !!urgent };
 }

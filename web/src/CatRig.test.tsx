@@ -69,12 +69,13 @@ describe("independently drawn sakura cat", () => {
 
   it("shares registry routing, without inventing rigs for eggs or the remaining pets", () => {
     for (let index = 0; index < 10; index++) for (const stage of ["egg", ...stages] as GrowthStage[]) {
-      const kind = stage === "egg" ? "original" : index === 0 ? "tanuki" : index === 1 ? "bird" : index === 2 ? "rabbit" : index === 3 ? "dolphin" : index === 4 ? "mushroom" : index === 5 ? "bear" : index === 7 ? "cat" : "original";
+      const kind = stage === "egg" ? "original" : index === 0 ? "tanuki" : index === 1 ? "bird" : index === 2 ? "rabbit" : index === 3 ? "dolphin" : index === 4 ? "mushroom" : index === 5 ? "bear" : index === 6 ? "frog" : index === 7 ? "cat" : "original";
       expect(petRigKind(index, stage)).toBe(kind);
       expect(petRigClass(index, stage)).toBe(kind === "original" ? "" : `has-${kind}-rig`);
       const { container, unmount } = render(<PetArt index={index} stage={stage} />);
       expect(!!container.querySelector(".cat-rig")).toBe(kind === "cat");
       expect(!!container.querySelector(".tanuki-rig")).toBe(kind === "tanuki");
+      expect(!!container.querySelector(".frog-rig")).toBe(kind === "frog");
       expect(!!container.querySelector(".bear-rig")).toBe(kind === "bear");
       expect(!!container.querySelector(".mushroom-rig")).toBe(kind === "mushroom");
       expect(!!container.querySelector(".dolphin-rig")).toBe(kind === "dolphin");

@@ -66,6 +66,20 @@ describe("deterministic proactive needs", () => {
     expect(petNeed({...pet(),species:5,sleeping:true})).toBeNull();
     expect(petNeed({...pet(),species:5,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
   });
+  it("describes frog webs without changing priorities, saved forms, or sleep/game suppression", () => {
+    for (const needs of [{hunger:10},{energy:20},{clean:15},{mood:40},{mood:60,energy:44},{}]) {
+      const original=pet(needs), frog={...original,species:6}, before=structuredClone(frog);
+      const a=petNeed(original)!, b=petNeed(frog)!;
+      expect(b.kind).toBe(a.kind);
+      expect(b.urgent).toBe(a.urgent);
+      expect(b.text).toContain("蹼");
+      expect(b.text).not.toMatch(/鳍|菌盖|耳|爪|翼/);
+      expect(b).toEqual(petNeed(frog));
+      expect(frog).toEqual(before);
+    }
+    expect(petNeed({...pet(),species:6,sleeping:true})).toBeNull();
+    expect(petNeed({...pet(),species:6,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
+  });
   it("stops hunger as soon as a saved meal has filled the pet", () => {
     const p=pet({hunger:50}); expect(petNeed(p)?.kind).toBe("hungry");
     p.needs.hunger=70; expect(petNeed(p)?.kind).toBe("content");

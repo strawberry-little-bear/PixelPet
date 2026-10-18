@@ -1,0 +1,120 @@
+/* Same canvas in every age: a tucked frog learns to leap and open its webbed feet. */
+.growth-baby .growth-size.has-frog-rig,
+.growth-growing .growth-size.has-frog-rig,
+.growth-adult .growth-size.has-frog-rig { width: 104px; height: 110px; margin-left: -52px; }
+.has-frog-rig .growth-outfit { bottom: 8px; width: 29px; height: 19px; margin-left: -14.5px; }
+.growth-baby .has-frog-rig .growth-outfit { bottom: 5px; width: 23px; height: 14px; margin-left: -11.5px; }
+.growth-growing .has-frog-rig .growth-outfit { bottom: 7px; width: 26px; height: 17px; margin-left: -13px; }
+.pet-scene[data-rig="frog"].motion-idle .pet-actor { animation: none; }
+.frog-rig { overflow: visible; --frog-eye-reach: -24px; --frog-snack-reach: -5px; }
+.frog-baby { --frog-eye-reach: -19px; --frog-snack-reach: -3px; }
+.frog-growing { --frog-eye-reach: -22px; --frog-snack-reach: -4px; }
+.frog-head, .frog-torso, .frog-throat, .frog-hand, .frog-thigh, .frog-foot { transform-box: view-box; }
+.frog-torso { transform-origin: 32px 60px; }
+.frog-throat { transform-origin: 32px 44px; }
+.frog-baby .frog-throat { transform-origin: 32px 54px; }
+.frog-growing .frog-throat { transform-origin: 32px 49px; }
+.frog-foot-left, .frog-thigh-left { transform-origin: 22px 60px; }
+.frog-foot-right, .frog-thigh-right { transform-origin: 42px 60px; }
+/* All limb classes are namespaced, avoiding flat-source paw animations. */
+.frog-mouth-open { opacity: 0; }
+.frog-rig.expression-hungry .frog-mouth-open { opacity: 1; }
+.frog-rig.expression-chewing .frog-mouth-open { animation: frog-nibble .65s steps(1,end) infinite; }
+.frog-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-hand-right { animation: frog-tuck-web 7s steps(3,end) infinite; }
+.frog-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-throat { animation: frog-small-gulp 7s steps(3,end) infinite; }
+.frog-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-head { animation: frog-look-pond 6s steps(3,end) infinite; }
+.frog-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-thigh-left { animation: frog-test-crouch 6s steps(3,end) infinite; }
+.frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-throat { animation: frog-soft-croak 8s steps(3,end) infinite; }
+.frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-foot-right { animation: frog-spread-web 8s steps(3,end) infinite; }
+.frog-rig.rig-motion-idle.gesture-hungry .frog-hand-left { animation: frog-belly-touch 5s steps(3,end) infinite; }
+.frog-rig.rig-motion-idle.gesture-tired .frog-hand-right { animation: frog-eye-rub 6s steps(3,end) infinite; }
+.frog-rig.rig-motion-idle.gesture-tired .frog-head { transform: translateY(2px) rotate(2deg); }
+.frog-rig.rig-motion-idle.gesture-dirty .frog-hand-right { animation: frog-cheek-wipe 4.8s steps(3,end) infinite; }
+.frog-rig.rig-motion-idle.gesture-playful .frog-hand-left { animation: frog-ball-roll 5.4s steps(3,end) infinite; }
+.frog-rig.rig-motion-idle.gesture-content .frog-hand-left { animation: frog-web-wave 7s steps(3,end) infinite; }
+.frog-rig.rig-motion-idle.gesture-quiet .frog-hand-left { transform: translate(3px,1px) rotate(-12deg); }
+.frog-rig.rig-motion-idle.gesture-quiet .frog-hand-right { transform: translate(-3px,1px) rotate(12deg); }
+.frog-rig.rig-motion-idle.gesture-quiet .frog-thigh-left { transform: translateX(1px); }
+.frog-rig.rig-motion-idle.gesture-quiet .frog-thigh-right { transform: translateX(-1px); }
+.frog-rig.rig-motion-eating .frog-head { animation: frog-snack-nod 1s steps(3,end) infinite; }
+.frog-rig.rig-motion-eating .frog-hand-left { animation: frog-hold-snack .65s steps(3,end) infinite; }
+.frog-rig.rig-motion-eating .frog-hand-right { transform: translate(-5px,-1px) rotate(12deg); }
+.frog-rig.rig-motion-eating .frog-throat { animation: frog-swallow 1s steps(3,end) infinite; }
+.frog-rig.rig-motion-bathing .frog-hand-left { animation: frog-wash-belly .8s steps(3,end) infinite; }
+.frog-rig.rig-motion-bathing .frog-hand-right { animation: frog-wash-cheek .8s steps(3,end) infinite; }
+.frog-rig.rig-motion-bathing .frog-foot { animation: frog-paddle .8s steps(3,end) infinite; }
+.frog-rig.rig-motion-bathing .frog-foot-right { animation-delay: -.4s; }
+.frog-rig.rig-motion-bathing .frog-head { animation: frog-shake-water 1s steps(3,end) infinite; }
+.frog-rig.rig-motion-sleeping .frog-head { transform: translateY(2px); }
+.frog-rig.rig-motion-sleeping .frog-hand-left { transform: translate(3px,2px) rotate(-8deg); }
+.frog-rig.rig-motion-sleeping .frog-hand-right { transform: translate(-3px,2px) rotate(8deg); }
+.frog-rig.rig-motion-sleeping .frog-foot-left { transform: rotate(-8deg); }
+.frog-rig.rig-motion-sleeping .frog-foot-right { transform: rotate(8deg); }
+.frog-rig.rig-motion-sleeping .frog-torso { animation: frog-breathe 3.6s ease-in-out infinite; }
+.frog-rig.rig-motion-waking .frog-hand-left { animation: frog-reach-left var(--clip-duration,1400ms) steps(4,end) both; }
+.frog-rig.rig-motion-waking .frog-hand-right { animation: frog-reach-right var(--clip-duration,1400ms) steps(4,end) both; }
+.frog-rig.rig-motion-waking .frog-head { animation: frog-wake-head var(--clip-duration,1400ms) steps(4,end) both; }
+.frog-rig.rig-motion-waking .frog-foot-left { animation: frog-open-left var(--clip-duration,1400ms) steps(4,end) both; }
+.frog-rig.rig-motion-waking .frog-foot-right { animation: frog-open-right var(--clip-duration,1400ms) steps(4,end) both; }
+.frog-rig.rig-motion-celebrating .frog-hand { animation: frog-cheer .65s steps(3,end) infinite; }
+.frog-rig.rig-motion-celebrating .frog-hand-right { animation-delay: -.3s; }
+.frog-rig.rig-motion-celebrating .frog-thigh { animation: frog-spring .65s steps(3,end) infinite; }
+.form-lively .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-throat,
+.form-gentle .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-throat,
+.form-easygoing .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-throat,
+.form-lively .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-foot-right,
+.form-gentle .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-foot-right,
+.form-easygoing .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-foot-right { animation: none; }
+.form-lively .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-thigh { animation: frog-ready-leap 5s steps(3,end) infinite; }
+.form-lively .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-foot-left { animation: frog-toe-tap 5s steps(3,end) infinite; }
+.form-gentle .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-head { animation: frog-pond-nod 9s steps(3,end) infinite; }
+.form-easygoing .frog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .frog-foot-left { animation: frog-rest-web 10s steps(3,end) infinite; }
+@keyframes frog-tuck-web { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-4px,1px) rotate(10deg)} 45%{transform:translate(-5px,2px) rotate(15deg)} }
+@keyframes frog-small-gulp { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(1px) scaleX(1.1)} 45%{transform:translateY(2px) scaleX(1.15)} }
+@keyframes frog-look-pond { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-4deg)} 45%{transform:translateY(-1px) rotate(3deg)} }
+@keyframes frog-test-crouch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(1px,1px) rotate(-6deg)} 45%{transform:translate(0,2px) rotate(-10deg)} }
+@keyframes frog-soft-croak { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(1px) scale(1.15,1.2)} 45%{transform:translateY(2px) scale(1.2,1.25)} }
+@keyframes frog-spread-web { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-10deg)} 45%{transform:translateX(1px) rotate(-15deg)} }
+@keyframes frog-belly-touch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(8px,0) rotate(-18deg)} 45%{transform:translate(9px,-1px) rotate(-12deg)} }
+@keyframes frog-eye-rub { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-3px,var(--frog-eye-reach)) rotate(12deg)} 45%{transform:translate(-2px,calc(var(--frog-eye-reach) + 2px)) rotate(6deg)} }
+@keyframes frog-cheek-wipe { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,-10px) rotate(15deg)} 45%{transform:translate(-4px,-8px) rotate(8deg)} }
+@keyframes frog-ball-roll { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(1px,2px) rotate(-18deg)} 45%{transform:translate(4px,1px) rotate(-25deg)} }
+@keyframes frog-web-wave { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,-5px) rotate(15deg)} 45%{transform:translate(-3px,-6px) rotate(22deg)} }
+@keyframes frog-snack-nod { 0%,100%{transform:none} 50%{transform:translateY(2px) rotate(2deg)} }
+@keyframes frog-hold-snack { 0%,100%{transform:translate(8px,var(--frog-snack-reach)) rotate(-18deg)} 50%{transform:translate(10px,calc(var(--frog-snack-reach) - 2px)) rotate(-25deg)} }
+@keyframes frog-swallow { 0%,100%{transform:none} 50%{transform:translateY(1px) scaleY(1.2)} }
+@keyframes frog-wash-belly { 0%,100%{transform:translate(7px,0) rotate(-12deg)} 50%{transform:translate(9px,-3px) rotate(-20deg)} }
+@keyframes frog-wash-cheek { 0%,100%{transform:translate(-2px,-10px) rotate(12deg)} 50%{transform:translate(-4px,-8px) rotate(20deg)} }
+@keyframes frog-paddle { 0%,100%{transform:translateY(-1px) rotate(-6deg)} 50%{transform:translateY(1px) rotate(6deg)} }
+@keyframes frog-shake-water { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2deg)} }
+@keyframes frog-breathe { 0%,100%{transform:none} 50%{transform:translateY(-1px) scaleY(1.025)} }
+@keyframes frog-reach-left { 0%,100%{transform:none} 40%,75%{transform:translate(-2px,-6px) rotate(25deg)} }
+@keyframes frog-reach-right { 0%,100%{transform:none} 40%,75%{transform:translate(2px,-6px) rotate(-25deg)} }
+@keyframes frog-wake-head { 0%,100%{transform:none} 40%,75%{transform:translateY(-2px)} }
+@keyframes frog-open-left { 0%,100%{transform:none} 40%,75%{transform:rotate(12deg)} }
+@keyframes frog-open-right { 0%,100%{transform:none} 40%,75%{transform:rotate(-12deg)} }
+@keyframes frog-cheer { 0%,100%{transform:translateY(-2px) rotate(-10deg)} 50%{transform:translateY(-5px) rotate(15deg)} }
+@keyframes frog-spring { 0%,100%{transform:none} 50%{transform:translateY(1px) rotate(-4deg)} }
+@keyframes frog-ready-leap { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(1px) rotate(-6deg)} 45%{transform:translateY(2px) rotate(-9deg)} }
+@keyframes frog-toe-tap { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(-1px) rotate(6deg)} 45%{transform:translateY(-2px) rotate(10deg)} }
+@keyframes frog-pond-nod { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(2px) rotate(3deg)} 45%{transform:translateY(1px)} }
+@keyframes frog-rest-web { 0%,20%,75%,100%{transform:rotate(3deg)} 35%,60%{transform:rotate(10deg)} 45%{transform:rotate(6deg)} }
+@keyframes frog-nibble { 0%,100%{opacity:0} 50%{opacity:1} }
+@media (prefers-reduced-motion: reduce) {
+  .frog-rig, .frog-rig * { animation: none !important; }
+  .frog-rig.rig-motion-idle.gesture-hungry .frog-hand-left { transform: translate(8px,0) rotate(-18deg); }
+  .frog-rig.rig-motion-idle.gesture-tired .frog-hand-right { transform: translate(-3px,var(--frog-eye-reach)) rotate(12deg); }
+  .frog-rig.rig-motion-idle.gesture-dirty .frog-hand-right { transform: translate(-2px,-10px) rotate(15deg); }
+  .frog-rig.rig-motion-idle.gesture-playful .frog-hand-left { transform: translate(1px,2px) rotate(-18deg); }
+  .frog-rig.rig-motion-idle.gesture-content .frog-hand-left { transform: translate(-2px,-5px) rotate(15deg); }
+  .frog-rig.rig-motion-eating .frog-hand-left { transform: translate(8px,var(--frog-snack-reach)) rotate(-18deg); }
+  .frog-rig.rig-motion-bathing .frog-hand-left { transform: translate(7px,0) rotate(-12deg); }
+  .frog-rig.rig-motion-bathing .frog-hand-right { transform: translate(-2px,-10px) rotate(12deg); }
+  .frog-rig.rig-motion-waking .frog-hand-left { transform: translate(-2px,-6px) rotate(25deg); }
+  .frog-rig.rig-motion-waking .frog-hand-right { transform: translate(2px,-6px) rotate(-25deg); }
+  .frog-rig.rig-motion-waking .frog-foot-left { transform: rotate(12deg); }
+  .frog-rig.rig-motion-waking .frog-foot-right { transform: rotate(-12deg); }
+  .frog-rig.rig-motion-celebrating .frog-hand-left { transform: translateY(-3px) rotate(15deg); }
+  .frog-rig.rig-motion-celebrating .frog-hand-right { transform: translateY(-3px) rotate(-15deg); }
+  .frog-rig.expression-chewing .frog-mouth-open { opacity: 1; }
+}
