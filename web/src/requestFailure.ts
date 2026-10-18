@@ -1,7 +1,7 @@
 // A lost response cannot tell us whether a mutation committed. Keep this separate
 // from api.ts so callers (and API mocks) share the same error classification.
 export class RequestFailure extends Error {
-  constructor(message: string, public readonly outcome: "rejected" | "unknown" | "unavailable", public readonly code?: "save_corrupt" | "clock_ahead" | "save_changed", public readonly saveGeneration?: string) {
+  constructor(message: string, public readonly outcome: "rejected" | "unknown" | "unavailable", public readonly code?: "save_corrupt" | "clock_ahead" | "save_changed" | "game_finished", public readonly saveGeneration?: string) {
     super(message);
     this.name = "RequestFailure";
   }
@@ -18,6 +18,9 @@ export const isClockAhead = (error: unknown) =>
 
 export const isSaveChanged = (error: unknown) =>
   error instanceof RequestFailure && error.code === "save_changed";
+
+export const isGameFinished = (error: unknown) =>
+  error instanceof RequestFailure && error.code === "game_finished";
 
 export const failureGeneration = (error: unknown) =>
   error instanceof RequestFailure ? error.saveGeneration : undefined;

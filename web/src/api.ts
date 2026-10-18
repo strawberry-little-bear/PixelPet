@@ -4,8 +4,12 @@ import { RequestFailure, validSaveGeneration } from "./requestFailure";
 export async function request(path: string, body?: unknown, saveGeneration?: string): Promise<Result> {
   const writing = body !== undefined;
   let encoded: string | undefined;
+  let unfinishedCancel = false;
   try {
-    if (writing) encoded = JSON.stringify(body);
+    if (writing) {
+      encoded = JSON.stringify(body);
+      unfinishedCancel = path === "action" && typeof body === "object" && body !== null && "kind" in body && body.kind === "cancel-play";
+    }
   } catch {
     throw new RequestFailure("操作内容无效，还没有发送到小窝。", "rejected");
   }
@@ -13,18 +17,18 @@ export async function request(path: string, body?: unknown, saveGeneration?: str
     const response = await fetch(`/api/${path}`, {
       cache: "no-store",
       ...(writing
-        ? { method: "POST", headers: { "Content-Type": "application/json", ...(saveGeneration ? { "X-PixelPet-Generation": saveGeneration } : {}) }, body: encoded }
+        ? { method: "POST", headers: { "Content-Type": "application/json", ...(saveGeneration ? { "X-PixelPet-Generation": saveGeneration } : {}), ...(unfinishedCancel ? { "X-PixelPet-Cancel-If": "unfinished" } : {}) }, body: encoded }
         : {}),
       signal: AbortSignal.timeout(10000),
     });
     if (!response.ok) {
       const text = await response.text();
       let message = text.trim() || "服务暂时无法连接";
-      let code: "save_corrupt" | "clock_ahead" | "save_changed" | undefined;
+      let code: RequestFailure["code"];
       let generation: string | undefined;
       try {
         const data = JSON.parse(text);
-        if (response.status === 409 && (data?.code === "save_corrupt" || data?.code === "clock_ahead" || data?.code === "save_changed")) code = data.code;
+        if (response.status === 409 && (data?.code === "save_corrupt" || data?.code === "clock_ahead" || data?.code === "save_changed" || data?.code === "game_finished")) code = data.code;
         if (code && validSaveGeneration(data?.saveGeneration)) generation = data.saveGeneration;
         if (typeof data?.error === "string" && data.error.trim()) message = data.error;
       } catch { /* Non-JSON error responses are still not successful saves. */ }

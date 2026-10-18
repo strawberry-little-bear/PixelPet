@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { petNeed } from "./needs";
 import { request } from "./api";
-import { isClockAhead, isSaveCorrupt, isSaveChanged, failureGeneration, needsReconciliation } from "./requestFailure";
+import { isClockAhead, isSaveCorrupt, isSaveChanged, isGameFinished, failureGeneration, needsReconciliation } from "./requestFailure";
 import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
@@ -165,8 +165,8 @@ export default function App() {
   const [corrupt, setCorrupt] = useState(false);
   const corruptRef = useRef(false);
   const [uncertain, setUncertain] = useState(false);
-  const [saveChanged, setSaveChanged] = useState(false);
-  const saveChangedRef = useRef(false);
+  const [refusedChange, setRefusedChange] = useState<"save" | "game" | null>(null);
+  const refusedChangeRef = useRef<"save" | "game" | null>(null);
   const [checking, setChecking] = useState(false);
   const uncertainRef = useRef(false);
   const readInFlight = useRef<number | null>(null);
@@ -319,8 +319,8 @@ export default function App() {
     setClockAhead(false);
     corruptRef.current = true;
     setCorrupt(true);
-    saveChangedRef.current = false;
-    setSaveChanged(false);
+    refusedChangeRef.current = null;
+    setRefusedChange(null);
     // An explicit repair may replace an unreadable revision with a new one.
     // Do not compare that new save generation with the last healthy snapshot.
     latestRevision.current = -1;
@@ -361,8 +361,8 @@ export default function App() {
     setError("服务时间早于存档时间。请校准运行 Go 服务的电脑时间，再按 B 检查；不要重置存档。");
   }, [discardImport, stopActivity]);
   const markUncertain = useCallback(() => {
-    setSaveChanged(false);
-    saveChangedRef.current = false;
+    setRefusedChange(null);
+    refusedChangeRef.current = null;
     discardImport();
     corruptRef.current = false;
     setCorrupt(false);
@@ -371,22 +371,24 @@ export default function App() {
     stopActivity();
     setError("这次操作的结果还未确认，可能已经保存。按 B 核对存档，不会自动重试。");
   }, [stopActivity, discardImport]);
-  const markSaveChanged = useCallback(() => {
+  const markChangeRejected = useCallback((reason: "save" | "game") => {
     markUncertain();
-    setSaveChanged(true);
-    saveChangedRef.current = true;
+    setRefusedChange(reason);
+    refusedChangeRef.current = reason;
     setHelp(false);
     setReset(false);
     setTools(false);
     setPurchaseConfirm(false);
     setAbandonGame(null);
-    setError("存档已在其他页面替换，本次操作未执行。按 B 读取当前存档，不会自动重试。");
+    setError(reason === "save"
+      ? "存档已在其他页面替换，本次操作未执行。按 B 读取当前存档，不会自动重试。"
+      : "本局已在其他页面结束，本次放弃未执行。按 B 读取最新结果，不会自动收好。");
   }, [markUncertain]);
   const refresh = useCallback(async () => {
     if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
     const epoch = syncEpoch.current;
     const recovering = uncertainRef.current;
-    const changed = saveChangedRef.current;
+    const changed = refusedChangeRef.current !== null;
     const repairing = corruptRef.current;
     const clockBlocked = clockAheadRef.current;
     readInFlight.current = epoch;
@@ -432,8 +434,8 @@ export default function App() {
         discardImport();
         uncertainRef.current = false;
         setUncertain(false);
-        setSaveChanged(false);
-        saveChangedRef.current = false;
+        setRefusedChange(null);
+        refusedChangeRef.current = null;
         setChosen(r.state.species);
         setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
         setReset(false);
@@ -607,7 +609,7 @@ export default function App() {
       .catch((error: unknown) => {
         if (isClockAhead(error)) { markClockAhead(); return; }
         if (isSaveCorrupt(error)) { markCorrupt(false, failureGeneration(error)); return; }
-        if (isSaveChanged(error)) { markSaveChanged(); return; }
+        if (isSaveChanged(error)) { markChangeRejected("save"); return; }
         if (needsReconciliation(error)) { markUncertain(); return; }
         // If not accepted, a later heartbeat retries. If the response was lost
         // after acceptance, the saved recap remains available in the menu.
@@ -623,7 +625,7 @@ export default function App() {
     corrupt,
     markCorrupt,
     markClockAhead,
-    markSaveChanged,
+    markChangeRejected,
     markUncertain,
     returnRecap,
     returnPending,
@@ -790,7 +792,8 @@ export default function App() {
     } catch (e) {
       if (isClockAhead(e)) markClockAhead();
       else if (isSaveCorrupt(e)) markCorrupt(false, failureGeneration(e));
-      else if (isSaveChanged(e)) markSaveChanged();
+      else if (isSaveChanged(e)) markChangeRejected("save");
+      else if (isGameFinished(e)) markChangeRejected("game");
       else if (needsReconciliation(e)) markUncertain();
       else setError(e instanceof Error ? e.message : "操作被拒绝，请查看提示。");
       return false;
@@ -1232,7 +1235,7 @@ export default function App() {
       setChosen(r.state.species);
     } catch (e) {
       if (isClockAhead(e)) markClockAhead();
-      else if (isSaveChanged(e)) markSaveChanged();
+      else if (isSaveChanged(e)) markChangeRejected("save");
       else if (needsReconciliation(e)) markUncertain();
       else setError(e instanceof Error ? e.message : "导入被拒绝，现有存档未替换。");
     } finally {
@@ -1263,7 +1266,7 @@ export default function App() {
       setReset(false);
     } catch (e) {
       if (isClockAhead(e)) markClockAhead();
-      else if (isSaveChanged(e)) markSaveChanged();
+      else if (isSaveChanged(e)) markChangeRejected("save");
       else if (needsReconciliation(e)) { setReset(false); markUncertain(); }
       else setError(e instanceof Error ? e.message : "重新开始失败");
     } finally {
@@ -1550,7 +1553,7 @@ export default function App() {
                       <div className={`save-recovery ${clockAhead ? "clock-recovery" : ""}`} role="status" aria-live="polite">
                         <Cloud size={28} />
                         <h2>{checking ? "正在核对存档" : clockAhead ? "服务时间待校准" : uncertain ? "先核对，再继续" : "小窝暂时未连接"}</h2>
-                        <p>{clockAhead ? "服务时间早于存档时间，先暂停操作；这不表示存档损坏。" : saveChanged ? "存档已在其他页面替换，本次操作未执行。" : uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
+                        <p>{clockAhead ? "服务时间早于存档时间，先暂停操作；这不表示存档损坏。" : refusedChange === "game" ? "本局已在其他页面结束，本次放弃未执行。" : refusedChange === "save" ? "存档已在其他页面替换，本次操作未执行。" : uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
                         <p>{checking ? "只读取当前存档，不重做操作。" : clockAhead ? "请校准运行 Go 服务的电脑时间，再按 B 检查。不要重置存档。" : "按 B 重连并查看当前存档。"}</p>
                         <small>{clockAhead && uncertain ? "上次操作结果仍待核对 · 不自动重试" : "游戏不会自动继续 · 不重播成功动作"}</small>
                       </div>

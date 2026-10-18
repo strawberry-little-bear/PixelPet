@@ -72,6 +72,31 @@ type State struct {
 	Album     *Album     `json:"album,omitempty"`
 	Economy   *Economy   `json:"economy,omitempty"`
 }
+
+// ErrGameFinished is a known refusal: an old unfinished-game discard intent
+// must not remove a terminal result produced by another page.
+var ErrGameFinished = errors.New("本局已经结束，放弃未执行。请先读取本局结果")
+
+// AwaitingFinish excludes stars/tiles, which settle and remove their session in
+// the last action. The other four games keep a result for explicit collection.
+func (g *MiniGame) AwaitingFinish() bool {
+	if g == nil {
+		return false
+	}
+	switch g.Kind {
+	case "snake":
+		return g.Snake != nil && g.Snake.End != ""
+	case "tetris":
+		return g.Tetris != nil && g.Tetris.End != ""
+	case "fishing":
+		return g.Fishing != nil && g.Fishing.Phase == "done"
+	case "walk":
+		return g.Walking != nil && g.Walking.Beat == WalkLength
+	default:
+		return false
+	}
+}
+
 type Action struct {
 	Step      int    `json:"step,omitempty"`
 	Turn      int    `json:"turn,omitempty"`
@@ -83,6 +108,9 @@ type Action struct {
 	Item      string `json:"item,omitempty"`
 	Tile      int    `json:"tile,omitempty"`
 	GameID    string `json:"gameId,omitempty"`
+
+	// Transport-only precondition; not part of portable commands or saves.
+	RequireUnfinished bool `json:"-"`
 }
 
 func New(now time.Time) State {
@@ -139,6 +167,9 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		return "", errors.New("这不是当前的一局，请刷新后再试")
 	}
 	if a.Kind == "cancel-play" {
+		if a.RequireUnfinished && s.Game.AwaitingFinish() {
+			return "", ErrGameFinished
+		}
 		s.Game = nil
 		return "下次再一起玩吧", nil
 	}

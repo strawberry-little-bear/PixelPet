@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { request } from "./api";
+import { RequestFailure } from "./requestFailure";
 import { emptyGrowth } from "./growth";
 import type { PetState, Result } from "./types";
 
@@ -162,5 +163,48 @@ describe("same-save game session synchronization", () => {
   it("ordinary care reads do not throw a reader out of their handbook page", async () => {
     await mount(); await menu(6); await key("a"); const content = document.querySelector(".content-growth")?.textContent;
     saved.needs.hunger--; saved.revision++; await poll(); expect(document.querySelector(".content-growth")?.textContent).toBe(content); expect(actions()).toHaveLength(0);
+  });
+});
+
+describe("unfinished-only discard intent", () => {
+  it.each((["snake", "tetris", "fishing", "walk"] as const).flatMap(kind =>
+    (["success", "offline", "stale"] as const).map(read => ({ kind, read }))))("a stale $kind discard is refused and recovery is read-only ($read)", async ({ kind, read }) => {
+    saved.game = game(kind); await mount(); await abandon(kind); const stale = result(); stale.state.revision--;
+    endGame(kind); const terminal = result();
+    api.mockImplementation(async (path, body) => {
+      const a = body as { kind?: string };
+      if (path === "action" && a.kind === "cancel-play") {
+        throw new RequestFailure("本局已经结束", "rejected", "game_finished", token);
+      }
+      if (path === "action" && a.kind?.endsWith("-finish")) { saved.game = undefined; saved.careCount++; saved.revision++; }
+      return result();
+    });
+    await key("b"); expect(saved).toEqual(terminal.state); expect(actions()).toHaveLength(1);
+    expect(document.querySelector(".save-recovery")?.textContent).toContain("本次放弃未执行");
+    expect(document.querySelector(".save-recovery")?.textContent).not.toContain("可能已经保存");
+    expect(document.querySelector(".game-abandon, [role=dialog]")).toBeNull(); controls();
+    await key("a"); await key("c"); expect(actions()).toHaveLength(1);
+    if (read !== "success") {
+      if (read === "offline") api.mockRejectedValueOnce(new RequestFailure("offline", "unavailable"));
+      else api.mockResolvedValueOnce(stale);
+      await key("b");
+      expect(document.querySelector(".save-recovery")?.textContent).toContain("本次放弃未执行");
+      expect(screen.getByRole("alert").textContent).toContain("上次操作未执行");
+    }
+    await key("b"); expect(api.mock.calls.at(-1)?.[0]).toBe("state");
+    expect(document.querySelector(".save-recovery, .game-abandon")).toBeNull();
+    expect(document.querySelector(".content-game")).toBeTruthy(); expect(actions()).toHaveLength(1); expect(saved.careCount).toBe(0);
+    await key("b"); expect(actions()).toHaveLength(2);
+    expect(actions()[1]).toMatchObject({ kind: `${kind === "fishing" ? "fish" : kind}-finish`, gameId: first });
+    expect(saved.careCount).toBe(1);
+  });
+
+  it("a lost rejection response remains unknown until a fresh read, rather than claiming a known refusal", async () => {
+    saved.game = game("tetris"); await mount(); await abandon("tetris"); endGame("tetris");
+    api.mockRejectedValueOnce(new RequestFailure("lost response", "unknown")); await key("b");
+    expect(document.querySelector(".save-recovery")?.textContent).toContain("可能已经保存");
+    expect(document.querySelector(".save-recovery")?.textContent).not.toContain("本次放弃未执行");
+    await key("b"); expect(api.mock.calls.at(-1)?.[0]).toBe("state");
+    expect(actions()).toHaveLength(1); expect(saved.game?.tetris?.end).toBe("won"); expect(saved.careCount).toBe(0);
   });
 });

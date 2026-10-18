@@ -114,3 +114,34 @@ describe("save generation preconditions", () => {
     await expect(request("state")).rejects.toMatchObject({ code: "save_corrupt", saveGeneration: generation });
   });
 });
+
+describe("unfinished-game cancellation conflict", () => {
+  it("combines both preconditions without changing portable action JSON", async () => {
+    const generation = "a".repeat(32);
+    const action = { kind: "cancel-play", gameId: "session", requestId: "discard" };
+    respond(new Response(JSON.stringify(result)));
+    await request("action", action, generation);
+    expect(fetch).toHaveBeenCalledWith("/api/action", expect.objectContaining({
+      body: JSON.stringify(action), headers: { "Content-Type": "application/json", "X-PixelPet-Generation": generation, "X-PixelPet-Cancel-If": "unfinished" },
+    }));
+  });
+  it.each(["snake-finish", "play-snake", "feed"])("does not guard an unrelated %s action", async kind => {
+    respond(new Response(JSON.stringify(result)));
+    await request("action", { kind });
+    expect(fetch).toHaveBeenCalledWith("/api/action", expect.objectContaining({ headers: { "Content-Type": "application/json" } }));
+  });
+  it("preserves a typed 409 as a known refusal and never retries", async () => {
+    respond(new Response(JSON.stringify({ error: "本局已经结束", code: "game_finished", saveGeneration: "a".repeat(32) }), { status: 409 }));
+    await expect(request("action", { kind: "cancel-play", gameId: "b".repeat(32) })).rejects.toMatchObject({ code: "game_finished", outcome: "rejected" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith("/api/action", expect.objectContaining({ body: JSON.stringify({ kind: "cancel-play", gameId: "b".repeat(32) }), headers: { "Content-Type": "application/json", "X-PixelPet-Cancel-If": "unfinished" } }));
+  });
+  it.each([400, 500, 503])("does not trust a game-finished diagnosis on HTTP %s", async status => {
+    respond(new Response('{"error":"本局已经结束","code":"game_finished"}', { status }));
+    await expect(request("action", { kind: "cancel-play" })).rejects.toMatchObject({ code: undefined, outcome: status === 400 ? "rejected" : "unknown" });
+  });
+  it("does not infer a typed conflict from error text", async () => {
+    respond(new Response('{"error":"本局已经结束"}', { status: 409 }));
+    await expect(request("action", { kind: "cancel-play" })).rejects.toMatchObject({ code: undefined, outcome: "rejected" });
+  });
+});

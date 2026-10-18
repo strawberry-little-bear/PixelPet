@@ -29,6 +29,10 @@ func Handler(db *store.Store, web string) http.Handler {
 				status = http.StatusConflict
 				body["code"] = "save_changed"
 			}
+			if errors.Is(err, game.ErrGameFinished) {
+				status = http.StatusConflict
+				body["code"] = "game_finished"
+			}
 			if errors.Is(err, store.ErrClockAhead) {
 				status = http.StatusConflict
 				body["code"] = "clock_ahead"
@@ -88,6 +92,12 @@ func Handler(db *store.Store, web string) http.Handler {
 		if !decode(w, r, &a) {
 			return
 		}
+		cancelIf := r.Header.Get("X-PixelPet-Cancel-If")
+		if cancelIf != "" && (cancelIf != "unfinished" || a.Kind != "cancel-play") {
+			http.Error(w, "无效的放弃前置条件", http.StatusBadRequest)
+			return
+		}
+		a.RequireUnfinished = cancelIf == "unfinished"
 		if len(a.RequestID) > 100 {
 			http.Error(w, "请求编号过长", 400)
 			return

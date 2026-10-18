@@ -180,6 +180,9 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		tileLink = state.TileLink(*a)
 		message, feedback, err = state.ApplyWithFeedback(*a, now)
 		if err != nil {
+			if errors.Is(err, game.ErrGameFinished) {
+				return metadata, err
+			}
 			return Result{}, err
 		}
 		changed = true
