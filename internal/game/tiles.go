@@ -198,6 +198,9 @@ func (s State) validTileGame() bool {
 	if g == nil {
 		return true
 	}
+	if g.Kind == "walk" {
+		return g.Tiles == nil
+	}
 	if g.Kind == "fishing" {
 		return s.Schema >= 8 && g.Tiles == nil
 	}

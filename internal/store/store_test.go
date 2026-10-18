@@ -21,6 +21,7 @@ func TestLegacyMigrationPersistsOnceAndKeepsOriginalSnapshot(t *testing.T) {
 	legacy := game.New(born)
 	legacy.Schema = 1
 	legacy.Companion = nil
+	legacy.Park = nil
 	legacy.Pond = nil
 	legacy.Economy = nil
 	legacy.Growth = nil

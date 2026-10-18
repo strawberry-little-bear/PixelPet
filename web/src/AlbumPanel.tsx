@@ -19,6 +19,7 @@ export function memoryWords(m: Memory, legacy: boolean) {
     case "goodnight": return { title: "轻轻说一声晚安", story: `${legacy ? "纪念册开启后第一次道晚安" : "你第一次轻轻道晚安"}。放心休息，小窝一直在这里。` };
     case "stars": return { title: "一起追过的星光", story: `${legacy ? "纪念册里记下的第一场" : "你们完整玩完的第一场"}接星星，接住了 ${m.score ?? 0} 颗。记住的是一起玩，不只是分数。` };
     case "perfect-stars": return { title: "五颗星，都接住啦", story: "五次默契的小接应，凑成一整把星光。值得记住，但不用每次都做到。" };
+    case "walk": return {title:"公园里走过的第一条小路",story:"一起走完并收好了一次公园散步。绊到也没关系，沿途的真实发现和慢慢陪伴的时光都留了下来。"};
     case "fishing": return { title: "池塘边的一起等待", story: "一起钓到至少一条鱼并完成三竿。发现的鱼已留在图鉴里，记住的还有岸边慢慢等候的时光。" };
     case "tetris": return { title: "一起拼起的积木花园", story: "一块一块挪好、转好，把整排小积木收起来。留下的是一起想办法的时光。" };
     case "snake": return { title: "果园里一起转过的弯", story: "吃到至少三颗果子后完成的一局贪吃蛇。你负责转弯，小伙伴把甜甜的果子收好。" };

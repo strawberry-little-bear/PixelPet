@@ -129,6 +129,7 @@ func TestSchemaFourTileUpgradeAndInvalidImportAreNonDestructive(t *testing.T) {
 	legacy := r.State
 	legacy.Schema = 4
 	legacy.Companion = nil
+	legacy.Park = nil
 	legacy.Pond = nil
 	legacy.Economy.Coins = 19
 	bytes, _ := json.Marshal(legacy)

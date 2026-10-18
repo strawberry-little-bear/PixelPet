@@ -115,6 +115,7 @@ func TestSchemaTwoAlbumMigrationSnapshotsAndDoesNotReplay(t *testing.T) {
 	legacy.Apply(game.Action{Kind: "hatch", Species: 2}, born)
 	legacy.Schema = 2
 	legacy.Companion = nil
+	legacy.Park = nil
 	legacy.Pond = nil
 	legacy.Economy = nil
 	legacy.Album = nil

@@ -40,11 +40,11 @@ export function GameGuide({ game, page }: { game: GameInfo; page: number; }) {
   </section>;
 }
 
-export function AbandonGame({ stars, fishing = false }: { stars: boolean; fishing?: boolean; }) {
+export function AbandonGame({ stars, fishing = false, walk = false }: { stars: boolean; fishing?: boolean; walk?:boolean; }) {
   return <section className="game-abandon" role="status" aria-label="放弃本局确认">
     <header>要放弃这一局吗？</header>
     <p>本局进度将丢弃，<br />不发金币、不计陪伴奖励。</p>
-    <small>{fishing ? "实际钓到的鱼仍保留在图鉴，未完成不发奖励。" : stars ? "光点仍随时间移动，但不会自动接取。" : "取消确认不会自动启动游戏。"}</small>
+    <small>{walk ? "实际遇见的发现仍会保留，未走完不发奖励。" : fishing ? "实际钓到的鱼仍保留在图鉴，未完成不发奖励。" : stars ? "光点仍随时间移动，但不会自动接取。" : "取消确认不会自动启动游戏。"}</small>
     <strong>A / C 留在本局 · B 确认放弃</strong>
   </section>;
 }

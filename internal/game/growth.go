@@ -89,7 +89,14 @@ func (s *State) Upgrade(now time.Time) bool {
 	if s.Schema == 9 {
 		s.Advance(now)
 		s.Companion = newCompanion(now)
+		s.Companion.Interests = s.Companion.Interests[:5]
 		s.Schema = 10
+	}
+	if s.Schema == 10 {
+		s.Advance(now)
+		s.Park = newPark(now)
+		s.Companion.Interests = append(s.Companion.Interests, Interest{Kind: "walk"})
+		s.Schema = 11
 	}
 	return true
 }

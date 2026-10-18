@@ -87,6 +87,7 @@ func TestSchemaNineCompanionMigrationSnapshotsOnceWithoutBackfill(t *testing.T) 
 	r, _ := s.Do(nil, nil, false, now)
 	r.State.Schema = 9
 	r.State.Companion = nil
+	r.State.Park = nil
 	r.State.Economy.Owned = []string{"sky-bow", "starlit-wall", "mint-floor"}
 	r.State.Economy.Equipped = game.Equipment{Accessory: "sky-bow", Wallpaper: "starlit-wall", Floor: "mint-floor"}
 	old := r.State

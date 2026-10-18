@@ -12,7 +12,7 @@ describe("bounded explainable shared interests", () => {
     const c=fresh(),before=structuredClone(c);
     const {container,rerender}=render(<CompanionPanel companion={c}/>);
     expect(container.textContent).toContain("还在慢慢了解彼此");
-    expect(container.querySelectorAll('[data-points="0"]')).toHaveLength(5);
+    expect(container.querySelectorAll('[data-points="0"]')).toHaveLength(games.length);
     expect(container.textContent).toContain("同一游戏间隔 30 分钟，每种最多记 5 次");
     expect(container.textContent).toContain("满额金币也会记住");
     expect(container.textContent).toContain("不补写旧经历");

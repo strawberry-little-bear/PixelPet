@@ -24,10 +24,11 @@ export type Growth = {
     lastClean: number;
   };
 };
-export type GameExperience = { kind: "stars" | "tiles" | "snake" | "tetris" | "fishing"; id: string; at: number };
+export type GameExperience = { kind: "stars" | "tiles" | "snake" | "tetris" | "fishing" | "walk"; id: string; at: number };
 export type Companion = { since: number; interests: {kind: GameExperience["kind"]; points: number; lastAt: number}[]; recent?: GameExperience };
 export type PetState = {
  companion?: Companion;
+ park?: {since:number;finds:FishDiscovery[];walks:number;lastWalkAt:number};
  pond?: {since:number;fish:FishDiscovery[]};
   schema: number;
   revision: number;
@@ -44,7 +45,8 @@ export type PetState = {
   economy?: Economy;
   logs: { at: number; text: string }[];
   game?: {
-    kind?: "tiles" | "snake" | "tetris" | "fishing";
+    kind?: "tiles" | "snake" | "tetris" | "fishing" | "walk";
+ walking?: Walking;
  fishing?: Fishing;
     tetris?: Tetris;
     snake?: Snake;
@@ -57,7 +59,7 @@ export type PetState = {
   };
 };
 export type CareFeedback = {
-  kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "tetris-finish" | "fish-finish" | "sleep";
+  kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "tetris-finish" | "fish-finish" | "walk-finish" | "sleep";
   points: number;
   habit?: "nutrition" | "clean" | "play";
   habitGain: number;
@@ -134,7 +136,8 @@ export type Memory = {
     | "tiles"
     | "snake"
     | "tetris"
-    | "fishing";
+    | "fishing"
+    | "walk";
   at: number;
   source: "shared" | "saved" | "elapsed";
   form?: AdultForm;
@@ -186,3 +189,5 @@ export type Tetris = {
 
 export type FishDiscovery = {id:string;firstAt:number;lastAt:number;count:number};
 export type Fishing = {spot:number;casts:number;catches:string[];phase:"ready"|"wait"|"bite"|"result"|"done";step:number;waitMs:number;elapsedMs:number;candidate:string;lastPulseAt:number;paused:boolean;outcome?:"caught"|"early"|"missed";lastFish?:string};
+
+export type Walking = {route:("rock"|"branch")[];souvenirs:string[];beat:number;step:number;cleared:number;pose:""|"jump"|"duck";poseUntil:number;lastPulseAt:number;lastInputAt:number;paused:boolean};

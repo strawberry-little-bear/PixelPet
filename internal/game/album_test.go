@@ -200,6 +200,7 @@ func TestAlbumMigrationDoesNotInventOldExperiences(t *testing.T) {
 		s := babyAt(now.Add(-80 * time.Hour))
 		s.Schema = schema
 		s.Companion = nil
+		s.Park = nil
 		s.Pond = nil
 		s.Economy = nil
 		s.Album = nil
@@ -242,6 +243,7 @@ func TestAlbumMigrationDoesNotInventOldExperiences(t *testing.T) {
 	egg := New(now.Add(-time.Hour))
 	egg.Schema = 2
 	egg.Companion = nil
+	egg.Park = nil
 	egg.Pond = nil
 	egg.Economy = nil
 	egg.Album = nil

@@ -20,6 +20,7 @@ function session(info: GameInfo) {
   if (info.id === "stars") return common;
   if (info.id === "tiles") return { ...common, kind: "tiles" as const, tiles: { board: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8], pick: -1, pairs: 0, shuffles: 0 } };
   if (info.id === "snake") return { ...common, kind: "snake" as const, snake: { body: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }], food: { x: 9, y: 9 }, direction: 0, eaten: 0, step: 0, lastMoveAt: Date.now(), paused: true } };
+  if (info.id === "walk") return {...common,kind:"walk" as const,walking:{route:Array<"rock"|"branch">(12).fill("rock"),souvenirs:["leaf","shell","flower"],beat:0,step:0,cleared:0,pose:"" as const,poseUntil:0,lastPulseAt:Date.now(),lastInputAt:0,paused:true}};
   if (info.id === "fishing") return { ...common, kind: "fishing" as const, fishing: {spot:0, casts:0, catches:[], phase:"ready" as const, step:0, waitMs:0, elapsedMs:0, candidate:"", lastPulseAt:Date.now(), paused:true} };
   return { ...common, kind: "tetris" as const, tetris: { board: Array<number>(96).fill(0), active: { kind: 3, rotation: 0, x: 2, y: 0 }, next: 1, bag: [4, 5, 6, 7], lines: 0, pieces: 0, step: 0, lastFallAt: Date.now(), paused: true } };
 }
@@ -31,7 +32,7 @@ async function select(index: number) {
   for (let i = 0;i < index;i++) await key("a");
 }
 async function openConfirmation(info: GameInfo) {
-  if (info.id === "fishing") { await key("a"); await key("a"); await key("b"); }
+  if (info.id === "fishing" || info.id === "walk") { await key("a"); await key("a"); await key("b"); }
   else if (info.id === "snake") await key("b"); // Already paused on reload.
   else if (info.id === "tetris") { for (let i = 0;i < 3;i++) await key("a"); await key("b"); }
   else await key("c");
@@ -78,7 +79,7 @@ describe("game directory and optional three-key guides", () => {
     await mount(); await select(2); await key("b"); await key("c");
     expect(document.querySelector('[data-game="snake"][aria-current="true"]')).toBeTruthy();
     expect(actions()).toHaveLength(0); expect(guideSeen("snake")).toBe(false);
-    await key("a"); await key("a"); await key("a"); expect(document.querySelector('[data-game="stars"][aria-current="true"]')).toBeTruthy();
+    for(let i=0;i<games.length-2;i++)await key("a"); expect(document.querySelector('[data-game="stars"][aria-current="true"]')).toBeTruthy();
   });
   it("keeps a rejected start on the guide and only remembers a successfully saved retry", async () => {
     failStart = true; await mount(); await select(0); await key("b"); await key("b");

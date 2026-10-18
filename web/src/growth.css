@@ -384,7 +384,7 @@
   line-height: 1.4;
 }
 
-/* The LCD has a fixed height: reserve room for all five records and rules. */
+/* The LCD has a fixed height: reserve room for all six records and rules. */
 .companion-panel .habit-heading {
   margin: 2px 0 4px;
   padding-bottom: 4px;
@@ -396,7 +396,7 @@
   font-size: 8px;
   line-height: 11px;
 }
-.companion-rows { display: grid; gap: 2px; font-size: 8px; line-height: 12px; }
+.companion-rows { display: grid; gap: 1px; font-size: 8px; line-height: 10px; }
 .companion-rows > div { display: flex; justify-content: space-between; }
 .companion-rows > div > span:last-child { color: #547149; letter-spacing: 3px; }
 .companion-rules, .companion-since { display: block; font-size: 7px; line-height: 10px; margin-top: 4px; }

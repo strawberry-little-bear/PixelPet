@@ -128,6 +128,7 @@ func TestSchemaFiveSnakeUpgradePreservesOldSessionAndSnapshots(t *testing.T) {
 	legacy.Apply(game.Action{Kind: "play-tiles"}, now)
 	legacy.Schema = 5
 	legacy.Companion = nil
+	legacy.Park = nil
 	legacy.Pond = nil
 	legacy.Economy.Coins = 19
 	raw, _ := json.Marshal(legacy)

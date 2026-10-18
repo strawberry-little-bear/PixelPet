@@ -116,6 +116,9 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	if a == nil || !strings.HasPrefix(a.Kind, "tetris-") {
 		changed = state.ExpireTetris(now) || changed
 	}
+	if a == nil || !strings.HasPrefix(a.Kind, "walk-") {
+		changed = state.ExpireWalking(now) || changed
+	}
 	if a == nil || !strings.HasPrefix(a.Kind, "fish-") {
 		changed = state.ExpireFishing(now) || changed
 	}
@@ -170,6 +173,11 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 				economy := *imported.Economy
 				economy.Owned = append([]string{}, imported.Economy.Owned...)
 				state.Economy = &economy
+			}
+			if imported.Park != nil {
+				park := *imported.Park
+				park.Finds = append([]game.FishDiscovery{}, imported.Park.Finds...)
+				state.Park = &park
 			}
 			if imported.Pond != nil {
 				pond := *imported.Pond

@@ -125,6 +125,7 @@ func TestLegacyMigrationKeepsAgeAndDoesNotInventCare(t *testing.T) {
 		s := babyAt(born)
 		s.Schema = 1
 		s.Companion = nil
+		s.Park = nil
 		s.Pond = nil
 		s.Economy = nil
 		s.Growth = nil

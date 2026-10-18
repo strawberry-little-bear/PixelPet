@@ -1,0 +1,43 @@
+.walking-game,.park-album{color:#405132;font-size:10px;line-height:1.5}
+.walking-game header,.park-album header{display:flex;justify-content:space-between;align-items:center;height:22px}
+.walking-game header strong,.park-album header strong{font-size:11px}
+.walking-game header span,.park-album header span{font-size:9px}
+.park-scene{position:relative;height:102px;border:1px solid #798f66;overflow:hidden}
+.park-background{position:absolute;inset:0;width:100%;height:100%}
+.walking-actor{position:absolute;left:14px;bottom:7px;width:76px;height:76px;transition:transform .18s steps(3,end)}
+.walking-actor .pet-sprite{position:absolute;width:76px;height:76px}
+.walking-actor .pet-sprite,.walking-actor .pet-sprite *{animation:none}
+.park-scene[data-rig="dolphin"] .walking-actor{bottom:4px}
+.park-scene[data-pose="jump"] .walking-actor{transform:translateY(-14px) rotate(-7deg)}
+.park-scene[data-pose="duck"] .walking-actor{transform:translateY(3px) rotate(6deg)}
+.park-scene[data-rig="dolphin"][data-pose="duck"] .walking-actor{transform:translateY(3px) rotate(5deg)}
+.park-scene[data-rig="bird"][data-pose="jump"] .bird-wing,.park-scene[data-rig="dragon"][data-pose="jump"] .dragon-wing{transform-box:fill-box;transform-origin:50% 10%;transform:rotate(-24deg)}
+.park-scene[data-pose="jump"] :is(.tanuki-paw,.rabbit-arm,.cat-paw,.bear-paw,.frog-hand,.dragon-hand,.dog-paw,.mushroom-arm){transform-box:fill-box;transform-origin:50% 10%;transform:rotate(22deg)}
+.park-scene[data-pose="jump"] :is(.frog-foot,.rabbit-foot){transform-box:fill-box;transform-origin:50% 10%;transform:rotate(-24deg)}
+.park-scene[data-pose="duck"] :is(.rabbit-ear,.dog-ear){transform-box:fill-box;transform-origin:50% 100%;transform:rotate(24deg)}
+.park-scene[data-pose="duck"] :is(.bird-wing,.dragon-wing){transform-box:fill-box;transform-origin:50% 10%;transform:rotate(15deg)}
+.park-scene[data-pose="duck"] :is(.tanuki-head,.bear-head,.cat-head,.frog-head,.mushroom-cap){transform-box:fill-box;transform-origin:50% 90%;transform:rotate(8deg)}
+.park-scene[data-pose="moving"] .walking-actor :is(.foot-left,.frog-foot-left,.dragon-foot-left,.dog-foot-left){animation:park-step .85s steps(2,end) infinite;transform-box:fill-box;transform-origin:50% 5%}
+.park-scene[data-pose="moving"] .walking-actor :is(.foot-right,.frog-foot-right,.dragon-foot-right,.dog-foot-right){animation:park-step .85s steps(2,end) -.425s infinite;transform-box:fill-box;transform-origin:50% 5%}
+.park-scene[data-pose="moving"] .dolphin-tail{animation:park-fin 1.2s steps(3,end) infinite;transform-box:fill-box;transform-origin:75% 20%}
+.park-scene[data-pose="jump"] .dolphin-flipper{transform-box:fill-box;transform-origin:50% 10%;transform:rotate(-25deg)}
+.park-scene[data-pose="duck"] .dolphin-flipper{transform-box:fill-box;transform-origin:50% 10%;transform:rotate(20deg)}
+.park-obstacle{position:absolute;bottom:9px;width:25px;height:22px;transition:left .6s linear}
+.park-obstacle svg{display:block;width:100%;height:100%}
+.park-obstacle.obstacle-branch{bottom:51px}
+.walk-pause{position:absolute;inset:0;background:#e3e7c5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:17px}
+.walk-pause>div{display:flex;gap:5px;font-size:9px}
+.walk-pause span[data-selected="true"]{background:#b6c59d}
+.walk-pause small{font-size:8px}
+.walking-game p{margin:3px 0}
+.walk-warning{font-weight:bold;font-size:10px}
+.walk-find{font-size:9px;min-height:14px}
+.walking-game>small{display:block;font-size:8px;line-height:12px}
+.park-discovery{width:68px;height:48px;margin:6px auto}
+.park-art{display:block;width:100%;height:100%}
+.park-album h3{text-align:center;font-size:12px;margin:3px 0}
+.park-album p{font-size:9px;line-height:15px;margin:5px 0}
+.park-album>small{display:block;font-size:8px;line-height:13px}
+@keyframes park-step{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
+@keyframes park-fin{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@media(prefers-reduced-motion:reduce){.park-scene *{animation:none!important;transition:none!important}}

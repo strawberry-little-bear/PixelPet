@@ -114,6 +114,7 @@ func TestNewCosmeticsRequireOwnershipMatchingSlotAndSchema(t *testing.T) {
 			json.Unmarshal(raw, &old)
 			old.Schema = 8
 			old.Companion = nil
+			old.Park = nil
 			if old.Validate(now) == nil {
 				t.Fatal("new item disguised as old save")
 			}
@@ -142,6 +143,7 @@ func TestSchemaEightCosmeticUpgradePreservesRealFishAndActiveSession(t *testing.
 	s.Economy.Equipped = Equipment{Accessory: "leaf-pin", Room: "moon-lamp"}
 	s.Schema = 8
 	s.Companion = nil
+	s.Park = nil
 	if err := s.Validate(now); err != nil {
 		t.Fatal(err)
 	}
@@ -151,12 +153,14 @@ func TestSchemaEightCosmeticUpgradePreservesRealFishAndActiveSession(t *testing.
 	}
 	s.Schema = 8
 	s.Companion = nil
+	s.Park = nil
 	after, _ := json.Marshal(s)
 	if string(raw) != string(after) {
 		t.Fatal("migration rewrote fish/session/gear/history")
 	}
 	s.Schema = Schema
 	s.Companion = newCompanion(now)
+	s.Park = newPark(now)
 	if s.Economy.Equipped.Wallpaper != "" || s.Economy.Equipped.Floor != "" {
 		t.Fatal("invented surface")
 	}

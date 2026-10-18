@@ -207,6 +207,7 @@ func TestSnakeValidationAndSchemaFivePreservation(t *testing.T) {
 	s.Game = nil
 	s.Schema = 5
 	s.Companion = nil
+	s.Park = nil
 	s.Pond = nil
 	raw, _ := json.Marshal(s)
 	if !s.Upgrade(now) || s.Schema != Schema {
@@ -214,6 +215,7 @@ func TestSnakeValidationAndSchemaFivePreservation(t *testing.T) {
 	}
 	s.Schema = 5
 	s.Companion = nil
+	s.Park = nil
 	s.Pond = nil
 	after, _ := json.Marshal(s)
 	if string(raw) != string(after) {

@@ -8,6 +8,7 @@ export const experienceWords: Record<SharedGameKind, string> = {
   tiles: "把刚才配好的小图案，又认真看了看。",
   snake: "想起一起收的果子，开心地轻轻摇晃。",
   tetris: "像刚才叠积木一样，认真地点点头。",
+  walk: "想起刚才的小路，轻轻看看带回的小发现。",
   fishing: "想起刚才的池塘，安静地看着小鱼。",
 };
 

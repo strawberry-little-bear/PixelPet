@@ -233,6 +233,7 @@ func TestSchemaThreeUpgradeStartsEmptyWithoutInventingEconomy(t *testing.T) {
 	s, now := economyPet(t)
 	s.Schema = 3
 	s.Companion = nil
+	s.Park = nil
 	s.Pond = nil
 	s.Economy = nil
 	beforeGrowth, beforeAlbum := *s.Growth, *s.Album
@@ -289,6 +290,7 @@ func TestLegacyActiveGameMigrationKeepsProgressAndAssignsIdentity(t *testing.T) 
 	s.Apply(Action{Kind: "catch", GameID: s.Game.ID, Lane: 0}, now)
 	s.Schema = 3
 	s.Companion = nil
+	s.Park = nil
 	s.Pond = nil
 	s.Economy = nil
 	s.Game.ID = ""

@@ -42,6 +42,13 @@ export const games = [
     lesson: "收竿后 A 换钓点，B 抛竿。等到明确的咬钩提示，再按 B 提竿，有 10 秒反应时间。真实钓到才记入鱼图鉴。",
     leaving: "C 暂停菜单可看鱼图鉴或放弃确认。刷新、离开自动暂停，不离线钓鱼，不消耗机会。暂停后需手动继续。",
   },
+ { id:"walk", title:"公园散步", icon:"♧", startAction:"play-walk",
+ summary:"林荫小路 · 沿途发现", duration:"约 1–1.5 分钟（不含暂停）",
+ controls:"自动前进 · A 跳跃 · B 蹲下 · C 暂停",
+ reward:"走完并收好：3–6 金币，不要求避开所有障碍。",
+ lesson:"每六步一处障碍，提前提示。A 越石，B 低头过树枝，姿势保持三步。绊到继续走，不扣状态。海豚走浅水道，A 跃水、B 下潜。",
+ leaving:"C 暂停可看沿途发现或放弃确认。刷新、离开后手动继续，不离线赶路。每24步的真实发现会保留；到终点 B / C 收好才计陪伴。",
+ },
 ] as const;
 export type GameInfo = (typeof games)[number];
 const guideKey = (id: GameInfo["id"]) => `pixelpet-guide-v1-${id}`;

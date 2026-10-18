@@ -149,6 +149,7 @@ func TestSchemaSixTetrisUpgradePreservesEveryOldGame(t *testing.T) {
 			legacy.Apply(game.Action{Kind: kind}, now)
 			legacy.Schema = 6
 			legacy.Companion = nil
+			legacy.Park = nil
 			legacy.Pond = nil
 			legacy.Economy.Coins = 19
 			raw, _ := json.Marshal(legacy)

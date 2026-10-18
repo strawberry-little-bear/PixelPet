@@ -9,7 +9,7 @@ import (
 
 func finishExperience(t *testing.T, s *State, now *time.Time, kind string, qualifies bool) string {
 	t.Helper()
-	start := map[string]string{"stars": "play", "tiles": "play-tiles", "snake": "play-snake", "tetris": "play-tetris", "fishing": "play-fishing"}[kind]
+	start := map[string]string{"stars": "play", "tiles": "play-tiles", "snake": "play-snake", "tetris": "play-tetris", "fishing": "play-fishing", "walk": "play-walk"}[kind]
 	s.Needs.Energy = 90
 	s.Advance(*now)
 	if _, err := s.Apply(Action{Kind: start}, *now); err != nil {
@@ -44,6 +44,14 @@ func finishExperience(t *testing.T, s *State, now *time.Time, kind string, quali
 		if _, err := s.Apply(blockAction(s, "tetris-finish"), *now); err != nil {
 			t.Fatal(err)
 		}
+	case "walk":
+		walkDo(t, s, *now, "walk-resume")
+		for s.Game.Walking.Beat < WalkLength {
+			*now = now.Add(time.Second)
+			s.Advance(*now)
+			walkDo(t, s, *now, "walk-step")
+		}
+		walkDo(t, s, *now, "walk-finish")
 	case "fishing":
 		for i := 0; i < 3; i++ {
 			if qualifies {
@@ -173,6 +181,7 @@ func TestSchemaNineMigrationDoesNotBackfillGamesOrChangeLockedForm(t *testing.T)
 	finishExperience(t, &s, &now, "tiles", true)
 	s.Schema = 9
 	s.Companion = nil
+	s.Park = nil
 	s.Economy.Owned = []string{"sky-bow", "starlit-wall", "mint-floor"}
 	s.Economy.Equipped = Equipment{Accessory: "sky-bow", Wallpaper: "starlit-wall", Floor: "mint-floor"}
 	s.Apply(Action{Kind: "play-fishing"}, now)
@@ -190,6 +199,7 @@ func TestSchemaNineMigrationDoesNotBackfillGamesOrChangeLockedForm(t *testing.T)
 		t.Fatal("lost session")
 	}
 	s.Companion = nil
+	s.Park = nil
 	s.Schema = 9
 	after, _ := json.Marshal(s)
 	if string(raw) != string(after) {
