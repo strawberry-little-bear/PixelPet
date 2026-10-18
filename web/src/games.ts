@@ -1,4 +1,4 @@
-import type { Economy, Shop } from "./types";
+import type { Economy, PetState, Shop } from "./types";
 
 // One directory owns both the selector and its three-key guides. Game mechanics
 // and server-authoritative scoring stay in their individual implementations.
@@ -68,4 +68,21 @@ export function gameAllowance(economy: Economy | undefined, shop: Shop | null, n
     : Math.max(0, shop.gameDailyLimit - (economy.lastGameAt === 0 || day > last ? 0 : economy.gameCoins));
   const wallet = shop.maxCoins === undefined ? null : Math.max(0, shop.maxCoins - economy.coins);
   return { daily, available: wallet === null ? null : Math.min(daily, wallet), walletFull: wallet === 0 };
+}
+
+
+// Session navigation is separate from save-generation identity and scoring.
+export const gameSessionKey = (game: PetState["game"]) =>
+  game ? (game.id ?? `legacy-${game.startedAt}`) : null;
+
+// These four games retain a terminal board until the player explicitly collects
+// it. Stars/tiles settle in their final action and remove the session instead.
+export function gameAwaitingFinish(game: PetState["game"]): boolean {
+  switch (game?.kind) {
+    case "snake": return !!game.snake?.end;
+    case "tetris": return !!game.tetris?.end;
+    case "fishing": return game.fishing?.phase === "done";
+    case "walk": return game.walking?.beat === 72;
+    default: return false;
+  }
 }

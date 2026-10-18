@@ -9,7 +9,7 @@ import { TetrisGame } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
 import { TileGame, nextTile } from "./TileGame";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
-import { games, rememberGuide } from "./games";
+import { games, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
 import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { shopItems, shopSections } from "./shop";
@@ -197,7 +197,7 @@ export default function App() {
   const [arcadeChoice, setArcadeChoice] = useState(0);
   const [guidePage, setGuidePage] = useState(0);
   const [abandonGame, setAbandonGame] = useState<string | null>(null);
-  const sessionKey = pet?.game ? (pet.game.id ?? `legacy-${pet.game.startedAt}`) : null;
+  const sessionKey = gameSessionKey(pet?.game);
   const abandoning = page === "game" && abandonGame !== null && abandonGame === sessionKey;
   useEffect(() => { setAbandonGame(null); }, [sessionKey]);
   const [fishingSession, setFishingSession] = useState("");
@@ -406,7 +406,14 @@ export default function App() {
         previous.hatchedAt !== r.state.hatchedAt ||
         (r.state.hatchedAt > 0 && previous.species !== r.state.species)
       )));
-      if (!apply(r, recovering || repairing || clockBlocked || replaced, true)) {
+      // A session can change without replacing the pet/save generation. Route
+      // newly started games into reach and discard confirmation/menu intent
+      // from the old board. A terminal same-ID result is also a new decision:
+      // an old "discard unfinished game" confirmation must not throw it away.
+      const sessionChanged = previous !== null && gameSessionKey(previous.game) !== gameSessionKey(r.state.game);
+      const resultReady = previous !== null && !sessionChanged && !gameAwaitingFinish(previous.game) && gameAwaitingFinish(r.state.game);
+      const gameChanged = sessionChanged || resultReady;
+      if (!apply(r, recovering || repairing || clockBlocked || replaced || gameChanged, true)) {
         if (recovering || clockBlocked) setError(changed ? "读到较旧的存档，上次操作未执行。按 B 再次读取当前存档。" : "读到较旧的存档，结果仍未确认。按 B 再次核对。");
         return;
       }
@@ -415,13 +422,13 @@ export default function App() {
       setReturnRecap(r.returnRecap ?? null);
       setReturnPending(!!r.recapPending);
       if (!r.returnRecap) setPage(value => value === "return" ? (r.state.hatchedAt ? "home" : "choose") : value);
-      if (replaced) {
+      if (replaced || gameChanged) {
         stopActivity();
         setHelp(false);
         setAbandonGame(null);
         setReturnPage(0);
       }
-      if (recovering || repairing || clockBlocked || replaced) {
+      if (recovering || repairing || clockBlocked || replaced || gameChanged) {
         discardImport();
         uncertainRef.current = false;
         setUncertain(false);
@@ -432,9 +439,25 @@ export default function App() {
         setReset(false);
         setTools(false);
         setPurchaseConfirm(false);
+        setLane(1);
+        setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
+        setTetrisChoice(0);
+        setFishingChoice(0);
+        setWalkChoice(0);
         returnAttempt.current = r.returnRecap?.id ?? "";
         initialized.current = true;
-        setMessage(clockBlocked ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。" : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。" : changed ? "已读取当前存档。上次操作未执行，没有自动重试。" : recovering ? "已核对当前存档，请查看状态。上次操作没有自动重试。" : "已同步其他页面更新的伙伴，请从当前画面继续。");
+        const gameMessage = resultReady
+          ? "已同步本局结果，请查看后按 B / C 收好。没有自动结算。"
+          : r.state.game
+            ? "已同步其他页面的新一局，请从当前画面继续。实时游戏不会自动启动。"
+            : "另一页面已结束这一局，已回到小窝。没有重复结算。";
+        setMessage(clockBlocked
+          ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。"
+          : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。"
+          : changed ? "已读取当前存档。上次操作未执行，没有自动重试。"
+          : recovering ? "已核对当前存档，请查看状态。上次操作没有自动重试。"
+          : gameChanged ? gameMessage
+          : "已同步其他页面更新的伙伴，请从当前画面继续。");
       } else if (r.recapPending) returnAttempt.current = "";
       if (!initialized.current) {
         setChosen(r.state.species);
