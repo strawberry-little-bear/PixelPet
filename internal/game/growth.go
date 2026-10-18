@@ -33,7 +33,7 @@ type Growth struct {
 // offline/legacy evolution was witnessed after the album opened. Version-1
 // growth dates are migration dates and must retain saved (not shared) provenance.
 func (s *State) Upgrade(now time.Time) bool {
-	if s.Schema != 1 && s.Schema != 2 {
+	if s.Schema < 1 || s.Schema >= Schema {
 		return false
 	}
 	if s.Schema == 1 {
@@ -55,9 +55,18 @@ func (s *State) Upgrade(now time.Time) bool {
 			s.Log(now, "成长手册已开启，今后的照顾习惯会被好好记住。")
 		}
 	}
-	s.Advance(now)
-	s.Schema = Schema
-	s.openLegacyAlbum(now)
+	if s.Schema == 2 {
+		s.Advance(now)
+		s.Schema = 3
+		s.openLegacyAlbum(now)
+	}
+	if s.Schema == 3 {
+		s.Economy = newEconomy()
+		if s.Game != nil {
+			s.Game.ID = newGameID()
+		}
+		s.Schema = 4
+	}
 	return true
 }
 

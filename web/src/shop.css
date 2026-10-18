@@ -1,0 +1,26 @@
+.shop-panel { color:#405132; font-size:10px; line-height:1.4; }
+.shop-panel header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #7e987b55; padding:1px 0 4px; }
+.shop-panel header strong { font-size:12px; }
+.shop-panel header span { font-size:10px; font-variant-numeric:tabular-nums; }
+.shop-preview { height:65px; position:relative; }
+.shop-preview .pet-scene { height:53px; }
+.shop-preview .pet-scene .pet-actor { transform:scale(.47); animation:none; bottom:1px; }
+.shop-preview .room-cloud, .shop-preview .room-sun, .shop-preview .growth-form-emblem { display:none; }
+.shop-preview .room-floor { bottom:0; }
+.shop-preview .room-decoration { width:34px; height:27px; bottom:1px; right:25px; }
+.shop-preview .decoration-patchwork-rug { width:70px; height:23px; right:calc(50% - 35px); }
+.shop-preview .pet-ground-shadow { width:32px; height:3px; bottom:0; margin-left:-16px; }
+.shop-preview .sleep-blanket, .shop-preview .sleep-pillow, .shop-preview .dream-letters, .shop-preview .dream-stars { display:none; }
+.shop-preview small { position:absolute; bottom:0; width:100%; text-align:center; font-size:8px; opacity:.75; }
+.shop-panel h3 { display:flex; align-items:center; justify-content:space-between; font-size:12px; margin:6px 0 3px; }
+.shop-panel h3 span { font-size:9px; font-weight:normal; }
+.shop-panel p { font-size:10px; margin:0; min-height:28px; white-space:pre-line; }
+.shop-decision { font-size:10px; padding:4px 0; border-top:1px dotted #7e987b55; margin-top:3px; }
+.shop-panel[data-confirm="true"] .shop-decision { font-weight:bold; }
+.shop-panel .shop-footer { display:flex; justify-content:space-between; font-size:8px; opacity:.8; }
+.room-decoration { position:absolute; bottom:10px; right:3px; width:45px; height:38px; pointer-events:none; }
+.decoration-patchwork-rug { bottom:3px; left:calc(50% - 54px); right:auto; width:108px; height:32px; }
+.album-picture .room-decoration { position:static; width:54px; height:42px; }
+.shop-preview .room-window { width:20px; height:23px; bottom:12px; right:20px; }
+.shop-preview .room-window:before { left:7px; }
+.shop-preview .room-window:after { top:9px; }

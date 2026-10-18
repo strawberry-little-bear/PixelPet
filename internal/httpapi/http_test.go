@@ -72,3 +72,47 @@ func TestAPIFlowAndOriginProtection(t *testing.T) {
 		t.Fatal("unknown API fell through")
 	}
 }
+
+func TestShopAPIRejectsClientPricesScoresAndForeignWrites(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "shop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	h := Handler(db, t.TempDir())
+	call := func(body, origin string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "/api/action", bytes.NewBufferString(body))
+		if origin != "" {
+			r.Header.Set("Origin", origin)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	for _, body := range []string{`{"kind":"hatch","species":2}`, `{"kind":"daily","requestId":"today"}`} {
+		if w := call(body, ""); w.Code != 200 {
+			t.Fatal(w.Body.String())
+		}
+	}
+	for _, body := range []string{
+		`{"kind":"daily","coins":10000}`, `{"kind":"daily","day":"2099-01-01"}`,
+		`{"kind":"buy","item":"leaf-pin","price":0}`, `{"kind":"catch","score":5}`,
+		`{"kind":"buy","item":"not-real"}`, `{"kind":"equip","item":"leaf-pin"}`,
+		`{"kind":"catch","lane":1}`, `{"kind":"daily"}`,
+	} {
+		if w := call(body, ""); w.Code != 400 {
+			t.Fatal("accepted unsafe action", body, w.Body.String())
+		}
+	}
+	if w := call(`{"kind":"buy","item":"leaf-pin"}`, "https://foreign.example"); w.Code != 403 {
+		t.Fatal("foreign shop mutation accepted")
+	}
+	r := httptest.NewRequest("GET", "/api/backup", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	var state game.State
+	json.Unmarshal(w.Body.Bytes(), &state)
+	if state.Economy.Coins != game.DailyCoins || len(state.Economy.Owned) != 0 {
+		t.Fatal("rejected actions changed wallet", state)
+	}
+}

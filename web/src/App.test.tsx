@@ -784,3 +784,164 @@ describe("sakura cat stays articulated across the three-button lifecycle", () =>
     expect(document.querySelector(".lcd button")).toBeNull();
   });
 });
+
+describe("three-key shop and persistent equipment", () => {
+  const shop = { dailyCoins: 10, gameDailyLimit: 30, catalog: [
+    { id: "leaf-pin", name: "嫩叶胸针", slot: "accessory" as const, price: 12, description: "把春天别在胸前。" },
+    { id: "clover-pot", name: "四叶草盆栽", slot: "room" as const, price: 16, description: "一起回家。" },
+  ] };
+  function setup(coins = 30) {
+    saved.schema = 4;
+    saved.economy = { coins, lastDailyAt: 0, lastGameAt: 0, gameCoins: 0, owned: [], equipped: { accessory: "", room: "" } };
+    saved.album = { since: saved.createdAt, legacy: false, entries: [{ kind: "hatch", at: saved.hatchedAt, source: "shared" }] };
+    api.mockImplementation(async (path, body) => {
+      if (path === "action") {
+        const action = body as { kind: string; item?: string };
+        const e = saved.economy!;
+        if (action.kind === "daily") { e.coins += 10; e.lastDailyAt = Date.now(); }
+        if (action.kind === "buy") { const item = shop.catalog.find(i => i.id === action.item)!; e.coins -= item.price; e.owned.push(item.id); }
+        if (action.kind === "equip") { const item = shop.catalog.find(i => i.id === action.item)!; e.equipped[item.slot] = e.equipped[item.slot] === item.id ? "" : item.id; }
+        saved.revision++;
+      }
+      return { ...state(), shop };
+    });
+  }
+  const mutations = () => api.mock.calls.filter(([p]) => p === "action");
+  it("reaches the appended menu item, claims once, and does not auto-claim on reload", async () => {
+    setup(0);
+    await mount();
+    await choose(9);
+    expect(document.querySelector(".care-menu")).toBeNull();
+    expect(screen.getByLabelText("小窝商店")).toBeTruthy();
+    expect(document.querySelector(".lcd button")).toBeNull();
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(mutations()).toHaveLength(0);
+    await key("b");
+    expect(saved.economy!.coins).toBe(10);
+    expect(screen.getByText("今日已领取 · 明天再来就好")).toBeTruthy();
+    await key("b");
+    expect(mutations()).toHaveLength(1);
+    cleanup();
+    await mount();
+    await choose(9);
+    expect(screen.getByText("今日已领取 · 明天再来就好")).toBeTruthy();
+    expect(mutations()).toHaveLength(1);
+  });
+  it("previews without a write, requires confirmation, A/C cancel in place, B buys once", async () => {
+    setup(); await mount(); await choose(9); await key("a");
+    expect(document.querySelector('.shop-preview [data-item="leaf-pin"]')).not.toBeNull();
+    expect(saved.economy!.equipped.accessory).toBe("");
+    expect(mutations()).toHaveLength(0);
+    await key("b");
+    expect(screen.getByText("确认花 12 金币购买？")).toBeTruthy();
+    await key("a");
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-shop-page')).toBe("1");
+    await key("b"); await key("c");
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("false");
+    expect(mutations()).toHaveLength(0);
+    await key("b"); await key("b");
+    expect(saved.economy!.coins).toBe(18);
+    expect(saved.economy!.owned).toEqual(["leaf-pin"]);
+    expect(saved.economy!.equipped.accessory).toBe("");
+    expect(mutations()).toHaveLength(1);
+    expect((mutations()[0][1] as { item: string }).item).toBe("leaf-pin");
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("false");
+    await key("b"); // Equip, not repurchase.
+    expect(saved.economy!.equipped.accessory).toBe("leaf-pin");
+    expect(saved.economy!.coins).toBe(18);
+    await key("c");
+    expect(document.querySelector('.pet-scene .equipped-accessory[data-item="leaf-pin"]')).not.toBeNull();
+    expect(document.querySelector('.pet-scene .growth-outfit')).toBeNull();
+    cleanup(); await mount();
+    expect(document.querySelector('.pet-scene .equipped-accessory[data-item="leaf-pin"]')).not.toBeNull();
+    await choose(9); await key("a"); await key("b"); await key("c");
+    expect(saved.economy!.equipped.accessory).toBe("");
+    expect(document.querySelector('.pet-scene .growth-outfit')).not.toBeNull();
+  });
+  it("places owned home items without a second charge and keeps equipment in the star game", async () => {
+    setup();
+    saved.economy!.owned = ["leaf-pin", "clover-pot"];
+    saved.economy!.equipped.accessory = "leaf-pin";
+    await mount(); await choose(9); await key("a"); await key("a"); await key("b");
+    expect(saved.economy!.equipped.room).toBe("clover-pot");
+    expect(saved.economy!.coins).toBe(30);
+    await key("c");
+    expect(document.querySelector('.pet-scene .room-decoration[data-item="clover-pot"]')).not.toBeNull();
+    await choose(1);
+    // This mock only simulates the saved play session, not game scoring.
+    saved.game = { startedAt: Date.now(), round: 0, score: 0, lastBeat: -1 };
+    saved.revision++;
+    await advance(15000);
+    expect(document.querySelector('.game-lane .equipped-accessory[data-item="leaf-pin"]')).not.toBeNull();
+  });
+  it("does not offer a purchase or send an action when coins are insufficient", async () => {
+    setup(0); await mount(); await choose(9); await key("a"); await key("b");
+    expect(screen.getByText("还差 12 金币，慢慢来。")).toBeTruthy();
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("false");
+    expect(mutations()).toHaveLength(0);
+  });
+  it("allows only read-only browsing during sleep, with no wake or game interruption", async () => {
+    setup(); saved.sleeping = true; await mount(); await choose(9);
+    await key("b"); await key("a"); await key("b");
+    expect(saved.sleeping).toBe(true);
+    expect(mutations()).toHaveLength(0);
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("false");
+    await key("c"); expect(scene()).toBe("sleeping");
+  });
+  it("keeps a failed purchase on its confirmation screen without pretending ownership", async () => {
+    setup(); await mount(); await choose(9); await key("a"); await key("b");
+    const original = api.getMockImplementation()!;
+    api.mockImplementation(async (path, body) => {
+      if (path === "action") throw new Error("金币还不够，慢慢来，不着急");
+      return original(path, body);
+    });
+    await key("b");
+    expect(saved.economy!.owned).toEqual([]);
+    expect(saved.economy!.coins).toBe(30);
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("true");
+    expect(screen.getByRole("alert").textContent).toContain("金币还不够");
+    await key("c"); await key("c"); expect(scene()).toBe("idle");
+  });
+  it("does not break older service responses or silently fabricate a wallet", async () => {
+    await mount(); await choose(9);
+    expect(screen.getByText("小店还没开门，请更新服务后再来看看。")).toBeTruthy();
+    await key("b");
+    expect(mutations()).toHaveLength(0);
+    await key("c"); expect(scene()).toBe("idle");
+  });
+});
+
+describe("shop event precedence", () => {
+  it("defers a newly settled evolution and pending return recap until after leaving the shop", async () => {
+    const shop = { dailyCoins: 10, gameDailyLimit: 30, catalog: [] };
+    saved.schema = 4;
+    saved.economy = { coins: 0, lastDailyAt: 0, lastGameAt: 0, gameCoins: 0, owned: [], equipped: { accessory: "", room: "" } };
+    api.mockImplementation(async () => ({ ...state(), shop }));
+    await mount(); await choose(9);
+    const before = saved.revision;
+    saved.growth = emptyGrowth("growing"); saved.growth.points = 24; saved.growth.growingAt = Date.now(); saved.revision++;
+    const snapshot = { needs: saved.needs, stage: "baby" as const, form: "" as const, points: 23, rest: 0, trackedHours: 0 };
+    const recap = { id: "shop-return", from: Date.now() - 3600000, to: Date.now(), before: snapshot, after: { ...snapshot, stage: "growing" as const, points: 24 } };
+    api.mockImplementation(async (path) => ({ ...state(), shop, returnRecap: recap, recapPending: path !== "recap/read", recapClaimed: path === "recap/read" }));
+    await advance(15000);
+    expect(saved.revision).toBeGreaterThan(before);
+    expect(document.querySelector(".shop-panel")).not.toBeNull();
+    expect(api.mock.calls.some(([p]) => p === "recap/read")).toBe(false);
+    await key("c");
+    expect(scene()).toBe("celebrating");
+    expect(document.querySelector(".return-panel")).toBeNull();
+    await key("c");
+    expect(api.mock.calls.filter(([p]) => p === "recap/read")).toHaveLength(1);
+    expect(document.querySelector(".return-panel")).not.toBeNull();
+  });
+});
+
+describe("server-owned game sessions", () => {
+  it("sends the saved session identity with catches and cancellation", async () => {
+    saved.game = { id: "saved-session-identity", startedAt: Date.now(), round: 0, score: 0, lastBeat: -1 };
+    await mount(); await key("b"); await key("c");
+    const calls = api.mock.calls.filter(([p]) => p === "action").map(([, b]) => b as { kind: string; gameId: string });
+    expect(calls.map(c => c.kind)).toEqual(["catch", "cancel-play"]);
+    expect(calls.every(c => c.gameId === "saved-session-identity")).toBe(true);
+  });
+});

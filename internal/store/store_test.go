@@ -20,6 +20,7 @@ func TestLegacyMigrationPersistsOnceAndKeepsOriginalSnapshot(t *testing.T) {
 	born := now.Add(-80 * time.Hour)
 	legacy := game.New(born)
 	legacy.Schema = 1
+	legacy.Economy = nil
 	legacy.Growth = nil
 	legacy.Album = nil
 	legacy.HatchedAt = born.UnixMilli()

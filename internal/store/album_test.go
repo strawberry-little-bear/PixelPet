@@ -114,6 +114,7 @@ func TestSchemaTwoAlbumMigrationSnapshotsAndDoesNotReplay(t *testing.T) {
 	legacy := game.New(born)
 	legacy.Apply(game.Action{Kind: "hatch", Species: 2}, born)
 	legacy.Schema = 2
+	legacy.Economy = nil
 	legacy.Album = nil
 	legacy.CareCount = 90
 	legacy.LastTick = now.Add(-time.Hour).UnixMilli()

@@ -34,7 +34,11 @@ func copyState(s State) State {
 func applyAt(t *testing.T, s *State, kind string, now time.Time) {
 	t.Helper()
 	s.Advance(now)
-	if _, err := s.Apply(Action{Kind: kind}, now); err != nil {
+	a := Action{Kind: kind}
+	if s.Game != nil {
+		a.GameID = s.Game.ID
+	}
+	if _, err := s.Apply(a, now); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -48,7 +52,7 @@ func completeStars(t *testing.T, s *State, now time.Time, score int) time.Time {
 			lane = (lane + 1) % 3
 		}
 		s.Advance(at)
-		if _, err := s.Apply(Action{Kind: "catch", Lane: lane}, at); err != nil {
+		if _, err := s.Apply(Action{Kind: "catch", GameID: s.Game.ID, Lane: lane}, at); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -99,8 +103,8 @@ func TestAlbumOnlyCompleteGamesRememberAndKeepFirstScore(t *testing.T) {
 	if hasMemory(s, "stars") {
 		t.Fatal("start became memory")
 	}
-	s.Apply(Action{Kind: "catch", Lane: 0}, now)
-	if _, err := s.Apply(Action{Kind: "catch", Lane: 0}, now); err == nil {
+	s.Apply(Action{Kind: "catch", GameID: s.Game.ID, Lane: 0}, now)
+	if _, err := s.Apply(Action{Kind: "catch", GameID: s.Game.ID, Lane: 0}, now); err == nil {
 		t.Fatal("duplicate beat accepted")
 	}
 	applyAt(t, &s, "cancel-play", now)
@@ -195,6 +199,7 @@ func TestAlbumMigrationDoesNotInventOldExperiences(t *testing.T) {
 	for _, schema := range []int{1, 2} {
 		s := babyAt(now.Add(-80 * time.Hour))
 		s.Schema = schema
+		s.Economy = nil
 		s.Album = nil
 		s.CareCount = 100
 		if schema == 1 {
@@ -234,6 +239,7 @@ func TestAlbumMigrationDoesNotInventOldExperiences(t *testing.T) {
 	}
 	egg := New(now.Add(-time.Hour))
 	egg.Schema = 2
+	egg.Economy = nil
 	egg.Album = nil
 	egg.Upgrade(now)
 	if egg.Album.Legacy || len(egg.Album.Entries) != 0 {

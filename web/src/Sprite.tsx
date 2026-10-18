@@ -1,3 +1,4 @@
+import { AccessoryMark } from "./EquipmentArt";
 import { species } from "./types";
 
 const boxes = [
@@ -102,10 +103,12 @@ export function Sprite({
   index,
   className = "",
   expression = "still",
+  accessory,
 }: {
   index: number;
   className?: string;
   expression?: Expression;
+  accessory?: string;
 }) {
   const [x, y, w, h] = boxes[index] || boxes[0];
   const face = faces[index] || faces[0];
@@ -166,6 +169,7 @@ export function Sprite({
           </g>
         </g>
       )}
+      <AccessoryMark id={accessory} transform={`translate(${x+w*.5} ${y+h*.78}) scale(${w/64})`} />
     </svg>
   );
 }

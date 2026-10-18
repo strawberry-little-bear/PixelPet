@@ -71,13 +71,17 @@ func TestCareFeedbackDoesNotRewardStartingOrCancellingGames(t *testing.T) {
 	now := time.Now()
 	s := babyAt(now)
 	for _, kind := range []string{"play", "cancel-play", "play"} {
-		_, f, err := s.ApplyWithFeedback(Action{Kind: kind}, now)
+		a := Action{Kind: kind}
+		if s.Game != nil {
+			a.GameID = s.Game.ID
+		}
+		_, f, err := s.ApplyWithFeedback(a, now)
 		if err != nil || f != nil {
 			t.Fatalf("non-care action returned feedback: %s, %+v, %v", kind, f, err)
 		}
 	}
 	for i := 0; i < 5; i++ {
-		_, f, err := s.ApplyWithFeedback(Action{Kind: "catch", Lane: i % 3}, now.Add(time.Duration(i)*900*time.Millisecond))
+		_, f, err := s.ApplyWithFeedback(Action{Kind: "catch", GameID: s.Game.ID, Lane: i % 3}, now.Add(time.Duration(i)*900*time.Millisecond))
 		if err != nil {
 			t.Fatal(err)
 		}

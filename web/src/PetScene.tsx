@@ -1,3 +1,4 @@
+import { RoomDecoration } from "./EquipmentArt";
 import { useId } from "react";
 import type { CSSProperties } from "react";
 import { Cloud } from "lucide-react";
@@ -8,7 +9,7 @@ import { PetArt, petRigKind, petRigClass } from "./PetArt";
 import type { SceneMotion } from "./motion";
 import "./pet-motion.css";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
-import type { AdultForm, GrowthStage } from "./types";
+import type { AdultForm, GrowthStage, Equipment } from "./types";
 
 const needLabels: Record<NeedKind, string> = {
   hungry: "摸摸肚子等吃饭",
@@ -116,6 +117,7 @@ export function PetScene({
   stage = "baby",
   form = "",
   need,
+  equipped,
 }: {
   index: number;
   motion: SceneMotion;
@@ -125,6 +127,7 @@ export function PetScene({
   stage?: GrowthStage;
   form?: AdultForm | "";
   need?: NeedKind;
+  equipped?: Equipment;
 }) {
   const rig = petRigKind(index, stage);
   const activeNeed = motion === "idle" && stage !== "egg" ? need : undefined;
@@ -154,6 +157,7 @@ export function PetScene({
         <span className="room-sun">{motion === "sleeping" ? "☾" : "✳"}</span>
         <div className="room-window" />
         <div className="room-floor" />
+        <RoomDecoration id={equipped?.room} />
       </div>
       <div
         className="motion-stage"
@@ -174,8 +178,8 @@ export function PetScene({
         )}
         <div className="pet-actor">
           <div className={`growth-size ${petRigClass(index, stage)}`}>
-            <PetArt index={index} stage={stage} expression={expression} motion={motion} need={activeNeed} />
-            <GrowthOutfit stage={stage} form={form} />
+            <PetArt index={index} stage={stage} expression={expression} motion={motion} need={activeNeed} accessory={equipped?.accessory} />
+            {!equipped?.accessory && <GrowthOutfit stage={stage} form={form} />}
             {activeNeed && <NeedGesture kind={activeNeed} index={index} paws={rig === "original"} />}
           </div>
         </div>

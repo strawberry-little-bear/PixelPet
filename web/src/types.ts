@@ -37,8 +37,9 @@ export type PetState = {
   careCount: number;
   growth?: Growth;
   album?: Album;
+  economy?: Economy;
   logs: { at: number; text: string }[];
-  game?: { startedAt: number; round: number; score: number; lastBeat: number };
+  game?: { id?: string; startedAt: number; round: number; score: number; lastBeat: number };
 };
 export type CareFeedback = {
   kind: "feed" | "clean" | "catch" | "sleep";
@@ -53,6 +54,7 @@ export type Result = {
   message: string;
   serverTime: number;
   careFeedback?: CareFeedback;
+  shop?: Shop;
   returnRecap?: ReturnRecap;
   recapPending?: boolean;
   recapClaimed?: boolean;
@@ -99,11 +101,17 @@ export type ReturnRecap = {
 };
 
 export type Memory = {
-  kind: "hatch" | "growing" | "adult" | "meal" | "bath" | "goodnight" | "stars" | "perfect-stars" | "days";
+  kind: "hatch" | "growing" | "adult" | "meal" | "bath" | "goodnight" | "stars" | "perfect-stars" | "days" | "outfit" | "decoration";
   at: number;
   source: "shared" | "saved" | "elapsed";
   form?: AdultForm;
   score?: number;
   days?: number;
+  item?: string;
 };
 export type Album = { since: number; legacy: boolean; entries: Memory[] };
+
+export type Equipment = { accessory: string; room: string };
+export type Economy = { coins: number; lastDailyAt: number; lastGameAt: number; gameCoins: number; owned: string[]; equipped: Equipment };
+export type ShopItem = { id: string; name: string; slot: "accessory" | "room"; price: number; description: string };
+export type Shop = { catalog: ShopItem[]; dailyCoins: number; gameDailyLimit: number };

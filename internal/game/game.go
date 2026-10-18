@@ -1,6 +1,8 @@
 package game
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -9,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 3
+const Schema = 4
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -23,11 +25,26 @@ type Log struct {
 	At   int64  `json:"at"`
 	Text string `json:"text"`
 }
+
+func newGameID() string {
+	var id [16]byte
+	rand.Read(id[:])
+	return hex.EncodeToString(id[:])
+}
+func validGameID(id string) bool {
+	if len(id) != 32 {
+		return false
+	}
+	_, err := hex.DecodeString(id)
+	return err == nil
+}
+
 type MiniGame struct {
-	StartedAt int64 `json:"startedAt"`
-	Round     int   `json:"round"`
-	Score     int   `json:"score"`
-	LastBeat  int64 `json:"lastBeat"`
+	ID        string `json:"id,omitempty"`
+	StartedAt int64  `json:"startedAt"`
+	Round     int    `json:"round"`
+	Score     int    `json:"score"`
+	LastBeat  int64  `json:"lastBeat"`
 }
 type State struct {
 	Schema    int       `json:"schema"`
@@ -44,6 +61,7 @@ type State struct {
 	Game      *MiniGame `json:"game,omitempty"`
 	Growth    *Growth   `json:"growth,omitempty"`
 	Album     *Album    `json:"album,omitempty"`
+	Economy   *Economy  `json:"economy,omitempty"`
 }
 type Action struct {
 	Kind      string `json:"kind"`
@@ -51,11 +69,13 @@ type Action struct {
 	Lane      int    `json:"lane"`
 	Name      string `json:"name"`
 	RequestID string `json:"requestId"`
+	Item      string `json:"item,omitempty"`
+	GameID    string `json:"gameId,omitempty"`
 }
 
 func New(now time.Time) State {
 	ms := now.UnixMilli()
-	return State{Schema: Schema, Species: 0, Name: Species[0], CreatedAt: ms, LastTick: ms, Needs: Needs{80, 80, 90, 85}, Growth: &Growth{Stage: "egg"}, Album: &Album{Since: ms, Entries: []Memory{}}, Logs: []Log{{ms, "一颗小小的蛋，正在等待与你相遇。"}}}
+	return State{Economy: newEconomy(), Schema: Schema, Species: 0, Name: Species[0], CreatedAt: ms, LastTick: ms, Needs: Needs{80, 80, 90, 85}, Growth: &Growth{Stage: "egg"}, Album: &Album{Since: ms, Entries: []Memory{}}, Logs: []Log{{ms, "一颗小小的蛋，正在等待与你相遇。"}}}
 }
 func clamp(n float64) float64 { return math.Max(0, math.Min(100, n)) }
 func (s *State) Log(now time.Time, message string) {
@@ -103,6 +123,9 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	if s.HatchedAt == 0 {
 		return "", errors.New("先迎接你的第一只小伙伴吧")
 	}
+	if (a.Kind == "catch" || a.Kind == "cancel-play") && s.Game != nil && a.GameID != s.Game.ID {
+		return "", errors.New("这不是当前的一局，请刷新后再试")
+	}
 	if a.Kind == "cancel-play" {
 		s.Game = nil
 		return "下次再一起玩吧", nil
@@ -115,6 +138,12 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	}
 	var msg string
 	switch a.Kind {
+	case "daily", "buy", "equip":
+		var err error
+		msg, err = s.applyEconomy(a, now)
+		if err != nil {
+			return "", err
+		}
 	case "feed":
 		if s.Needs.Hunger >= 96 {
 			return "", errors.New("肚子已经饱饱的啦，等一会儿再吃吧")
@@ -150,7 +179,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		if s.Needs.Energy < 10 {
 			return "", errors.New("有点累了，先睡一觉吧")
 		}
-		s.Game = &MiniGame{StartedAt: now.UnixMilli(), LastBeat: -1}
+		s.Game = &MiniGame{ID: newGameID(), StartedAt: now.UnixMilli(), LastBeat: -1}
 		return "A 移动 · B 接星星 · C 返回", nil
 	case "catch":
 		if s.Game == nil || a.Lane < 0 || a.Lane > 2 {
@@ -180,7 +209,8 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			if score == 5 {
 				s.remember(Memory{Kind: "perfect-stars", At: now.UnixMilli(), Source: "shared", Score: 5})
 			}
-			msg = fmt.Sprintf("一起接住了 %d 颗星星，好开心！", score)
+			coins := s.rewardStars(score, now)
+			msg = fmt.Sprintf("一起接住了 %d 颗星星！+%d 金币（小游戏每日最多 %d）。", score, coins, GameDailyLimit)
 		} else {
 			return msg, nil
 		}
@@ -220,10 +250,13 @@ func (s State) Validate(now time.Time) error {
 	if s.HatchedAt == 0 && (s.Sleeping || s.Game != nil) {
 		return bad
 	}
+	if s.Game != nil && ((s.Schema >= 4 && !validGameID(s.Game.ID)) || (s.Schema < 4 && s.Game.ID != "")) {
+		return bad
+	}
 	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
 		return bad
 	}
-	if !s.validGrowth(now) || !s.validAlbum(now) {
+	if !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) {
 		return bad
 	}
 	return nil

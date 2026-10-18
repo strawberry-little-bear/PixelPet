@@ -1,3 +1,4 @@
+import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
 import type { NeedKind } from "./needs";
@@ -48,8 +49,8 @@ export const catStages = {
   },
 } as const;
 
-export function CatRig({ stage, expression = "awake", motion = "idle", need, className = "" }: {
-  stage: GrowthStage; expression?: Expression; motion?: SceneMotion; need?: NeedKind; className?: string;
+export function CatRig({ stage, expression = "awake", motion = "idle", need, className = "", accessory }: {
+  stage: GrowthStage; expression?: Expression; motion?: SceneMotion; need?: NeedKind; className?: string; accessory?: string;
 }) {
   const variant = stage === "growing" || stage === "adult" ? stage : "baby";
   const art = catStages[variant];
@@ -80,6 +81,7 @@ export function CatRig({ stage, expression = "awake", motion = "idle", need, cla
           <path className="cat-mouth-chew" d={`M30 ${art.mouthY}h4v4h-4z`} fill="#684b4a" />
         </g>
       </g>
+      <AccessoryMark id={accessory} transform={`translate(32 ${variant === "baby" ? 55 : variant === "growing" ? 51 : 48})`} />
       <path className="cat-paw need-paw paw-left" d={art.pawLeft} />
       <path className="cat-paw need-paw paw-right" d={art.pawRight} />
     </g>

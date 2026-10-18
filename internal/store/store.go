@@ -18,6 +18,7 @@ type Store struct {
 	mu sync.Mutex
 }
 type Result struct {
+	Shop         game.Shop          `json:"shop"`
 	State        game.State         `json:"state"`
 	Message      string             `json:"message"`
 	ServerTime   int64              `json:"serverTime"`
@@ -73,6 +74,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 				return r, err
 			}
 			r.State.Upgrade(now)
+			r.Shop = game.ShopRules()
 			r.ServerTime = now.UnixMilli()
 			r.ReturnRecap, r.RecapPending, r.RecapClaimed = nil, false, false
 			return r, nil
@@ -149,6 +151,11 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 				album.Entries = append([]game.Memory{}, imported.Album.Entries...)
 				state.Album = &album
 			}
+			if imported.Economy != nil {
+				economy := *imported.Economy
+				economy.Owned = append([]string{}, imported.Economy.Owned...)
+				state.Economy = &economy
+			}
 			state.Logs = append([]game.Log{}, imported.Logs...)
 			state.Game = nil
 			state.Upgrade(now)
@@ -186,7 +193,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 	}
-	result := Result{State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
+	result := Result{Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
 	if a != nil && a.RequestID != "" {
 		encoded, _ := json.Marshal(result)
 		if _, err = tx.Exec("INSERT INTO requests(id,body) VALUES(?,?)", a.RequestID, string(encoded)); err != nil {

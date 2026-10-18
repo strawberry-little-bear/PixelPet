@@ -1,3 +1,4 @@
+import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
 import type { NeedKind } from "./needs";
@@ -42,8 +43,8 @@ export const rabbitStages = {
   },
 } as const;
 
-export function RabbitRig({ stage, expression = "awake", motion = "idle", need, className = "" }: {
-  stage: GrowthStage; expression?: Expression; motion?: SceneMotion; need?: NeedKind; className?: string;
+export function RabbitRig({ stage, expression = "awake", motion = "idle", need, className = "", accessory }: {
+  stage: GrowthStage; expression?: Expression; motion?: SceneMotion; need?: NeedKind; className?: string; accessory?: string;
 }) {
   const variant = stage === "growing" || stage === "adult" ? stage : "baby";
   const art = rabbitStages[variant];
@@ -73,6 +74,7 @@ export function RabbitRig({ stage, expression = "awake", motion = "idle", need, 
           <path className="rabbit-mouth-chew" d={`M30 ${art.mouthY}h4v4h-4z`} fill="#684b4a" />
         </g>
       </g>
+      <AccessoryMark id={accessory} transform={`translate(32 ${variant === "baby" ? 55 : variant === "growing" ? 51 : 48})`} />
       <g transform={`translate(${art.armX} ${art.armY})`}><path className="rabbit-arm need-paw paw-left" d="M16 42h5v2h2v6h-3v2h-5v-3h-2v-5h3z" /></g>
       <g transform={`translate(${-art.armX} ${art.armY})`}><path className="rabbit-arm need-paw paw-right" d="M43 42h5v2h3v5h-2v3h-5v-2h-3v-6h2z" /></g>
     </g>

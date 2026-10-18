@@ -16,11 +16,11 @@ export function petRigClass(index: number, stage: GrowthStage): string {
   return kind === "original" ? "" : `has-${kind}-rig`;
 }
 
-export function PetArt({ index, stage, expression, motion, need, className }: {
-  index:number; stage:GrowthStage; expression?:Expression; motion?:SceneMotion; need?:NeedKind; className?:string;
+export function PetArt({ index, stage, expression, motion, need, className, accessory }: {
+  index:number; stage:GrowthStage; expression?:Expression; motion?:SceneMotion; need?:NeedKind; className?:string; accessory?:string;
 }) {
   const Rig = { rabbit: RabbitRig, cat: CatRig, original: null }[petRigKind(index, stage)];
   return Rig
-    ? <Rig stage={stage} expression={expression} motion={motion} need={need} className={className} />
-    : <Sprite index={index} expression={expression} className={className} />;
+    ? <Rig stage={stage} expression={expression} motion={motion} need={need} className={className} accessory={accessory} />
+    : <Sprite index={index} expression={expression} className={className} accessory={accessory} />;
 }

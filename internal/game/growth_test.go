@@ -124,6 +124,7 @@ func TestLegacyMigrationKeepsAgeAndDoesNotInventCare(t *testing.T) {
 		born := now.Add(-tc.age)
 		s := babyAt(born)
 		s.Schema = 1
+		s.Economy = nil
 		s.Growth = nil
 		s.Album = nil
 		s.CareCount = 17
@@ -165,7 +166,7 @@ func TestOnlyCompletedGamesEarnCreditWithCooldown(t *testing.T) {
 	now := time.Now().Add(-2 * time.Hour)
 	s := babyAt(now)
 	s.Apply(Action{Kind: "play"}, now)
-	s.Apply(Action{Kind: "cancel-play"}, now)
+	s.Apply(Action{Kind: "cancel-play", GameID: s.Game.ID}, now)
 	if s.Growth.Care.Play != 0 {
 		t.Fatal("cancelled game earned care credit")
 	}
@@ -177,7 +178,7 @@ func TestOnlyCompletedGamesEarnCreditWithCooldown(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			tick := at.Add(time.Duration(i) * 900 * time.Millisecond)
 			s.Advance(tick)
-			if _, err := s.Apply(Action{Kind: "catch", Lane: i % 3}, tick); err != nil {
+			if _, err := s.Apply(Action{Kind: "catch", GameID: s.Game.ID, Lane: i % 3}, tick); err != nil {
 				t.Fatal(err)
 			}
 		}

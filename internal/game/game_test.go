@@ -53,11 +53,11 @@ func TestActionRulesAndMiniGame(t *testing.T) {
 	s.Apply(Action{Kind: "play"}, now)
 	for i := 0; i < 5; i++ {
 		at := now.Add(time.Duration(i) * 900 * time.Millisecond)
-		if _, err := s.Apply(Action{Kind: "catch", Lane: i % 3}, at); err != nil {
+		if _, err := s.Apply(Action{Kind: "catch", GameID: s.Game.ID, Lane: i % 3}, at); err != nil {
 			t.Fatal(err)
 		}
 		if i == 0 {
-			if _, err := s.Apply(Action{Kind: "catch", Lane: 0}, at); err == nil {
+			if _, err := s.Apply(Action{Kind: "catch", GameID: s.Game.ID, Lane: 0}, at); err == nil {
 				t.Fatal("double catch accepted")
 			}
 		}

@@ -1,3 +1,4 @@
+import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowDownToLine,
@@ -41,7 +42,7 @@ import { careClip, clipDurations, sceneMotion } from "./motion";
 import type { MotionClip } from "./motion";
 import { personalities, species } from "./types";
 import type {
-  PetState, Result, CareFeedback as Feedback, ReturnRecap,
+  PetState, Result, CareFeedback as Feedback, ReturnRecap, Shop,
 } from "./types";
 
 type Page =
@@ -54,7 +55,8 @@ type Page =
   | "game"
   | "growth"
   | "return"
-  | "album";
+  | "album"
+  | "shop";
 const items = [
   {
     label: "吃点东西",
@@ -83,6 +85,7 @@ const items = [
     icon: Sprout, kind: "return",
   },
   { label: "永久纪念册", hint: "收藏一起走过的日子", icon: Heart, kind: "album" },
+  { label: "小窝商店", hint: "小问候、装扮与布置", icon: Sparkles, kind: "shop" },
 ];
 const needs = [
   { key: "hunger", label: "饱食", icon: Utensils, color: "orange" },
@@ -127,6 +130,9 @@ export default function App() {
   const [pressed, setPressed] = useState("");
   const [journalIndex, setJournalIndex] = useState(0);
   const [growthPage, setGrowthPage] = useState(0);
+  const [shop, setShop] = useState<Shop | null>(null);
+  const [shopPage, setShopPage] = useState(0);
+  const [purchaseConfirm, setPurchaseConfirm] = useState(false);
   const [albumPage, setAlbumPage] = useState(0);
   const [returnRecap, setReturnRecap] = useState<ReturnRecap | null>(null);
   const [returnPending, setReturnPending] = useState(false);
@@ -161,6 +167,7 @@ export default function App() {
     if (r.returnRecap) setReturnRecap(r.returnRecap);
     if (r.recapPending !== undefined) setReturnPending(r.recapPending);
     setPet(r.state);
+    if (r.shop) setShop(r.shop);
     setSavedAt(r.state.lastTick);
     setError("");
     if (r.message) setMessage(r.message);
@@ -320,6 +327,7 @@ export default function App() {
     try {
       const r = await request("action", {
         kind,
+        ...((kind === "catch" || kind === "cancel-play") && pet?.game?.id ? { gameId: pet.game.id } : {}),
         ...extra,
         requestId: crypto.randomUUID(),
       });
@@ -345,8 +353,10 @@ export default function App() {
       else if (kind === "feed" || kind === "clean" || kind === "sleep") {
         setPage("home");
       }
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "操作没有保存，请重试");
+      return false;
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -370,6 +380,30 @@ export default function App() {
       return;
     }
     setError("");
+    if (page === "shop") {
+      if (purchaseConfirm) {
+        if (key === "A" || key === "C") setPurchaseConfirm(false);
+        else if (key === "B" && shop?.catalog[shopPage - 1]) {
+          void act("buy", { item: shop.catalog[shopPage - 1].id }).then((ok) => { if (ok) setPurchaseConfirm(false); });
+        }
+      } else if (key === "A") setShopPage((v) => (v + 1) % (1 + (shop?.catalog.length ?? 0)));
+      else if (key === "C") setPage("home");
+      else if (key === "B") {
+        if (!pet.economy || !shop) setError("请更新小窝服务，再来逛小店。");
+        else if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
+        else if (shopPage === 0) {
+          if (dailyClaimed(pet, now)) setMessage("今天的问候已经收好啦，不必连续来。");
+          else void act("daily");
+        } else {
+          const item = shop.catalog[shopPage - 1];
+          if (!item) return;
+          if (pet.economy.owned.includes(item.id)) void act("equip", { item: item.id });
+          else if (pet.economy.coins < item.price) setMessage("金币还不够，慢慢来，不着急。");
+          else setPurchaseConfirm(true);
+        }
+      }
+      return;
+    }
     if (page === "return") {
       if (key === "A") setReturnPage((v) => (v + 1) % 2);
       else if (key === "B" && returnPage === 0) setReturnPage(1);
@@ -416,6 +450,10 @@ export default function App() {
       if (item.kind === "return") {
         if (returnRecap) { setReturnPage(0); setPage("return"); }
         else setMessage("还没有回访小结。离开至少 15 分钟后，回来会记录真实变化。");
+      } else if (item.kind === "shop") {
+        setShopPage(0);
+        setPurchaseConfirm(false);
+        setPage("shop");
       } else if (item.kind === "album") {
         setPage("album");
         setAlbumPage(0);
@@ -536,7 +574,9 @@ export default function App() {
       ? "A 换一位　 B 就是它"
       : page === "hatch"
         ? "B 轻轻唤醒　 C 再选选"
-        : page === "return"
+        : page === "shop"
+        ? purchaseConfirm ? "A / C 取消　 B 确认购买" : "A 逛逛　 B 领取 / 使用　 C 返回"
+      : page === "return"
           ? "A 换页　 B 继续　 C 返回"
           : page === "home"
           ? clip
@@ -713,6 +753,8 @@ export default function App() {
                         ? "HELLO, FRIEND"
                         : page === "menu"
                           ? "CARE MENU"
+                          : page === "shop"
+                            ? "LITTLE SHOP"
                           : page === "album"
                             ? "OUR MEMORIES"
                           : page === "return"
@@ -744,6 +786,7 @@ export default function App() {
                       </div>
                     ) : (
                       <>
+                        {page === "shop" && <ShopPanel pet={pet} shop={shop} page={shopPage} confirm={purchaseConfirm} now={now} />}
                         {page === "album" && <AlbumPanel pet={pet} now={now} page={albumPage} />}
                         {page === "return" && returnRecap && (
                           <ReturnPanel recap={returnRecap} page={returnPage} />
@@ -807,6 +850,7 @@ export default function App() {
                               duration={clip ? clipDurations[clip.kind] : 0}
                               stage={growth.stage}
                               form={growth.form}
+                              equipped={pet.economy?.equipped}
                               dirty={pet.needs.clean < 35}
                             />
                             <CareFeedback
@@ -842,7 +886,7 @@ export default function App() {
                                         : item.label}
                                     </span>
                                     <span className="menu-number">
-                                      0{i + 1}
+                                      {String(i + 1).padStart(2, "0")}
                                     </span>
                                   </div>
                                 );
@@ -859,7 +903,7 @@ export default function App() {
                         {page === "status" && (
                           <div className="screen-status">
                             <div className="status-name">
-                              <PetArt index={index} stage={growth.stage} />
+                              <PetArt index={index} stage={growth.stage} accessory={pet.economy?.equipped.accessory} />
                               <div>
                                 <strong>{pet.name}</strong>
                                 <small>
@@ -914,7 +958,7 @@ export default function App() {
                                     ★
                                   </span>
                                   {lane === i ? (
-                                    <PetArt index={index} stage={growth.stage} />
+                                    <PetArt index={index} stage={growth.stage} accessory={pet.economy?.equipped.accessory} />
                                   ) : (
                                     <span className="lane-dot">·</span>
                                   )}
