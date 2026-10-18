@@ -207,7 +207,7 @@ func TestSnakeValidationAndSchemaFivePreservation(t *testing.T) {
 	s.Game = nil
 	s.Schema = 5
 	raw, _ := json.Marshal(s)
-	if !s.Upgrade(now) || s.Schema != 6 {
+	if !s.Upgrade(now) || s.Schema != Schema {
 		t.Fatal("upgrade")
 	}
 	s.Schema = 5

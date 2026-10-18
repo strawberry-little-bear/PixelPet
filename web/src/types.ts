@@ -40,7 +40,8 @@ export type PetState = {
   economy?: Economy;
   logs: { at: number; text: string }[];
   game?: {
-    kind?: "tiles" | "snake";
+    kind?: "tiles" | "snake" | "tetris";
+    tetris?: Tetris;
     snake?: Snake;
     tiles?: TileMatch;
     id?: string;
@@ -51,7 +52,7 @@ export type PetState = {
   };
 };
 export type CareFeedback = {
-  kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "sleep";
+  kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "tetris-finish" | "sleep";
   points: number;
   habit?: "nutrition" | "clean" | "play";
   habitGain: number;
@@ -124,7 +125,8 @@ export type Memory = {
     | "outfit"
     | "decoration"
     | "tiles"
-    | "snake";
+    | "snake"
+    | "tetris";
   at: number;
   source: "shared" | "saved" | "elapsed";
   form?: AdultForm;
@@ -166,4 +168,9 @@ export type TileMatch = {
 
 export type Snake = {
  body: TilePoint[]; food: TilePoint; direction: number; eaten: number; step: number; lastMoveAt: number; paused: boolean; end?: "wall" | "body" | "won" | "limit";
+};
+
+export type Falling = {kind:number;rotation:number;x:number;y:number};
+export type Tetris = {
+ board:number[];active?:Falling;next:number;bag:number[];lines:number;pieces:number;step:number;lastFallAt:number;paused:boolean;end?:"won"|"stacked"|"limit";
 };

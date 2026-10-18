@@ -93,9 +93,9 @@ describe("three-key realtime snake", () => {
     expect(document.querySelector(".snake-overlay")?.textContent).toContain("装满");
     expect(memoryWords({ kind: "snake", source: "shared", at: Date.now() }, false)?.title).toContain("果园");
   });
-  it("shows three non-clickable games and their shared reward limit", () => {
+  it("shows four non-clickable games and their shared reward limit", () => {
     render(<ArcadePanel choice={2} limit={30} />);
-    expect(document.querySelectorAll(".arcade-card")).toHaveLength(3);
+    expect(document.querySelectorAll(".arcade-card")).toHaveLength(4);
     expect(document.querySelector('[data-game="snake"]')?.getAttribute("aria-current")).toBe("true");
     expect(document.querySelectorAll("button")).toHaveLength(0);
   });

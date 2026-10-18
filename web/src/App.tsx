@@ -1,3 +1,4 @@
+import { TetrisGame } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
 import { ArcadePanel, TileGame, nextTile } from "./TileGame";
 import type { TileLink } from "./TileGame";
@@ -74,7 +75,7 @@ const items = [
   },
   {
     label: "一起玩耍",
-    hint: "接星星 / 连连看",
+    hint: "星星、配对、果园与积木",
     icon: Sparkles,
     kind: "arcade",
   },
@@ -156,6 +157,8 @@ export default function App() {
   const [journalIndex, setJournalIndex] = useState(0);
   const [growthPage, setGrowthPage] = useState(0);
   const [arcadeChoice, setArcadeChoice] = useState(0);
+  const [tetrisSession, setTetrisSession] = useState("");
+  const [tetrisChoice, setTetrisChoice] = useState(0);
   const [snakeSession, setSnakeSession] = useState("");
   const snakeTurn = useRef(0);
   const [queuedTurn, setQueuedTurn] = useState(0);
@@ -414,14 +417,16 @@ export default function App() {
           kind === "cancel-play" ||
           kind === "tile-pick" ||
           kind === "tile-clear" ||
-          kind.startsWith("snake-")) &&
-        pet?.game?.id
+          kind.startsWith("snake-") || kind.startsWith("tetris-")) &&
+          pet?.game?.id
           ? { gameId: pet.game.id }
           : {}),
         ...extra,
         requestId: crypto.randomUUID(),
       });
       apply(r);
+      if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind)) setTetrisSession(r.state.game?.id ?? "");
+      if (["tetris-pause", "tetris-finish", "cancel-play"].includes(kind)) { setTetrisSession(""); setTetrisChoice(0); }
       if (kind === "snake-resume") setSnakeSession(r.state.game?.id ?? "");
       if (
         kind === "snake-pause" ||
@@ -432,7 +437,7 @@ export default function App() {
         setTileLink({
           path:
             r.state.game?.tiles &&
-            r.state.game.tiles.shuffles !== pet.game.tiles.shuffles
+              r.state.game.tiles.shuffles !== pet.game.tiles.shuffles
               ? []
               : r.tileLink,
           tile: pet.game.tiles.board[pet.game.tiles.pick],
@@ -449,7 +454,7 @@ export default function App() {
       if (kind === "hatch") {
         setPage("home");
       } else if (
-        kind === "play" || kind === "play-tiles" || kind === "play-snake"
+        kind === "play" || kind === "play-tiles" || kind === "play-snake" || kind === "play-tetris"
       ) {
         setPage("game");
         setLane(1);
@@ -457,13 +462,13 @@ export default function App() {
         setTileLink(null);
       } else if (
         (kind === "catch" || kind === "tile-pick" ||
-          (kind === "snake-finish" && r.careFeedback)) && !r.state.game
+          (["snake-finish", "tetris-finish"].includes(kind) && r.careFeedback)) && !r.state.game
       ) {
         setPage("home");
         const next = { kind: "play" as const, id: ++clipSequence.current };
         clipRef.current = next;
         setClip(next);
-      } else if (kind === "cancel-play" || kind === "snake-finish") {
+      } else if (kind === "cancel-play" || kind === "snake-finish" || kind === "tetris-finish") {
         setTileLink(null);
         setPage("home");
       } else if (kind === "feed" || kind === "clean" || kind === "sleep") {
@@ -478,6 +483,20 @@ export default function App() {
       setBusy(false);
     }
   }
+  useEffect(() => {
+    if (tools || help || reset) setTetrisSession("");
+  }, [tools, help, reset]);
+  useEffect(() => {
+    const n = pet?.game?.tetris;
+    if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || document.hidden || tools || help || reset) return;
+    const timer = setTimeout(() => {
+      if (document.hidden) { setTetrisSession(""); return; }
+      void act("tetris-step", { step: n.step }).then(ok => {
+        if (!ok) { setTetrisSession(""); void refresh(); }
+      });
+    }, Math.max(40, 1050 - (Date.now() + offset.current - n.lastFallAt)));
+    return () => clearTimeout(timer);
+  }, [pet?.game, tetrisSession, page, busy, tools, help, reset]);
   useEffect(() => {
     const n = pet?.game?.snake;
     if (
@@ -508,6 +527,7 @@ export default function App() {
     const stop = () => {
       if (document.hidden) {
         setSnakeSession("");
+        setTetrisSession("");
         snakeTurn.current = 0;
         setQueuedTurn(0);
       }
@@ -535,9 +555,29 @@ export default function App() {
     }
     setError("");
     if (page === "arcade") {
-      if (key === "A") setArcadeChoice((v) => (v + 1) % 3);
+      if (key === "A") setArcadeChoice((v) => (v + 1) % 4);
       else if (key === "C") setPage("home");
-      else void act(["play", "play-tiles", "play-snake"][arcadeChoice]);
+      else void act(["play", "play-tiles", "play-snake", "play-tetris"][arcadeChoice]);
+      return;
+    }
+    if (page === "game" && pet.game?.kind === "tetris" && pet.game.tetris) {
+      const n = pet.game.tetris;
+      if (n.end) {
+        if (key !== "A") void act("tetris-finish", { step: n.step });
+      } else if (n.paused || tetrisSession !== pet.game.id) {
+        if (key === "A") setTetrisChoice(v => (v + 1) % 4);
+        else {
+          const kind = key === "C" ? "tetris-resume" : ["tetris-resume", "tetris-rotate", "tetris-drop", "cancel-play"][tetrisChoice];
+          // After a reload the local pause may not yet be persisted. Save it
+          // before a menu operation; the server never runs offline gravity.
+          if (!n.paused && (kind === "tetris-rotate" || kind === "tetris-drop")) {
+            void act("tetris-pause", { step: n.step }).then(ok => { if (ok) void act(kind, { step: n.step + 1 }); });
+          } else void act(kind, { step: n.step });
+        }
+      } else if (key === "C") {
+        setTetrisSession(""); setTetrisChoice(0);
+        void act("tetris-pause", { step: n.step });
+      } else void act("tetris-move", { step: n.step, turn: key === "A" ? -1 : 1 });
       return;
     }
     if (page === "game" && pet.game?.kind === "snake" && pet.game.snake) {
@@ -773,6 +813,8 @@ export default function App() {
     ? Math.floor(Math.max(0, now - pet.game.startedAt) / 900) % 3
     : 0;
   const motion = sceneMotion(pet?.sleeping ?? false, clip);
+  const blocks = pet?.game?.tetris;
+  const tetrisHint = blocks?.end ? "B / C 收好成绩" : blocks?.paused || tetrisSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 左移  B 右移  C 操作 / 暂停";
   const snake = pet?.game?.snake;
   const snakeHint = snake?.end
     ? "B / C 收好成绩"
@@ -800,11 +842,13 @@ export default function App() {
                 : page === "menu"
                   ? "A 选择　 B 确认　 C 返回"
                   : page === "game"
-                    ? pet.game?.kind === "snake"
-                      ? snakeHint
-                      : pet.game?.kind === "tiles"
-                      ? "A 移动  B 选牌  C 取消 / 退出"
-                      : "A 移动　 B 接住　 C 退出"
+                    ? pet.game?.kind === "tetris"
+                      ? tetrisHint
+                      : pet.game?.kind === "snake"
+                        ? snakeHint
+                        : pet.game?.kind === "tiles"
+                          ? "A 移动  B 选牌  C 取消 / 退出"
+                          : "A 移动　 B 接住　 C 退出"
                     : page === "growth" || page === "album"
                       ? "A / B 换页　 C 返回"
                       : page === "journal"
@@ -987,11 +1031,13 @@ export default function App() {
                                       : page === "journal"
                                         ? "LITTLE DIARY"
                                         : page === "game"
-                                          ? pet?.game?.kind === "snake"
-                                            ? "ORCHARD SNAKE"
-                                            : pet?.game?.kind === "tiles"
-                                            ? "LINK & COLLECT"
-                                            : "CATCH A STAR"
+                                          ? pet?.game?.kind === "tetris"
+                                            ? "BLOCK GARDEN"
+                                            : pet?.game?.kind === "snake"
+                                              ? "ORCHARD SNAKE"
+                                              : pet?.game?.kind === "tiles"
+                                                ? "LINK & COLLECT"
+                                                : "CATCH A STAR"
                                           : "PIXELPET / 01"}
                     </span>
                     <span className="lcd-battery">
@@ -1184,6 +1230,9 @@ export default function App() {
                               {journalIndex + 1} / {pet.logs.length}
                             </span>
                           </div>
+                        )}
+                        {page === "game" && pet.game?.kind === "tetris" && (
+                          <TetrisGame key={pet.game.id} pet={pet} active={tetrisSession === pet.game.id && !tools && !help && !reset} choice={tetrisChoice} />
                         )}
                         {page === "game" && pet.game?.kind === "snake" && (
                           <SnakeGame

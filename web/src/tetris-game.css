@@ -1,0 +1,30 @@
+.tetris-game { color: #405132; font-size: 9px; }
+.tetris-game header { display: flex; justify-content: space-between; align-items: center; height: 20px; }
+.tetris-game header strong { font-size: 11px; }
+.tetris-playfield { position: relative; display: flex; justify-content: center; gap: 12px; height: 126px; }
+.tetris-field { width: 82px; height: 122px; border: 1px solid #556b45; flex-shrink: 0; }
+.tetris-field > svg { display: block; width: 80px; height: 120px; }
+.tetris-side { display: flex; flex-direction: column; gap: 8px; width: 76px; }
+.tetris-side > svg { width: 40px; height: 24px; flex-shrink: 0; }
+.tetris-side small { font-size: 8px; line-height: 1.5; }
+.tetris-overlay { position: absolute; inset: 0; background: #e3e7c5f2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
+.tetris-overlay strong { font-size: 11px; }
+.tetris-overlay ol { list-style: none; padding: 0; margin: 0; width: 120px; text-align: left; line-height: 17px; }
+.tetris-overlay li { padding: 0 8px; }
+.tetris-overlay li.selected { background: #63784c; color: #eef0d1; }
+.tetris-overlay small { font-size: 8px; }
+.tetris-companion { display: flex; align-items: center; height: 36px; gap: 5px; }
+.tetris-pet { position: relative; width: 34px; height: 36px; overflow: hidden; flex-shrink: 0; }
+.tetris-pet > svg { position: absolute; width: 34px; height: 36px; }
+.tetris-companion p { font-size: 9px; margin: 0; }
+.tetris-companion .room-decoration { width: 20px; height: 24px; flex-shrink: 0; }
+.tetris-companion.collecting p { font-weight: bold; }
+/* Four choices remain inside the original LCD, with no new gameplay controls. */
+.arcade-panel .arcade-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.arcade-panel header { padding-bottom: 6px; }
+.arcade-panel .arcade-card { position: relative; padding: 4px 2px 4px 22px; min-height: 47px; text-align: left; }
+.arcade-panel .arcade-card.selected { padding: 3px 1px 3px 21px; }
+.arcade-panel .arcade-card > span { position: absolute; top: 8px; left: 3px; font-size: 18px; line-height: 24px; }
+.arcade-panel .arcade-card strong { font-size: 10px; line-height: 17px; }
+.arcade-panel .arcade-card small { display: block; font-size: 8px; line-height: 13px; }
+.arcade-panel p { margin-top: 7px; }

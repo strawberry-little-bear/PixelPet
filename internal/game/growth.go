@@ -73,6 +73,9 @@ func (s *State) Upgrade(now time.Time) bool {
 	if s.Schema == 5 {
 		s.Schema = 6
 	}
+	if s.Schema == 6 {
+		s.Schema = 7
+	}
 	return true
 }
 

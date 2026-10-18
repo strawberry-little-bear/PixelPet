@@ -131,7 +131,7 @@ func TestSchemaFiveSnakeUpgradePreservesOldSessionAndSnapshots(t *testing.T) {
 	raw, _ := json.Marshal(legacy)
 	s.db.Exec("UPDATE saves SET body=? WHERE id=1", string(raw))
 	r, err := s.Do(nil, nil, false, now)
-	if err != nil || r.State.Schema != 6 || r.State.Economy.Coins != 19 || !reflect.DeepEqual(r.State.Game, legacy.Game) || !reflect.DeepEqual(r.State.Album, legacy.Album) || !reflect.DeepEqual(r.State.Growth, legacy.Growth) {
+	if err != nil || r.State.Schema != game.Schema || r.State.Economy.Coins != 19 || !reflect.DeepEqual(r.State.Game, legacy.Game) || !reflect.DeepEqual(r.State.Album, legacy.Album) || !reflect.DeepEqual(r.State.Growth, legacy.Growth) {
 		t.Fatal("migration changed pet", err, r)
 	}
 	var snapshot string

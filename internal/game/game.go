@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 6
+const Schema = 7
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -40,6 +40,7 @@ func validGameID(id string) bool {
 }
 
 type MiniGame struct {
+	Tetris    *Tetris    `json:"tetris,omitempty"`
 	Snake     *Snake     `json:"snake,omitempty"`
 	Kind      string     `json:"kind,omitempty"`
 	Tiles     *TileMatch `json:"tiles,omitempty"`
@@ -129,14 +130,14 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	if s.HatchedAt == 0 {
 		return "", errors.New("先迎接你的第一只小伙伴吧")
 	}
-	if (strings.HasPrefix(a.Kind, "snake-") || a.Kind == "catch" || a.Kind == "cancel-play" || a.Kind == "tile-pick" || a.Kind == "tile-clear") && s.Game != nil && a.GameID != s.Game.ID {
+	if ((strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-")) || a.Kind == "catch" || a.Kind == "cancel-play" || a.Kind == "tile-pick" || a.Kind == "tile-clear") && s.Game != nil && a.GameID != s.Game.ID {
 		return "", errors.New("这不是当前的一局，请刷新后再试")
 	}
 	if a.Kind == "cancel-play" {
 		s.Game = nil
 		return "下次再一起玩吧", nil
 	}
-	if s.Game != nil && !strings.HasPrefix(a.Kind, "snake-") && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
+	if s.Game != nil && !(strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-")) && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
 		return "", errors.New("请先完成小游戏，或按 C 返回")
 	}
 	if s.Sleeping && a.Kind != "sleep" && a.Kind != "rename" {
@@ -181,6 +182,18 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		} else {
 			msg = "早安！今天也一起慢慢长大吧。"
 		}
+	case "play-tetris":
+		if s.Needs.Energy < 10 {
+			return "", errors.New("有点累了，先睡一觉吧")
+		}
+		blocks, err := newTetris(now)
+		if err != nil {
+			return "", err
+		}
+		s.Game = &MiniGame{ID: newGameID(), Kind: "tetris", Tetris: blocks, StartedAt: now.UnixMilli(), LastBeat: -1}
+		return "A 选择 · B 确认 · C 继续；消除 2 行后完成才计入陪伴。", nil
+	case "tetris-step", "tetris-move", "tetris-pause", "tetris-resume", "tetris-rotate", "tetris-drop", "tetris-finish":
+		return s.applyTetris(a, now)
 	case "snake-step", "snake-pause", "snake-resume", "snake-finish":
 		return s.applySnake(a, now)
 	case "play-snake":
@@ -286,7 +299,7 @@ func (s State) Validate(now time.Time) error {
 	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
 		return bad
 	}
-	if !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() {
+	if !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() {
 		return bad
 	}
 	return nil

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -111,6 +112,9 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	// of an error that would roll back the transaction.
 	if a == nil || a.Kind != "snake-step" {
 		changed = state.ExpireSnake(now) || changed
+	}
+	if a == nil || !strings.HasPrefix(a.Kind, "tetris-") {
+		changed = state.ExpireTetris(now) || changed
 	}
 	if migrated {
 		if _, err = tx.Exec("INSERT INTO snapshots(body,created_at) VALUES(?,?)", body, now.UnixMilli()); err != nil {
