@@ -1,0 +1,8 @@
+.import-preview { padding:8px 12px; color:#3e5142; line-height:1.6; overflow-wrap:anywhere; }
+.import-preview h3 { margin:0 0 6px; }
+.import-preview p { margin:6px 0; }
+.import-preview dl { margin:8px 0; text-align:left; }
+.import-preview dl > div { border-top:1px solid #7e987b55; padding:4px 0; }
+.import-preview dt { opacity:.85; }
+.import-preview dd { margin:0; }
+.import-preview small, .import-preview strong { display:block; margin-top:8px; }

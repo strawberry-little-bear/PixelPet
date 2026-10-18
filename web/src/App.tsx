@@ -41,6 +41,8 @@ import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
 import { CareAdvice } from "./CareAdvice";
+import { previewBackup, backupSizeLimit } from "./backup";
+import { ImportPreview, type PendingImport } from "./ImportPreview";
 import { AlbumDirectory, AlbumPanel, albumCategories, albumPageCount, type AlbumCategory } from "./AlbumPanel";
 import { ReturnPanel } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
@@ -80,7 +82,8 @@ type Page =
   | "album"
   | "shop"
   | "fish-album"
-  | "park-album";
+  | "park-album"
+  | "import-preview";
 const items = [
   {
     label: "吃点东西",
@@ -223,6 +226,16 @@ export default function App() {
     form: AdultForm | "";
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
+  const pendingImportRef = useRef<PendingImport | null>(null);
+  const importSequence = useRef(0);
+  const importReturn = useRef<{ page: Page; gameId: string | null }>({ page: "home", gameId: null });
+  const discardImport = useCallback(() => {
+    importSequence.current++;
+    pendingImportRef.current = null;
+    setPendingImport(null);
+  }, []);
+  useEffect(() => () => { importSequence.current++; }, []);
   const audio = useRef<AudioContext | null>(null);
   const initialized = useRef(false);
   const latestRevision = useRef(-1);
@@ -274,11 +287,12 @@ export default function App() {
     setTileLink(null);
   }, []);
   const markUncertain = useCallback(() => {
+    discardImport();
     uncertainRef.current = true;
     setUncertain(true);
     stopActivity();
     setError("这次操作的结果还未确认，可能已经保存。按 B 核对存档，不会自动重试。");
-  }, [stopActivity]);
+  }, [stopActivity, discardImport]);
   const refresh = useCallback(async () => {
     if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
     const epoch = syncEpoch.current;
@@ -295,6 +309,7 @@ export default function App() {
         return;
       }
       if (recovering) {
+        discardImport();
         uncertainRef.current = false;
         setUncertain(false);
         setChosen(r.state.species);
@@ -313,6 +328,8 @@ export default function App() {
     } catch {
       if (epoch !== syncEpoch.current) return;
       if (!recovering) {
+        discardImport();
+        setPage(value => value === "import-preview" ? importReturn.current.page : value);
         unavailableRef.current = true;
         setUnavailable(true);
         stopActivity();
@@ -326,7 +343,7 @@ export default function App() {
         setChecking(false);
       }
     }
-  }, [apply, stopActivity]);
+  }, [apply, stopActivity, discardImport]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
@@ -727,6 +744,11 @@ export default function App() {
       return;
     }
     setError("");
+    if (page === "import-preview") {
+      if (key === "A" || key === "C") cancelImport();
+      else if (key === "B" && pendingImportRef.current?.backup) void confirmImport();
+      return;
+    }
     if (page === "album") {
       if (albumCategory === null) {
         if (key === "A") setAlbumChoice(v => (v + 1) % albumCategories.length);
@@ -986,19 +1008,49 @@ export default function App() {
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
   }, []);
+  function cancelImport() {
+    discardImport();
+    const previous = importReturn.current;
+    setPage(previous.page === "game" && previous.gameId !== sessionKey ? (pet?.hatchedAt ? "home" : "choose") : previous.page);
+    setMessage("已取消导入，没有替换当前存档。");
+  }
   async function importFile(file?: File) {
-    if (busyRef.current || uncertainRef.current || unavailableRef.current) return;
+    // Clearing the input immediately also permits selecting the same file again.
+    if (fileRef.current) fileRef.current.value = "";
+    if (!file || busyRef.current || uncertainRef.current || unavailableRef.current) return;
+    if (page !== "import-preview") importReturn.current = { page, gameId: sessionKey };
+    const sequence = ++importSequence.current;
+    const pending: PendingImport = { fileName: file.name };
+    pendingImportRef.current = pending;
+    setPendingImport(pending);
     setTools(false);
-    if (!file) return;
-    if (file.size > 64 * 1024) {
-      setError("备份文件过大，请选择 PixelPet 导出的 JSON 文件。");
-      return;
+    stopActivity();
+    setError("");
+    setPage("import-preview");
+    document.querySelector<HTMLButtonElement>(".physical-button.button-c")?.focus();
+    try {
+      if (file.size > backupSizeLimit) throw new Error("备份文件过大，请选择 PixelPet 导出的 JSON 文件（不超过 64 KiB）。");
+      const backup = previewBackup(await file.text());
+      if (sequence !== importSequence.current) return;
+      const ready = { fileName: file.name, backup };
+      pendingImportRef.current = ready;
+      setPendingImport(ready);
+    } catch (error) {
+      if (sequence !== importSequence.current) return;
+      const rejected = { fileName: file.name, error: error instanceof Error ? error.message : "无法读取这份备份文件，请重新选择。" };
+      pendingImportRef.current = rejected;
+      setPendingImport(rejected);
     }
+  }
+  async function confirmImport() {
+    const pending = pendingImportRef.current;
+    if (!pending?.backup || busyRef.current || uncertainRef.current || unavailableRef.current) return;
     syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
     try {
-      const r = await request("import", JSON.parse(await file.text()));
+      const r = await request("import", pending.backup.data);
+      discardImport();
       latestRevision.current = -1;
       knownStage.current = null;
       setEvolution(null);
@@ -1011,18 +1063,11 @@ export default function App() {
       setPage(r.state.hatchedAt ? "home" : "choose");
       setChosen(r.state.species);
     } catch (e) {
-      if (!(e instanceof SyntaxError) && needsReconciliation(e)) markUncertain();
-      else setError(
-        e instanceof SyntaxError
-          ? "文件不是有效的 JSON 备份。"
-          : e instanceof Error
-            ? e.message
-            : "导入失败，现有存档未改变。",
-      );
+      if (needsReconciliation(e)) markUncertain();
+      else setError(e instanceof Error ? e.message : "导入被拒绝，现有存档未替换。");
     } finally {
       busyRef.current = false;
       setBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   }
   async function restart() {
@@ -1032,6 +1077,7 @@ export default function App() {
     setBusy(true);
     try {
       const r = await request("reset", { confirm: true });
+      discardImport();
       latestRevision.current = -1;
       knownStage.current = null;
       setEvolution(null);
@@ -1085,7 +1131,9 @@ export default function App() {
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A / B 翻页  C 返回" : "";
   const lcdHint = !pet
     ? "B 重新连接"
-    : gameNavHint
+    : page === "import-preview"
+      ? busy ? "正在导入…" : pendingImport?.backup ? "A / C 取消  B 确认替换" : "A / C 取消"
+      : gameNavHint
       ? gameNavHint
       : page === "choose"
         ? "A 换一位　 B 就是它"
@@ -1287,7 +1335,7 @@ export default function App() {
                 >
                   <div className="lcd-top">
                     <span>
-                      {page === "choose"
+                      {page === "import-preview" ? "BACKUP PREVIEW" : page === "choose"
                         ? "HELLO, FRIEND"
                         : (page === "arcade" || page === "game-guide")
                           ? "PLAY TOGETHER"
@@ -1332,6 +1380,8 @@ export default function App() {
                         <p>{checking ? "只读取当前存档，不重做操作。" : "按 B 重连并查看当前存档。"}</p>
                         <small>游戏不会自动继续 · 不重播成功动作</small>
                       </div>
+                    ) : pet && page === "import-preview" && pendingImport ? (
+                      <ImportPreview pending={pendingImport} pet={pet} busy={busy} />
                     ) : !pet ? (
                       <div className="screen-wait">
                         <PixelEgg />

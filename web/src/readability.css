@@ -103,3 +103,5 @@
 }
 .reading-mode .lcd-content :is(.growth-feedback, .growth-score, .growth-next, .growth-panel-note, .care-total, .companion-panel, .form-guide, .album-panel, .shop-panel, .return-panel, .arcade-panel, .arcade-details, .game-guide, .game-abandon, .screen-journal, .fishing-game, .walking-game, .snake-game, .tetris-game, .fish-album, .park-album) { font-size: inherit; line-height: 1.6; }
 .reading-mode .lcd-content :is(.shop-decision, .shop-breadcrumb, .shop-section-note, .companion-rules, .companion-since) { font-size: .857143rem; line-height: 1.6; }
+
+.reading-mode .import-preview { font-size: .857143rem; line-height: 1.6; }

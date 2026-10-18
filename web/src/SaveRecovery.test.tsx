@@ -77,12 +77,15 @@ describe("uncertain write recovery through A/B/C", () => {
       if (path === "import") { saved.species = 7; saved.revision++; saved.sleeping = true; throw failure(); }
       return result();
     });
-    const file = new File(["{}"], "test-backup.json", { type: "application/json" });
-    Object.defineProperty(file, "text", { value: async () => "{}" });
+    const body = JSON.stringify(saved);
+    const file = new File([body], "test-backup.json", { type: "application/json" });
+    Object.defineProperty(file, "text", { value: async () => body });
     await act(async () => { fireEvent.change(screen.getByLabelText("导入存档文件"), { target: { files: [file] } }); });
-    expect(recovery()).toBeTruthy();
+    expect(document.querySelector(".import-preview")).toBeTruthy();expect(writes()).toHaveLength(0);
+    await key("b");expect(recovery()).toBeTruthy();
     await key("b"); expect(recovery()).toBeNull(); expect(writes()).toHaveLength(1);
     expect(scene()).toBe("sleeping"); expect(saved.species).toBe(7);
+    expect(document.querySelector(".import-preview")).toBeNull();
   });
 
   it("a stale successful action reply cannot trigger a care animation", async () => {
