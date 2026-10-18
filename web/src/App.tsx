@@ -45,7 +45,7 @@ import { CareAdvice } from "./CareAdvice";
 import { previewBackup, backupSizeLimit } from "./backup";
 import { ImportPreview, type PendingImport } from "./ImportPreview";
 import { AlbumDirectory, AlbumPanel, albumCategories, albumPageCount, type AlbumCategory } from "./AlbumPanel";
-import { ReturnPanel } from "./ReturnPanel";
+import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import {
   petGrowth,
@@ -983,8 +983,8 @@ export default function App() {
       return;
     }
     if (page === "return") {
-      if (key === "A") setReturnPage((v) => (v + 1) % 3);
-      else if (key === "B" && returnPage === 0) setReturnPage(1);
+      if (key === "A") setReturnPage((v) => (v + 1) % returnPageCount);
+      else if (key === "B" && returnPage < returnPageCount - 1) setReturnPage((v) => v + 1);
       else setPage("home");
       return;
     }
@@ -1229,7 +1229,7 @@ export default function App() {
               ? "A / C 取消　 B 确认购买"
               : shopCategory ? "A 下一件　 B 购买 / 使用　 C 分类" : "A 换分类　 B 查看 / 领取　 C 返回"
             : page === "return"
-              ? "A 换页　 B 继续　 C 返回"
+              ? `A 换页　 B ${returnPage < returnPageCount - 1 ? "继续" : "回小窝"}　 C 返回`
               : page === "home"
                 ? clip
                   ? `${clip.kind === "feed" ? "吃得香香" : clip.kind === "clean" ? "泡泡时间" : clip.kind === "wake" ? "伸个懒腰" : clip.kind === "evolve" ? "长大啦" : "好开心呀"} · C 跳过`

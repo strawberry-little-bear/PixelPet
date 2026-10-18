@@ -200,6 +200,8 @@ A 左转、B 右转、C 暂停，自动前进；暂停时 A/C 继续、B 打开�
 
 按完整功能阶段提交：项目说明 → 本地养成与存档 → 三按键界面与角色 → 验证与修复。保持源码、依赖锁文件和测试入库，排除数据库、构建输出、工具与私密配置。
 
+回访小结两页的三键操作与验证见 [docs/RETURN_NAVIGATION.md](docs/RETURN_NAVIGATION.md)。
+
 进度见 [docs/PROGRESS.md](docs/PROGRESS.md)。手机阅读改进、试玩反馈与下一款游戏评估见 [docs/PLAYTEST.md](docs/PLAYTEST.md)。
 
 按用户授权，每批功能测试通过后及时提交并推送 GitHub，不重写历史。

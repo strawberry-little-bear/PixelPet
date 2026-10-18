@@ -2,6 +2,8 @@ import type { ReturnRecap } from "./types";
 import { formNames, stageNames } from "./growth";
 import "./return.css";
 
+export const returnPageCount = 2;
+
 const signed = (n: number, digits = 1) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(digits)}`;
 export function absenceLabel(ms: number) {
   const minutes = Math.max(1, Math.floor(ms / 60000));
@@ -11,7 +13,7 @@ export function ReturnPanel({ recap, page }: { recap: ReturnRecap; page: number 
   const { before, after } = recap;
   const changed = before.stage !== after.stage;
   return <section className="return-panel" aria-label="回访小结">
-    <header><strong>你回来啦</strong><span>{page + 1} / 2</span></header>
+    <header><strong>你回来啦</strong><span>{page + 1} / {returnPageCount}</span></header>
     {page === 0 ? <>
       <p>离开了 {absenceLabel(recap.to - recap.from)}</p>
       <div className="return-needs">
