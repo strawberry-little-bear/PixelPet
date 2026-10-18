@@ -61,16 +61,16 @@ export function ArcadePanel({
     <section className="arcade-panel" aria-label="一起玩耍">
       <header>和小伙伴一起玩</header>
       <div className="arcade-cards">
-        {["接星星", "连连看"].map((title, i) => (
+        {["接星星", "连连看", "贪吃蛇"].map((title, i) => (
           <div
             key={title}
             className={`arcade-card ${choice === i ? "selected" : ""}`}
-            data-game={i === 0 ? "stars" : "tiles"}
+            data-game={["stars", "tiles", "snake"][i]}
             aria-current={choice === i}
           >
-            <span>{i === 0 ? "★" : "▦"}</span>
+            <span>{["★", "▦", "❧"][i]}</span>
             <strong>{title}</strong>
-            <small>{i === 0 ? "移动接住 · 五轮" : "相同图案 · 两次转弯"}</small>
+            <small>{["移动接住 · 五轮", "相同图案 · 两次转弯", "左右转弯 · 八颗果子"][i]}</small>
           </div>
         ))}
       </div>

@@ -17,6 +17,7 @@ type CareFeedback struct {
 // immediately before and after Apply avoids crediting elapsed-time growth to
 // a button press, including when the final bonus is capped at adulthood.
 func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedback, error) {
+	beforeCare := s.CareCount
 	beforeNeeds := s.Needs
 	var before Growth
 	if s.Growth != nil {
@@ -43,7 +44,10 @@ func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedbac
 		if beforeNeeds.Clean > 65 {
 			f.Reason = "not-needed"
 		}
-	case "catch", "tile-pick":
+	case "catch", "tile-pick", "snake-finish":
+		if a.Kind == "snake-finish" && s.CareCount == beforeCare {
+			return message, nil, nil
+		}
 		if s.Game != nil {
 			return message, nil, nil
 		}

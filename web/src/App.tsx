@@ -1,3 +1,4 @@
+import { SnakeGame } from "./SnakeGame";
 import { ArcadePanel, TileGame, nextTile } from "./TileGame";
 import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
@@ -155,6 +156,9 @@ export default function App() {
   const [journalIndex, setJournalIndex] = useState(0);
   const [growthPage, setGrowthPage] = useState(0);
   const [arcadeChoice, setArcadeChoice] = useState(0);
+  const [snakeSession, setSnakeSession] = useState("");
+  const snakeTurn = useRef(0);
+  const [queuedTurn, setQueuedTurn] = useState(0);
   const [tileCursor, setTileCursor] = useState(0);
   const [tileLink, setTileLink] = useState<TileLink | null>(null);
   const tileLinkSequence = useRef(0);
@@ -409,7 +413,8 @@ export default function App() {
         ...((kind === "catch" ||
           kind === "cancel-play" ||
           kind === "tile-pick" ||
-          kind === "tile-clear") &&
+          kind === "tile-clear" ||
+          kind.startsWith("snake-")) &&
         pet?.game?.id
           ? { gameId: pet.game.id }
           : {}),
@@ -417,6 +422,12 @@ export default function App() {
         requestId: crypto.randomUUID(),
       });
       apply(r);
+      if (kind === "snake-resume") setSnakeSession(r.state.game?.id ?? "");
+      if (
+        kind === "snake-pause" ||
+        kind === "snake-finish" ||
+        kind === "cancel-play"
+      ) setSnakeSession("");
       if (r.tileLink?.length && pet?.game?.tiles) {
         setTileLink({
           path:
@@ -437,17 +448,22 @@ export default function App() {
       }
       if (kind === "hatch") {
         setPage("home");
-      } else if (kind === "play" || kind === "play-tiles") {
+      } else if (
+        kind === "play" || kind === "play-tiles" || kind === "play-snake"
+      ) {
         setPage("game");
         setLane(1);
         setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
         setTileLink(null);
-      } else if ((kind === "catch" || kind === "tile-pick") && !r.state.game) {
+      } else if (
+        (kind === "catch" || kind === "tile-pick" ||
+          (kind === "snake-finish" && r.careFeedback)) && !r.state.game
+      ) {
         setPage("home");
         const next = { kind: "play" as const, id: ++clipSequence.current };
         clipRef.current = next;
         setClip(next);
-      } else if (kind === "cancel-play") {
+      } else if (kind === "cancel-play" || kind === "snake-finish") {
         setTileLink(null);
         setPage("home");
       } else if (kind === "feed" || kind === "clean" || kind === "sleep") {
@@ -462,6 +478,44 @@ export default function App() {
       setBusy(false);
     }
   }
+  useEffect(() => {
+    const n = pet?.game?.snake;
+    if (
+      page !== "game" || !n || n.paused || n.end ||
+      snakeSession !== pet.game?.id || busy || document.hidden ||
+      tools || help || reset
+    ) return;
+    // The server applies at most one cell and verifies the expected step.
+    // Never synthesize missed beats after backgrounding or a slow request.
+    const timer = setTimeout(() => {
+      if (document.hidden) {
+        setSnakeSession("");
+        return;
+      }
+      const turn = snakeTurn.current;
+      snakeTurn.current = 0;
+      setQueuedTurn(0);
+      void act("snake-step", { step: n.step, turn }).then((ok) => {
+        if (!ok) {
+          setSnakeSession("");
+          void refresh();
+        }
+      });
+    }, Math.max(80, 650 - (Date.now() + offset.current - n.lastMoveAt)));
+    return () => clearTimeout(timer);
+  }, [pet?.game, snakeSession, page, busy, tools, help, reset]);
+  useEffect(() => {
+    const stop = () => {
+      if (document.hidden) {
+        setSnakeSession("");
+        snakeTurn.current = 0;
+        setQueuedTurn(0);
+      }
+    };
+    document.addEventListener("visibilitychange", stop);
+    return () => document.removeEventListener("visibilitychange", stop);
+  }, []);
+
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
     if (tools || help || reset || busyRef.current) return;
@@ -481,9 +535,26 @@ export default function App() {
     }
     setError("");
     if (page === "arcade") {
-      if (key === "A") setArcadeChoice((v) => (v + 1) % 2);
+      if (key === "A") setArcadeChoice((v) => (v + 1) % 3);
       else if (key === "C") setPage("home");
-      else void act(arcadeChoice === 0 ? "play" : "play-tiles");
+      else void act(["play", "play-tiles", "play-snake"][arcadeChoice]);
+      return;
+    }
+    if (page === "game" && pet.game?.kind === "snake" && pet.game.snake) {
+      const n = pet.game.snake;
+      if (n.end) {
+        if (key !== "A") void act("snake-finish", { step: n.step });
+      } else if (n.paused || snakeSession !== pet.game.id) {
+        snakeTurn.current = 0;
+        setQueuedTurn(0);
+        void act(key === "B" ? "cancel-play" : "snake-resume", { step: n.step });
+      } else if (key === "C") {
+        setSnakeSession("");
+        void act("snake-pause", { step: n.step });
+      } else if (!snakeTurn.current) {
+        snakeTurn.current = key === "A" ? -1 : 1;
+        setQueuedTurn(snakeTurn.current);
+      }
       return;
     }
     if (page === "game" && pet.game?.kind === "tiles" && pet.game.tiles) {
@@ -526,7 +597,7 @@ export default function App() {
       return;
     }
     if (page === "return") {
-      if (key === "A") setReturnPage((v) => (v + 1) % 2);
+      if (key === "A") setReturnPage((v) => (v + 1) % 3);
       else if (key === "B" && returnPage === 0) setReturnPage(1);
       else setPage("home");
       return;
@@ -702,6 +773,12 @@ export default function App() {
     ? Math.floor(Math.max(0, now - pet.game.startedAt) / 900) % 3
     : 0;
   const motion = sceneMotion(pet?.sleeping ?? false, clip);
+  const snake = pet?.game?.snake;
+  const snakeHint = snake?.end
+    ? "B / C 收好成绩"
+    : snake?.paused || snakeSession !== pet?.game?.id
+      ? "A / C 继续  B 退出"
+      : "A 左转  B 右转  C 暂停";
   const lcdHint = !pet
     ? "B 重新连接"
     : page === "arcade"
@@ -723,7 +800,9 @@ export default function App() {
                 : page === "menu"
                   ? "A 选择　 B 确认　 C 返回"
                   : page === "game"
-                    ? pet.game?.kind === "tiles"
+                    ? pet.game?.kind === "snake"
+                      ? snakeHint
+                      : pet.game?.kind === "tiles"
                       ? "A 移动  B 选牌  C 取消 / 退出"
                       : "A 移动　 B 接住　 C 退出"
                     : page === "growth" || page === "album"
@@ -908,7 +987,9 @@ export default function App() {
                                       : page === "journal"
                                         ? "LITTLE DIARY"
                                         : page === "game"
-                                          ? pet?.game?.kind === "tiles"
+                                          ? pet?.game?.kind === "snake"
+                                            ? "ORCHARD SNAKE"
+                                            : pet?.game?.kind === "tiles"
                                             ? "LINK & COLLECT"
                                             : "CATCH A STAR"
                                           : "PIXELPET / 01"}
@@ -1103,6 +1184,14 @@ export default function App() {
                               {journalIndex + 1} / {pet.logs.length}
                             </span>
                           </div>
+                        )}
+                        {page === "game" && pet.game?.kind === "snake" && (
+                          <SnakeGame
+                            key={pet.game.id}
+                            pet={pet}
+                            active={snakeSession === pet.game.id && !tools && !help && !reset}
+                            turn={queuedTurn}
+                          />
                         )}
                         {page === "game" && pet.game?.kind === "tiles" && (
                           <TileGame

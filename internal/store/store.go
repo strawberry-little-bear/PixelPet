@@ -107,6 +107,11 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		}
 	}
 	changed := migrated
+	// A late pulse handles its own expiry, returning a persisted pause instead
+	// of an error that would roll back the transaction.
+	if a == nil || a.Kind != "snake-step" {
+		changed = state.ExpireSnake(now) || changed
+	}
 	if migrated {
 		if _, err = tx.Exec("INSERT INTO snapshots(body,created_at) VALUES(?,?)", body, now.UnixMilli()); err != nil {
 			return Result{}, err

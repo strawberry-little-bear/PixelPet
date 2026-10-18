@@ -1,0 +1,14 @@
+.snake-game { color: #405132; font-size: 9px; }
+.snake-game header { display: flex; justify-content: space-between; align-items: center; height: 20px; }
+.snake-game header strong { font-size: 11px; }
+.snake-field { position: relative; width: 146px; height: 122px; margin: 0 auto; border: 1px solid #556b45; background: #b7c496; }
+.snake-field > svg { width: 144px; height: 120px; display: block; }
+.snake-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: #e3e7c5ee; text-align: center; }
+.snake-overlay strong { font-size: 13px; }
+.snake-overlay small { font-size: 8px; }
+.snake-companion { display: flex; align-items: center; height: 38px; gap: 5px; }
+.snake-pet { position: relative; width: 38px; height: 36px; overflow: hidden; flex-shrink: 0; }
+.snake-pet > svg { position: absolute; width: 34px; height: 36px; }
+.snake-companion p { font-size: 9px; margin: 0; }
+.snake-companion .room-decoration { width: 20px; height: 24px; flex-shrink: 0; }
+.snake-companion.collecting p { font-weight: bold; }

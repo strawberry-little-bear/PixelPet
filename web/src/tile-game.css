@@ -13,7 +13,8 @@
   gap: 8px;
 }
 .arcade-card {
-  width: 50%;
+  flex: 1;
+  min-width: 0;
   border: 1px dashed #899d76;
   padding: 8px 2px;
   opacity: 0.65;
