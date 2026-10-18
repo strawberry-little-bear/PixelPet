@@ -29,29 +29,35 @@ type Growth struct {
 	Care         CareHistory `json:"care"`
 }
 
-// Upgrade preserves the stage shown by the legacy clock-based client. Unknown
-// historical care is not invented, and old elapsed time is not credited twice.
+// Upgrade settles old intervals before opening an album: we cannot claim that
+// offline/legacy evolution was witnessed after the album opened. Version-1
+// growth dates are migration dates and must retain saved (not shared) provenance.
 func (s *State) Upgrade(now time.Time) bool {
-	if s.Schema != 1 {
+	if s.Schema != 1 && s.Schema != 2 {
 		return false
+	}
+	if s.Schema == 1 {
+		s.Advance(now)
+		s.Schema = 2
+		s.Growth = &Growth{Stage: "egg"}
+		if s.HatchedAt > 0 {
+			s.Growth.Points = math.Min(AdultPoints, math.Max(0, float64(now.UnixMilli()-s.HatchedAt)/3600000))
+			s.Growth.Stage = "baby"
+			if s.Growth.Points >= GrowingPoints {
+				s.Growth.Stage = "growing"
+				s.Growth.GrowingAt = now.UnixMilli()
+			}
+			if s.Growth.Points >= AdultPoints {
+				s.Growth.Stage = "adult"
+				s.Growth.AdultAt = now.UnixMilli()
+				s.Growth.Form = "balanced"
+			}
+			s.Log(now, "成长手册已开启，今后的照顾习惯会被好好记住。")
+		}
 	}
 	s.Advance(now)
 	s.Schema = Schema
-	s.Growth = &Growth{Stage: "egg"}
-	if s.HatchedAt > 0 {
-		s.Growth.Points = math.Min(AdultPoints, math.Max(0, float64(now.UnixMilli()-s.HatchedAt)/3600000))
-		s.Growth.Stage = "baby"
-		if s.Growth.Points >= GrowingPoints {
-			s.Growth.Stage = "growing"
-			s.Growth.GrowingAt = now.UnixMilli()
-		}
-		if s.Growth.Points >= AdultPoints {
-			s.Growth.Stage = "adult"
-			s.Growth.AdultAt = now.UnixMilli()
-			s.Growth.Form = "balanced"
-		}
-		s.Log(now, "成长手册已开启，今后的照顾习惯会被好好记住。")
-	}
+	s.openLegacyAlbum(now)
 	return true
 }
 
@@ -232,6 +238,7 @@ func (s *State) evolve(now time.Time) {
 		g.Points = math.Max(g.Points, GrowingPoints)
 		g.Stage = "growing"
 		g.GrowingAt = now.UnixMilli()
+		s.sharedMemory("growing", now)
 		s.Log(now, fmt.Sprintf("%s进入成长期，戴上了小围巾！", s.Name))
 	}
 	if g.Points >= AdultPoints-1e-9 && g.Stage == "growing" {
@@ -239,6 +246,7 @@ func (s *State) evolve(now time.Time) {
 		g.Stage = "adult"
 		g.AdultAt = now.UnixMilli()
 		g.Form = g.Tendency()
+		s.remember(Memory{Kind: "adult", At: now.UnixMilli(), Source: "shared", Form: g.Form})
 		s.Log(now, fmt.Sprintf("%s长大啦！照顾习惯让它成为了%s。", s.Name, FormName(g.Form)))
 	}
 }

@@ -144,6 +144,12 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 				growth := *imported.Growth
 				state.Growth = &growth
 			}
+			if imported.Album != nil {
+				album := *imported.Album
+				album.Entries = append([]game.Memory{}, imported.Album.Entries...)
+				state.Album = &album
+			}
+			state.Logs = append([]game.Log{}, imported.Logs...)
 			state.Game = nil
 			state.Upgrade(now)
 			state.Advance(now)

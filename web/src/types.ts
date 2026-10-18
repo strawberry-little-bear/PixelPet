@@ -36,6 +36,7 @@ export type PetState = {
   needs: Needs;
   careCount: number;
   growth?: Growth;
+  album?: Album;
   logs: { at: number; text: string }[];
   game?: { startedAt: number; round: number; score: number; lastBeat: number };
 };
@@ -96,3 +97,13 @@ export type ReturnRecap = {
   before: ReturnSnapshot;
   after: ReturnSnapshot;
 };
+
+export type Memory = {
+  kind: "hatch" | "growing" | "adult" | "meal" | "bath" | "goodnight" | "stars" | "perfect-stars" | "days";
+  at: number;
+  source: "shared" | "saved" | "elapsed";
+  form?: AdultForm;
+  score?: number;
+  days?: number;
+};
+export type Album = { since: number; legacy: boolean; entries: Memory[] };

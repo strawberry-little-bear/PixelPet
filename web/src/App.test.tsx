@@ -664,3 +664,54 @@ describe("saved-state proactive expression", () => {
     expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
   });
 });
+
+describe("three-button permanent album", () => {
+  it("A/B browse collected memories, wrap, C returns, reopening starts at cover without mutations", async () => {
+    saved.schema=3;
+    saved.album={since:saved.createdAt,legacy:false,entries:[
+      {kind:"hatch",at:saved.hatchedAt,source:"shared"},
+      {kind:"meal",at:saved.lastTick,source:"shared"},
+    ]};
+    await mount();
+    await choose(8);
+    const panel=()=>document.querySelector(".album-panel");
+    expect(panel()?.getAttribute("data-album-page")).toBe("0");
+    expect(screen.getByText("我们的纪念册")).toBeTruthy();
+    await key("a");expect(panel()?.getAttribute("data-album-page")).toBe("1");
+    expect(screen.getByText("小小的初次相遇")).toBeTruthy();
+    await key("b");expect(panel()?.getAttribute("data-album-page")).toBe("2");
+    expect(screen.getByText("一份暖暖的小饭团")).toBeTruthy();
+    await key("b");expect(panel()?.getAttribute("data-album-page")).toBe("0");
+    await key("c");expect(panel()).toBeNull();expect(scene()).toBe("idle");
+    await choose(8);expect(panel()?.getAttribute("data-album-page")).toBe("0");
+    expect(document.querySelector(".lcd button")).toBeNull();
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(api.mock.calls.filter(([path])=>!["state","visit"].includes(path))).toHaveLength(0);
+  });
+  it("reading while asleep does not wake the pet or generate actions",async()=>{
+    saved.sleeping=true;saved.album={since:saved.createdAt,legacy:false,entries:[{kind:"hatch",at:saved.hatchedAt,source:"shared"}]};
+    await mount();await choose(8);await key("b");await key("c");
+    expect(scene()).toBe("sleeping");expect(saved.sleeping).toBe(true);
+    expect(api.mock.calls.some(([path])=>path==="action")).toBe(false);
+  });
+  it("defers a newly received recap until the album is closed", async () => {
+    saved.album={since:saved.createdAt,legacy:false,entries:[{kind:"hatch",at:saved.hatchedAt,source:"shared"}]};
+    await mount();await choose(8);
+    const snapshot={needs:{...saved.needs},stage:saved.growth!.stage,form:saved.growth!.form,points:0,rest:0,trackedHours:0};
+    const recap={id:"after-album",from:Date.now()-3600000,to:Date.now(),before:snapshot,after:snapshot};
+    const normal=api.getMockImplementation()!;
+    api.mockImplementation(async(path,body)=>({ ...await normal(path,body),returnRecap:recap,recapPending:path!=="recap/read",recapClaimed:path==="recap/read" }));
+    await advance(15000);
+    expect(document.querySelector(".album-panel")).toBeTruthy();
+    expect(api.mock.calls.some(([path])=>path==="recap/read")).toBe(false);
+    await key("c");
+    expect(screen.getByLabelText("回访小结")).toBeTruthy();
+    expect(api.mock.calls.filter(([path])=>path==="recap/read")).toHaveLength(1);
+  });
+  it("does not auto-open memories on refresh and falls back safely for old servers",async()=>{
+    await mount();expect(document.querySelector(".album-panel")).toBeNull();
+    await choose(8);expect(screen.getByText(/纪念册尚未开启/)).toBeTruthy();
+    await key("a");await key("b");expect(document.querySelector(".album-panel")?.getAttribute("data-album-page")).toBe("0");
+    expect(api.mock.calls.some(([path])=>path==="action")).toBe(false);
+  });
+});

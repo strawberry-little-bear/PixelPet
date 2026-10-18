@@ -24,6 +24,7 @@ import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
+import { AlbumPanel, albumPageCount } from "./AlbumPanel";
 import { ReturnPanel } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import {
@@ -52,7 +53,8 @@ type Page =
   | "journal"
   | "game"
   | "growth"
-  | "return";
+  | "return"
+  | "album";
 const items = [
   {
     label: "吃点东西",
@@ -80,6 +82,7 @@ const items = [
     label: "回访小结", hint: "重看最近一次离开后的变化",
     icon: Sprout, kind: "return",
   },
+  { label: "永久纪念册", hint: "收藏一起走过的日子", icon: Heart, kind: "album" },
 ];
 const needs = [
   { key: "hunger", label: "饱食", icon: Utensils, color: "orange" },
@@ -124,6 +127,7 @@ export default function App() {
   const [pressed, setPressed] = useState("");
   const [journalIndex, setJournalIndex] = useState(0);
   const [growthPage, setGrowthPage] = useState(0);
+  const [albumPage, setAlbumPage] = useState(0);
   const [returnRecap, setReturnRecap] = useState<ReturnRecap | null>(null);
   const [returnPending, setReturnPending] = useState(false);
   const [returnPage, setReturnPage] = useState(0);
@@ -380,6 +384,7 @@ export default function App() {
       } else if (page === "menu") setSelected((v) => (v + 1) % items.length);
       else if (page === "game") setLane((v) => (v + 1) % 3);
       else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
+      else if (page === "album") setAlbumPage((v) => (v + 1) % albumPageCount(pet));
       else if (page === "journal")
         setJournalIndex((v) => (v + 1) % Math.max(1, pet.logs.length));
       return;
@@ -411,6 +416,9 @@ export default function App() {
       if (item.kind === "return") {
         if (returnRecap) { setReturnPage(0); setPage("return"); }
         else setMessage("还没有回访小结。离开至少 15 分钟后，回来会记录真实变化。");
+      } else if (item.kind === "album") {
+        setPage("album");
+        setAlbumPage(0);
       } else if (item.kind === "status") setPage("status");
       else if (item.kind === "growth") {
         setPage("growth");
@@ -420,6 +428,7 @@ export default function App() {
         setJournalIndex(0);
       } else void act(item.kind);
     } else if (page === "game") void act("catch", { lane });
+    else if (page === "album") setAlbumPage((v) => (v + 1) % albumPageCount(pet));
     else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
     else setPage("home");
   };
@@ -537,7 +546,7 @@ export default function App() {
             ? "A 选择　 B 确认　 C 返回"
             : page === "game"
               ? "A 移动　 B 接住　 C 退出"
-              : page === "growth"
+              : page === "growth" || page === "album"
                 ? "A / B 换页　 C 返回"
                 : page === "journal"
                   ? "A 下一条　 C 返回"
@@ -704,6 +713,8 @@ export default function App() {
                         ? "HELLO, FRIEND"
                         : page === "menu"
                           ? "CARE MENU"
+                          : page === "album"
+                            ? "OUR MEMORIES"
                           : page === "return"
                             ? "WELCOME BACK"
                             : page === "status"
@@ -733,6 +744,7 @@ export default function App() {
                       </div>
                     ) : (
                       <>
+                        {page === "album" && <AlbumPanel pet={pet} now={now} page={albumPage} />}
                         {page === "return" && returnRecap && (
                           <ReturnPanel recap={returnRecap} page={returnPage} />
                         )}

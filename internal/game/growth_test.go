@@ -98,6 +98,7 @@ func TestAdultFormsReflectHistoryAndStayLocked(t *testing.T) {
 			s.LastTick = now.UnixMilli()
 			s.Needs.Clean = 60
 			s.Growth = &Growth{Stage: "growing", Points: 71.9, GrowingAt: born.Add(24 * time.Hour).UnixMilli(), TrackedHours: 12, Wellbeing: 12 * tc.quality, Care: tc.care}
+			s.sharedMemory("growing", time.UnixMilli(s.Growth.GrowingAt))
 			s.Apply(Action{Kind: "clean"}, now)
 			if s.Growth.Stage != "adult" || s.Growth.Form != tc.want {
 				t.Fatalf("wrong adult: %+v", s.Growth)
@@ -124,6 +125,7 @@ func TestLegacyMigrationKeepsAgeAndDoesNotInventCare(t *testing.T) {
 		s := babyAt(born)
 		s.Schema = 1
 		s.Growth = nil
+		s.Album = nil
 		s.CareCount = 17
 		if err := s.Validate(now); err != nil {
 			t.Fatal(err)
@@ -203,6 +205,7 @@ func TestOfflineEvolutionLocksFormAtThresholdNotEndOfSettlement(t *testing.T) {
 		s.Needs = Needs{10, 10, 10, 10}
 		s.Growth = &Growth{Stage: "growing", Points: 71.95,
 			GrowingAt: start.Add(-time.Hour).UnixMilli(), TrackedHours: 11.8, Wellbeing: 1.18}
+		s.sharedMemory("growing", time.UnixMilli(s.Growth.GrowingAt))
 	}
 	end := start.Add(12 * time.Hour)
 	one.Advance(end)
@@ -234,6 +237,7 @@ func TestMilestonesAndSleepHabitsArePartitionIndependent(t *testing.T) {
 				if points > GrowingPoints {
 					s.Growth.Stage = "growing"
 					s.Growth.GrowingAt = start.UnixMilli()
+					s.sharedMemory("growing", start)
 					s.Growth.Care.Clean = 3.95
 				}
 			}

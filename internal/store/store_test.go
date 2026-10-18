@@ -21,6 +21,7 @@ func TestLegacyMigrationPersistsOnceAndKeepsOriginalSnapshot(t *testing.T) {
 	legacy := game.New(born)
 	legacy.Schema = 1
 	legacy.Growth = nil
+	legacy.Album = nil
 	legacy.HatchedAt = born.UnixMilli()
 	legacy.Name = "我的老朋友"
 	legacy.Species = 7
@@ -32,7 +33,7 @@ func TestLegacyMigrationPersistsOnceAndKeepsOriginalSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.State.Schema != 2 || r.State.Growth.Stage != "adult" || r.State.Species != 7 || r.State.Name != "我的老朋友" {
+	if r.State.Schema != game.Schema || r.State.Growth.Stage != "adult" || r.State.Species != 7 || r.State.Name != "我的老朋友" {
 		t.Fatal("migration changed existing pet", r.State)
 	}
 	firstRevision := r.State.Revision
@@ -45,7 +46,7 @@ func TestLegacyMigrationPersistsOnceAndKeepsOriginalSnapshot(t *testing.T) {
 		t.Fatal("original schema 1 snapshot lost", err)
 	}
 	r, err = s.Do(nil, &legacy, false, now)
-	if err != nil || r.State.Schema != 2 || r.State.Growth.Stage != "adult" {
+	if err != nil || r.State.Schema != game.Schema || r.State.Growth.Stage != "adult" {
 		t.Fatal("schema 1 backup could not be imported", err)
 	}
 	if legacy.Schema != 1 || legacy.Growth != nil {
@@ -177,6 +178,7 @@ func TestAdultGrowthSurvivesReopenAndRejectedImport(t *testing.T) {
 	backup.LastTick = now.UnixMilli()
 	backup.Growth = &game.Growth{Stage: "growing", Points: 71.9,
 		GrowingAt: born.Add(24 * time.Hour).UnixMilli(), Care: game.CareHistory{Play: 3}}
+	backup.Album.Entries = append(backup.Album.Entries, game.Memory{Kind: "growing", At: backup.Growth.GrowingAt, Source: "shared"})
 	backup.Needs.Hunger = 60
 	if _, err = s.Do(nil, &backup, false, now); err != nil {
 		t.Fatal(err)
