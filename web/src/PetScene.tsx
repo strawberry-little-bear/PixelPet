@@ -4,7 +4,7 @@ import { Cloud } from "lucide-react";
 import { NeedGesture } from "./NeedGesture";
 import type { NeedKind } from "./needs";
 import type { Expression } from "./Sprite";
-import { PetArt } from "./PetArt";
+import { PetArt, petRigKind, petRigClass } from "./PetArt";
 import type { SceneMotion } from "./motion";
 import "./pet-motion.css";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
@@ -126,7 +126,7 @@ export function PetScene({
   form?: AdultForm | "";
   need?: NeedKind;
 }) {
-  const isRabbit = index === 2 && stage !== "egg";
+  const rig = petRigKind(index, stage);
   const activeNeed = motion === "idle" && stage !== "egg" ? need : undefined;
   const expression: Expression =
     motion === "sleeping"
@@ -143,7 +143,7 @@ export function PetScene({
       className={`pet-room pet-scene motion-${motion} growth-${stage} form-${form || "none"} need-${activeNeed || "none"}`}
       data-motion={motion}
       data-need={activeNeed || "none"}
-      data-rig={isRabbit ? "rabbit" : "original"}
+      data-rig={rig}
       data-stage={stage}
       data-form={form}
       role="img"
@@ -173,10 +173,10 @@ export function PetScene({
           </>
         )}
         <div className="pet-actor">
-          <div className={`growth-size ${isRabbit ? "has-rabbit-rig" : ""}`}>
+          <div className={`growth-size ${petRigClass(index, stage)}`}>
             <PetArt index={index} stage={stage} expression={expression} motion={motion} need={activeNeed} />
             <GrowthOutfit stage={stage} form={form} />
-            {activeNeed && <NeedGesture kind={activeNeed} index={index} paws={!isRabbit} />}
+            {activeNeed && <NeedGesture kind={activeNeed} index={index} paws={rig === "original"} />}
           </div>
         </div>
         {stage === "adult" && <FormEmblem form={form} />}

@@ -12,14 +12,14 @@ const signals: NeedKind[] = ["hungry", "tired", "dirty", "playful", "content", "
 
 describe("need gestures respect the scene's higher priority actions", () => {
   it.each(signals)("expresses %s with a face and articulated paws, not extra controls", need => {
-    for (const index of [0, 2]) {
+    for (const index of [0, 2, 7]) {
       const { container, unmount } = render(
         <PetScene index={index} motion="idle" clipId={0} dirty={false} need={need} />,
       );
       expect(container.querySelector(".pet-scene")?.getAttribute("data-need")).toBe(need);
       expect(container.querySelector(`.expression-${need}`)).not.toBeNull();
       expect(container.querySelector(`.need-gesture.gesture-${need}`)).not.toBeNull();
-      // Rabbit limbs are part of its rig, not a second pair overlaid on top.
+      // Rig limbs are anatomical parts, not a second pair overlaid on top.
       expect(container.querySelectorAll(".need-paw")).toHaveLength(2);
       expect(container.querySelector("button")).toBeNull();
       unmount();
@@ -30,14 +30,14 @@ describe("need gestures respect the scene's higher priority actions", () => {
     ["eating", "chewing"], ["bathing", "content"], ["sleeping", "asleep"],
     ["waking", "waking"], ["celebrating", "content"],
   ] as const)("%s suppresses every proactive signal", (motion, expression) => {
-    for (const need of signals) {
+    for (const index of [2, 7]) for (const need of signals) {
       const { container, unmount } = render(
-        <PetScene index={2} motion={motion as SceneMotion} clipId={1} dirty need={need} />,
+        <PetScene index={index} motion={motion as SceneMotion} clipId={1} dirty need={need} />,
       );
       expect(container.querySelector(".pet-scene")?.getAttribute("data-need")).toBe("none");
       expect(container.querySelector(".need-gesture")).toBeNull();
       expect(container.querySelector("[class*='gesture-']")).toBeNull();
-      expect(container.querySelector(`.rabbit-rig.expression-${expression}`)).not.toBeNull();
+      expect(container.querySelector(`.${index === 2 ? "rabbit" : "cat"}-rig.expression-${expression}`)).not.toBeNull();
       unmount();
     }
   });
@@ -68,8 +68,8 @@ describe("independently drawn strawberry rabbit growth sample", () => {
     expect(new Set(ears).size).toBe(3);
   });
 
-  it("keeps the source sheet for the other nine pets until their own rigs are drawn", () => {
-    for (const index of [0, 1, 3, 4, 5, 6, 7, 8, 9]) {
+  it("keeps the source sheet for the remaining eight pets until their own rigs are drawn", () => {
+    for (const index of [0, 1, 3, 4, 5, 6, 8, 9]) {
       const { container, unmount } = render(<PetArt index={index} stage="growing" expression="tired" />);
       expect(container.querySelector(".rabbit-rig")).toBeNull();
       expect(container.querySelector(".expression-tired image")?.getAttribute("href"))

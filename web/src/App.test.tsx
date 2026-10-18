@@ -715,3 +715,72 @@ describe("three-button permanent album", () => {
     expect(api.mock.calls.some(([path])=>path==="action")).toBe(false);
   });
 });
+
+describe("sakura cat stays articulated across the three-button lifecycle", () => {
+  it.each(["baby", "growing", "adult"] as const)("keeps %s anatomy through care, sleep, reload and a game", async stage => {
+    saved.species = 7;
+    saved.name = "樱花喵";
+    saved.growth = emptyGrowth(stage);
+    saved.growth.points = stage === "baby" ? 12 : stage === "growing" ? 40 : 72;
+    if (stage === "adult") saved.growth.form = "gentle";
+    saved.needs.hunger = 40;
+    await mount();
+    expect(document.querySelector(`.pet-scene .cat-${stage}`)).not.toBeNull();
+    expect(document.querySelector(".pet-scene")?.getAttribute("data-rig")).toBe("cat");
+    expect(document.querySelectorAll(".pet-scene .need-paw")).toHaveLength(2);
+    await choose(0);
+    expect(document.querySelector(`.cat-${stage}.rig-motion-eating.expression-chewing`)).not.toBeNull();
+    expect(document.querySelector(".pet-scene .need-gesture")).toBeNull();
+    await key("c");
+    await choose(3);
+    expect(document.querySelector(`.cat-${stage}.rig-motion-sleeping.expression-asleep`)).not.toBeNull();
+    cleanup();
+    await mount();
+    expect(scene()).toBe("sleeping");
+    expect(document.querySelector(".pet-scene .need-gesture")).toBeNull();
+    await choose(3);
+    expect(document.querySelector(`.cat-${stage}.rig-motion-waking`)).not.toBeNull();
+    await key("c");
+    await choose(1);
+    expect(document.querySelector(`.game-lane .cat-${stage}`)).not.toBeNull();
+    expect(document.querySelector(".content-game .need-gesture")).toBeNull();
+    cleanup();
+    await mount();
+    expect(document.querySelector(`.game-lane .cat-${stage}`)).not.toBeNull();
+    expect(saved.growth.stage).toBe(stage);
+    expect(saved.growth.form).toBe(stage === "adult" ? "gentle" : "");
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button")).toBeNull();
+  });
+
+  it("reads the same cat stage art in handbook and permanent memories without care requests", async () => {
+    saved.species = 7;
+    saved.name = "樱花喵";
+    saved.schema = 3;
+    saved.growth = { ...emptyGrowth("adult"), points: 72, form: "gentle" };
+    saved.album = { since: saved.hatchedAt, legacy: false, entries: [
+      { kind: "hatch", at: saved.hatchedAt, source: "shared" },
+      { kind: "growing", at: saved.hatchedAt + 1000, source: "shared" },
+      { kind: "adult", at: saved.hatchedAt + 2000, source: "shared", form: "gentle" },
+    ] };
+    const before = structuredClone(saved);
+    await mount();
+    await choose(6);
+    for (const stage of ["baby", "growing", "adult"]) {
+      expect(document.querySelector(`.growth-preview.growth-${stage} .has-cat-rig .cat-${stage}`)).not.toBeNull();
+    }
+    await key("c");
+    await choose(8);
+    expect(document.querySelector(".album-panel .cat-adult")).not.toBeNull();
+    for (const stage of ["baby", "growing", "adult"]) {
+      await key("b");
+      expect(document.querySelector(`.album-panel .cat-${stage}`)).not.toBeNull();
+    }
+    await key("c");
+    expect(scene()).toBe("idle");
+    expect(saved).toEqual(before);
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button")).toBeNull();
+  });
+});
