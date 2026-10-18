@@ -1,0 +1,90 @@
+/* A calf, a learning swimmer and a relaxed adult, never root-scaled stages. */
+.growth-baby .growth-size.has-dolphin-rig,
+.growth-growing .growth-size.has-dolphin-rig,
+.growth-adult .growth-size.has-dolphin-rig { width: 104px; height: 110px; margin-left: -52px; }
+.has-dolphin-rig .growth-outfit { bottom: 19px; width: 26px; height: 18px; margin-left: -13px; }
+.growth-baby .has-dolphin-rig .growth-outfit { bottom: 12px; width: 22px; height: 15px; margin-left: -11px; }
+.growth-growing .has-dolphin-rig .growth-outfit { bottom: 16px; }
+.pet-scene[data-rig="dolphin"].motion-idle .pet-actor { animation: none; }
+.dolphin-rig { overflow: visible; }
+.dolphin-head, .dolphin-flipper, .dolphin-tail, .dolphin-torso, .dolphin-dorsal { transform-box: view-box; }
+.dolphin-torso { transform-origin: 34px 49px; }
+.dolphin-dorsal { transform-origin: 33px 22px; }
+.dolphin-mouth-open { opacity: 0; }
+.dolphin-rig.expression-hungry .dolphin-mouth-open { opacity: 1; }
+.dolphin-rig.expression-chewing .dolphin-mouth-open { animation: dolphin-nibble .65s steps(1,end) infinite; }
+/* Urgent physical needs and quiet companionship suppress casual habits. */
+.dolphin-rig.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dolphin-tail { animation: dolphin-tail-sweep 7s steps(3,end) infinite; }
+.dolphin-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dolphin-flipper { animation: dolphin-calf-tuck 6s steps(3,end) infinite; }
+.dolphin-baby.rig-motion-idle .flipper-right { animation-direction: reverse; }
+.dolphin-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .flipper-right { animation: dolphin-test-swim 6s steps(3,end) infinite; }
+.dolphin-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dolphin-head { animation: dolphin-look-around 8s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-idle.gesture-hungry .flipper-left { animation: dolphin-belly-fin 5s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-idle.gesture-tired .dolphin-head { transform: translateY(3px) rotate(5deg); }
+.dolphin-rig.rig-motion-idle.gesture-tired .flipper-right { animation: dolphin-droop-fin 6s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-idle.gesture-dirty .flipper-left { animation: dolphin-brush-side 4.8s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-idle.gesture-dirty .dolphin-dorsal { animation: dolphin-shiver 4.8s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-idle.gesture-playful .flipper-right { animation: dolphin-invite 5.4s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-idle.gesture-quiet .flipper-left { transform: translate(2px,2px) rotate(-12deg); }
+.dolphin-rig.rig-motion-idle.gesture-quiet .flipper-right { transform: translate(-2px,2px) rotate(12deg); }
+.dolphin-rig.rig-motion-idle:is(.gesture-quiet,.gesture-tired) .dolphin-tail { transform: rotate(10deg); }
+.dolphin-rig.rig-motion-eating .dolphin-head { animation: dolphin-snack-nod 1s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-eating .flipper-left { animation: dolphin-hold-snack .65s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-eating .flipper-right { transform: translate(-4px,2px) rotate(15deg); }
+.dolphin-rig.rig-motion-bathing .dolphin-flipper { animation: dolphin-splash .8s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-bathing .flipper-right { animation-direction: reverse; animation-delay: -.4s; }
+.dolphin-rig.rig-motion-bathing .dolphin-tail { animation: dolphin-paddle .8s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-sleeping .flipper-left { transform: translate(2px,3px) rotate(-10deg); }
+.dolphin-rig.rig-motion-sleeping .flipper-right { transform: translate(-2px,3px) rotate(10deg); }
+.dolphin-rig.rig-motion-sleeping .dolphin-head { transform: translateY(3px) rotate(5deg); }
+.dolphin-rig.rig-motion-sleeping .dolphin-tail { transform: rotate(12deg); }
+.dolphin-rig.rig-motion-sleeping .dolphin-torso { animation: dolphin-breathe 3.6s ease-in-out infinite; }
+.dolphin-rig.rig-motion-waking .flipper-left { animation: dolphin-stretch-left var(--clip-duration,1400ms) steps(4,end) both; }
+.dolphin-rig.rig-motion-waking .flipper-right { animation: dolphin-stretch-right var(--clip-duration,1400ms) steps(4,end) both; }
+.dolphin-rig.rig-motion-waking .dolphin-head { animation: dolphin-look-up var(--clip-duration,1400ms) steps(4,end) both; }
+.dolphin-rig.rig-motion-celebrating .dolphin-flipper { animation: dolphin-cheer .65s steps(3,end) infinite; }
+.dolphin-rig.rig-motion-celebrating .flipper-right { animation-delay: -.3s; }
+.dolphin-rig.rig-motion-celebrating .dolphin-tail { animation: dolphin-paddle .65s steps(3,end) infinite; }
+.form-lively .dolphin-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dolphin-flipper { animation: dolphin-ready-swim 5s steps(3,end) infinite; }
+.form-gentle .dolphin-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dolphin-head { animation: dolphin-soft-nod 9s steps(3,end) infinite; }
+.form-easygoing .dolphin-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dolphin-tail { animation: dolphin-rest-tail 10s steps(3,end) infinite; }
+/* Contentment is a small greeting, not an extra pair of overlay hands. */
+.dolphin-rig.rig-motion-idle.gesture-content .flipper-left { animation: dolphin-invite 7s steps(3,end) infinite; }
+@keyframes dolphin-tail-sweep { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-8deg)} 45%{transform:rotate(6deg)} }
+@keyframes dolphin-calf-tuck { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(2px,2px) rotate(-10deg)} 45%{transform:translate(3px,1px)} }
+@keyframes dolphin-test-swim { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-15deg)} 45%{transform:translateY(-2px) rotate(-22deg)} }
+@keyframes dolphin-look-around { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,1px) rotate(-6deg)} 45%{transform:translate(2px,0) rotate(5deg)} }
+@keyframes dolphin-belly-fin { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(7px,2px) rotate(-22deg)} 45%{transform:translate(8px,0) rotate(-15deg)} }
+@keyframes dolphin-droop-fin { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(3px) rotate(12deg)} 45%{transform:translateY(4px) rotate(15deg)} }
+@keyframes dolphin-brush-side { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(3px,0) rotate(-18deg)} 45%{transform:translate(2px,-3px) rotate(-10deg)} }
+@keyframes dolphin-shiver { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-5deg)} 45%{transform:rotate(5deg)} }
+@keyframes dolphin-invite { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-18deg)} 45%{transform:translateY(-2px) rotate(-25deg)} }
+@keyframes dolphin-snack-nod { 0%,100%{transform:none} 50%{transform:translateY(3px) rotate(4deg)} }
+@keyframes dolphin-hold-snack { 0%,100%{transform:translate(5px,2px) rotate(-20deg)} 50%{transform:translate(7px,0) rotate(-28deg)} }
+@keyframes dolphin-splash { 0%,100%{transform:rotate(-12deg)} 50%{transform:translateY(-2px) rotate(15deg)} }
+@keyframes dolphin-paddle { 0%,100%{transform:rotate(-8deg)} 50%{transform:translateY(-2px) rotate(9deg)} }
+@keyframes dolphin-breathe { 0%,100%{transform:none} 50%{transform:translateY(-1px) scaleY(1.025)} }
+@keyframes dolphin-stretch-left { 0%,100%{transform:none} 40%,75%{transform:translate(-2px,-2px) rotate(24deg)} }
+@keyframes dolphin-stretch-right { 0%,100%{transform:none} 40%,75%{transform:translate(2px,-2px) rotate(-24deg)} }
+@keyframes dolphin-look-up { 0%,100%{transform:none} 40%,75%{transform:translateY(-2px) rotate(-5deg)} }
+@keyframes dolphin-cheer { 0%,100%{transform:rotate(-12deg)} 50%{transform:translateY(-2px) rotate(12deg)} }
+@keyframes dolphin-ready-swim { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-13deg)} 45%{transform:translateY(-2px) rotate(13deg)} }
+@keyframes dolphin-soft-nod { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(2px) rotate(4deg)} 45%{transform:translateY(1px)} }
+@keyframes dolphin-rest-tail { 0%,20%,75%,100%{transform:rotate(8deg)} 35%,60%{transform:rotate(13deg)} 45%{transform:translateY(1px) rotate(10deg)} }
+@keyframes dolphin-nibble { 0%,100%{opacity:0} 50%{opacity:1} }
+@media (prefers-reduced-motion: reduce) {
+  .dolphin-rig, .dolphin-rig * { animation: none !important; }
+  .dolphin-rig.rig-motion-idle.gesture-content .flipper-left { transform: rotate(-12deg); }
+  .dolphin-rig.rig-motion-bathing .flipper-left { transform: rotate(-12deg); }
+  .dolphin-rig.rig-motion-bathing .flipper-right { transform: rotate(12deg); }
+  .dolphin-rig.rig-motion-eating .flipper-left { transform: translate(5px,2px) rotate(-20deg); }
+  .dolphin-rig.rig-motion-waking .flipper-left { transform: rotate(20deg); }
+  .dolphin-rig.rig-motion-waking .flipper-right { transform: rotate(-20deg); }
+  .dolphin-rig.rig-motion-celebrating .flipper-left { transform: rotate(-12deg); }
+  .dolphin-rig.rig-motion-celebrating .flipper-right { transform: rotate(12deg); }
+  .dolphin-rig.expression-chewing .dolphin-mouth-open { opacity: 1; }
+  .dolphin-rig.rig-motion-idle.gesture-hungry .flipper-left { transform: translate(7px,2px) rotate(-22deg); }
+  .dolphin-rig.rig-motion-idle.gesture-tired .flipper-right { transform: translateY(3px) rotate(12deg); }
+  .dolphin-rig.rig-motion-idle.gesture-dirty .flipper-left { transform: translate(3px,0) rotate(-18deg); }
+  .dolphin-rig.rig-motion-idle.gesture-playful .flipper-right { transform: rotate(-18deg); }
+}

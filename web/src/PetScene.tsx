@@ -20,6 +20,12 @@ const needLabels: Record<NeedKind, string> = {
   quiet: "安静地靠近",
 };
 
+const dolphinNeedLabels: Record<NeedKind, string> = {
+  hungry: "小鳍贴肚子等吃饭", tired: "垂鳍低头想休息",
+  dirty: "小鳍蹭身侧等洗澡", playful: "扬鳍邀请玩耍",
+  content: "微笑挥鳍", quiet: "收鳍安静相伴",
+};
+
 const labels: Record<SceneMotion, string> = {
   idle: "待机，眨眼和轻轻活动",
   eating: "吃饭，咀嚼小饭团",
@@ -150,7 +156,7 @@ export function PetScene({
       data-stage={stage}
       data-form={form}
       role="img"
-      aria-label={labels[motion] + (activeNeed ? `，${needLabels[activeNeed]}` : "")}
+      aria-label={labels[motion] + (activeNeed ? `，${(rig === "dolphin" ? dolphinNeedLabels : needLabels)[activeNeed]}` : "")}
     >
       <div className="scene-environment" aria-hidden="true">
         <Cloud className="room-cloud" size={30} strokeWidth={1.5} />

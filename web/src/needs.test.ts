@@ -25,6 +25,19 @@ describe("deterministic proactive needs", () => {
     expect(petNeed({...pet(),hatchedAt:0})).toBeNull();
     expect(petNeed(null)).toBeNull();
   });
+  it("describes dolphin fins without changing deterministic priorities or saved data", () => {
+    for (const needs of [{hunger:10},{energy:20},{clean:15},{mood:40},{mood:60,energy:44},{}]) {
+      const original=pet(needs), dolphin={...original,species:3}, before=structuredClone(dolphin);
+      const a=petNeed(original)!, b=petNeed(dolphin)!;
+      expect(b.kind).toBe(a.kind);
+      expect(b.urgent).toBe(a.urgent);
+      expect(b.text).toContain("鳍");
+      expect(b).toEqual(petNeed(dolphin));
+      expect(dolphin).toEqual(before);
+    }
+    expect(petNeed({...pet(),species:3,sleeping:true})).toBeNull();
+    expect(petNeed({...pet(),species:3,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
+  });
   it("stops hunger as soon as a saved meal has filled the pet", () => {
     const p=pet({hunger:50}); expect(petNeed(p)?.kind).toBe("hungry");
     p.needs.hunger=70; expect(petNeed(p)?.kind).toBe("content");
