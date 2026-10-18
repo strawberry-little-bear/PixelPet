@@ -94,7 +94,7 @@ func Handler(db *store.Store, web string) http.Handler {
 			return
 		}
 		if _, err := os.Stat(filepath.Join(web, "index.html")); err != nil {
-			http.Error(w, "前端尚未构建。开发时请打开 http://127.0.0.1:5173；或先在 web 目录执行 npm run build。", 503)
+			http.Error(w, "前端尚未构建。开发时请打开 http://127.0.0.1:5173；或先在 web 目录执行 pnpm build。", 503)
 			return
 		}
 		http.FileServer(http.Dir(web)).ServeHTTP(w, r)

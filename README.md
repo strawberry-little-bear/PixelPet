@@ -29,7 +29,7 @@ data/             本机存档（不提交）
 
 ## 开发运行
 
-需要 Go 1.25+ 和 Node.js 22.12+。
+需要 Go 1.26+ 和 Node.js 22.12+，前端使用 pnpm（依赖锁文件已提交）。
 
 ```sh
 # 终端一：后端，默认 http://127.0.0.1:8080
@@ -37,8 +37,8 @@ go run ./cmd/pet
 
 # 终端二：前端，默认 http://127.0.0.1:5173
 cd web
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Vite 将 `/api` 代理到 Go。开发与构建后运行共用 `data/pixelpet.db`，浏览器刷新、换浏览器、服务重启都可以续玩。
@@ -46,13 +46,13 @@ Vite 将 `/api` 代理到 Go。开发与构建后运行共用 `data/pixelpet.db`
 ```sh
 # 构建前端后，Go 同时提供网页和 API
 cd web
-npm run build
+pnpm build
 cd ..
-go run ./cmd/pet
+./scripts/run.sh
 
 # 验证
 go test ./...
-cd web && npm run build
+cd web && pnpm build
 ```
 
 服务默认只监听本机回环地址；第一版没有身份认证，请勿直接暴露到公网。`PIXELPET_ADDR`、`PIXELPET_DB`、`PIXELPET_WEB` 可分别配置监听地址、数据库路径、前端构建目录。
@@ -86,3 +86,5 @@ cd web && npm run build
 按完整功能阶段提交：项目说明 → 本地养成与存档 → 三按键界面与角色 → 验证与修复。保持源码、依赖锁文件和测试入库，排除数据库、构建输出、工具与私密配置。
 
 进度见 [docs/PROGRESS.md](docs/PROGRESS.md)。
+
+每次 push / pull request 会自动执行 Go 竞态测试、后端构建和前端类型检查与构建。Git 提交使用草莓小熊的 GitHub 身份。

@@ -75,11 +75,18 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		return Result{}, err
 	}
 	var state game.State
-	if err = json.Unmarshal([]byte(body), &state); err != nil {
-		return Result{}, fmt.Errorf("读取存档失败：%w", err)
+	readErr := json.Unmarshal([]byte(body), &state)
+	if readErr == nil {
+		readErr = state.Validate(now)
 	}
-	if err = state.Validate(now); err != nil {
-		return Result{}, fmt.Errorf("现有存档校验失败：%w", err)
+	if readErr != nil {
+		if imported == nil && !reset {
+			return Result{}, fmt.Errorf("现有存档校验失败，可从存档盒导入备份恢复：%w", readErr)
+		}
+		// Keep the damaged bytes as a snapshot, while allowing explicit recovery.
+		if state.Revision < 0 || state.Revision > 1_000_000_000 {
+			state.Revision = 0
+		}
 	}
 	changed := false
 	if now.UnixMilli()-state.LastTick >= 60000 || a != nil {

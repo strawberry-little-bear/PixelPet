@@ -76,4 +76,14 @@ func TestPersistenceIdempotencyAndImport(t *testing.T) {
 	if err != nil || r.State.HatchedAt != 0 || r.State.Revision != 4 {
 		t.Fatal("reset failed")
 	}
+	if _, err = s.db.Exec("UPDATE saves SET body='corrupted' WHERE id=1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.Do(nil, nil, false, now); err == nil {
+		t.Fatal("damaged save silently replaced")
+	}
+	r, err = s.Do(nil, &backup, false, now)
+	if err != nil || r.State.Species != 8 {
+		t.Fatal("could not recover damaged save from backup", err)
+	}
 }
