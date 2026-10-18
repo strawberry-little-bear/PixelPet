@@ -68,8 +68,14 @@ describe("game directory and optional three-key guides", () => {
     await key("b");
     expect(document.querySelector(".game-guide")?.textContent).toContain("第一次一起玩");
     expect(actions()).toHaveLength(0); expect(guideSeen(info.id)).toBe(false);
-    await key("a"); expect(screen.getByText(info.leaving)).toBeTruthy();
-    await key("a"); expect(screen.getByText(info.lesson)).toBeTruthy();
+    for (const [page, text] of [info.lesson, info.leaving, info.lesson].entries()) {
+      const steps = document.querySelector(".guide-steps");
+      expect(steps?.tagName).toBe("UL");
+      expect(steps?.textContent).toBe(text);
+      expect(Array.from(steps!.querySelectorAll("li"), li => li.textContent))
+        .toEqual(text.split("。").filter(Boolean).map(sentence => `${sentence}。`));
+      if (page < 2) await key("a");
+    }
     await key("b"); expect(actions().map(a => a.kind)).toEqual([info.startAction]);
     expect(saved.game).toBeTruthy(); expect(guideSeen(info.id)).toBe(true);
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);

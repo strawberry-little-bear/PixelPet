@@ -1752,7 +1752,6 @@ footer i {
     grid-template-columns: minmax(0, 1fr);
   }
   .device {
-    transform: scale(0.96);
     margin-top: -4px;
   }
   .device-shadow {
@@ -1903,7 +1902,6 @@ footer i {
     height: 488px;
   }
   .device {
-    transform: scale(0.88);
     margin-top: -8px;
   }
   .device-shadow {
@@ -1943,10 +1941,18 @@ footer i {
     margin-top: 2px;
   }
 }
-/* Keep the fixed-size shell centered without a wider intrinsic grid track. */
-@media (max-width: 360px) {
-  .device-stage { height: 416px; }
-  .device { transform: scale(.74); }
+/* Reflow the shell, not its pixels: small screens must not shrink text or keys.
+   The taller LCD intentionally allows vertical page scrolling on short phones. */
+@media (max-width: 700px) {
+  .device-stage { height: 612px; }
+  .device { width: min(392px, 100%); height: 592px; margin-top: 0; }
+  .shell-brand { height: 72px; flex-shrink: 0; }
+  .screen-bezel { width: min(304px, calc(100% - 24px)); height: 364px; flex-shrink: 0; }
+  .lcd-content { height: 284px; }
+  .lcd-bottom { font-size: 9px; letter-spacing: 0; }
+  .device-model { width: min(266px, calc(100% - 40px)); flex-shrink: 0; }
+  .device-buttons { flex-shrink: 0; }
+  .physical-button { min-width: 49px; min-height: 45px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *,

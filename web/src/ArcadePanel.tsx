@@ -34,7 +34,11 @@ export function GameGuide({ game, page }: { game: GameInfo; page: number; }) {
   return <section className="game-guide" aria-label={`${game.title}玩法说明`} data-guide={game.id}>
     <header>{seen ? "再看玩法" : "第一次一起玩"} · {game.title}<small>{page + 1} / 2</small></header>
     <strong>{page === 0 ? game.controls : "暂停、离开与奖励"}</strong>
-    <p>{page === 0 ? game.lesson : game.leaving}</p>
+    <ul className="guide-steps">
+      {(page === 0 ? game.lesson : game.leaving).split("。").filter(Boolean).map(step =>
+        <li key={step}>{step}。</li>
+      )}
+    </ul>
     <p className="guide-reward">{page === 0 ? game.duration : game.reward}</p>
     <small>A 翻页 · B {seen ? "开始" : "跳过说明，开始"} · C 返回选游戏</small>
   </section>;

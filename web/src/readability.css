@@ -1,0 +1,23 @@
+/* A little more room is preferable to shrinking the whole device on a phone.
+   Scope type changes to reading panels: pet/board geometry stays unchanged. */
+@media (max-width: 700px) {
+  .arcade-card, .arcade-card strong { font-size: 11px; }
+  .arcade-card { padding: 4px; }
+  .arcade-details { font-size: 10px; line-height: 1.6; }
+  .arcade-panel .arcade-quota, .arcade-panel > small { font-size: 10px; line-height: 1.5; }
+  .game-guide > strong { font-size: 11px; }
+  .guide-steps { font-size: 12px; line-height: 1.6; }
+  .game-guide .guide-reward, .game-guide > small { font-size: 10px; }
+  .companion-panel .companion-summary { font-size: 10px; line-height: 15px; min-height: 30px; }
+  .companion-rows { font-size: 10px; line-height: 15px; gap: 1px; }
+  .companion-rules, .companion-since { font-size: 9px; line-height: 13px; }
+  .walking-game .walk-warning { font-size: 12px; line-height: 18px; }
+  .walking-game .walk-find, .walking-game > small { font-size: 10px; line-height: 15px; }
+  .walking-game .walk-method { margin-top: 3px; }
+  .walk-pause > div { display: grid; gap: 0; font-size: 11px; line-height: 18px; text-align: left; }
+  .walk-pause > div > span { min-width: 124px; padding: 0 5px; }
+  .walk-pause span[data-selected="true"] { background: #63784c; color: #eef0d1; }
+  .walk-pause small { font-size: 10px; }
+  .park-album p, .fish-album p { font-size: 11px; line-height: 17px; }
+  .park-album > small, .fish-album > small { font-size: 10px; line-height: 15px; }
+}
