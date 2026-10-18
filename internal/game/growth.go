@@ -164,14 +164,11 @@ func (s *State) settle(hours float64, now time.Time) {
 // growthGain previews the same integral used by settleSegment without mutating
 // needs, habits or logs, so milestone times can be found monotonically.
 func (s *State) growthGain(hours float64) float64 {
-	_, hunger := linearNeed(s.Needs.Hunger, -3, hours)
-	_, clean := linearNeed(s.Needs.Clean, -2, hours)
-	energyRate, moodRate := -2.0, -2.5
-	if s.Sleeping {
-		energyRate, moodRate = 14, 0
-	}
-	endEnergy, energy := linearNeed(s.Needs.Energy, energyRate, hours)
-	_, mood := linearNeed(s.Needs.Mood, moodRate, hours)
+	rates := needRates(s.Sleeping)
+	_, hunger := linearNeed(s.Needs.Hunger, rates.Hunger, hours)
+	_, clean := linearNeed(s.Needs.Clean, rates.Clean, hours)
+	endEnergy, energy := linearNeed(s.Needs.Energy, rates.Energy, hours)
+	_, mood := linearNeed(s.Needs.Mood, rates.Mood, hours)
 	gain := hours * (0.5 + 0.75*(hunger+mood+clean+energy)/400)
 	if s.Sleeping {
 		gain += math.Max(0, endEnergy-s.Needs.Energy) / 28 * 0.25
@@ -182,15 +179,11 @@ func (s *State) growthGain(hours float64) float64 {
 func (s *State) settleSegment(hours float64) {
 	var hunger, mood, clean, energy float64
 	beforeEnergy := s.Needs.Energy
-	s.Needs.Hunger, hunger = linearNeed(s.Needs.Hunger, -3, hours)
-	s.Needs.Clean, clean = linearNeed(s.Needs.Clean, -2, hours)
-	energyRate, moodRate := -2.0, -2.5
-	if s.Sleeping {
-		energyRate = 14
-		moodRate = 0
-	}
-	s.Needs.Energy, energy = linearNeed(s.Needs.Energy, energyRate, hours)
-	s.Needs.Mood, mood = linearNeed(s.Needs.Mood, moodRate, hours)
+	rates := needRates(s.Sleeping)
+	s.Needs.Hunger, hunger = linearNeed(s.Needs.Hunger, rates.Hunger, hours)
+	s.Needs.Clean, clean = linearNeed(s.Needs.Clean, rates.Clean, hours)
+	s.Needs.Energy, energy = linearNeed(s.Needs.Energy, rates.Energy, hours)
+	s.Needs.Mood, mood = linearNeed(s.Needs.Mood, rates.Mood, hours)
 	if s.Growth == nil {
 		return
 	}

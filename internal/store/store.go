@@ -29,6 +29,7 @@ type Store struct {
 	mu sync.Mutex
 }
 type Result struct {
+	CareRules      game.CareRules     `json:"careRules"`
 	SaveGeneration string             `json:"saveGeneration"`
 	TileLink       []game.TilePoint   `json:"tileLink,omitempty"`
 	Shop           game.Shop          `json:"shop"`
@@ -121,6 +122,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			r.SaveGeneration = generation
 			r.State.Upgrade(now)
 			r.Shop = game.ShopRules()
+			r.CareRules = game.CareRuleBook()
 			r.ServerTime = now.UnixMilli()
 			r.ReturnRecap, r.RecapPending, r.RecapClaimed = nil, false, false
 			return r, nil
@@ -279,7 +281,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 	}
-	result := Result{SaveGeneration: generation, TileLink: tileLink, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
+	result := Result{CareRules: game.CareRuleBook(), SaveGeneration: generation, TileLink: tileLink, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
 	if a != nil && a.RequestID != "" {
 		encoded, _ := json.Marshal(result)
 		if _, err = tx.Exec("INSERT INTO requests(id,body) VALUES(?,?)", a.RequestID, string(encoded)); err != nil {

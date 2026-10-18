@@ -66,7 +66,9 @@ export type CareFeedback = {
   reason: "credited" | "not-needed" | "cooldown" | "resting" | "awake";
   retryAt?: number;
 };
+export type CareRules = { awake: Needs; sleeping: Needs; maxOfflineHours: number };
 export type Result = {
+  careRules?: CareRules;
   saveGeneration?: string;
   state: PetState;
   message: string;

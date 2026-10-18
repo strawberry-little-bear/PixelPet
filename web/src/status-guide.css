@@ -1,0 +1,7 @@
+.status-guide h3 { margin: 0 0 8px; }
+.status-guide p { margin: 8px 0; }
+.status-rates { margin: 8px 0; }
+.status-rates > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 8px; padding: 4px 0; border-bottom: 1px dashed currentColor; }
+.status-rates dt, .status-rates dd { min-width: 0; margin: 0; }
+.status-rates dd { text-align: right; }
+.status-page-number { display: block; text-align: right; margin-top: 8px; }

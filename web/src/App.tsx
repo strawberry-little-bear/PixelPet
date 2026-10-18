@@ -1,3 +1,5 @@
+import { StatusGuide, statusPageCount, validCareRules } from "./StatusGuide";
+import type { CareRules } from "./types";
 import { CarePreview } from "./CarePreview";
 import { WalkingGame, ParkAlbum } from "./WalkingGame";
 import { parkCatalog, walkMenu } from "./walk";
@@ -149,6 +151,8 @@ const timeLabel = (n: number) =>
 
 export default function App() {
   const [pet, setPet] = useState<PetState | null>(null);
+  const [careRules, setCareRules] = useState<CareRules | null>(null);
+  const [statusPage, setStatusPage] = useState(0);
   const [page, setPage] = useState<Page>("choose");
   const [chosen, setChosen] = useState(0);
   const [selected, setSelected] = useState(0);
@@ -278,6 +282,7 @@ export default function App() {
     if (r.returnRecap) setReturnRecap(r.returnRecap);
     if (r.recapPending !== undefined) setReturnPending(r.recapPending);
     setPet(r.state);
+    setCareRules(validCareRules(r.careRules) ? r.careRules : null);
     if (r.shop) setShop(r.shop);
     setSavedAt(r.state.lastTick);
     setError("");
@@ -1084,6 +1089,7 @@ export default function App() {
         setSelected(0);
       } else if (page === "menu") setSelected((v) => (v + 1) % items.length);
       else if (page === "game") setLane((v) => (v + 1) % 3);
+      else if (page === "status") setStatusPage(v => (v + 1) % statusPageCount);
       else if (page === "growth")
         setGrowthPage((v) => (v + 1) % growthPageCount);
       else if (page === "journal")
@@ -1139,8 +1145,10 @@ export default function App() {
         setAlbumCategory(null);
         setAlbumChoice(0);
         setAlbumPage(0);
-      } else if (item.kind === "status") setPage("status");
-      else if (item.kind === "growth") {
+      } else if (item.kind === "status") {
+        setStatusPage(0);
+        setPage("status");
+      } else if (item.kind === "growth") {
         setPage("growth");
         setGrowthPage(0);
       } else if (item.kind === "journal") {
@@ -1337,7 +1345,9 @@ export default function App() {
                         : pet.game?.kind === "tiles"
                           ? "A 移动  B 选牌  C 撤选 / 放弃"
                           : "A 移动　 B 接住　 C 放弃确认"
-                    : page === "album"
+                    : page === "status"
+                      ? "A 换页　 B / C 回小窝"
+                      : page === "album"
                       ? albumCategory === null ? "A 换分类  B 进入  C 返回小窝" : "A / B 换页  C 返回分类"
                       : page === "growth"
                       ? "A / B 换页　 C 返回"
@@ -1721,7 +1731,8 @@ export default function App() {
                           />
                         )}
                         {page === "status" && (
-                          <div className="screen-status">
+                          <div className="screen-status" data-status-page={statusPage}>
+                            {statusPage === 0 ? <>
                             <div className="status-name">
                               <PetArt
                                 index={index}
@@ -1751,6 +1762,8 @@ export default function App() {
                             <div className="care-total">
                               收到过 {pet.careCount} 次温柔照顾 ♡
                             </div>
+                            </> : <StatusGuide pet={pet} rules={careRules} />}
+                            <small className="status-page-number">{statusPage + 1} / {statusPageCount}</small>
                           </div>
                         )}
                         {page === "journal" && (

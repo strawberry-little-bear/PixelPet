@@ -131,7 +131,7 @@ func (s *State) Advance(now time.Time) bool {
 	if ms <= s.LastTick {
 		return false
 	}
-	hours := math.Min(float64(ms-s.LastTick)/3600000, 12)
+	hours := math.Min(float64(ms-s.LastTick)/3600000, MaxOfflineHours)
 	s.LastTick = ms
 	if s.HatchedAt == 0 {
 		return true
