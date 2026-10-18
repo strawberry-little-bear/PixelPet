@@ -1,3 +1,4 @@
+import { BearRig } from "./BearRig";
 import { MushroomRig } from "./MushroomRig";
 import { DolphinRig } from "./DolphinRig";
 import { BirdRig } from "./BirdRig";
@@ -14,7 +15,7 @@ import type { NeedKind } from "./needs";
 export function petRigKind(
   index: number,
   stage: GrowthStage,
-): "rabbit" | "cat" | "tanuki" | "bird" | "dolphin" | "mushroom" | "original" {
+): "rabbit" | "cat" | "tanuki" | "bird" | "dolphin" | "mushroom" | "bear" | "original" {
   if (stage === "egg") return "original";
   return index === 0
     ? "tanuki"
@@ -26,9 +27,11 @@ export function petRigKind(
           ? "dolphin"
           : index === 4
             ? "mushroom"
-            : index === 7
-              ? "cat"
-              : "original";
+            : index === 5
+              ? "bear"
+              : index === 7
+                ? "cat"
+                : "original";
 }
 export function petRigClass(index: number, stage: GrowthStage): string {
   const kind = petRigKind(index, stage);
@@ -59,6 +62,7 @@ export function PetArt({
     bird: BirdRig,
     dolphin: DolphinRig,
     mushroom: MushroomRig,
+    bear: BearRig,
     original: null,
   }[petRigKind(index, stage)];
   return Rig ? (

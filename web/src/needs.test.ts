@@ -52,6 +52,20 @@ describe("deterministic proactive needs", () => {
     expect(petNeed({...pet(),species:4,sleeping:true})).toBeNull();
     expect(petNeed({...pet(),species:4,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
   });
+  it("describes bear paws without changing deterministic priority, data or sleep/game suppression", () => {
+    for (const needs of [{hunger:10},{energy:20},{clean:15},{mood:40},{mood:60,energy:44},{}]) {
+      const original=pet(needs), bear={...original,species:5}, before=structuredClone(bear);
+      const a=petNeed(original)!, b=petNeed(bear)!;
+      expect(b.kind).toBe(a.kind);
+      expect(b.urgent).toBe(a.urgent);
+      expect(b.text).toMatch(/爪|揉揉眼睛|圆耳/);
+      expect(b.text).not.toMatch(/鳍|菌盖|翼/);
+      expect(b).toEqual(petNeed(bear));
+      expect(bear).toEqual(before);
+    }
+    expect(petNeed({...pet(),species:5,sleeping:true})).toBeNull();
+    expect(petNeed({...pet(),species:5,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
+  });
   it("stops hunger as soon as a saved meal has filled the pet", () => {
     const p=pet({hunger:50}); expect(petNeed(p)?.kind).toBe("hungry");
     p.needs.hunger=70; expect(petNeed(p)?.kind).toBe("content");

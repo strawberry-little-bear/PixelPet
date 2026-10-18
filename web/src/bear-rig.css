@@ -1,0 +1,105 @@
+/* The peach cub learns to step and sit tall; canvas size never changes by age. */
+.growth-baby .growth-size.has-bear-rig,
+.growth-growing .growth-size.has-bear-rig,
+.growth-adult .growth-size.has-bear-rig { width: 104px; height: 110px; margin-left: -52px; }
+.has-bear-rig .growth-outfit { bottom: 8px; width: 29px; height: 19px; margin-left: -14.5px; }
+.growth-baby .has-bear-rig .growth-outfit { bottom: 5px; width: 23px; height: 14px; margin-left: -11.5px; }
+.growth-growing .has-bear-rig .growth-outfit { bottom: 7px; width: 26px; height: 17px; margin-left: -13px; }
+.pet-scene[data-rig="bear"].motion-idle .pet-actor { animation: none; }
+.bear-rig { overflow: visible; --bear-eye-reach: -13px; --bear-ear-reach: -22px; --bear-snack-reach: -7px; }
+.bear-baby { --bear-eye-reach: -9px; --bear-ear-reach: -17px; --bear-snack-reach: -5px; }
+.bear-growing { --bear-eye-reach: -11px; --bear-ear-reach: -20px; --bear-snack-reach: -6px; }
+.bear-head, .bear-ear, .bear-sprout, .bear-torso, .bear-paw, .bear-foot { transform-box: view-box; }
+.bear-torso { transform-origin: 32px 61px; }
+.bear-foot { transform-origin: 26px 62px; }
+.bear-foot.foot-right { transform-origin: 40px 62px; }
+/* Bear paws are namespaced: flat-source generic need gestures must not leak in. */
+.bear-mouth-open { opacity: 0; }
+.bear-rig.expression-hungry .bear-mouth-open { opacity: 1; }
+.bear-rig.expression-chewing .bear-mouth-open { animation: bear-nibble .65s steps(1,end) infinite; }
+/* Needs and care interrupt habits. These are visual only, not new care events. */
+.bear-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-paw-left { animation: bear-cub-snuggle 7s steps(3,end) infinite; }
+.bear-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .ear-right { animation: bear-ear-listen 7s steps(3,end) infinite; }
+.bear-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-head { animation: bear-curious-lean 6s steps(3,end) infinite; }
+.bear-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .foot-left { animation: bear-first-step 6s steps(3,end) infinite; }
+.bear-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-paw-right { animation: bear-cheek-rub 8s steps(3,end) infinite; }
+.bear-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-sprout { animation: bear-sprout-sway 8s steps(3,end) infinite; }
+.bear-rig.rig-motion-idle.gesture-hungry .bear-paw-left { animation: bear-belly-touch 5s steps(3,end) infinite; }
+.bear-rig.rig-motion-idle.gesture-tired .bear-paw-right { animation: bear-eye-rub 6s steps(3,end) infinite; }
+.bear-rig.rig-motion-idle.gesture-tired .bear-head { transform: translateY(2px) rotate(2deg); }
+.bear-rig.rig-motion-idle.gesture-dirty .bear-paw-right { animation: bear-ear-scratch 4.8s steps(3,end) infinite; }
+.bear-rig.rig-motion-idle.gesture-playful .bear-paw-left { animation: bear-ball-invite 5.4s steps(3,end) infinite; }
+.bear-rig.rig-motion-idle.gesture-content .bear-paw-left { animation: bear-greeting 7s steps(3,end) infinite; }
+.bear-rig.rig-motion-idle.gesture-quiet .bear-paw-left { transform: translate(4px,1px) rotate(-10deg); }
+.bear-rig.rig-motion-idle.gesture-quiet .bear-paw-right { transform: translate(-4px,1px) rotate(10deg); }
+.bear-rig.rig-motion-idle.gesture-quiet .bear-head { transform: rotate(2deg); }
+.bear-rig.rig-motion-eating .bear-head { animation: bear-snack-nod 1s steps(3,end) infinite; }
+.bear-rig.rig-motion-eating .bear-paw-left { animation: bear-hold-snack .65s steps(3,end) infinite; }
+.bear-rig.rig-motion-eating .bear-paw-right { transform: translate(-4px,-1px) rotate(12deg); }
+.bear-rig.rig-motion-bathing .bear-paw-left { animation: bear-wash-belly .8s steps(3,end) infinite; }
+.bear-rig.rig-motion-bathing .bear-paw-right { animation: bear-wash-ear .8s steps(3,end) infinite; }
+.bear-rig.rig-motion-bathing .bear-sprout { animation: bear-shake-leaves 1s steps(3,end) infinite; }
+.bear-rig.rig-motion-bathing .bear-head { animation: bear-shake-head 1s steps(3,end) infinite; }
+.bear-rig.rig-motion-sleeping .bear-head { transform: translateY(2px) rotate(2deg); }
+.bear-rig.rig-motion-sleeping .bear-paw-left { transform: translate(3px,2px) rotate(-8deg); }
+.bear-rig.rig-motion-sleeping .bear-paw-right { transform: translate(-3px,2px) rotate(8deg); }
+.bear-rig.rig-motion-sleeping .ear-left { transform: rotate(-8deg); }
+.bear-rig.rig-motion-sleeping .ear-right { transform: rotate(8deg); }
+.bear-rig.rig-motion-sleeping .bear-torso { animation: bear-breathe 3.6s ease-in-out infinite; }
+.bear-rig.rig-motion-waking .bear-paw-left { animation: bear-stretch-left var(--clip-duration,1400ms) steps(4,end) both; }
+.bear-rig.rig-motion-waking .bear-paw-right { animation: bear-stretch-right var(--clip-duration,1400ms) steps(4,end) both; }
+.bear-rig.rig-motion-waking .bear-head { animation: bear-wake-head var(--clip-duration,1400ms) steps(4,end) both; }
+.bear-rig.rig-motion-waking .bear-sprout { animation: bear-wake-sprout var(--clip-duration,1400ms) steps(4,end) both; }
+.bear-rig.rig-motion-celebrating .bear-paw { animation: bear-cheer .65s steps(3,end) infinite; }
+.bear-rig.rig-motion-celebrating .bear-paw-right { animation-delay: -.3s; }
+.bear-rig.rig-motion-celebrating .bear-sprout { animation: bear-shake-leaves .65s steps(3,end) infinite; }
+.form-lively .bear-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-paw-right,
+.form-gentle .bear-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-paw-right,
+.form-easygoing .bear-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-paw-right { animation: none; }
+.form-lively .bear-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-foot { animation: bear-paw-pat 5s steps(3,end) infinite; }
+.form-lively .bear-adult.rig-motion-idle .foot-right { animation-delay: -.4s; }
+.form-gentle .bear-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bear-head { animation: bear-soft-nod 9s steps(3,end) infinite; }
+.form-easygoing .bear-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .ear-right { animation: bear-rest-ear 10s steps(3,end) infinite; }
+@keyframes bear-cub-snuggle { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(5px,1px) rotate(-15deg)} 45%{transform:translate(7px,-1px) rotate(-10deg)} }
+@keyframes bear-ear-listen { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(8deg)} 45%{transform:rotate(-5deg)} }
+@keyframes bear-curious-lean { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-5deg)} 45%{transform:translateY(-1px) rotate(3deg)} }
+@keyframes bear-first-step { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,-3px)} 45%{transform:translate(1px,-4px)} }
+@keyframes bear-cheek-rub { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-3px,var(--bear-eye-reach)) rotate(15deg)} 45%{transform:translate(-1px,calc(var(--bear-eye-reach) + 2px)) rotate(8deg)} }
+@keyframes bear-sprout-sway { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-8deg)} 45%{transform:rotate(6deg)} }
+@keyframes bear-belly-touch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(7px,1px) rotate(-20deg)} 45%{transform:translate(8px,-1px) rotate(-12deg)} }
+@keyframes bear-eye-rub { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-5px,var(--bear-eye-reach)) rotate(15deg)} 45%{transform:translate(-4px,calc(var(--bear-eye-reach) + 2px)) rotate(8deg)} }
+@keyframes bear-ear-scratch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(2px,var(--bear-ear-reach)) rotate(18deg)} 45%{transform:translate(0px,calc(var(--bear-ear-reach) + 2px)) rotate(10deg)} }
+@keyframes bear-ball-invite { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(1px,3px) rotate(-20deg)} 45%{transform:translate(3px,2px) rotate(-28deg)} }
+@keyframes bear-greeting { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-1px,-4px) rotate(15deg)} 45%{transform:translate(-2px,-5px) rotate(22deg)} }
+@keyframes bear-snack-nod { 0%,100%{transform:none} 50%{transform:translateY(2px) rotate(2deg)} }
+@keyframes bear-hold-snack { 0%,100%{transform:translate(6px,var(--bear-snack-reach)) rotate(-18deg)} 50%{transform:translate(8px,calc(var(--bear-snack-reach) - 2px)) rotate(-25deg)} }
+@keyframes bear-wash-belly { 0%,100%{transform:translate(5px,0) rotate(-12deg)} 50%{transform:translate(7px,-3px) rotate(-20deg)} }
+@keyframes bear-wash-ear { 0%,100%{transform:translate(2px,var(--bear-ear-reach)) rotate(12deg)} 50%{transform:translate(0px,calc(var(--bear-ear-reach) + 2px)) rotate(20deg)} }
+@keyframes bear-shake-head { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2deg)} }
+@keyframes bear-shake-leaves { 0%,100%{transform:rotate(-8deg)} 50%{transform:rotate(8deg)} }
+@keyframes bear-breathe { 0%,100%{transform:none} 50%{transform:translateY(-1px) scaleY(1.025)} }
+@keyframes bear-stretch-left { 0%,100%{transform:none} 40%,75%{transform:translate(-2px,-5px) rotate(25deg)} }
+@keyframes bear-stretch-right { 0%,100%{transform:none} 40%,75%{transform:translate(2px,-5px) rotate(-25deg)} }
+@keyframes bear-wake-head { 0%,100%{transform:none} 40%,75%{transform:translateY(-2px) rotate(-2deg)} }
+@keyframes bear-wake-sprout { 0%,100%{transform:none} 40%,75%{transform:rotate(10deg)} }
+@keyframes bear-cheer { 0%,100%{transform:translateY(-2px) rotate(-10deg)} 50%{transform:translateY(-5px) rotate(15deg)} }
+@keyframes bear-paw-pat { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(-2px) rotate(-8deg)} 45%{transform:translateY(-3px) rotate(8deg)} }
+@keyframes bear-soft-nod { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(2px) rotate(3deg)} 45%{transform:translateY(1px)} }
+@keyframes bear-rest-ear { 0%,20%,75%,100%{transform:rotate(3deg)} 35%,60%{transform:rotate(12deg)} 45%{transform:rotate(7deg)} }
+@keyframes bear-nibble { 0%,100%{opacity:0} 50%{opacity:1} }
+@media (prefers-reduced-motion: reduce) {
+  .bear-rig, .bear-rig * { animation: none !important; }
+  .bear-rig.rig-motion-idle.gesture-hungry .bear-paw-left { transform: translate(7px,1px) rotate(-20deg); }
+  .bear-rig.rig-motion-idle.gesture-tired .bear-paw-right { transform: translate(-5px,var(--bear-eye-reach)) rotate(15deg); }
+  .bear-rig.rig-motion-idle.gesture-dirty .bear-paw-right { transform: translate(2px,var(--bear-ear-reach)) rotate(18deg); }
+  .bear-rig.rig-motion-idle.gesture-playful .bear-paw-left { transform: translate(1px,3px) rotate(-20deg); }
+  .bear-rig.rig-motion-idle.gesture-content .bear-paw-left { transform: translate(-1px,-4px) rotate(15deg); }
+  .bear-rig.rig-motion-eating .bear-paw-left { transform: translate(6px,var(--bear-snack-reach)) rotate(-18deg); }
+  .bear-rig.rig-motion-bathing .bear-paw-left { transform: translate(5px,0) rotate(-12deg); }
+  .bear-rig.rig-motion-bathing .bear-paw-right { transform: translate(2px,var(--bear-ear-reach)) rotate(12deg); }
+  .bear-rig.rig-motion-waking .bear-paw-left { transform: translate(-2px,-5px) rotate(25deg); }
+  .bear-rig.rig-motion-waking .bear-paw-right { transform: translate(2px,-5px) rotate(-25deg); }
+  .bear-rig.rig-motion-celebrating .bear-paw-left { transform: translateY(-3px) rotate(15deg); }
+  .bear-rig.rig-motion-celebrating .bear-paw-right { transform: translateY(-3px) rotate(-15deg); }
+  .bear-rig.expression-chewing .bear-mouth-open { opacity: 1; }
+}
