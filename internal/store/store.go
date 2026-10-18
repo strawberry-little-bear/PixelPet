@@ -29,15 +29,16 @@ type Store struct {
 	mu sync.Mutex
 }
 type Result struct {
-	TileLink     []game.TilePoint   `json:"tileLink,omitempty"`
-	Shop         game.Shop          `json:"shop"`
-	State        game.State         `json:"state"`
-	Message      string             `json:"message"`
-	ServerTime   int64              `json:"serverTime"`
-	CareFeedback *game.CareFeedback `json:"careFeedback,omitempty"`
-	ReturnRecap  *ReturnRecap       `json:"returnRecap,omitempty"`
-	RecapPending bool               `json:"recapPending"`
-	RecapClaimed bool               `json:"recapClaimed,omitempty"`
+	SaveGeneration string             `json:"saveGeneration"`
+	TileLink       []game.TilePoint   `json:"tileLink,omitempty"`
+	Shop           game.Shop          `json:"shop"`
+	State          game.State         `json:"state"`
+	Message        string             `json:"message"`
+	ServerTime     int64              `json:"serverTime"`
+	CareFeedback   *game.CareFeedback `json:"careFeedback,omitempty"`
+	ReturnRecap    *ReturnRecap       `json:"returnRecap,omitempty"`
+	RecapPending   bool               `json:"recapPending"`
+	RecapClaimed   bool               `json:"recapClaimed,omitempty"`
 }
 
 func Open(path string) (*Store, error) {
@@ -50,6 +51,7 @@ func Open(path string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1)
 	if _, err = db.Exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
+	CREATE TABLE IF NOT EXISTS save_generation (id INTEGER PRIMARY KEY CHECK(id=1), token TEXT NOT NULL);
 	CREATE TABLE IF NOT EXISTS saves (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL);
 	CREATE TABLE IF NOT EXISTS snapshots (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL, created_at INTEGER NOT NULL);
 	CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, body TEXT NOT NULL);
@@ -63,13 +65,21 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	generation, err := newSaveGeneration()
+	if err == nil {
+		_, err = db.Exec("INSERT OR IGNORE INTO save_generation(id,token) VALUES(1,?)", generation)
+	}
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
 	return s, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
 func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Time) (Result, error) {
-	return s.do(a, imported, reset, now, false, "")
+	return s.DoForGeneration(a, imported, reset, now, "")
 }
-func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Time, visit bool, readID string) (Result, error) {
+func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Time, visit bool, readID, expectedGeneration string) (Result, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tx, err := s.db.Begin()
@@ -77,6 +87,14 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		return Result{}, err
 	}
 	defer tx.Rollback()
+	var generation string
+	if err = tx.QueryRow("SELECT token FROM save_generation WHERE id=1").Scan(&generation); err != nil {
+		return Result{}, err
+	}
+	metadata := Result{SaveGeneration: generation}
+	if expectedGeneration != "" && expectedGeneration != generation {
+		return metadata, ErrSaveChanged
+	}
 	var body string
 	if err = tx.QueryRow("SELECT body FROM saves WHERE id=1").Scan(&body); err != nil {
 		return Result{}, err
@@ -88,7 +106,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		if readErr != nil && state.LastTick > now.UnixMilli() && state.Validate(time.UnixMilli(state.LastTick)) == nil {
 			// This alternative validation is diagnostic only. It is never used
 			// to accept an import or to advance the pet using a future clock.
-			return Result{}, ErrClockAhead
+			return metadata, ErrClockAhead
 		}
 	}
 	// Cached actions must not bypass current-save clock/corruption checks.
@@ -100,6 +118,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			if err = json.Unmarshal([]byte(cached), &r); err != nil {
 				return r, err
 			}
+			r.SaveGeneration = generation
 			r.State.Upgrade(now)
 			r.Shop = game.ShopRules()
 			r.ServerTime = now.UnixMilli()
@@ -116,7 +135,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	}
 	if readErr != nil {
 		if imported == nil && !reset {
-			return Result{}, fmt.Errorf("%w，可从存档盒导入备份恢复：%v", ErrInvalidSave, readErr)
+			return metadata, fmt.Errorf("%w，可从存档盒导入备份恢复：%v", ErrInvalidSave, readErr)
 		}
 		// Keep the damaged bytes as a snapshot, while allowing explicit recovery.
 		revision := state.Revision
@@ -220,6 +239,13 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			message = "备份已恢复，欢迎回来。"
 		}
 		state.Revision = rev
+		generation, err = newSaveGeneration()
+		if err != nil {
+			return Result{}, err
+		}
+		if _, err = tx.Exec("UPDATE save_generation SET token=? WHERE id=1", generation); err != nil {
+			return Result{}, err
+		}
 		changed = true
 		if _, err = tx.Exec("DELETE FROM requests"); err != nil {
 			return Result{}, err
@@ -250,7 +276,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 	}
-	result := Result{TileLink: tileLink, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
+	result := Result{SaveGeneration: generation, TileLink: tileLink, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
 	if a != nil && a.RequestID != "" {
 		encoded, _ := json.Marshal(result)
 		if _, err = tx.Exec("INSERT INTO requests(id,body) VALUES(?,?)", a.RequestID, string(encoded)); err != nil {

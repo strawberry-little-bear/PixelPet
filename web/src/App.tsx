@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { petNeed } from "./needs";
 import { request } from "./api";
-import { isClockAhead, isSaveCorrupt, needsReconciliation } from "./requestFailure";
+import { isClockAhead, isSaveCorrupt, isSaveChanged, failureGeneration, needsReconciliation } from "./requestFailure";
 import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
@@ -165,6 +165,8 @@ export default function App() {
   const [corrupt, setCorrupt] = useState(false);
   const corruptRef = useRef(false);
   const [uncertain, setUncertain] = useState(false);
+  const [saveChanged, setSaveChanged] = useState(false);
+  const saveChangedRef = useRef(false);
   const [checking, setChecking] = useState(false);
   const uncertainRef = useRef(false);
   const readInFlight = useRef<number | null>(null);
@@ -248,13 +250,19 @@ export default function App() {
   const initialized = useRef(false);
   const latestRevision = useRef(-1);
   const acceptedPet = useRef<PetState | null>(null);
+  const acceptedGeneration = useRef<string | undefined>(undefined);
   const modalRef = useRef<HTMLElement>(null);
   const modalReturnFocus = useRef<HTMLElement | null>(null);
 
-  const apply = useCallback((r: Result, silent = false) => {
-    if (r.state.revision < latestRevision.current) return false;
+  const apply = useCallback((r: Result, silent = false, authoritativeRead = false) => {
+    // Revision order is meaningful within a generation. An explicit repair can
+    // legitimately replace an unreadable revision with a lower one. Only a
+    // fresh, epoch-checked read may cross that boundary, never a cached action.
+    const newGeneration = acceptedGeneration.current !== undefined && r.saveGeneration !== undefined && acceptedGeneration.current !== r.saveGeneration;
+    if (r.state.revision < latestRevision.current && !(authoritativeRead && newGeneration)) return false;
     latestRevision.current = r.state.revision;
     acceptedPet.current = r.state;
+    acceptedGeneration.current = r.saveGeneration;
     const nextStage = r.state.growth?.stage;
     if (nextStage) {
       const rank = ["egg", "baby", "growing", "adult"];
@@ -301,14 +309,18 @@ export default function App() {
     setQueuedTurn(0);
     setTileLink(null);
   }, []);
-  const markCorrupt = useCallback((reconciled = false) => {
+  const markCorrupt = useCallback((reconciled = false, generation?: string) => {
+    const replaced = generation !== undefined && acceptedGeneration.current !== undefined && generation !== acceptedGeneration.current;
+    if (generation) acceptedGeneration.current = generation;
     // Repeated corrupt-state polls must not close the toolbox or cancel a
     // repair preview. Only the first authoritative diagnosis enters recovery.
-    if (corruptRef.current && !reconciled) return;
+    if (corruptRef.current && !reconciled && !replaced) return;
     clockAheadRef.current = false;
     setClockAhead(false);
     corruptRef.current = true;
     setCorrupt(true);
+    saveChangedRef.current = false;
+    setSaveChanged(false);
     // An explicit repair may replace an unreadable revision with a new one.
     // Do not compare that new save generation with the last healthy snapshot.
     latestRevision.current = -1;
@@ -349,6 +361,8 @@ export default function App() {
     setError("服务时间早于存档时间。请校准运行 Go 服务的电脑时间，再按 B 检查；不要重置存档。");
   }, [discardImport, stopActivity]);
   const markUncertain = useCallback(() => {
+    setSaveChanged(false);
+    saveChangedRef.current = false;
     discardImport();
     corruptRef.current = false;
     setCorrupt(false);
@@ -357,10 +371,22 @@ export default function App() {
     stopActivity();
     setError("这次操作的结果还未确认，可能已经保存。按 B 核对存档，不会自动重试。");
   }, [stopActivity, discardImport]);
+  const markSaveChanged = useCallback(() => {
+    markUncertain();
+    setSaveChanged(true);
+    saveChangedRef.current = true;
+    setHelp(false);
+    setReset(false);
+    setTools(false);
+    setPurchaseConfirm(false);
+    setAbandonGame(null);
+    setError("存档已在其他页面替换，本次操作未执行。按 B 读取当前存档，不会自动重试。");
+  }, [markUncertain]);
   const refresh = useCallback(async () => {
     if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
     const epoch = syncEpoch.current;
     const recovering = uncertainRef.current;
+    const changed = saveChangedRef.current;
     const repairing = corruptRef.current;
     const clockBlocked = clockAheadRef.current;
     readInFlight.current = epoch;
@@ -370,17 +396,18 @@ export default function App() {
       // or claim a recap as a substitute for finding out what was saved.
       const r = recovering || repairing || clockBlocked ? await request("state") : await request("visit", {});
       if (epoch !== syncEpoch.current) return;
-      // These fields are immutable during one hatched pet's life. They can
-      // change after another tab hatches, resets, or restores a different pet.
+      // The installation token also identifies a same-pet backup restore.
+      // Immutable lifecycle fields retain hatch routing/older-server support.
       // Reject stale responses before invalidating any local intent.
       const previous = acceptedPet.current;
-      const replaced = previous !== null && r.state.revision >= latestRevision.current && (
+      const generationChanged = acceptedGeneration.current !== undefined && r.saveGeneration !== undefined && acceptedGeneration.current !== r.saveGeneration;
+      const replaced = previous !== null && (generationChanged || (r.state.revision >= latestRevision.current && (
         previous.createdAt !== r.state.createdAt ||
         previous.hatchedAt !== r.state.hatchedAt ||
         (r.state.hatchedAt > 0 && previous.species !== r.state.species)
-      );
-      if (!apply(r, recovering || repairing || clockBlocked || replaced)) {
-        if (recovering || clockBlocked) setError("读到较旧的存档，结果仍未确认。按 B 再次核对。");
+      )));
+      if (!apply(r, recovering || repairing || clockBlocked || replaced, true)) {
+        if (recovering || clockBlocked) setError(changed ? "读到较旧的存档，上次操作未执行。按 B 再次读取当前存档。" : "读到较旧的存档，结果仍未确认。按 B 再次核对。");
         return;
       }
       // Unlike cached action replies, this is an authoritative current read:
@@ -398,6 +425,8 @@ export default function App() {
         discardImport();
         uncertainRef.current = false;
         setUncertain(false);
+        setSaveChanged(false);
+        saveChangedRef.current = false;
         setChosen(r.state.species);
         setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
         setReset(false);
@@ -405,7 +434,7 @@ export default function App() {
         setPurchaseConfirm(false);
         returnAttempt.current = r.returnRecap?.id ?? "";
         initialized.current = true;
-        setMessage(clockBlocked ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。" : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。" : recovering ? "已核对当前存档，请查看状态。上次操作没有自动重试。" : "已同步其他页面更新的伙伴，请从当前画面继续。");
+        setMessage(clockBlocked ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。" : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。" : changed ? "已读取当前存档。上次操作未执行，没有自动重试。" : recovering ? "已核对当前存档，请查看状态。上次操作没有自动重试。" : "已同步其他页面更新的伙伴，请从当前画面继续。");
       } else if (r.recapPending) returnAttempt.current = "";
       if (!initialized.current) {
         setChosen(r.state.species);
@@ -418,7 +447,7 @@ export default function App() {
       if (isSaveCorrupt(error)) {
         // An explicit diagnosis is authoritative current-state evidence, not
         // a retry of a previous unknown write. Its payload was discarded.
-        markCorrupt(recovering);
+        markCorrupt(recovering, failureGeneration(error));
         return;
       }
       // Keep the read-only recovery marker across transport failures, but do
@@ -434,7 +463,7 @@ export default function App() {
         stopActivity();
       }
       setError(recovering
-        ? "还无法核对存档，结果仍未确认。按 B 重连，不会重复提交上次操作。"
+        ? changed ? "还无法读取当前存档。按 B 重连，上次操作未执行且不会重试。" : "还无法核对存档，结果仍未确认。按 B 重连，不会重复提交上次操作。"
         : "还没连上小窝，请确认 Go 服务已启动。");
     } finally {
       if (readInFlight.current === epoch) {
@@ -539,7 +568,7 @@ export default function App() {
     syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
-    void request("recap/read", { id: returnRecap.id })
+    void request("recap/read", { id: returnRecap.id }, acceptedGeneration.current)
       .then((r) => {
         apply(r);
         if (
@@ -554,7 +583,8 @@ export default function App() {
       })
       .catch((error: unknown) => {
         if (isClockAhead(error)) { markClockAhead(); return; }
-        if (isSaveCorrupt(error)) { markCorrupt(); return; }
+        if (isSaveCorrupt(error)) { markCorrupt(false, failureGeneration(error)); return; }
+        if (isSaveChanged(error)) { markSaveChanged(); return; }
         if (needsReconciliation(error)) { markUncertain(); return; }
         // If not accepted, a later heartbeat retries. If the response was lost
         // after acceptance, the saved recap remains available in the menu.
@@ -570,6 +600,7 @@ export default function App() {
     corrupt,
     markCorrupt,
     markClockAhead,
+    markSaveChanged,
     markUncertain,
     returnRecap,
     returnPending,
@@ -671,7 +702,7 @@ export default function App() {
           : {}),
         ...extra,
         requestId: crypto.randomUUID(),
-      });
+      }, acceptedGeneration.current);
       if (!apply(r)) {
         markUncertain();
         return false;
@@ -735,7 +766,8 @@ export default function App() {
       return true;
     } catch (e) {
       if (isClockAhead(e)) markClockAhead();
-      else if (isSaveCorrupt(e)) markCorrupt();
+      else if (isSaveCorrupt(e)) markCorrupt(false, failureGeneration(e));
+      else if (isSaveChanged(e)) markSaveChanged();
       else if (needsReconciliation(e)) markUncertain();
       else setError(e instanceof Error ? e.message : "操作被拒绝，请查看提示。");
       return false;
@@ -1161,7 +1193,7 @@ export default function App() {
     busyRef.current = true;
     setBusy(true);
     try {
-      const r = await request("import", pending.backup.data);
+      const r = await request("import", pending.backup.data, acceptedGeneration.current);
       initialized.current = true;
       discardImport();
       latestRevision.current = -1;
@@ -1177,6 +1209,7 @@ export default function App() {
       setChosen(r.state.species);
     } catch (e) {
       if (isClockAhead(e)) markClockAhead();
+      else if (isSaveChanged(e)) markSaveChanged();
       else if (needsReconciliation(e)) markUncertain();
       else setError(e instanceof Error ? e.message : "导入被拒绝，现有存档未替换。");
     } finally {
@@ -1190,7 +1223,7 @@ export default function App() {
     busyRef.current = true;
     setBusy(true);
     try {
-      const r = await request("reset", { confirm: true });
+      const r = await request("reset", { confirm: true }, acceptedGeneration.current);
       initialized.current = true;
       discardImport();
       latestRevision.current = -1;
@@ -1207,6 +1240,7 @@ export default function App() {
       setReset(false);
     } catch (e) {
       if (isClockAhead(e)) markClockAhead();
+      else if (isSaveChanged(e)) markSaveChanged();
       else if (needsReconciliation(e)) { setReset(false); markUncertain(); }
       else setError(e instanceof Error ? e.message : "重新开始失败");
     } finally {
@@ -1493,7 +1527,7 @@ export default function App() {
                       <div className={`save-recovery ${clockAhead ? "clock-recovery" : ""}`} role="status" aria-live="polite">
                         <Cloud size={28} />
                         <h2>{checking ? "正在核对存档" : clockAhead ? "服务时间待校准" : uncertain ? "先核对，再继续" : "小窝暂时未连接"}</h2>
-                        <p>{clockAhead ? "服务时间早于存档时间，先暂停操作；这不表示存档损坏。" : uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
+                        <p>{clockAhead ? "服务时间早于存档时间，先暂停操作；这不表示存档损坏。" : saveChanged ? "存档已在其他页面替换，本次操作未执行。" : uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
                         <p>{checking ? "只读取当前存档，不重做操作。" : clockAhead ? "请校准运行 Go 服务的电脑时间，再按 B 检查。不要重置存档。" : "按 B 重连并查看当前存档。"}</p>
                         <small>{clockAhead && uncertain ? "上次操作结果仍待核对 · 不自动重试" : "游戏不会自动继续 · 不重播成功动作"}</small>
                       </div>

@@ -86,3 +86,31 @@ describe("explicit clock diagnosis", () => {
     await expect(request("state")).rejects.toMatchObject({ code: undefined });
   });
 });
+
+describe("save generation preconditions", () => {
+  const generation = "a".repeat(32);
+  it.each(["action", "import", "reset", "recap/read"])("scopes %s intent with a header without changing its portable body", async path => {
+    respond(new Response(JSON.stringify({ ...result, saveGeneration: generation })));
+    await request(path, { kind: "feed" }, generation);
+    expect(fetch).toHaveBeenCalledWith(`/api/${path}`, expect.objectContaining({
+      method: "POST", body: '{"kind":"feed"}', headers: { "Content-Type": "application/json", "X-PixelPet-Generation": generation },
+    }));
+  });
+  it("classifies the typed generation conflict as a known rejection, with no retry", async () => {
+    respond(new Response(JSON.stringify({ error: "存档已替换", code: "save_changed", saveGeneration: generation }), { status: 409 }));
+    await expect(request("action", { kind: "feed" }, "b".repeat(32))).rejects.toMatchObject({ outcome: "rejected", code: "save_changed", saveGeneration: generation });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it.each([400, 500, 503])("does not trust generation diagnosis on status %s", async status => {
+    respond(new Response(JSON.stringify({ code: "save_changed", saveGeneration: generation }), { status }));
+    await expect(request("state")).rejects.toMatchObject({ code: undefined, saveGeneration: undefined });
+  });
+  it.each(["short", "A".repeat(32), null, 42])("does not treat an invalid token as a successful current save: %s", async saveGeneration => {
+    respond(new Response(JSON.stringify({ ...result, saveGeneration })));
+    await expect(request("action", { kind: "feed" })).rejects.toMatchObject({ outcome: "unknown" });
+  });
+  it("retains corrupt-repair metadata from a typed diagnosis", async () => {
+    respond(new Response(JSON.stringify({ error: "坏档", code: "save_corrupt", saveGeneration: generation }), { status: 409 }));
+    await expect(request("state")).rejects.toMatchObject({ code: "save_corrupt", saveGeneration: generation });
+  });
+});

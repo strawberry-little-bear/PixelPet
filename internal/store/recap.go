@@ -42,10 +42,10 @@ func returnSnapshot(s game.State) ReturnSnapshot {
 // Visit is a foreground heartbeat. Ordinary GET state/backup calls settle time
 // but do not count as the player returning. Actions also count as presence.
 func (s *Store) Visit(now time.Time) (Result, error) {
-	return s.do(nil, nil, false, now, true, "")
+	return s.do(nil, nil, false, now, true, "", "")
 }
 func (s *Store) ReadRecap(id string, now time.Time) (Result, error) {
-	return s.do(nil, nil, false, now, true, id)
+	return s.ReadRecapForGeneration(id, now, "")
 }
 
 // updateVisit compares the last active snapshot to the already-settled state

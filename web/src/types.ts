@@ -67,6 +67,7 @@ export type CareFeedback = {
   retryAt?: number;
 };
 export type Result = {
+  saveGeneration?: string;
   state: PetState;
   message: string;
   serverTime: number;

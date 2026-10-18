@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -21,6 +22,13 @@ func Handler(db *store.Store, web string) http.Handler {
 		if err != nil {
 			status := http.StatusBadRequest
 			body := map[string]string{"error": err.Error()}
+			if result.SaveGeneration != "" {
+				body["saveGeneration"] = result.SaveGeneration
+			}
+			if errors.Is(err, store.ErrSaveChanged) {
+				status = http.StatusConflict
+				body["code"] = "save_changed"
+			}
 			if errors.Is(err, store.ErrClockAhead) {
 				status = http.StatusConflict
 				body["code"] = "clock_ahead"
@@ -72,7 +80,7 @@ func Handler(db *store.Store, web string) http.Handler {
 			http.Error(w, "无效的小结编号", 400)
 			return
 		}
-		result, err := db.ReadRecap(receipt.ID, time.Now())
+		result, err := db.ReadRecapForGeneration(receipt.ID, time.Now(), r.Header.Get("X-PixelPet-Generation"))
 		write(w, result, err)
 	})
 	mux.HandleFunc("POST /api/action", func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +92,7 @@ func Handler(db *store.Store, web string) http.Handler {
 			http.Error(w, "请求编号过长", 400)
 			return
 		}
-		result, err := db.Do(&a, nil, false, time.Now())
+		result, err := db.DoForGeneration(&a, nil, false, time.Now(), r.Header.Get("X-PixelPet-Generation"))
 		write(w, result, err)
 	})
 	mux.HandleFunc("GET /api/backup", func(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +111,7 @@ func Handler(db *store.Store, web string) http.Handler {
 		if !decode(w, r, &state) {
 			return
 		}
-		result, err := db.Do(nil, &state, false, time.Now())
+		result, err := db.DoForGeneration(nil, &state, false, time.Now(), r.Header.Get("X-PixelPet-Generation"))
 		write(w, result, err)
 	})
 	mux.HandleFunc("POST /api/reset", func(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +125,7 @@ func Handler(db *store.Store, web string) http.Handler {
 			http.Error(w, "需要确认重新开始", 400)
 			return
 		}
-		result, err := db.Do(nil, nil, true, time.Now())
+		result, err := db.DoForGeneration(nil, nil, true, time.Now(), r.Header.Get("X-PixelPet-Generation"))
 		write(w, result, err)
 	})
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "API not found", 404) })
@@ -135,6 +143,12 @@ func Handler(db *store.Store, web string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mutations are same-origin, protecting the local service from foreign web pages.
 		if r.Method == "POST" {
+			if generation := r.Header.Get("X-PixelPet-Generation"); generation != "" {
+				if _, err := hex.DecodeString(generation); err != nil || len(generation) != 32 {
+					http.Error(w, "无效的存档代次", http.StatusBadRequest)
+					return
+				}
+			}
 			if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
 				http.Error(w, "只接受当前游戏页面的操作", 403)
 				return
