@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import App from "./App";
 import { request } from "./api";
-import type { PetState } from "./types";
+import type { AdultForm, PetState } from "./types";
 import { emptyGrowth } from "./growth";
 
 vi.mock("./api", () => ({ request: vi.fn() }));
@@ -527,5 +527,140 @@ describe("durable three-button return recap", () => {
     await act(async () => document.dispatchEvent(new Event("visibilitychange")));
     expect(api).toHaveBeenCalledWith("visit", {});
     hidden.mockRestore();
+  });
+});
+
+describe("saved-state proactive expression", () => {
+  const need = () => document.querySelector(".pet-scene")?.getAttribute("data-need");
+
+  it("gives the lowest critical body need priority and only recomputes on saved state", async () => {
+    saved.needs = { hunger: 20, energy: 10, clean: 15, mood: 0 };
+    await mount();
+    expect(need()).toBe("tired");
+    saved.needs.energy = 80;
+    saved.revision++;
+    await advance(15000);
+    expect(need()).toBe("dirty");
+    expect(scene()).toBe("idle");
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button")).toBeNull();
+  });
+
+  it("stops asking for food after a saved meal, without replay on heartbeat or remount", async () => {
+    saved.needs.hunger = 50;
+    await mount();
+    expect(need()).toBe("hungry");
+    await choose(0);
+    expect(scene()).toBe("eating");
+    expect(need()).toBe("none");
+    expect(document.querySelector(".need-gesture")).toBeNull();
+    await advance(3000);
+    expect(need()).toBe("content");
+    await advance(15000);
+    expect(scene()).toBe("idle");
+    expect(need()).toBe("content");
+    cleanup();
+    await mount();
+    expect(scene()).toBe("idle");
+    expect(need()).toBe("content");
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(1);
+  });
+
+  it("does not falsely satisfy a need when the care save fails", async () => {
+    saved.needs.hunger = 40;
+    await mount();
+    api.mockRejectedValueOnce(new Error("保存失败，请重试"));
+    await choose(0);
+    expect(screen.getByRole("alert").textContent).toContain("保存失败");
+    await key("c");
+    expect(scene()).toBe("idle");
+    expect(need()).toBe("hungry");
+    expect(saved.needs.hunger).toBe(40);
+    expect(saved.careCount).toBe(0);
+  });
+
+  it("hides requests during bath, sleep and wake, then resumes the actual remaining need", async () => {
+    saved.needs.clean = 20;
+    saved.needs.mood = 30;
+    await mount();
+    expect(need()).toBe("dirty");
+    await choose(2);
+    expect(need()).toBe("none");
+    await key("c");
+    expect(need()).toBe("playful");
+    await choose(3);
+    expect(scene()).toBe("sleeping");
+    expect(need()).toBe("none");
+    await advance(30000);
+    expect(document.querySelector(".need-gesture")).toBeNull();
+    cleanup();
+    await mount();
+    expect(scene()).toBe("sleeping");
+    expect(need()).toBe("none");
+    await choose(3);
+    expect(scene()).toBe("waking");
+    expect(need()).toBe("none");
+    await advance(1400);
+    expect(need()).toBe("playful");
+  });
+
+  it("never interrupts a running game with an invitation, including after reload", async () => {
+    saved.needs.mood = 0;
+    await mount();
+    expect(need()).toBe("playful");
+    await choose(1);
+    expect(document.querySelector(".star-game")).not.toBeNull();
+    expect(document.querySelector(".need-gesture")).toBeNull();
+    expect(document.querySelector(".game-lane .rabbit-rig")?.getAttribute("data-rig-stage")).toBe("baby");
+    await advance(15000);
+    cleanup();
+    await mount();
+    expect(document.querySelector(".star-game")).not.toBeNull();
+    expect(document.querySelector(".need-gesture")).toBeNull();
+  });
+
+  it("lets an evolution finish before expressing the current need, keeping the new anatomy", async () => {
+    saved.needs.hunger = 20;
+    await mount();
+    saved.revision++;
+    saved.growth = { ...emptyGrowth("growing"), points: 24, growingAt: Date.now() };
+    await advance(15000);
+    expect(scene()).toBe("celebrating");
+    expect(need()).toBe("none");
+    expect(document.querySelector(".pet-scene .rabbit-rig")?.getAttribute("data-rig-stage")).toBe("growing");
+    await advance(2400);
+    expect(need()).toBe("hungry");
+    expect(scene()).toBe("idle");
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
+  });
+
+  it.each(["balanced", "lively", "gentle", "easygoing"] as AdultForm[])("keeps the saved %s adult form through care and need changes", async form => {
+    saved.growth = { ...emptyGrowth("adult"), points: 72, form,
+      growingAt: Date.now() - 1000, adultAt: Date.now() };
+    saved.needs.hunger = 50;
+    await mount();
+    expect(need()).toBe("hungry");
+    await choose(0);
+    await key("c");
+    expect(need()).toBe("content");
+    saved.needs.mood = 20;
+    saved.revision++;
+    await advance(15000);
+    expect(need()).toBe("playful");
+    expect(scene()).toBe("idle");
+    expect(document.querySelector(".pet-scene")?.getAttribute("data-form")).toBe(form);
+    expect(saved.growth!.form).toBe(form);
+    expect(saved.growth!.points).toBe(72);
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(1);
+  });
+
+  it("supports old saves without growth metadata without inventing a care action", async () => {
+    delete saved.growth;
+    saved.needs.energy = 35;
+    await mount();
+    expect(need()).toBe("tired");
+    expect(document.querySelector(".pet-scene .rabbit-rig")?.getAttribute("data-rig-stage")).toBe("baby");
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
   });
 });

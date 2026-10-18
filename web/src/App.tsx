@@ -18,8 +18,10 @@ import {
   Waves,
   X,
 } from "lucide-react";
+import { petNeed } from "./needs";
 import { request } from "./api";
-import { PixelEgg, Sprite } from "./Sprite";
+import { PixelEgg } from "./Sprite";
+import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
 import { ReturnPanel } from "./ReturnPanel";
@@ -513,12 +515,8 @@ export default function App() {
   const growth = petGrowth(pet, now);
   const stage = stageNames[growth.stage];
   const form = tendency(growth);
-  const low = pet && Math.min(...Object.values(pet.needs)) < 25;
-  const mood = pet?.sleeping
-    ? "正在做一个甜甜的梦"
-    : low
-      ? "想要你的一点点照顾"
-      : "今天也是好心情";
+  const need = petNeed(pet);
+  const mood = pet?.sleeping ? "正在做一个甜甜的梦" : need?.text || "今天也是好心情";
   const target = pet?.game
     ? Math.floor(Math.max(0, now - pet.game.startedAt) / 900) % 3
     : 0;
@@ -745,9 +743,10 @@ export default function App() {
                             </div>
                             <div className="choose-sprite">
                               <span className="pixel-spark spark-left">✦</span>
-                              <Sprite
+                              <PetArt
                                 index={chosen}
-                                className="idle"
+                                stage="baby"
+                                className={chosen === 2 ? "" : "idle"}
                                 expression="awake"
                               />
                               <span className="pixel-spark spark-right">✧</span>
@@ -791,6 +790,7 @@ export default function App() {
                             <PetScene
                               index={index}
                               motion={motion}
+                              need={need?.kind}
                               clipId={clip?.id ?? 0}
                               duration={clip ? clipDurations[clip.kind] : 0}
                               stage={growth.stage}
@@ -847,7 +847,7 @@ export default function App() {
                         {page === "status" && (
                           <div className="screen-status">
                             <div className="status-name">
-                              <Sprite index={index} />
+                              <PetArt index={index} stage={growth.stage} />
                               <div>
                                 <strong>{pet.name}</strong>
                                 <small>
@@ -902,7 +902,7 @@ export default function App() {
                                     ★
                                   </span>
                                   {lane === i ? (
-                                    <Sprite index={index} />
+                                    <PetArt index={index} stage={growth.stage} />
                                   ) : (
                                     <span className="lane-dot">·</span>
                                   )}
@@ -1056,7 +1056,7 @@ export default function App() {
                 key={name}
               >
                 <div>
-                  <Sprite index={i} />
+                  <PetArt index={i} stage={i === index ? growth.stage : "baby"} />
                 </div>
                 <span>{name}</span>
                 {index === i && <i />}

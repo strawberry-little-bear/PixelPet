@@ -1,14 +1,26 @@
 import { useId } from "react";
 import type { CSSProperties } from "react";
 import { Cloud } from "lucide-react";
-import { Sprite } from "./Sprite";
+import { NeedGesture } from "./NeedGesture";
+import type { NeedKind } from "./needs";
+import type { Expression } from "./Sprite";
+import { PetArt } from "./PetArt";
 import type { SceneMotion } from "./motion";
 import "./pet-motion.css";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
 import type { AdultForm, GrowthStage } from "./types";
 
+const needLabels: Record<NeedKind, string> = {
+  hungry: "摸摸肚子等吃饭",
+  tired: "揉眼睛打哈欠",
+  dirty: "挠头等洗澡",
+  playful: "推球邀请玩耍",
+  content: "微笑挥手",
+  quiet: "安静地靠近",
+};
+
 const labels: Record<SceneMotion, string> = {
-  idle: "待机，眨眼和轻轻摇晃",
+  idle: "待机，眨眼和轻轻活动",
   eating: "吃饭，咀嚼小饭团",
   bathing: "洗澡，搓洗和冲泡泡",
   sleeping: "闭眼盖被子睡觉",
@@ -103,6 +115,7 @@ export function PetScene({
   duration = 0,
   stage = "baby",
   form = "",
+  need,
 }: {
   index: number;
   motion: SceneMotion;
@@ -111,8 +124,11 @@ export function PetScene({
   duration?: number;
   stage?: GrowthStage;
   form?: AdultForm | "";
+  need?: NeedKind;
 }) {
-  const expression =
+  const isRabbit = index === 2 && stage !== "egg";
+  const activeNeed = motion === "idle" && stage !== "egg" ? need : undefined;
+  const expression: Expression =
     motion === "sleeping"
       ? "asleep"
       : motion === "bathing" || motion === "celebrating"
@@ -121,15 +137,17 @@ export function PetScene({
           ? "chewing"
           : motion === "waking"
             ? "waking"
-            : "awake";
+            : activeNeed || "awake";
   return (
     <div
-      className={`pet-room pet-scene motion-${motion} growth-${stage} form-${form || "none"}`}
+      className={`pet-room pet-scene motion-${motion} growth-${stage} form-${form || "none"} need-${activeNeed || "none"}`}
       data-motion={motion}
+      data-need={activeNeed || "none"}
+      data-rig={isRabbit ? "rabbit" : "original"}
       data-stage={stage}
       data-form={form}
       role="img"
-      aria-label={labels[motion]}
+      aria-label={labels[motion] + (activeNeed ? `，${needLabels[activeNeed]}` : "")}
     >
       <div className="scene-environment" aria-hidden="true">
         <Cloud className="room-cloud" size={30} strokeWidth={1.5} />
@@ -155,9 +173,10 @@ export function PetScene({
           </>
         )}
         <div className="pet-actor">
-          <div className="growth-size">
-            <Sprite index={index} expression={expression} />
+          <div className={`growth-size ${isRabbit ? "has-rabbit-rig" : ""}`}>
+            <PetArt index={index} stage={stage} expression={expression} motion={motion} need={activeNeed} />
             <GrowthOutfit stage={stage} form={form} />
+            {activeNeed && <NeedGesture kind={activeNeed} index={index} paws={!isRabbit} />}
           </div>
         </div>
         {stage === "adult" && <FormEmblem form={form} />}

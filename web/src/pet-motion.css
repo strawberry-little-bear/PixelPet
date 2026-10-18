@@ -889,3 +889,47 @@
     opacity: 0;
   }
 }
+
+/* A sustained need is a state, not a toast or a replayed reward clip. */
+.sprite-eyes-tired, .sprite-eye-glints { opacity: 0; }
+.expression-tired .sprite-eyes-open { opacity: 0; }
+.expression-tired .sprite-eyes-tired { opacity: 1; }
+.expression-playful .sprite-eye-glints { opacity: 1; }
+.expression-content .sprite-eyes-happy { animation: need-soft-smile 7s steps(1, end) infinite; }
+.expression-content .sprite-eyes-open { animation: need-soft-open 7s steps(1, end) infinite; }
+.expression-hungry .sprite-eyes-open, .expression-dirty .sprite-eyes-open, .expression-playful .sprite-eyes-open, .expression-quiet .sprite-eyes-open { animation: pixel-blink 5.6s steps(1, end) infinite; }
+.expression-hungry .sprite-eyes-closed, .expression-dirty .sprite-eyes-closed, .expression-playful .sprite-eyes-closed, .expression-quiet .sprite-eyes-closed { animation: pixel-blink-closed 5.6s steps(1, end) infinite; }
+.need-gesture { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+.need-paw { transform-box: view-box; transform-origin: 20px 43px; }
+.paw-right { transform-origin:44px 43px; }
+.gesture-hungry .paw-left { animation: tummy-rub 4.8s steps(3,end) infinite; }
+.gesture-hungry .paw-right { animation: tummy-rub-right 4.8s steps(3,end) infinite; }
+.gesture-tired .paw-right { animation: eye-rub 6s steps(3,end) infinite; }
+.gesture-dirty .paw-right { animation: ear-scratch 4.4s steps(3,end) infinite; }
+.gesture-playful .paw-right, .gesture-content .paw-left { animation: paw-wave 5.4s steps(3,end) infinite; }
+.need-ball { transform-origin:52px 62px; animation: ball-nudge 5.4s steps(6,end) infinite; }
+.need-heart, .need-yawn, .need-itch { animation: need-symbol 6s steps(4,end) infinite; }
+.need-rumble { animation: tummy-rumble 4.8s steps(2,end) infinite; }
+.gesture-quiet .paw-left { transform:translate(4px,2px) rotate(-15deg); }
+.gesture-quiet .paw-right { transform:translate(-4px,2px) rotate(15deg); }
+@keyframes tummy-rub { 0%,20%,65%,100% {transform:none} 30%,50% {transform:translate(7px,1px) rotate(-25deg)} 40%,60% {transform:translate(8px,-1px) rotate(-15deg)} }
+@keyframes tummy-rub-right { 0%,20%,65%,100% {transform:none} 30%,50% {transform:translate(-7px,1px) rotate(25deg)} 40%,60% {transform:translate(-8px,-1px) rotate(15deg)} }
+@keyframes eye-rub { 0%,20%,65%,100% {transform:none} 30%,50% {transform:translate(-1px,-16px) rotate(-15deg)} 40%,60% {transform:translate(-3px,-17px) rotate(-30deg)} }
+@keyframes ear-scratch { 0%,20%,65%,100% {transform:none} 30%,50% {transform:translate(3px,-19px) rotate(-30deg)} 40%,60% {transform:translate(1px,-21px) rotate(-45deg)} }
+@keyframes paw-wave { 0%,20%,65%,100% {transform:none} 30%,50% {transform:translate(0,-7px) rotate(30deg)} 40%,60% {transform:translate(0,-7px) rotate(-25deg)} }
+@keyframes ball-nudge { 0%,20%,100% {transform:none} 35% {transform:translate(5px,-2px) rotate(80deg)} 50%,80% {transform:translate(9px,0) rotate(160deg)} }
+@keyframes need-symbol { 0%,20%,85%,100% {opacity:0} 30%,70% {opacity:1;transform:translateY(-2px)} }
+@keyframes tummy-rumble { 0%,20%,70%,100% {opacity:0} 30%,50% {opacity:.6;transform:translateX(-1px)} 40%,60% {opacity:.6;transform:translateX(1px)} }
+@keyframes need-soft-smile { 0%,40%,100% {opacity:1} 45%,95% {opacity:0} }
+@keyframes need-soft-open { 0%,40%,100% {opacity:0} 45%,95% {opacity:1} }
+@media (prefers-reduced-motion: reduce) {
+  .sprite-face * { animation:none !important; }
+  .gesture-hungry .paw-left {transform:translate(7px,0) rotate(-20deg)}
+  .gesture-hungry .paw-right {transform:translate(-7px,0) rotate(20deg)}
+  .gesture-tired .paw-right {transform:translate(-2px,-16px) rotate(-20deg)}
+  .gesture-dirty .paw-right {transform:translate(2px,-20px) rotate(-30deg)}
+  .gesture-playful .paw-right, .gesture-content .paw-left {transform:translateY(-6px) rotate(-25deg)}
+  .need-heart, .need-yawn, .need-itch, .need-rumble {opacity:.7}
+  .expression-content .sprite-eyes-happy {opacity:1}
+  .expression-content .sprite-eyes-open {opacity:0}
+}

@@ -97,7 +97,7 @@ const faces = [
   },
 ];
 export type Expression =
-  "still" | "awake" | "asleep" | "content" | "chewing" | "waking";
+  "still" | "awake" | "asleep" | "content" | "chewing" | "waking" | "hungry" | "tired" | "dirty" | "playful" | "quiet";
 export function Sprite({
   index,
   className = "",
@@ -141,6 +141,12 @@ export function Sprite({
             {face.x.map((eye) => (
               <rect key={eye} x={eye} y={face.y} width="32" height="32" />
             ))}
+          </g>
+          <g className="sprite-eyes-tired" fill="#382c29">
+            {face.x.map(eye => <path key={eye} d={`M${eye} ${face.y + 14}h32v10h-32z`} />)}
+          </g>
+          <g className="sprite-eye-glints" fill="#fff6dc">
+            {face.x.map(eye => <rect key={eye} x={eye + 4} y={face.y + 3} width="9" height="9" />)}
           </g>
           <g className="sprite-eyes-closed" fill="#382c29">
             {face.x.map((eye) => (

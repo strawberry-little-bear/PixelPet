@@ -1,0 +1,79 @@
+/* All stages use one canvas size; differences are drafted anatomy, not scale. */
+.growth-baby .growth-size.has-rabbit-rig,
+.growth-growing .growth-size.has-rabbit-rig,
+.growth-adult .growth-size.has-rabbit-rig { width:104px; height:110px; margin-left:-52px; }
+.has-rabbit-rig .growth-outfit { bottom:19px; width:29px; height:19px; margin-left:-14.5px; }
+.growth-baby .has-rabbit-rig .growth-outfit { bottom:6px; width:21px; height:16px; margin-left:-10.5px; }
+.pet-scene[data-rig="rabbit"].motion-idle .pet-actor { animation:none; }
+.rabbit-rig { overflow:visible; }
+.rabbit-ear { transform-box:view-box; transform-origin:23px 27px; }
+.rabbit-ear.ear-right { transform-origin:42px 25px; }
+.rabbit-foot { transform-box:view-box; transform-origin:25px 59px; }
+.rabbit-foot.foot-right { transform-origin:38px 59px; }
+.rabbit-head { transform-box:view-box; transform-origin:32px 45px; }
+.rabbit-tail { transform-box:fill-box; transform-origin:left bottom; }
+.rabbit-mouth-chew { opacity:0; }
+.rabbit-rig.expression-chewing .rabbit-mouth { animation:rabbit-chew-off .6s steps(1,end) infinite; }
+.rabbit-rig.expression-chewing .rabbit-mouth-chew { animation:rabbit-chew .6s steps(1,end) infinite; }
+.rabbit-rig.expression-tired .rabbit-mouth { opacity:0; }
+.rabbit-rig.expression-tired .rabbit-mouth-chew { opacity:1; }
+.rig-motion-idle.rabbit-baby .ear-left { animation:baby-ear-peek 7s steps(3,end) infinite; }
+.rig-motion-idle.rabbit-baby .foot-right { animation:baby-foot-kick 7s steps(3,end) infinite; }
+.rig-motion-idle.rabbit-growing .ear-right { animation:growing-ear-listen 5.8s steps(3,end) infinite; }
+.rig-motion-idle.rabbit-growing .foot-left { animation:growing-step 5.8s steps(3,end) infinite; }
+.rig-motion-idle.rabbit-growing .foot-right { animation:growing-step 5.8s steps(3,end) -0.3s infinite; }
+.rig-motion-idle.rabbit-adult .ear-left { animation:adult-ear-stretch 8s steps(3,end) infinite; }
+.rig-motion-idle.rabbit-adult .rabbit-head { animation:adult-head-look 8s steps(3,end) infinite; }
+.rig-motion-idle .rabbit-tail { animation:rabbit-tail-twitch 6s steps(2,end) infinite; }
+/* A tired/dirty/hungry pet does not simultaneously do excited stage antics. */
+.rabbit-rig.gesture-tired .rabbit-foot, .rabbit-rig.gesture-hungry .rabbit-foot,
+.rabbit-rig.gesture-dirty .rabbit-foot, .rabbit-rig.gesture-quiet .rabbit-foot { animation:none; }
+.rabbit-rig.gesture-tired .rabbit-ear { animation:none; transform:rotate(-10deg); }
+.rabbit-rig.gesture-tired .ear-right {transform:rotate(18deg)}
+.rig-motion-eating .paw-left { animation:rabbit-food-paw .65s steps(3,end) infinite; }
+.rig-motion-eating .ear-right { animation:growing-ear-listen 1.2s steps(3,end) infinite; }
+.rig-motion-bathing .paw-left { animation:rabbit-scrub .6s steps(3,end) infinite; }
+.rig-motion-bathing .paw-right { animation:rabbit-scrub .6s steps(3,end) -.3s infinite; }
+.rig-motion-sleeping .rabbit-ear {transform:rotate(-13deg)}
+.rig-motion-sleeping .ear-right {transform:rotate(20deg)}
+.rig-motion-sleeping .rabbit-torso {animation:rabbit-breath 4.2s steps(3,end) infinite;transform-origin:32px 61px}
+.rig-motion-waking .rabbit-arm {animation:rabbit-stretch 1.4s steps(3,end) both}
+.rig-motion-waking .ear-right {animation:rabbit-wake-ear 1.4s steps(3,end) both}
+.rig-motion-celebrating .paw-left {animation:paw-wave .7s steps(3,end) infinite}
+.rig-motion-celebrating .paw-right {animation:paw-wave .7s steps(3,end) -.35s infinite}
+@keyframes baby-ear-peek {0%,20%,65%,100%{transform:none} 30%,50%{transform:rotate(-24deg)}40%,60%{transform:rotate(-12deg)}}
+@keyframes baby-foot-kick {0%,20%,65%,100%{transform:none} 30%,50%{transform:translateY(-2px) rotate(20deg)}40%,60%{transform:translateY(-1px) rotate(-8deg)}}
+@keyframes growing-ear-listen {0%,20%,70%,100%{transform:none} 35%,55%{transform:rotate(20deg)}45%,65%{transform:rotate(7deg)}}
+@keyframes growing-step {0%,25%,60%,100%{transform:none} 35%,50%{transform:translateY(-3px) rotate(-10deg)}}
+@keyframes adult-ear-stretch {0%,15%,65%,100%{transform:none} 30%,50%{transform:rotate(-18deg)}40%{transform:rotate(-8deg)}}
+@keyframes adult-head-look {0%,15%,65%,100%{transform:none} 30%,50%{transform:rotate(-4deg)}40%{transform:rotate(3deg)}}
+@keyframes rabbit-tail-twitch {0%,30%,70%,100%{transform:none}40%,60%{transform:rotate(-18deg) translateX(1px)}50%{transform:rotate(10deg)}}
+@keyframes rabbit-chew {0%,60%,100%{opacity:0}30%,50%{opacity:1}}
+@keyframes rabbit-chew-off {0%,60%,100%{opacity:1}30%,50%{opacity:0}}
+@keyframes rabbit-food-paw {0%,100%{transform:translate(5px,-3px)}50%{transform:translate(8px,-7px) rotate(-15deg)}}
+@keyframes rabbit-scrub {0%,100%{transform:translateY(-5px) rotate(-20deg)}50%{transform:translateY(-9px) rotate(20deg)}}
+@keyframes rabbit-breath {0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.03)}}
+@keyframes rabbit-stretch {0%,100%{transform:none}35%,70%{transform:translateY(-14px) rotate(25deg)}}
+@keyframes rabbit-wake-ear {0%{transform:rotate(20deg)}40%,70%{transform:rotate(-12deg)}100%{transform:none}}
+/* Adult habits stay visual; saved form never changes from later care.
+   Only comfortable poses get these antics, never tired/hungry/dirty signals. */
+.form-lively .rabbit-adult.rig-motion-idle:is(.gesture-content, .gesture-playful, .expression-still) .rabbit-foot {
+  animation: rabbit-lively-step 5.4s steps(3,end) infinite;
+}
+.form-lively .rabbit-adult.rig-motion-idle:is(.gesture-content, .gesture-playful, .expression-still) .foot-right { animation-delay: -.35s; }
+.form-gentle .rabbit-adult.rig-motion-idle:is(.gesture-content, .gesture-playful, .expression-still) .rabbit-head {
+  animation: rabbit-gentle-nod 9s steps(3,end) infinite;
+}
+.form-gentle .rabbit-adult.rig-motion-idle.gesture-content .paw-left { animation-duration: 8s; }
+.form-easygoing .rabbit-adult.rig-motion-idle:is(.gesture-content, .gesture-playful, .expression-still) .ear-right {
+  animation: rabbit-relaxed-ear 10s steps(3,end) infinite;
+}
+@keyframes rabbit-lively-step {0%,15%,60%,100%{transform:none}25%,45%{transform:translateY(-4px) rotate(-15deg)}35%,55%{transform:translateY(-1px) rotate(8deg)}}
+@keyframes rabbit-gentle-nod {0%,20%,75%,100%{transform:none}35%,60%{transform:translateY(2px) rotate(-2deg)}45%{transform:translateY(1px)}}
+@keyframes rabbit-relaxed-ear {0%,20%,80%,100%{transform:rotate(10deg)}40%,65%{transform:rotate(24deg)}}
+@media (prefers-reduced-motion:reduce) {
+  .rabbit-rig * {animation:none !important}
+  .rig-motion-waking .rabbit-arm {transform:translateY(-10px)}
+  .rig-motion-celebrating .paw-left {transform:translateY(-7px) rotate(-20deg)}
+  .rig-motion-eating .paw-left {transform:translate(7px,-5px)}
+}

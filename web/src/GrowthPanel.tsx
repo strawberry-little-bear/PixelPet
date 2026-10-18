@@ -1,4 +1,4 @@
-import { Sprite } from "./Sprite";
+import { PetArt } from "./PetArt";
 import { FormEmblem, GrowthOutfit } from "./GrowthOutfit";
 import {
   formDescriptions,
@@ -25,8 +25,8 @@ function StagePreviews({ growth, index }: { growth: Growth; index: number }) {
           aria-current={i === current ? "step" : undefined}>
           <div className="growth-preview-frame" aria-hidden="true">
             <div className="growth-preview-art">
-              <div className="growth-size">
-                <Sprite index={index} />
+              <div className={`growth-size ${index === 2 ? "has-rabbit-rig" : ""}`}>
+                <PetArt index={index} stage={stage} expression="still" />
                 <GrowthOutfit stage={stage} form={stage === "adult" ? form : ""} />
               </div>
               {stage === "adult" && <FormEmblem form={form} />}
@@ -59,7 +59,7 @@ export function GrowthPanel({
       {page === 0 ? (
         <>
           <div className="growth-panel-title">
-            <Sprite index={index} />
+            <PetArt index={index} stage={g.stage} />
             <div>
               <strong>
                 {stageNames[g.stage]}

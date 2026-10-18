@@ -17,6 +17,9 @@ describe("growth handbook previews and form guide", () => {
       .toEqual(["baby", "growing", "adult"]);
     expect(container.querySelector('[aria-current="step"]')?.getAttribute("data-preview-stage")).toBe(stage);
     expect(container.querySelectorAll(".growth-outfit")).toHaveLength(3);
+    expect([...container.querySelectorAll(".growth-previews .rabbit-rig")].map(el => el.getAttribute("data-rig-stage")))
+      .toEqual(["baby", "growing", "adult"]);
+    expect(container.querySelector(".growth-previews image")).toBeNull();
     expect(container.querySelector("button")).toBeNull();
     expect(container.querySelector(".growth-page-dots")?.textContent).toBe("1 / 3");
     expect(g).toEqual(before);
