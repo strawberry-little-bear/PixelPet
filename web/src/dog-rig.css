@@ -1,0 +1,128 @@
+/* The same canvas at every stage: anatomy grows, not a scaled source image. */
+.growth-baby .growth-size.has-dog-rig,
+.growth-growing .growth-size.has-dog-rig,
+.growth-adult .growth-size.has-dog-rig { width: 104px; height: 110px; margin-left: -52px; }
+.has-dog-rig .growth-outfit { bottom: 8px; width: 29px; height: 19px; margin-left: -14.5px; }
+.growth-baby .has-dog-rig .growth-outfit { bottom: 5px; width: 23px; height: 14px; margin-left: -11.5px; }
+.growth-growing .has-dog-rig .growth-outfit { bottom: 7px; width: 26px; height: 17px; margin-left: -13px; }
+.pet-scene[data-rig="dog"].motion-idle .pet-actor { animation: none; }
+.dog-rig { overflow: visible; --dog-eye-reach: -14px; --dog-snack-reach: -5px; }
+.dog-baby { --dog-eye-reach: -10px; --dog-snack-reach: -3px; }
+.dog-growing { --dog-eye-reach: -12px; --dog-snack-reach: -4px; }
+.dog-head, .dog-torso, .dog-paw, .dog-ear, .dog-tail, .dog-foot { transform-box: view-box; }
+.dog-torso { transform-origin: 32px 60px; }
+/* Namespaced limbs deliberately do not match the flat-source paw/ear rules. */
+.dog-mouth-open { opacity: 0; }
+.dog-rig.expression-hungry .dog-mouth-open,
+.dog-rig.expression-content .dog-mouth-open { opacity: 1; }
+.dog-rig.expression-chewing .dog-mouth-open { animation: dog-nibble .65s steps(1,end) infinite; }
+.dog-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-paw-right { animation: dog-tuck-paw 7s steps(3,end) infinite; }
+.dog-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-tail { animation: dog-small-wag 7s steps(3,end) infinite; }
+.dog-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-head { animation: dog-listen-tilt 6s steps(3,end) infinite; }
+.dog-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-ear-right { animation: dog-young-flop 6s steps(3,end) infinite; }
+.dog-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-foot-right { animation: dog-try-step 6s steps(3,end) infinite; }
+.dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-tail { animation: dog-welcome-tail 8s steps(3,end) infinite; }
+.dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-ear-left { animation: dog-listen-flop 8s steps(3,end) infinite; }
+.form-lively .dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-tail { animation: dog-fast-wag 5s steps(3,end) infinite; }
+.form-lively .dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-foot-right { animation: dog-ready-step 5s steps(3,end) infinite; }
+.form-gentle .dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-tail { animation: none; }
+.form-gentle .dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-head { animation: dog-trust-nod 9s steps(3,end) infinite; }
+.form-gentle .dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-ear-left { animation: dog-soft-flop 9s steps(3,end) infinite; }
+.form-easygoing .dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-tail { animation: dog-rest-tail 10s steps(3,end) infinite; }
+.form-easygoing .dog-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dog-ear-left { animation: none; }
+.dog-rig.rig-motion-idle.gesture-hungry .dog-paw-left { animation: dog-belly-touch 5s steps(3,end) infinite; }
+.dog-rig.rig-motion-idle.gesture-tired .dog-paw-right { animation: dog-eye-rub 6s steps(3,end) infinite; }
+.dog-rig.rig-motion-idle.gesture-tired .dog-head { transform: translateY(2px) rotate(2deg); }
+.dog-rig.rig-motion-idle.gesture-tired .dog-ear { transform: translateY(1px); }
+.dog-rig.rig-motion-idle.gesture-dirty .dog-paw-right { animation: dog-ear-scratch 4.8s steps(3,end) infinite; }
+.dog-rig.rig-motion-idle.gesture-playful .dog-paw-left { animation: dog-ball-nudge 5.4s steps(3,end) infinite; }
+.dog-rig.rig-motion-idle.gesture-content .dog-paw-left { animation: dog-paw-wave 7s steps(3,end) infinite; }
+.dog-rig.rig-motion-idle.gesture-quiet .dog-paw-left { transform: translate(3px,1px) rotate(-12deg); }
+.dog-rig.rig-motion-idle.gesture-quiet .dog-paw-right { transform: translate(-3px,1px) rotate(12deg); }
+.dog-rig.rig-motion-idle.gesture-quiet .dog-ear-left { transform: rotate(-4deg); }
+.dog-rig.rig-motion-idle.gesture-quiet .dog-ear-right { transform: rotate(4deg); }
+.dog-rig.rig-motion-idle.gesture-quiet .dog-tail { transform: rotate(5deg); }
+.dog-rig.rig-motion-eating .dog-head { animation: dog-snack-nod 1s steps(3,end) infinite; }
+.dog-rig.rig-motion-eating .dog-paw-left { animation: dog-hold-snack .65s steps(3,end) infinite; }
+.dog-rig.rig-motion-eating .dog-paw-right { transform: translate(-5px,-1px) rotate(12deg); }
+.dog-rig.rig-motion-bathing .dog-paw-left { animation: dog-wash-belly .8s steps(3,end) infinite; }
+.dog-rig.rig-motion-bathing .dog-paw-right { animation: dog-wash-ear .8s steps(3,end) infinite; }
+.dog-rig.rig-motion-bathing .dog-head { animation: dog-shake-water 1s steps(3,end) infinite; }
+.dog-rig.rig-motion-bathing .dog-ear-left { animation: dog-rinse-flop .8s steps(3,end) infinite; }
+.dog-rig.rig-motion-bathing .dog-ear-right { animation: dog-rinse-flop .8s steps(3,end) -.4s infinite; }
+.dog-rig.rig-motion-sleeping .dog-head { transform: translateY(2px); }
+.dog-rig.rig-motion-sleeping .dog-ear { transform: translateY(2px); }
+.dog-rig.rig-motion-sleeping .dog-paw-left { transform: translate(3px,2px) rotate(-8deg); }
+.dog-rig.rig-motion-sleeping .dog-paw-right { transform: translate(-3px,2px) rotate(8deg); }
+.dog-rig.rig-motion-sleeping .dog-foot-left { transform: rotate(-8deg); }
+.dog-rig.rig-motion-sleeping .dog-foot-right { transform: rotate(8deg); }
+.dog-rig.rig-motion-sleeping .dog-tail { transform: rotate(12deg); }
+.dog-rig.rig-motion-sleeping .dog-torso { animation: dog-breathe 3.6s ease-in-out infinite; }
+.dog-rig.rig-motion-waking .dog-paw-left { animation: dog-reach-left var(--clip-duration,1400ms) steps(4,end) both; }
+.dog-rig.rig-motion-waking .dog-paw-right { animation: dog-reach-right var(--clip-duration,1400ms) steps(4,end) both; }
+.dog-rig.rig-motion-waking .dog-head { animation: dog-wake-head var(--clip-duration,1400ms) steps(4,end) both; }
+.dog-rig.rig-motion-waking .dog-foot-left { animation: dog-open-left var(--clip-duration,1400ms) steps(4,end) both; }
+.dog-rig.rig-motion-waking .dog-foot-right { animation: dog-open-right var(--clip-duration,1400ms) steps(4,end) both; }
+.dog-rig.rig-motion-waking .dog-ear-left { animation: dog-perk-left var(--clip-duration,1400ms) steps(4,end) both; }
+.dog-rig.rig-motion-waking .dog-ear-right { animation: dog-perk-right var(--clip-duration,1400ms) steps(4,end) both; }
+.dog-rig.rig-motion-waking .dog-tail { animation: dog-wake-tail var(--clip-duration,1400ms) steps(4,end) both; }
+.dog-rig.rig-motion-celebrating .dog-paw { animation: dog-cheer .65s steps(3,end) infinite; }
+.dog-rig.rig-motion-celebrating .dog-paw-right { animation-delay: -.3s; }
+.dog-rig.rig-motion-celebrating .dog-tail { animation: dog-fast-wag .65s steps(3,end) infinite; }
+.dog-rig.rig-motion-celebrating .dog-foot { animation: dog-ready-step .65s steps(3,end) infinite; }
+@keyframes dog-tuck-paw { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-3px,1px) rotate(10deg)} 45%{transform:translate(-4px,2px) rotate(15deg)} }
+@keyframes dog-small-wag { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-6deg)} 45%{transform:rotate(8deg)} }
+@keyframes dog-listen-tilt { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-4deg)} 45%{transform:translateY(-1px) rotate(-6deg)} }
+@keyframes dog-young-flop { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(8deg)} 45%{transform:rotate(-5deg)} }
+@keyframes dog-try-step { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(-1px) rotate(-8deg)} 45%{transform:translateY(-2px) rotate(-12deg)} }
+@keyframes dog-welcome-tail { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-10deg)} 45%{transform:rotate(10deg)} }
+@keyframes dog-listen-flop { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-5deg)} 45%{transform:rotate(5deg)} }
+@keyframes dog-fast-wag { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-12deg)} 45%{transform:rotate(18deg)} }
+@keyframes dog-ready-step { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(-1px) rotate(-8deg)} 45%{transform:translateY(1px) rotate(8deg)} }
+@keyframes dog-trust-nod { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(2px) rotate(3deg)} 45%{transform:translateY(1px)} }
+@keyframes dog-soft-flop { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-3deg)} 45%{transform:rotate(3deg)} }
+@keyframes dog-rest-tail { 0%,20%,75%,100%{transform:rotate(8deg)} 35%,60%{transform:rotate(16deg)} 45%{transform:rotate(12deg)} }
+@keyframes dog-belly-touch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(8px,0) rotate(-18deg)} 45%{transform:translate(9px,-1px) rotate(-12deg)} }
+@keyframes dog-eye-rub { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-3px,var(--dog-eye-reach)) rotate(12deg)} 45%{transform:translate(-2px,calc(var(--dog-eye-reach) + 2px)) rotate(6deg)} }
+@keyframes dog-ear-scratch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(2px,calc(var(--dog-eye-reach) - 3px)) rotate(15deg)} 45%{transform:translate(0px,calc(var(--dog-eye-reach) - 1px)) rotate(8deg)} }
+@keyframes dog-ball-nudge { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(1px,2px) rotate(-18deg)} 45%{transform:translate(4px,1px) rotate(-25deg)} }
+@keyframes dog-paw-wave { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,-5px) rotate(15deg)} 45%{transform:translate(-3px,-6px) rotate(22deg)} }
+@keyframes dog-snack-nod { 0%,100%{transform:none} 50%{transform:translateY(2px) rotate(2deg)} }
+@keyframes dog-hold-snack { 0%,100%{transform:translate(8px,var(--dog-snack-reach)) rotate(-18deg)} 50%{transform:translate(10px,calc(var(--dog-snack-reach) - 2px)) rotate(-25deg)} }
+@keyframes dog-wash-belly { 0%,100%{transform:translate(7px,0) rotate(-12deg)} 50%{transform:translate(9px,-3px) rotate(-20deg)} }
+@keyframes dog-wash-ear { 0%,100%{transform:translate(2px,calc(var(--dog-eye-reach) - 3px)) rotate(12deg)} 50%{transform:translate(0px,calc(var(--dog-eye-reach) - 1px)) rotate(20deg)} }
+@keyframes dog-shake-water { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2deg)} }
+@keyframes dog-rinse-flop { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
+@keyframes dog-breathe { 0%,100%{transform:none} 50%{transform:translateY(-1px) scaleY(1.025)} }
+@keyframes dog-reach-left { 0%,100%{transform:none} 40%,75%{transform:translate(-2px,-6px) rotate(25deg)} }
+@keyframes dog-reach-right { 0%,100%{transform:none} 40%,75%{transform:translate(2px,-6px) rotate(-25deg)} }
+@keyframes dog-wake-head { 0%,100%{transform:none} 40%,75%{transform:translateY(-2px)} }
+@keyframes dog-open-left { 0%,100%{transform:none} 40%,75%{transform:rotate(12deg)} }
+@keyframes dog-open-right { 0%,100%{transform:none} 40%,75%{transform:rotate(-12deg)} }
+@keyframes dog-perk-left { 0%,100%{transform:none} 40%,75%{transform:rotate(8deg)} }
+@keyframes dog-perk-right { 0%,100%{transform:none} 40%,75%{transform:rotate(-8deg)} }
+@keyframes dog-wake-tail { 0%,100%{transform:none} 40%,75%{transform:rotate(-10deg)} }
+@keyframes dog-cheer { 0%,100%{transform:translateY(-2px) rotate(-10deg)} 50%{transform:translateY(-5px) rotate(15deg)} }
+@keyframes dog-nibble { 0%,100%{opacity:0} 50%{opacity:1} }
+@media (prefers-reduced-motion: reduce) {
+  .dog-rig, .dog-rig * { animation: none !important; }
+  .dog-rig.rig-motion-idle.gesture-hungry .dog-paw-left { transform: translate(8px,0) rotate(-18deg); }
+  .dog-rig.rig-motion-idle.gesture-tired .dog-paw-right { transform: translate(-3px,var(--dog-eye-reach)) rotate(12deg); }
+  .dog-rig.rig-motion-idle.gesture-dirty .dog-paw-right { transform: translate(2px,calc(var(--dog-eye-reach) - 3px)) rotate(15deg); }
+  .dog-rig.rig-motion-idle.gesture-playful .dog-paw-left { transform: translate(1px,2px) rotate(-18deg); }
+  .dog-rig.rig-motion-idle.gesture-content .dog-paw-left { transform: translate(-2px,-5px) rotate(15deg); }
+  .dog-rig.rig-motion-eating .dog-paw-left { transform: translate(8px,var(--dog-snack-reach)) rotate(-18deg); }
+  .dog-rig.rig-motion-bathing .dog-paw-left { transform: translate(7px,0) rotate(-12deg); }
+  .dog-rig.rig-motion-bathing .dog-paw-right { transform: translate(2px,calc(var(--dog-eye-reach) - 3px)) rotate(12deg); }
+  .dog-rig.rig-motion-waking .dog-paw-left { transform: translate(-2px,-6px) rotate(25deg); }
+  .dog-rig.rig-motion-waking .dog-paw-right { transform: translate(2px,-6px) rotate(-25deg); }
+  .dog-rig.rig-motion-waking .dog-foot-left { transform: rotate(12deg); }
+  .dog-rig.rig-motion-waking .dog-foot-right { transform: rotate(-12deg); }
+  .dog-rig.rig-motion-waking .dog-ear-left { transform: rotate(8deg); }
+  .dog-rig.rig-motion-waking .dog-ear-right { transform: rotate(-8deg); }
+  .dog-rig.rig-motion-waking .dog-tail { transform: rotate(-10deg); }
+  .dog-rig.rig-motion-celebrating .dog-paw-left { transform: translateY(-3px) rotate(15deg); }
+  .dog-rig.rig-motion-celebrating .dog-paw-right { transform: translateY(-3px) rotate(-15deg); }
+  .dog-rig.rig-motion-celebrating .dog-tail { transform: rotate(-12deg); }
+  .dog-rig.expression-chewing .dog-mouth-open { opacity: 1; }
+}

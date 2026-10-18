@@ -68,10 +68,10 @@ describe("independently drawn strawberry rabbit growth sample", () => {
     expect(new Set(ears).size).toBe(3);
   });
 
-  it("keeps the source sheet for the remaining dog until their own rigs are drawn", () => {
-    for (const index of [9]) {
-      const { container, unmount } = render(<PetArt index={index} stage="growing" expression="tired" />);
-      expect(container.querySelector(".rabbit-rig")).toBeNull();
+  it("keeps egg previews on the source sheet for all ten species", () => {
+    for (let index = 0; index < 10; index++) {
+      const { container, unmount } = render(<PetArt index={index} stage="egg" expression="tired" />);
+      expect(container.querySelector("[data-rig-stage]")).toBeNull();
       expect(container.querySelector(".expression-tired image")?.getAttribute("href"))
         .toBe("/pets/characters.png");
       unmount();

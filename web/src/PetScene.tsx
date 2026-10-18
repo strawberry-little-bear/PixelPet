@@ -50,6 +50,12 @@ const dragonNeedLabels: Record<NeedKind, string> = {
   content: "微笑挥爪", quiet: "拢翼抱爪安静相伴",
 };
 
+const dogNeedLabels: Record<NeedKind, string> = {
+  hungry: "前爪摸肚子等吃饭", tired: "垂耳揉眼想休息",
+  dirty: "挠挠垂耳等洗澡", playful: "伸爪推球邀请玩耍",
+  content: "微笑挥爪摇尾", quiet: "垂耳抱爪安静相伴",
+};
+
 const labels: Record<SceneMotion, string> = {
   idle: "待机，眨眼和轻轻活动",
   eating: "吃饭，咀嚼小饭团",
@@ -180,7 +186,7 @@ export function PetScene({
       data-stage={stage}
       data-form={form}
       role="img"
-      aria-label={labels[motion] + (activeNeed ? `，${(rig === "dolphin" ? dolphinNeedLabels : rig === "mushroom" ? mushroomNeedLabels : rig === "bear" ? bearNeedLabels : rig === "frog" ? frogNeedLabels : rig === "dragon" ? dragonNeedLabels : needLabels)[activeNeed]}` : "")}
+      aria-label={labels[motion] + (activeNeed ? `，${(rig === "dolphin" ? dolphinNeedLabels : rig === "mushroom" ? mushroomNeedLabels : rig === "bear" ? bearNeedLabels : rig === "frog" ? frogNeedLabels : rig === "dragon" ? dragonNeedLabels : rig === "dog" ? dogNeedLabels : needLabels)[activeNeed]}` : "")}
     >
       <div className="scene-environment" aria-hidden="true">
         <Cloud className="room-cloud" size={30} strokeWidth={1.5} />

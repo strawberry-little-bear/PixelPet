@@ -1,8 +1,8 @@
 import type { NeedKind } from "./needs";
 
 // Paws/wings are separately articulated instead of moving the whole flat image.
-// Rabbit, cat, tanuki, bird, dolphin, mushroom, bear, frog and dragon have complete rigs; the other pets keep their source
-// artwork until their independently drawn stage rigs are ready.
+// All ten hatched species have independent rigs. Flat-source fallback previews
+// can still request overlay paws; real rigs only use the shared props.
 const colours = ["#ffdb59", "#c0e6f0", "#ffc9d8", "#8fd4f0", "#fff1dc", "#ffc2a0", "#a5d464", "#ffffff", "#b39ddb", "#c68a5a"];
 export function NeedGesture({ kind, index, paws = true }: { kind: NeedKind; index: number; paws?: boolean }) {
   return <svg className={`need-gesture gesture-${kind}`} viewBox="0 0 64 68" shapeRendering="crispEdges" aria-hidden="true">
