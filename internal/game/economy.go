@@ -18,6 +18,7 @@ type ShopItem struct {
 	Description string `json:"description"`
 }
 type Shop struct {
+	MaxCoins       int        `json:"maxCoins"`
 	Catalog        []ShopItem `json:"catalog"`
 	DailyCoins     int        `json:"dailyCoins"`
 	GameDailyLimit int        `json:"gameDailyLimit"`
@@ -26,7 +27,7 @@ type Shop struct {
 // Prices and the finite catalog are server-owned. Cosmetic items never modify
 // needs, growth, game scores or the pet's locked adult form.
 func ShopRules() Shop {
-	return Shop{DailyCoins: DailyCoins, GameDailyLimit: GameDailyLimit, Catalog: []ShopItem{
+	return Shop{MaxCoins: MaxCoins, DailyCoins: DailyCoins, GameDailyLimit: GameDailyLimit, Catalog: []ShopItem{
 		{"leaf-pin", "嫩叶胸针", "accessory", 12, "把一片小小的春天，别在胸前。"},
 		{"berry-scarf", "草莓围巾", "accessory", 18, "软软的格纹，陪你在星光下跑动。"},
 		{"star-badge", "星光徽章", "accessory", 24, "不是高分奖章，只是你喜欢的星星。"},

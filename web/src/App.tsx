@@ -1,6 +1,8 @@
 import { TetrisGame } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
-import { ArcadePanel, TileGame, nextTile } from "./TileGame";
+import { TileGame, nextTile } from "./TileGame";
+import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
+import { games, rememberGuide } from "./games";
 import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -62,6 +64,7 @@ type Page =
   | "journal"
   | "game"
   | "arcade"
+  | "game-guide"
   | "growth"
   | "return"
   | "album"
@@ -157,6 +160,11 @@ export default function App() {
   const [journalIndex, setJournalIndex] = useState(0);
   const [growthPage, setGrowthPage] = useState(0);
   const [arcadeChoice, setArcadeChoice] = useState(0);
+  const [guidePage, setGuidePage] = useState(0);
+  const [abandonGame, setAbandonGame] = useState<string | null>(null);
+  const sessionKey = pet?.game ? (pet.game.id ?? `legacy-${pet.game.startedAt}`) : null;
+  const abandoning = page === "game" && abandonGame !== null && abandonGame === sessionKey;
+  useEffect(() => { setAbandonGame(null); }, [sessionKey]);
   const [tetrisSession, setTetrisSession] = useState("");
   const [tetrisChoice, setTetrisChoice] = useState(0);
   const [snakeSession, setSnakeSession] = useState("");
@@ -454,7 +462,7 @@ export default function App() {
       if (kind === "hatch") {
         setPage("home");
       } else if (
-        kind === "play" || kind === "play-tiles" || kind === "play-snake" || kind === "play-tetris"
+        games.some(game => game.startAction === kind)
       ) {
         setPage("game");
         setLane(1);
@@ -484,11 +492,16 @@ export default function App() {
     }
   }
   useEffect(() => {
-    if (tools || help || reset) setTetrisSession("");
+    if (tools || help || reset) {
+      setTetrisSession("");
+      setSnakeSession("");
+      snakeTurn.current = 0;
+      setQueuedTurn(0);
+    }
   }, [tools, help, reset]);
   useEffect(() => {
     const n = pet?.game?.tetris;
-    if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || document.hidden || tools || help || reset) return;
+    if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || document.hidden || tools || help || reset || abandoning) return;
     const timer = setTimeout(() => {
       if (document.hidden) { setTetrisSession(""); return; }
       void act("tetris-step", { step: n.step }).then(ok => {
@@ -496,13 +509,13 @@ export default function App() {
       });
     }, Math.max(40, 1050 - (Date.now() + offset.current - n.lastFallAt)));
     return () => clearTimeout(timer);
-  }, [pet?.game, tetrisSession, page, busy, tools, help, reset]);
+  }, [pet?.game, tetrisSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
     const n = pet?.game?.snake;
     if (
       page !== "game" || !n || n.paused || n.end ||
       snakeSession !== pet.game?.id || busy || document.hidden ||
-      tools || help || reset
+      tools || help || reset || abandoning
     ) return;
     // The server applies at most one cell and verifies the expected step.
     // Never synthesize missed beats after backgrounding or a slow request.
@@ -522,7 +535,7 @@ export default function App() {
       });
     }, Math.max(80, 650 - (Date.now() + offset.current - n.lastMoveAt)));
     return () => clearTimeout(timer);
-  }, [pet?.game, snakeSession, page, busy, tools, help, reset]);
+  }, [pet?.game, snakeSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
     const stop = () => {
       if (document.hidden) {
@@ -555,12 +568,26 @@ export default function App() {
     }
     setError("");
     if (page === "arcade") {
-      if (key === "A") setArcadeChoice((v) => (v + 1) % 4);
+      if (key === "A") setArcadeChoice((v) => (v + 1) % games.length);
       else if (key === "C") setPage("home");
-      else void act(["play", "play-tiles", "play-snake", "play-tetris"][arcadeChoice]);
+      else { setGuidePage(0); setPage("game-guide"); }
       return;
     }
-    if (page === "game" && pet.game?.kind === "tetris" && pet.game.tetris) {
+    if (page === "game-guide") {
+      if (key === "A") setGuidePage(v => (v + 1) % 2);
+      else if (key === "C") setPage("arcade");
+      else {
+        const game = games[arcadeChoice];
+        void act(game.startAction).then(ok => { if (ok) rememberGuide(game.id); });
+      }
+      return;
+    }
+    if (abandoning) {
+      if (key === "B") void act("cancel-play").then(ok => { if (ok) setAbandonGame(null); });
+      else { setAbandonGame(null); setTetrisChoice(0); }
+      return;
+    }
+    if (page === "game" && !abandoning && pet.game?.kind === "tetris" && pet.game.tetris) {
       const n = pet.game.tetris;
       if (n.end) {
         if (key !== "A") void act("tetris-finish", { step: n.step });
@@ -570,7 +597,8 @@ export default function App() {
           const kind = key === "C" ? "tetris-resume" : ["tetris-resume", "tetris-rotate", "tetris-drop", "cancel-play"][tetrisChoice];
           // After a reload the local pause may not yet be persisted. Save it
           // before a menu operation; the server never runs offline gravity.
-          if (!n.paused && (kind === "tetris-rotate" || kind === "tetris-drop")) {
+          if (kind === "cancel-play") { setTetrisSession(""); setAbandonGame(sessionKey); }
+          else if (!n.paused && (kind === "tetris-rotate" || kind === "tetris-drop")) {
             void act("tetris-pause", { step: n.step }).then(ok => { if (ok) void act(kind, { step: n.step + 1 }); });
           } else void act(kind, { step: n.step });
         }
@@ -580,14 +608,15 @@ export default function App() {
       } else void act("tetris-move", { step: n.step, turn: key === "A" ? -1 : 1 });
       return;
     }
-    if (page === "game" && pet.game?.kind === "snake" && pet.game.snake) {
+    if (page === "game" && !abandoning && pet.game?.kind === "snake" && pet.game.snake) {
       const n = pet.game.snake;
       if (n.end) {
         if (key !== "A") void act("snake-finish", { step: n.step });
       } else if (n.paused || snakeSession !== pet.game.id) {
         snakeTurn.current = 0;
         setQueuedTurn(0);
-        void act(key === "B" ? "cancel-play" : "snake-resume", { step: n.step });
+        if (key === "B") { setSnakeSession(""); setAbandonGame(sessionKey); }
+        else void act("snake-resume", { step: n.step });
       } else if (key === "C") {
         setSnakeSession("");
         void act("snake-pause", { step: n.step });
@@ -597,11 +626,12 @@ export default function App() {
       }
       return;
     }
-    if (page === "game" && pet.game?.kind === "tiles" && pet.game.tiles) {
+    if (page === "game" && !abandoning && pet.game?.kind === "tiles" && pet.game.tiles) {
       if (key === "A")
         setTileCursor((v) => nextTile(pet.game!.tiles!.board, v));
       else if (key === "B") void act("tile-pick", { tile: tileCursor });
-      else void act(pet.game.tiles.pick >= 0 ? "tile-clear" : "cancel-play");
+      else if (pet.game.tiles.pick >= 0) void act("tile-clear");
+      else setAbandonGame(sessionKey);
       return;
     }
     if (page === "shop") {
@@ -659,7 +689,7 @@ export default function App() {
     }
     if (key === "C") {
       if (page === "game") {
-        void act("cancel-play");
+        setAbandonGame(sessionKey);
         return;
       }
       if (page === "hatch") setPage("choose");
@@ -819,12 +849,17 @@ export default function App() {
   const snakeHint = snake?.end
     ? "B / C 收好成绩"
     : snake?.paused || snakeSession !== pet?.game?.id
-      ? "A / C 继续  B 退出"
+      ? "A / C 继续  B 放弃确认"
       : "A 左转  B 右转  C 暂停";
+  const gameNavHint = page === "arcade"
+    ? "A 换游戏  B 看说明  C 返回"
+    : page === "game-guide"
+      ? "A 翻页  B 开始  C 返回选择"
+      : abandoning ? "A / C 留在本局  B 确认放弃" : "";
   const lcdHint = !pet
     ? "B 重新连接"
-    : page === "arcade"
-      ? "A 换游戏  B 开始  C 返回"
+    : gameNavHint
+      ? gameNavHint
       : page === "choose"
         ? "A 换一位　 B 就是它"
         : page === "hatch"
@@ -847,8 +882,8 @@ export default function App() {
                       : pet.game?.kind === "snake"
                         ? snakeHint
                         : pet.game?.kind === "tiles"
-                          ? "A 移动  B 选牌  C 取消 / 退出"
-                          : "A 移动　 B 接住　 C 退出"
+                          ? "A 移动  B 选牌  C 撤选 / 放弃"
+                          : "A 移动　 B 接住　 C 放弃确认"
                     : page === "growth" || page === "album"
                       ? "A / B 换页　 C 返回"
                       : page === "journal"
@@ -1014,7 +1049,7 @@ export default function App() {
                     <span>
                       {page === "choose"
                         ? "HELLO, FRIEND"
-                        : page === "arcade"
+                        : (page === "arcade" || page === "game-guide")
                           ? "PLAY TOGETHER"
                           : page === "menu"
                             ? "CARE MENU"
@@ -1060,9 +1095,13 @@ export default function App() {
                         {page === "arcade" && (
                           <ArcadePanel
                             choice={arcadeChoice}
-                            limit={shop?.gameDailyLimit ?? 30}
+                            economy={pet.economy}
+                            shop={shop}
+                            now={now}
                           />
                         )}
+                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} />}
+                        {abandoning && <AbandonGame stars={!pet.game?.kind} />}
                         {page === "shop" && (
                           <ShopPanel
                             pet={pet}
@@ -1231,10 +1270,10 @@ export default function App() {
                             </span>
                           </div>
                         )}
-                        {page === "game" && pet.game?.kind === "tetris" && (
+                        {page === "game" && !abandoning && pet.game?.kind === "tetris" && (
                           <TetrisGame key={pet.game.id} pet={pet} active={tetrisSession === pet.game.id && !tools && !help && !reset} choice={tetrisChoice} />
                         )}
-                        {page === "game" && pet.game?.kind === "snake" && (
+                        {page === "game" && !abandoning && pet.game?.kind === "snake" && (
                           <SnakeGame
                             key={pet.game.id}
                             pet={pet}
@@ -1242,7 +1281,7 @@ export default function App() {
                             turn={queuedTurn}
                           />
                         )}
-                        {page === "game" && pet.game?.kind === "tiles" && (
+                        {page === "game" && !abandoning && pet.game?.kind === "tiles" && (
                           <TileGame
                             pet={pet}
                             cursor={tileCursor}
@@ -1251,7 +1290,7 @@ export default function App() {
                             now={now}
                           />
                         )}
-                        {page === "game" && pet.game && !pet.game.kind && (
+                        {page === "game" && !abandoning && pet.game && !pet.game.kind && (
                           <div className="star-game">
                             <div className="game-score">
                               ROUND {pet.game.round + 1}/5{" "}
@@ -1528,17 +1567,18 @@ export default function App() {
                 <div className="help-keys">
                   <p>
                     <kbd>A</kbd>
-                    <span>切换角色、菜单；小游戏里移动。</span>
+                    <span>切换角色、菜单或说明页；游戏操作以各自说明为准。</span>
                   </p>
                   <p>
                     <kbd>B</kbd>
-                    <span>确认选择；小游戏里接住星星。</span>
+                    <span>确认选择；说明页可翻页重看，也可按 B 跳过并开始。</span>
                   </p>
                   <p>
                     <kbd>C</kbd>
-                    <span>返回小窝，或者退出小游戏。</span>
+                    <span>返回；实时游戏里暂停，放弃本局还需 B 再次确认。</span>
                   </p>
                 </div>
+                <p>游戏选择页显示每款的操作、预计时长与领奖条件；每次都能重看说明。所有游戏共用当日金币额度，按 UTC 日更新，额度用完仍可玩。</p>
                 <p className="help-save">
                   照顾成功后自动存档在这台电脑里。离线时也会慢慢成长，最多结算
                   12

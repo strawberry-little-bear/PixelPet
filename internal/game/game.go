@@ -138,7 +138,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		return "下次再一起玩吧", nil
 	}
 	if s.Game != nil && !(strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-")) && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
-		return "", errors.New("请先完成小游戏，或按 C 返回")
+		return "", errors.New("请先完成小游戏，或通过放弃确认返回")
 	}
 	if s.Sleeping && a.Kind != "sleep" && a.Kind != "rename" {
 		return "", errors.New("它正在睡觉，先把它叫醒吧")
@@ -205,7 +205,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			return "", err
 		}
 		s.Game = &MiniGame{ID: newGameID(), Kind: "snake", Snake: snake, StartedAt: now.UnixMilli(), LastBeat: -1}
-		return "A / C 继续 · B 退出；吃到 3 颗才计入陪伴。", nil
+		return "A / C 继续 · B 放弃确认；吃到 3 颗才计入陪伴。", nil
 	case "tile-pick", "tile-clear":
 		return s.applyTile(a, now)
 	case "play-tiles":
@@ -223,7 +223,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			return "", errors.New("有点累了，先睡一觉吧")
 		}
 		s.Game = &MiniGame{ID: newGameID(), StartedAt: now.UnixMilli(), LastBeat: -1}
-		return "A 移动 · B 接星星 · C 返回", nil
+		return "A 移动 · B 接星星 · C 放弃确认", nil
 	case "catch":
 		if s.Game == nil || s.Game.Kind != "" || a.Lane < 0 || a.Lane > 2 {
 			return "", errors.New("游戏还没有开始")

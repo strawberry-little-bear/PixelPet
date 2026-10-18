@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import App from "./App";
 import { SnakeGame } from "./SnakeGame";
-import { ArcadePanel } from "./TileGame";
+import { ArcadePanel } from "./ArcadePanel";
 import { memoryWords } from "./AlbumPanel";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
@@ -38,7 +38,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 describe("three-key realtime snake", () => {
   it("selects the third arcade game with A and starts paused using B, without LCD controls", async () => {
-    await mount(); for (const k of ["a", "a", "b", "a", "a", "b"]) await key(k);
+    await mount(); for (const k of ["a", "a", "b", "a", "a", "b", "b"]) await key(k);
     expect(actions().at(-1)?.kind).toBe("play-snake");
     expect(document.querySelector(".snake-overlay")?.textContent).toContain("已暂停");
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
@@ -55,6 +55,7 @@ describe("three-key realtime snake", () => {
     expect(actions().at(-1)).toMatchObject({ step: 1, turn: 0 });
     await key("c"); expect(actions().at(-1)).toMatchObject({ kind: "snake-pause", step: 2 });
     const count = actions().length; await clock(5000); expect(actions()).toHaveLength(count);
+    await key("b"); expect(document.querySelector(".game-abandon")).toBeTruthy();
     await key("b"); expect(actions().at(-1)?.kind).toBe("cancel-play");
     expect(document.querySelector(".content-home")).toBeTruthy();
   });
@@ -94,7 +95,7 @@ describe("three-key realtime snake", () => {
     expect(memoryWords({ kind: "snake", source: "shared", at: Date.now() }, false)?.title).toContain("果园");
   });
   it("shows four non-clickable games and their shared reward limit", () => {
-    render(<ArcadePanel choice={2} limit={30} />);
+    render(<ArcadePanel choice={2} economy={saved.economy} shop={{ catalog: [], dailyCoins: 10, gameDailyLimit: 30 }} now={Date.now()} />);
     expect(document.querySelectorAll(".arcade-card")).toHaveLength(4);
     expect(document.querySelector('[data-game="snake"]')?.getAttribute("aria-current")).toBe("true");
     expect(document.querySelectorAll("button")).toHaveLength(0);

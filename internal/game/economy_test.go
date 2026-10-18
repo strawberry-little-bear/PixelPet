@@ -300,3 +300,21 @@ func TestLegacyActiveGameMigrationKeepsProgressAndAssignsIdentity(t *testing.T) 
 		t.Fatal(err)
 	}
 }
+
+func TestShopPublishesActualWalletAndSharedGameLimits(t *testing.T) {
+	rules := ShopRules()
+	if rules.MaxCoins != MaxCoins || rules.GameDailyLimit != GameDailyLimit {
+		t.Fatal("UI rules do not match reward caps", rules)
+	}
+	raw, err := json.Marshal(rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var published map[string]any
+	if err := json.Unmarshal(raw, &published); err != nil {
+		t.Fatal(err)
+	}
+	if published["maxCoins"] != float64(MaxCoins) || published["gameDailyLimit"] != float64(GameDailyLimit) {
+		t.Fatal("limits absent from wire rules", string(raw))
+	}
+}

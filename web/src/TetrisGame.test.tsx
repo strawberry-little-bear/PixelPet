@@ -40,7 +40,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 describe("three-key Tetris", () => {
   it("selects the fourth arcade game and starts paused, with only physical A/B/C", async () => {
-    await mount(); for (const k of ["a", "a", "b", "a", "a", "a", "b"]) await key(k);
+    await mount(); for (const k of ["a", "a", "b", "a", "a", "a", "b", "b"]) await key(k);
     expect(actions().at(-1)?.kind).toBe("play-tetris");
     expect(document.querySelector(".tetris-overlay")?.textContent).toContain("积木已暂停");
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
@@ -59,6 +59,7 @@ describe("three-key Tetris", () => {
     await key("c"); await key("a"); await key("a"); await key("b");
     expect(actions().at(-1)).toMatchObject({ kind: "tetris-drop", step: 2 });
     await key("c"); for (let i = 0;i < 3;i++)await key("a"); await key("b");
+    expect(document.querySelector(".game-abandon")).toBeTruthy(); await key("b");
     expect(actions().at(-1)?.kind).toBe("cancel-play"); expect(document.querySelector(".content-home")).toBeTruthy();
   });
   it("reloads a running session locally paused and persists pause before menu rotation", async () => {

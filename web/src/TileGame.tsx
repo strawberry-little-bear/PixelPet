@@ -50,38 +50,6 @@ export function TileIcon({ value }: { value: number }) {
     </svg>
   );
 }
-export function ArcadePanel({
-  choice,
-  limit,
-}: {
-  choice: number;
-  limit: number;
-}) {
-  return (
-    <section className="arcade-panel" aria-label="一起玩耍">
-      <header>和小伙伴一起玩</header>
-      <div className="arcade-cards">
-        {["接星星", "连连看", "贪吃蛇", "俄罗斯方块"].map((title, i) => (
-          <div
-            key={title}
-            className={`arcade-card ${choice === i ? "selected" : ""}`}
-            data-game={["stars", "tiles", "snake", "tetris"][i]}
-            aria-current={choice === i}
-          >
-            <span>{["★", "▦", "❧", "▥"][i]}</span>
-            <strong>{title}</strong>
-            <small>{["移动接住 · 五轮", "相同图案 · 两次转弯", "左右转弯 · 八颗果子", "三键拼搭 · 八行积木"][i]}</small>
-          </div>
-        ))}
-      </div>
-      <p>
-        宠物陪你玩，装扮也一起带上。
-        <br />
-        完整结束才得币，每天共用 {limit} 币额度。
-      </p>
-    </section>
-  );
-}
 export function TileGame({
   pet,
   cursor,

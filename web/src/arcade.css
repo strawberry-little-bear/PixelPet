@@ -1,0 +1,21 @@
+.arcade-panel, .game-guide, .game-abandon { color: #405132; font-size: 10px; line-height: 1.5; }
+.arcade-panel header, .game-guide header, .game-abandon header { font-size: 12px; font-weight: bold; margin-bottom: 6px; }
+.arcade-panel header small, .game-guide header small { float: right; font-size: 9px; }
+.arcade-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+.arcade-card { border: 1px dashed #899d76; padding: 3px 5px; opacity: .65; font-size: 10px; }
+.arcade-card.selected { border: 1px solid #556b45; background: #a4b98b66; opacity: 1; }
+.arcade-card > span { margin-right: 5px; }
+.arcade-card strong { font-size: 10px; }
+.arcade-details { margin-top: 5px; font-size: 9px; }
+.arcade-panel p { margin: 1px 0; }
+.arcade-panel .arcade-quota { margin-top: 5px; font-size: 9px; border-top: 1px solid #63744740; padding-top: 3px; }
+.arcade-panel > small { display: block; font-size: 8px; }
+.game-guide header { padding-bottom: 6px; border-bottom: 1px solid #63744740; }
+.game-guide > strong { display: block; font-size: 10px; }
+.game-guide p { font-size: 11px; line-height: 1.7; margin: 8px 0; }
+.game-guide .guide-reward { font-size: 10px; margin: 6px 0; }
+.game-guide > small { display: block; font-size: 9px; }
+.game-abandon { text-align: center; padding: 15px 0; }
+.game-abandon p { margin: 14px 0; font-size: 12px; }
+.game-abandon small { font-size: 9px; }
+.game-abandon strong { display: block; font-size: 10px; margin-top: 15px; }

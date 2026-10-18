@@ -32,7 +32,7 @@ export function SnakeGame({ pet, active, turn }: { pet: PetState; active: boolea
         </g>)}
         {snake.end !== "won" && <g transform={`translate(${snake.food.x * 12} ${snake.food.y * 12})`}><path d="M3 4h7v5H8v2H5V9H3z" fill="#9d654f" /><path d="M5 2h3v3H5z" fill="#526c3c" /></g>}
       </svg>
-      {(paused || ended) && <div className="snake-overlay" role="status"><strong>{ended ? snake.end === "won" ? "果篮装满啦！" : "休息一下再来" : "果园已暂停"}</strong><span>{ended ? `吃到 ${snake.eaten} 颗 · B / C 收好成绩` : "A / C 继续 · B 退出"}</span><small>{ended ? snake.eaten >= 3 ? "计入陪伴 · 最多 6 金币" : "吃到 3 颗后完成才有奖励" : "刷新、离开不补跑"}</small></div>}
+      {(paused || ended) && <div className="snake-overlay" role="status"><strong>{ended ? snake.end === "won" ? "果篮装满啦！" : "休息一下再来" : "果园已暂停"}</strong><span>{ended ? `吃到 ${snake.eaten} 颗 · B / C 收好成绩` : "A / C 继续 · B 放弃确认"}</span><small>{ended ? snake.eaten >= 3 ? "计入陪伴 · 最多 6 金币" : "吃到 3 颗后完成才有奖励" : "刷新、离开不补跑"}</small></div>}
     </div>
     <div className={`snake-companion ${collecting ? "collecting" : ""}`} data-motion={collecting ? "collecting" : "waiting"}><div className="snake-pet"><PetArt index={pet.species} stage={growth.stage} accessory={pet.economy?.equipped.accessory} motion={snake.end === "won" || collecting ? "celebrating" : "idle"} /></div><RoomDecoration id={pet.economy?.equipped.room} /><p>{collecting ? "甜甜的果子，我收好啦！" : ended ? "这次的果子我帮你收好。" : paused ? "等你准备好，我们再出发。" : `我帮你装果子！${turn < 0 ? "下一步左转" : turn > 0 ? "下一步右转" : "沿着方向前进"}`}</p></div>
   </section>;

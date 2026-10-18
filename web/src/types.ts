@@ -156,6 +156,7 @@ export type Shop = {
   catalog: ShopItem[];
   dailyCoins: number;
   gameDailyLimit: number;
+  maxCoins?: number;
 };
 
 export type TilePoint = { x: number; y: number };

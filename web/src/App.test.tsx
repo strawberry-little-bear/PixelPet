@@ -32,7 +32,7 @@ async function choose(menuIndex: number) {
   for (let i = 0; i < menuIndex; i++) await key("a");
   await key("b");
   // The default choice in the play selector remains the star game.
-  if (menuIndex === 1) await key("b");
+  if (menuIndex === 1) { await key("b"); await key("b"); }
 }
 async function advance(ms: number) {
   await act(async () => {
@@ -502,6 +502,7 @@ describe("durable three-button return recap", () => {
     await advance(30000);
     expect(api.mock.calls.some(([path]) => path === "recap/read")).toBe(false);
     await key("c");
+    await key("b");
     expect(screen.getByLabelText("回访小结")).toBeTruthy();
   });
 
@@ -940,7 +941,7 @@ describe("shop event precedence", () => {
 describe("server-owned game sessions", () => {
   it("sends the saved session identity with catches and cancellation", async () => {
     saved.game = { id: "saved-session-identity", startedAt: Date.now(), round: 0, score: 0, lastBeat: -1 };
-    await mount(); await key("b"); await key("c");
+    await mount(); await key("b"); await key("c"); await key("b");
     const calls = api.mock.calls.filter(([p]) => p === "action").map(([, b]) => b as { kind: string; gameId: string });
     expect(calls.map(c => c.kind)).toEqual(["catch", "cancel-play"]);
     expect(calls.every(c => c.gameId === "saved-session-identity")).toBe(true);

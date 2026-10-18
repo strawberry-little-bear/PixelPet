@@ -6,7 +6,8 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { ArcadePanel, TileGame, nextTile } from "./TileGame";
+import { TileGame, nextTile } from "./TileGame";
+import { ArcadePanel } from "./ArcadePanel";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
 import App from "./App";
@@ -58,6 +59,7 @@ async function selector() {
 async function startTiles() {
   await selector();
   await key("a");
+  await key("b"); // Open the guide before starting.
   await key("b");
 }
 const actions = () =>
@@ -177,6 +179,8 @@ describe("three-key pet tile matching", () => {
     });
     expect(document.querySelector(".tile-game")).toBeTruthy();
     await key("c");
+    expect(document.querySelector(".game-abandon")).toBeTruthy();
+    await key("b");
     expect(actions().at(-1)).toMatchObject({
       kind: "cancel-play",
       gameId: gameID,
@@ -399,6 +403,7 @@ describe("three-key pet tile matching", () => {
     });
     expect(api.mock.calls.filter((c) => c[0] === "recap/read")).toHaveLength(0);
     await key("c");
+    await key("b");
     expect(api.mock.calls.filter((c) => c[0] === "recap/read")).toHaveLength(1);
     expect(document.querySelector(".return-panel")).toBeTruthy();
   });
@@ -408,9 +413,10 @@ describe("three-key pet tile matching", () => {
     await selector();
     await key("a");
     await key("b");
+    await key("b");
     expect(saved.sleeping).toBe(true);
     expect(saved.game).toBeUndefined();
-    expect(document.querySelector(".arcade-panel")).toBeTruthy();
+    expect(document.querySelector(".game-guide")).toBeTruthy();
     expect(screen.getByText("先起床再玩吧")).toBeTruthy();
   });
 });
@@ -460,8 +466,8 @@ describe("read-only tile board and pet participation", () => {
       }
   });
   it("uses only the actual known game cap in the selector", () => {
-    render(<ArcadePanel choice={1} limit={30} />);
-    expect(screen.getByText(/每天共用 30 币/)).toBeTruthy();
+    render(<ArcadePanel choice={1} economy={saved.economy} shop={{ catalog: [], dailyCoins: 10, gameDailyLimit: 30 }} now={Date.now()} />);
+    expect(screen.getByText(/今日游戏额度剩 30 \/ 30 币/)).toBeTruthy();
     expect(document.querySelectorAll("button")).toHaveLength(0);
   });
 });
