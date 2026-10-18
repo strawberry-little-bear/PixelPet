@@ -80,6 +80,20 @@ describe("deterministic proactive needs", () => {
     expect(petNeed({...pet(),species:6,sleeping:true})).toBeNull();
     expect(petNeed({...pet(),species:6,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
   });
+  it("describes dragon wings, horns and claws without changing deterministic need rules", () => {
+    for (const needs of [{hunger:10},{energy:20},{clean:15},{mood:40},{mood:60,energy:44},{}]) {
+      const original=pet(needs), dragon={...original,species:8}, before=structuredClone(dragon);
+      const a=petNeed(original)!, b=petNeed(dragon)!;
+      expect(b.kind).toBe(a.kind);
+      expect(b.urgent).toBe(a.urgent);
+      expect(b.text).toMatch(/爪|翼|星角/);
+      expect(b.text).not.toMatch(/鳍|菌盖|蹼|耳/);
+      expect(b).toEqual(petNeed(dragon));
+      expect(dragon).toEqual(before);
+    }
+    expect(petNeed({...pet(),species:8,sleeping:true})).toBeNull();
+    expect(petNeed({...pet(),species:8,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
+  });
   it("stops hunger as soon as a saved meal has filled the pet", () => {
     const p=pet({hunger:50}); expect(petNeed(p)?.kind).toBe("hungry");
     p.needs.hunger=70; expect(petNeed(p)?.kind).toBe("content");

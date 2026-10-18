@@ -1,0 +1,127 @@
+/* Independent horned dragon anatomy: folded wings grow into flight wings. */
+.growth-baby .growth-size.has-dragon-rig,
+.growth-growing .growth-size.has-dragon-rig,
+.growth-adult .growth-size.has-dragon-rig { width: 104px; height: 110px; margin-left: -52px; }
+.has-dragon-rig .growth-outfit { bottom: 8px; width: 29px; height: 19px; margin-left: -14.5px; }
+.growth-baby .has-dragon-rig .growth-outfit { bottom: 5px; width: 23px; height: 14px; margin-left: -11.5px; }
+.growth-growing .has-dragon-rig .growth-outfit { bottom: 7px; width: 26px; height: 17px; margin-left: -13px; }
+.pet-scene[data-rig="dragon"].motion-idle .pet-actor { animation: none; }
+.dragon-rig { overflow: visible; --dragon-eye-reach: -14px; --dragon-snack-reach: -5px; }
+.dragon-baby { --dragon-eye-reach: -10px; --dragon-snack-reach: -3px; }
+.dragon-growing { --dragon-eye-reach: -12px; --dragon-snack-reach: -4px; }
+.dragon-torso { transform-origin: 32px 60px; }
+/* All limb classes are namespaced, avoiding flat-source paw animations. */
+.dragon-mouth-open { opacity: 0; }
+.dragon-rig.expression-hungry .dragon-mouth-open { opacity: 1; }
+.dragon-rig.expression-chewing .dragon-mouth-open { animation: dragon-nibble .65s steps(1,end) infinite; }
+.dragon-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-hand-right { animation: dragon-hug-tail 7s steps(3,end) infinite; }
+.dragon-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-head { animation: dragon-look-sky 6s steps(3,end) infinite; }
+.dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-tail { animation: dragon-tail-watch 8s steps(3,end) infinite; }
+.dragon-rig.rig-motion-idle.gesture-hungry .dragon-hand-left { animation: dragon-belly-touch 5s steps(3,end) infinite; }
+.dragon-rig.rig-motion-idle.gesture-tired .dragon-hand-right { animation: dragon-eye-rub 6s steps(3,end) infinite; }
+.dragon-rig.rig-motion-idle.gesture-tired .dragon-head { transform: translateY(2px) rotate(2deg); }
+.dragon-rig.rig-motion-idle.gesture-dirty .dragon-hand-right { animation: dragon-horn-scratch 4.8s steps(3,end) infinite; }
+.dragon-rig.rig-motion-idle.gesture-playful .dragon-hand-left { animation: dragon-ball-nudge 5.4s steps(3,end) infinite; }
+.dragon-rig.rig-motion-idle.gesture-content .dragon-hand-left { animation: dragon-claw-wave 7s steps(3,end) infinite; }
+.dragon-rig.rig-motion-idle.gesture-quiet .dragon-hand-left { transform: translate(3px,1px) rotate(-12deg); }
+.dragon-rig.rig-motion-idle.gesture-quiet .dragon-hand-right { transform: translate(-3px,1px) rotate(12deg); }
+.dragon-rig.rig-motion-eating .dragon-head { animation: dragon-snack-nod 1s steps(3,end) infinite; }
+.dragon-rig.rig-motion-eating .dragon-hand-left { animation: dragon-hold-snack .65s steps(3,end) infinite; }
+.dragon-rig.rig-motion-eating .dragon-hand-right { transform: translate(-5px,-1px) rotate(12deg); }
+.dragon-rig.rig-motion-bathing .dragon-hand-left { animation: dragon-wash-belly .8s steps(3,end) infinite; }
+.dragon-rig.rig-motion-bathing .dragon-hand-right { animation: dragon-wash-horn .8s steps(3,end) infinite; }
+.dragon-rig.rig-motion-bathing .dragon-wing { animation: dragon-wing-rinse .8s steps(3,end) infinite; }
+.dragon-rig.rig-motion-bathing .dragon-wing-right { animation-delay: -.4s; }
+.dragon-rig.rig-motion-bathing .dragon-head { animation: dragon-shake-water 1s steps(3,end) infinite; }
+.dragon-rig.rig-motion-sleeping .dragon-head { transform: translateY(2px); }
+.dragon-rig.rig-motion-sleeping .dragon-hand-left { transform: translate(3px,2px) rotate(-8deg); }
+.dragon-rig.rig-motion-sleeping .dragon-hand-right { transform: translate(-3px,2px) rotate(8deg); }
+.dragon-rig.rig-motion-sleeping .dragon-foot-left { transform: rotate(-8deg); }
+.dragon-rig.rig-motion-sleeping .dragon-foot-right { transform: rotate(8deg); }
+.dragon-rig.rig-motion-sleeping .dragon-torso { animation: dragon-breathe 3.6s ease-in-out infinite; }
+.dragon-rig.rig-motion-waking .dragon-hand-left { animation: dragon-reach-left var(--clip-duration,1400ms) steps(4,end) both; }
+.dragon-rig.rig-motion-waking .dragon-hand-right { animation: dragon-reach-right var(--clip-duration,1400ms) steps(4,end) both; }
+.dragon-rig.rig-motion-waking .dragon-head { animation: dragon-wake-head var(--clip-duration,1400ms) steps(4,end) both; }
+.dragon-rig.rig-motion-waking .dragon-foot-left { animation: dragon-open-left var(--clip-duration,1400ms) steps(4,end) both; }
+.dragon-rig.rig-motion-waking .dragon-foot-right { animation: dragon-open-right var(--clip-duration,1400ms) steps(4,end) both; }
+.dragon-rig.rig-motion-celebrating .dragon-hand { animation: dragon-cheer .65s steps(3,end) infinite; }
+.dragon-rig.rig-motion-celebrating .dragon-hand-right { animation-delay: -.3s; }
+
+.form-lively .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-tail,
+.form-gentle .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-tail,
+.form-easygoing .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-tail { animation: none; }
+.form-lively .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-wing-right { animation: dragon-test-flight-right 5s steps(3,end) infinite; }
+.form-gentle .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-head { animation: dragon-sky-nod 9s steps(3,end) infinite; }
+.form-easygoing .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-tail { animation: dragon-rest-tail 10s steps(3,end) infinite; }
+
+.dragon-head, .dragon-torso, .dragon-hand, .dragon-wing, .dragon-tail, .dragon-foot { transform-box: view-box; }
+.dragon-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-tail { animation: dragon-curl-tip 7s steps(3,end) infinite; }
+.dragon-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-wing-left { animation: dragon-first-wing 6s steps(3,end) infinite; }
+.dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-wing-left { animation: dragon-fold-adjust 8s steps(3,end) infinite; }
+.form-lively .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-wing-left { animation: dragon-test-flight 5s steps(3,end) infinite; }
+.form-gentle .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-wing-left,
+.form-easygoing .dragon-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .dragon-wing-left { animation: none; }
+.dragon-rig.rig-motion-idle.gesture-tired .dragon-wing-left { transform: rotate(-6deg); }
+.dragon-rig.rig-motion-idle.gesture-tired .dragon-wing-right { transform: rotate(6deg); }
+.dragon-rig.rig-motion-idle.gesture-quiet .dragon-wing-left { transform: rotate(-8deg); }
+.dragon-rig.rig-motion-idle.gesture-quiet .dragon-wing-right { transform: rotate(8deg); }
+.dragon-rig.rig-motion-idle.gesture-quiet .dragon-tail { transform: rotate(-5deg); }
+.dragon-rig.rig-motion-sleeping .dragon-wing-left { transform: rotate(-10deg); }
+.dragon-rig.rig-motion-sleeping .dragon-wing-right { transform: rotate(10deg); }
+.dragon-rig.rig-motion-sleeping .dragon-tail { transform: rotate(-8deg); }
+.dragon-rig.rig-motion-waking .dragon-wing-left { animation: dragon-unfurl-left var(--clip-duration,1400ms) steps(4,end) both; }
+.dragon-rig.rig-motion-waking .dragon-wing-right { animation: dragon-unfurl-right var(--clip-duration,1400ms) steps(4,end) both; }
+.dragon-rig.rig-motion-celebrating .dragon-wing-left { animation: dragon-test-flight .65s steps(3,end) infinite; }
+.dragon-rig.rig-motion-celebrating .dragon-wing-right { animation: dragon-test-flight-right .65s steps(3,end) infinite; }
+.dragon-rig.rig-motion-celebrating .dragon-tail { animation: dragon-curl-tip .65s steps(3,end) infinite; }
+@keyframes dragon-curl-tip { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-8deg)} 45%{transform:rotate(5deg)} }
+@keyframes dragon-first-wing { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(8deg)} 45%{transform:rotate(12deg)} }
+@keyframes dragon-fold-adjust { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(5deg)} 45%{transform:rotate(-3deg)} }
+@keyframes dragon-test-flight-right { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-12deg)} 45%{transform:rotate(-18deg)} }
+@keyframes dragon-unfurl-left { 0%,100%{transform:none} 40%,75%{transform:rotate(15deg)} }
+@keyframes dragon-unfurl-right { 0%,100%{transform:none} 40%,75%{transform:rotate(-15deg)} }
+@keyframes dragon-hug-tail { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-4px,1px) rotate(10deg)} 45%{transform:translate(-5px,2px) rotate(15deg)} }
+@keyframes dragon-look-sky { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-4deg)} 45%{transform:translateY(-1px) rotate(3deg)} }
+@keyframes dragon-tail-watch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-10deg)} 45%{transform:translateX(1px) rotate(-15deg)} }
+@keyframes dragon-belly-touch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(8px,0) rotate(-18deg)} 45%{transform:translate(9px,-1px) rotate(-12deg)} }
+@keyframes dragon-eye-rub { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-3px,var(--dragon-eye-reach)) rotate(12deg)} 45%{transform:translate(-2px,calc(var(--dragon-eye-reach) + 2px)) rotate(6deg)} }
+@keyframes dragon-horn-scratch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(2px,calc(var(--dragon-eye-reach) - 10px)) rotate(15deg)} 45%{transform:translate(0px,calc(var(--dragon-eye-reach) - 8px)) rotate(8deg)} }
+@keyframes dragon-ball-nudge { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(1px,2px) rotate(-18deg)} 45%{transform:translate(4px,1px) rotate(-25deg)} }
+@keyframes dragon-claw-wave { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,-5px) rotate(15deg)} 45%{transform:translate(-3px,-6px) rotate(22deg)} }
+@keyframes dragon-snack-nod { 0%,100%{transform:none} 50%{transform:translateY(2px) rotate(2deg)} }
+@keyframes dragon-hold-snack { 0%,100%{transform:translate(8px,var(--dragon-snack-reach)) rotate(-18deg)} 50%{transform:translate(10px,calc(var(--dragon-snack-reach) - 2px)) rotate(-25deg)} }
+@keyframes dragon-wash-belly { 0%,100%{transform:translate(7px,0) rotate(-12deg)} 50%{transform:translate(9px,-3px) rotate(-20deg)} }
+@keyframes dragon-wash-horn { 0%,100%{transform:translate(2px,calc(var(--dragon-eye-reach) - 10px)) rotate(12deg)} 50%{transform:translate(0px,calc(var(--dragon-eye-reach) - 8px)) rotate(20deg)} }
+@keyframes dragon-wing-rinse { 0%,100%{transform:translateY(-1px) rotate(-6deg)} 50%{transform:translateY(1px) rotate(6deg)} }
+@keyframes dragon-shake-water { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2deg)} }
+@keyframes dragon-breathe { 0%,100%{transform:none} 50%{transform:translateY(-1px) scaleY(1.025)} }
+@keyframes dragon-reach-left { 0%,100%{transform:none} 40%,75%{transform:translate(-2px,-6px) rotate(25deg)} }
+@keyframes dragon-reach-right { 0%,100%{transform:none} 40%,75%{transform:translate(2px,-6px) rotate(-25deg)} }
+@keyframes dragon-wake-head { 0%,100%{transform:none} 40%,75%{transform:translateY(-2px)} }
+@keyframes dragon-open-left { 0%,100%{transform:none} 40%,75%{transform:rotate(12deg)} }
+@keyframes dragon-open-right { 0%,100%{transform:none} 40%,75%{transform:rotate(-12deg)} }
+@keyframes dragon-cheer { 0%,100%{transform:translateY(-2px) rotate(-10deg)} 50%{transform:translateY(-5px) rotate(15deg)} }
+@keyframes dragon-test-flight { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(12deg)} 45%{transform:rotate(18deg)} }
+@keyframes dragon-sky-nod { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(2px) rotate(3deg)} 45%{transform:translateY(1px)} }
+@keyframes dragon-rest-tail { 0%,20%,75%,100%{transform:rotate(3deg)} 35%,60%{transform:rotate(10deg)} 45%{transform:rotate(6deg)} }
+@keyframes dragon-nibble { 0%,100%{opacity:0} 50%{opacity:1} }
+@media (prefers-reduced-motion: reduce) {
+  .dragon-rig, .dragon-rig * { animation: none !important; }
+  .dragon-rig.rig-motion-idle.gesture-hungry .dragon-hand-left { transform: translate(8px,0) rotate(-18deg); }
+  .dragon-rig.rig-motion-idle.gesture-tired .dragon-hand-right { transform: translate(-3px,var(--dragon-eye-reach)) rotate(12deg); }
+  .dragon-rig.rig-motion-idle.gesture-dirty .dragon-hand-right { transform: translate(2px,calc(var(--dragon-eye-reach) - 10px)) rotate(15deg); }
+  .dragon-rig.rig-motion-idle.gesture-playful .dragon-hand-left { transform: translate(1px,2px) rotate(-18deg); }
+  .dragon-rig.rig-motion-idle.gesture-content .dragon-hand-left { transform: translate(-2px,-5px) rotate(15deg); }
+  .dragon-rig.rig-motion-eating .dragon-hand-left { transform: translate(8px,var(--dragon-snack-reach)) rotate(-18deg); }
+  .dragon-rig.rig-motion-bathing .dragon-hand-left { transform: translate(7px,0) rotate(-12deg); }
+  .dragon-rig.rig-motion-bathing .dragon-hand-right { transform: translate(2px,calc(var(--dragon-eye-reach) - 10px)) rotate(12deg); }
+  .dragon-rig.rig-motion-waking .dragon-hand-left { transform: translate(-2px,-6px) rotate(25deg); }
+  .dragon-rig.rig-motion-waking .dragon-hand-right { transform: translate(2px,-6px) rotate(-25deg); }
+  .dragon-rig.rig-motion-waking .dragon-foot-left { transform: rotate(12deg); }
+  .dragon-rig.rig-motion-waking .dragon-foot-right { transform: rotate(-12deg); }
+  .dragon-rig.rig-motion-celebrating .dragon-hand-left { transform: translateY(-3px) rotate(15deg); }
+  .dragon-rig.rig-motion-celebrating .dragon-hand-right { transform: translateY(-3px) rotate(-15deg); }
+  .dragon-rig.rig-motion-waking .dragon-wing-left { transform: rotate(15deg); }
+  .dragon-rig.rig-motion-waking .dragon-wing-right { transform: rotate(-15deg); }
+  .dragon-rig.expression-chewing .dragon-mouth-open { opacity: 1; }
+}

@@ -286,9 +286,9 @@ describe("independently drawn dolphin", () => {
     }
   });
 
-  it("leaves eggs and the two undrawn species on the original artwork", () => {
+  it("leaves eggs and the undrawn dog on the original artwork", () => {
     expect(petRigKind(3, "egg")).toBe("original");
-    for (const index of [8, 9])
+    for (const index of [9])
       for (const stage of stages)
         expect(petRigKind(index, stage)).toBe("original");
     expect(petRigKind(2, "adult")).toBe("rabbit");
