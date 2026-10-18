@@ -8,3 +8,8 @@
 .album-panel h3 { font-size:13px; line-height:1.4; margin:4px 0; }
 .album-panel p { font-size:11px; line-height:1.55; margin:4px 0; }
 .album-source { display:block; font-size:9px; line-height:1.5; opacity:.85; margin-top:5px; }
+
+.album-directory ul { list-style:none; padding:0; margin:8px 0; text-align:left; }
+.album-directory li { display:flex; gap:6px; padding:3px 6px; border-radius:3px; }
+.album-directory li > span { width:12px; flex-shrink:0; }
+.album-directory li[aria-current="true"] { background:#688254; color:#f2f2d9; }

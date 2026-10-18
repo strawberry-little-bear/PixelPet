@@ -674,7 +674,7 @@ describe("saved-state proactive expression", () => {
 });
 
 describe("three-button permanent album", () => {
-  it("A/B browse collected memories, wrap, C returns, reopening starts at cover without mutations", async () => {
+  it("A/B browse collected memories, wrap, C returns via directory, reopening resets without mutations", async () => {
     saved.schema=3;
     saved.album={since:saved.createdAt,legacy:false,entries:[
       {kind:"hatch",at:saved.hatchedAt,source:"shared"},
@@ -682,6 +682,8 @@ describe("three-button permanent album", () => {
     ]};
     await mount();
     await choose(8);
+    expect(document.querySelector("[data-album-directory]")?.getAttribute("data-album-directory")).toBe("all");
+    await key("b");
     const panel=()=>document.querySelector(".album-panel");
     expect(panel()?.getAttribute("data-album-page")).toBe("0");
     expect(screen.getByText("我们的纪念册")).toBeTruthy();
@@ -690,15 +692,45 @@ describe("three-button permanent album", () => {
     await key("b");expect(panel()?.getAttribute("data-album-page")).toBe("2");
     expect(screen.getByText("一份暖暖的小饭团")).toBeTruthy();
     await key("b");expect(panel()?.getAttribute("data-album-page")).toBe("0");
+    await key("c");expect(document.querySelector("[data-album-directory]")).toBeTruthy();
     await key("c");expect(panel()).toBeNull();expect(scene()).toBe("idle");
-    await choose(8);expect(panel()?.getAttribute("data-album-page")).toBe("0");
+    await choose(8);expect(document.querySelector("[data-album-directory]")?.getAttribute("data-album-directory")).toBe("all");
     expect(document.querySelector(".lcd button")).toBeNull();
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(api.mock.calls.filter(([path])=>!["state","visit"].includes(path))).toHaveLength(0);
   });
+  it("uses A to select each category, B to enter and C to return without changing locked adulthood", async () => {
+    saved.growth=emptyGrowth("adult");saved.growth.form="gentle";
+    saved.album={since:saved.createdAt,legacy:true,entries:[
+      {kind:"hatch",at:saved.hatchedAt,source:"saved"},
+      {kind:"meal",at:saved.lastTick,source:"shared"},
+    ]};
+    const before=structuredClone(saved);
+    await mount();await choose(8);
+    for (const category of ["all","growth","care","play","home","days"]) {
+      expect(document.querySelector("[data-album-directory]")?.getAttribute("data-album-directory")).toBe(category);
+      expect(document.querySelector('.album-directory [aria-current="true"]')).toBeTruthy();
+      await key("b");
+      expect(document.querySelector("[data-album-category]")?.getAttribute("data-album-category")).toBe(category);
+      expect(document.querySelector("[data-album-page]")?.getAttribute("data-album-page")).toBe("0");
+      await key("a");
+      if(category==="growth") expect(screen.getByText(/沿用旧存档的相遇日期/)).toBeTruthy();
+      if(category==="care") expect(screen.getByText("一份暖暖的小饭团")).toBeTruthy();
+      if(["play","home","days"].includes(category)) {
+        expect(screen.getByText(/这里还没有留下回忆/)).toBeTruthy();
+        expect(document.querySelector("[data-album-page]")?.getAttribute("data-album-page")).toBe("0");
+      }
+      await key("c");await key("a");
+    }
+    expect(document.querySelector("[data-album-directory]")?.getAttribute("data-album-directory")).toBe("all");
+    await key("c");expect(scene()).toBe("idle");
+    expect(saved).toEqual(before);
+    expect(api.mock.calls.some(([path])=>!["state","visit"].includes(path))).toBe(false);
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+  });
   it("reading while asleep does not wake the pet or generate actions",async()=>{
     saved.sleeping=true;saved.album={since:saved.createdAt,legacy:false,entries:[{kind:"hatch",at:saved.hatchedAt,source:"shared"}]};
-    await mount();await choose(8);await key("b");await key("c");
+    await mount();await choose(8);await key("b");await key("c");await key("c");
     expect(scene()).toBe("sleeping");expect(saved.sleeping).toBe(true);
     expect(api.mock.calls.some(([path])=>path==="action")).toBe(false);
   });
@@ -778,13 +810,13 @@ describe("sakura cat stays articulated across the three-button lifecycle", () =>
       expect(document.querySelector(`.growth-preview.growth-${stage} .has-cat-rig .cat-${stage}`)).not.toBeNull();
     }
     await key("c");
-    await choose(8);
+    await choose(8);await key("b");
     expect(document.querySelector(".album-panel .cat-adult")).not.toBeNull();
     for (const stage of ["baby", "growing", "adult"]) {
       await key("b");
       expect(document.querySelector(`.album-panel .cat-${stage}`)).not.toBeNull();
     }
-    await key("c");
+    await key("c");await key("c");
     expect(scene()).toBe("idle");
     expect(saved).toEqual(before);
     expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);

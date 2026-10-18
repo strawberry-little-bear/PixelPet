@@ -5,10 +5,38 @@ import { formNames } from "./growth";
 import { PetArt } from "./PetArt";
 import "./album.css";
 
-export const albumPageCount = (pet: PetState) => 1 + (pet.album?.entries.length ?? 0);
-// Work on a copy: reading the album must not reorder the saved event array.
-export const albumMemories = (pet: PetState) => [...(pet.album?.entries ?? [])]
+export const albumCategories = [
+  { id: "all", label: "全部回忆", detail: "按时间翻看所有已保存的共同经历。" },
+  { id: "growth", label: "长大时光", detail: "相遇、成长和定下模样的那一天。" },
+  { id: "care", label: "日常照顾", detail: "饭团、泡泡和好好休息的小事。" },
+  { id: "play", label: "一起玩过", detail: "收藏已经收好的游戏与散步回忆。" },
+  { id: "home", label: "小窝装扮", detail: "穿戴与布置留下的真实纪念。" },
+  { id: "days", label: "相识日子", detail: "按相遇日期记录，不代表连续登录。" },
+] as const;
+export type AlbumCategory = typeof albumCategories[number]["id"];
+const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
+  hatch: "growth", growing: "growth", adult: "growth",
+  meal: "care", bath: "care", goodnight: "care",
+  stars: "play", "perfect-stars": "play", tiles: "play", snake: "play", tetris: "play", fishing: "play", walk: "play",
+  outfit: "home", decoration: "home", wallpaper: "home", floor: "home",
+  days: "days",
+};
+// Filter/sort copies: browsing never edits or reorders the saved event array.
+export const albumMemories = (pet: PetState, category: AlbumCategory = "all") => (pet.album?.entries ?? [])
+  .filter(memory => category === "all" || memoryCategory[memory.kind] === category)
   .sort((a, b) => a.at - b.at || a.kind.localeCompare(b.kind));
+export const albumPageCount = (pet: PetState, category: AlbumCategory = "all") => 1 + albumMemories(pet, category).length;
+export function AlbumDirectory({ pet, choice }: { pet: PetState; choice: number }) {
+  const selected = albumCategories[choice] ?? albumCategories[0];
+  return <section className="album-panel album-directory" aria-label="纪念册分类" data-album-directory={selected.id}>
+    <header><strong>我们的纪念册</strong><span>回忆分类</span></header>
+    <ul>{albumCategories.map(category => <li key={category.id} aria-current={selected.id === category.id ? "true" : undefined}>
+      <span aria-hidden="true">{selected.id === category.id ? "▸" : ""}</span>{category.label}
+    </li>)}</ul>
+    <p>{selected.detail}</p>
+    <small className="album-source">{pet.album ? "只翻看发生过的回忆，不需要集齐。" : "纪念册尚未开启，请更新服务后再来看看。"}</small>
+  </section>;
+}
 export function memoryWords(m: Memory, legacy: boolean) {
   switch (m.kind) {
     case "hatch": return { title: "小小的初次相遇", story: "从这一天起，小窝里多了一位等你回来的伙伴。" };
@@ -32,16 +60,17 @@ export function memoryWords(m: Memory, legacy: boolean) {
   }
 }
 const dateLabel = (at: number) => new Date(at).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
-export function AlbumPanel({ pet, now, page }: { pet: PetState; now: number; page: number }) {
-  const memories = albumMemories(pet);
+export function AlbumPanel({ pet, now, page, category = "all" }: { pet: PetState; now: number; page: number; category?: AlbumCategory }) {
+  const memories = albumMemories(pet, category);
+  const categoryLabel = albumCategories.find(c => c.id === category)!.label;
   const currentPage = Math.min(Math.max(0, page), memories.length);
   const memory = currentPage > 0 ? memories[currentPage - 1] : undefined;
   const words = memory ? memoryWords(memory, pet.album?.legacy ?? false) : undefined;
   const stage = memory?.kind === "hatch" ? "baby" : memory?.kind === "growing" ? "growing" : memory?.kind === "adult" ? "adult" : pet.growth?.stage || "baby";
   const isPortrait = !memory || ["hatch", "growing", "adult"].includes(memory.kind);
   const Icon = memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : memory?.kind === "goodnight" ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
-  return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage}>
-    <header><strong>{memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
+  return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage} data-album-category={category} data-album-kind={memory?.kind}>
+    <header><strong>{category !== "all" ? categoryLabel : memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
     <div className={`album-picture ${isPortrait ? "album-portrait" : ""}`} aria-hidden="true">
       {isPortrait ? <PetArt index={pet.species} stage={stage} expression="still" /> : memory?.kind === "wallpaper" || memory?.kind === "floor" ? <RoomSurfaceArt id={memory.item} /> : memory?.kind === "decoration" ? <RoomDecoration id={memory.item} /> : memory?.kind === "outfit" ? <PetArt index={pet.species} stage={pet.growth?.stage || "baby"} accessory={memory.item} /> : <Icon size={30} strokeWidth={1.5} />}
     </div>
@@ -54,7 +83,9 @@ export function AlbumPanel({ pet, now, page }: { pet: PetState; now: number; pag
         : memory.source === "elapsed" ? "按相遇日期计算，不代表连续登录。" : "来自已保存的真实经历 · 只记录一次"}</small>
     </> : <>
       <h3>与你相识 {Math.max(0, Math.floor((now - pet.hatchedAt) / 86400000))} 天</h3>
-      <p>长大、星光和温柔的小事，<br />不会随最近的日记翻篇。</p>
+      {memories.length === 0 && pet.album
+        ? <p>这里还没有留下回忆。<br />不必特意完成什么，慢慢相伴就好。</p>
+        : <p>{category === "all" ? <>长大、星光和温柔的小事，<br />不会随最近的日记翻篇。</> : "这里只翻看这一类已保存的回忆，按时间排列。"}</p>}
       <small className="album-source">{pet.album
         ? pet.album.legacy ? "从纪念册开启后，继续记下新的共同经历。" : "只收藏发生过的回忆，不必追赶任何进度。"
         : "纪念册尚未开启，请更新服务后再来看看。"}</small>

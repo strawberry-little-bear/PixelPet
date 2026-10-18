@@ -86,7 +86,8 @@
   /* Explicit system colors avoid Chromium composited text backplates hiding
      the focused key. Keep the user's palette and a separate focus outline. */
   .physical-button, .physical-button.button-b, .physical-button:hover,
-  .physical-button:active, .physical-button.is-pressed {
+  .physical-button:active, .physical-button.is-pressed,
+  .physical-button.button-b:active, .physical-button.button-b.is-pressed {
     forced-color-adjust: none; filter: none; transform: none;
     box-shadow: none; transition: none;
     background: ButtonFace; color: ButtonText; border-color: ButtonText;

@@ -41,7 +41,7 @@ import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
 import { CareAdvice } from "./CareAdvice";
-import { AlbumPanel, albumPageCount } from "./AlbumPanel";
+import { AlbumDirectory, AlbumPanel, albumCategories, albumPageCount, type AlbumCategory } from "./AlbumPanel";
 import { ReturnPanel } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import {
@@ -211,6 +211,8 @@ export default function App() {
   const [shopCategory, setShopCategory] = useState<ShopCategory | null>(null);
   const [purchaseConfirm, setPurchaseConfirm] = useState(false);
   const [albumPage, setAlbumPage] = useState(0);
+  const [albumChoice, setAlbumChoice] = useState(0);
+  const [albumCategory, setAlbumCategory] = useState<AlbumCategory | null>(null);
   const [returnRecap, setReturnRecap] = useState<ReturnRecap | null>(null);
   const [returnPending, setReturnPending] = useState(false);
   const [returnPage, setReturnPage] = useState(0);
@@ -725,6 +727,15 @@ export default function App() {
       return;
     }
     setError("");
+    if (page === "album") {
+      if (albumCategory === null) {
+        if (key === "A") setAlbumChoice(v => (v + 1) % albumCategories.length);
+        else if (key === "B") { setAlbumCategory(albumCategories[albumChoice].id); setAlbumPage(0); }
+        else if (key === "C") setPage("home");
+      } else if (key === "C") setAlbumCategory(null);
+      else if (key === "A" || key === "B") setAlbumPage(v => (v + 1) % albumPageCount(pet, albumCategory));
+      return;
+    }
     if (page === "park-album") {
       if(key==="C"){setPage(pet.game?.kind==="walk"?"game":"home");setWalkChoice(0);}
       else setParkPage(v=>(v+1)%parkCatalog.length);
@@ -883,8 +894,6 @@ export default function App() {
       else if (page === "game") setLane((v) => (v + 1) % 3);
       else if (page === "growth")
         setGrowthPage((v) => (v + 1) % growthPageCount);
-      else if (page === "album")
-        setAlbumPage((v) => (v + 1) % albumPageCount(pet));
       else if (page === "journal")
         setJournalIndex((v) => (v + 1) % Math.max(1, pet.logs.length));
       return;
@@ -935,6 +944,8 @@ export default function App() {
         setPage("fish-album"); setFishPage(0);
       } else if (item.kind === "album") {
         setPage("album");
+        setAlbumCategory(null);
+        setAlbumChoice(0);
         setAlbumPage(0);
       } else if (item.kind === "status") setPage("status");
       else if (item.kind === "growth") {
@@ -945,8 +956,6 @@ export default function App() {
         setJournalIndex(0);
       } else void act(item.kind);
     } else if (page === "game") void act("catch", { lane });
-    else if (page === "album")
-      setAlbumPage((v) => (v + 1) % albumPageCount(pet));
     else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
     else setPage("home");
   };
@@ -1104,7 +1113,9 @@ export default function App() {
                         : pet.game?.kind === "tiles"
                           ? "A 移动  B 选牌  C 撤选 / 放弃"
                           : "A 移动　 B 接住　 C 放弃确认"
-                    : page === "growth" || page === "album"
+                    : page === "album"
+                      ? albumCategory === null ? "A 换分类  B 进入  C 返回小窝" : "A / B 换页  C 返回分类"
+                      : page === "growth"
                       ? "A / B 换页　 C 返回"
                       : page === "journal"
                         ? "A 下一条　 C 返回"
@@ -1354,7 +1365,7 @@ export default function App() {
                         {page === "park-album" && <ParkAlbum pet={pet} page={parkPage} />}
                         {page === "fish-album" && <FishAlbum pet={pet} page={fishPage} />}
                         {page === "album" && (
-                          <AlbumPanel pet={pet} now={now} page={albumPage} />
+                          albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} now={now} page={albumPage} category={albumCategory} />
                         )}
                         {page === "return" && returnRecap && (
                           <ReturnPanel recap={returnRecap} page={returnPage} />

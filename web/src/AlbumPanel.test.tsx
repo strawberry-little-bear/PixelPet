@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { AlbumPanel, albumMemories, albumPageCount, memoryWords } from "./AlbumPanel";
+import { AlbumDirectory, AlbumPanel, albumCategories, albumMemories, albumPageCount, memoryWords } from "./AlbumPanel";
 import { emptyGrowth } from "./growth";
 import type { Memory, PetState } from "./types";
 afterEach(cleanup);
@@ -62,5 +62,46 @@ describe("permanent album", () => {
   for(const kind of ["hatch","growing","adult","meal","bath","goodnight","stars","perfect-stars","days"] as Memory["kind"][]) {
    expect(memoryWords({kind,at:now,source:"shared",days:1000,score:5},false).story.length).toBeGreaterThan(12);
   }
+ });
+});
+
+
+describe("album categories", () => {
+ it("partitions every kind once, keeping all cards including repeated elapsed milestones", () => {
+  const p=pet();
+  const groups={growth:["hatch","growing","adult"],care:["meal","bath","goodnight"],play:["stars","perfect-stars","tiles","snake","tetris","fishing","walk"],home:["outfit","decoration","wallpaper","floor"],days:["days","days"]} as const;
+  p.album!.entries=Object.values(groups).flat().map((kind,i)=>({kind,at:now-i*1000,source:kind==="days"?"elapsed":"shared",days:kind==="days"?i:undefined}));
+  const before=structuredClone(p);
+  for (const category of albumCategories.slice(1)) {
+   expect(albumMemories(p,category.id).map(m=>m.kind).sort()).toEqual([...groups[category.id as keyof typeof groups]].sort());
+   expect(albumPageCount(p,category.id)).toBe(groups[category.id as keyof typeof groups].length+1);
+  }
+  const partitions=albumCategories.slice(1).flatMap(c=>albumMemories(p,c.id));
+  expect(partitions.sort((a,b)=>a.at-b.at)).toEqual(albumMemories(p));
+  expect(p).toEqual(before);
+ });
+ it("shows directory navigation as noninteractive reading content, with a safe old-server notice", () => {
+  const p=pet();delete p.album;
+  render(<AlbumDirectory pet={p} choice={2} />);
+  expect(screen.getByLabelText("纪念册分类")).toBeTruthy();
+  expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("日常照顾");
+  expect(document.querySelectorAll("li")).toHaveLength(6);
+  expect(document.querySelector("button,a,input")).toBeNull();
+  expect(screen.getByText(/纪念册尚未开启/)).toBeTruthy();
+ });
+ it("leaves empty categories empty and clamps a page after records become shorter", () => {
+  const p=pet();render(<AlbumPanel pet={p} now={now} page={99} category="play" />);
+  expect(screen.getByText("1 / 1")).toBeTruthy();
+  expect(screen.getByText(/这里还没有留下回忆/)).toBeTruthy();
+  expect(p.album!.entries).toHaveLength(1);
+  expect(document.querySelector('[data-album-category="play"]')).toBeTruthy();
+ });
+ it("retains source labels and recorded adult form within filtered cards", () => {
+  const p=pet();p.album!.legacy=true;p.album!.entries=[{kind:"adult",at:now,source:"saved",form:"gentle"},{kind:"days",at:now,source:"elapsed",days:7}];
+  const {rerender}=render(<AlbumPanel pet={p} now={now} page={1} category="growth" />);
+  expect(screen.getByText(/可能来自旧版迁移/)).toBeTruthy();
+  expect(screen.getByText(/恬静型/)).toBeTruthy();
+  rerender(<AlbumPanel pet={p} now={now} page={1} category="days" />);
+  expect(screen.getByText(/不代表连续登录/)).toBeTruthy();
  });
 });
