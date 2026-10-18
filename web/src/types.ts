@@ -39,7 +39,20 @@ export type PetState = {
   logs: { at: number; text: string }[];
   game?: { startedAt: number; round: number; score: number; lastBeat: number };
 };
-export type Result = { state: PetState; message: string; serverTime: number };
+export type CareFeedback = {
+  kind: "feed" | "clean" | "catch" | "sleep";
+  points: number;
+  habit?: "nutrition" | "clean" | "play";
+  habitGain: number;
+  reason: "credited" | "not-needed" | "cooldown" | "resting" | "awake";
+  retryAt?: number;
+};
+export type Result = {
+  state: PetState;
+  message: string;
+  serverTime: number;
+  careFeedback?: CareFeedback;
+};
 export const species = [
   "星星狸",
   "云朵雀",

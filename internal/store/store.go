@@ -18,9 +18,10 @@ type Store struct {
 	mu sync.Mutex
 }
 type Result struct {
-	State      game.State `json:"state"`
-	Message    string     `json:"message"`
-	ServerTime int64      `json:"serverTime"`
+	State        game.State         `json:"state"`
+	Message      string             `json:"message"`
+	ServerTime   int64              `json:"serverTime"`
+	CareFeedback *game.CareFeedback `json:"careFeedback,omitempty"`
 }
 
 func Open(path string) (*Store, error) {
@@ -107,8 +108,9 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		changed = state.Advance(now) || changed
 	}
 	message := ""
+	var feedback *game.CareFeedback
 	if a != nil {
-		message, err = state.Apply(*a, now)
+		message, feedback, err = state.ApplyWithFeedback(*a, now)
 		if err != nil {
 			return Result{}, err
 		}
@@ -157,7 +159,7 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 	}
-	result := Result{state, message, now.UnixMilli()}
+	result := Result{State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback}
 	if a != nil && a.RequestID != "" {
 		encoded, _ := json.Marshal(result)
 		if _, err = tx.Exec("INSERT INTO requests(id,body) VALUES(?,?)", a.RequestID, string(encoded)); err != nil {

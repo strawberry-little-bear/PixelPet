@@ -71,3 +71,13 @@ export function stagePoints(g: Growth) {
       ? { points: g.points - 24, target: 48 }
       : { points: g.points, target: 24 };
 }
+
+// Round remaining points upwards: a nearly complete stage is never shown as
+// already finished before the authoritative state actually advances it.
+export function nextGrowthGoal(g: Growth): string {
+  if (g.stage === "adult") return `${formNames[g.form || "balanced"]}已定型，继续温柔陪伴`;
+  if (g.stage === "egg") return "按 B 迎接小伙伴，开始成长旅程";
+  const target = g.stage === "growing" ? 72 : 24;
+  const remaining = Math.ceil(Math.max(0, target - g.points) * 100) / 100;
+  return `距${g.stage === "baby" ? "成长期" : "成年期"}还差 ${remaining.toFixed(2)} 点`;
+}

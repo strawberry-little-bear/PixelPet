@@ -208,3 +208,39 @@ func TestAdultGrowthSurvivesReopenAndRejectedImport(t *testing.T) {
 		t.Fatal("rejected import modified snapshots", err)
 	}
 }
+
+func TestCareFeedbackExcludesPassiveGrowthAndReplaysWithRequest(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "feedback.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	now := time.Now()
+	born := now.Add(-time.Hour)
+	initial := game.New(born)
+	initial.Apply(game.Action{Kind: "hatch", Species: 1}, born)
+	initial.Needs.Hunger = 60
+	body, _ := json.Marshal(initial)
+	if _, err = s.db.Exec("UPDATE saves SET body=? WHERE id=1", string(body)); err != nil {
+		t.Fatal(err)
+	}
+	a := &game.Action{Kind: "feed", RequestID: "feedback-once"}
+	r, err := s.Do(a, nil, false, now)
+	if err != nil || r.CareFeedback == nil || r.CareFeedback.Points != .25 || r.State.Growth.Points <= .25 {
+		t.Fatalf("passive growth confused with action credit: %+v, %v", r, err)
+	}
+	replay, err := s.Do(a, nil, false, now.Add(time.Second))
+	if err != nil || replay.CareFeedback == nil || *replay.CareFeedback != *r.CareFeedback || replay.State.Revision != r.State.Revision {
+		t.Fatal("idempotent replay lost saved feedback", err)
+	}
+	current, err := s.Do(nil, nil, false, now.Add(time.Second))
+	if err != nil || current.CareFeedback != nil || current.State.Growth.Care.Nutrition != 1 {
+		t.Fatal("polling replayed feedback or action credit", err)
+	}
+	encoded, _ := json.Marshal(current.State)
+	var save map[string]any
+	json.Unmarshal(encoded, &save)
+	if _, ok := save["careFeedback"]; ok {
+		t.Fatal("ephemeral feedback leaked into backup")
+	}
+}

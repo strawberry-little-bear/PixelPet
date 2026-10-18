@@ -22,6 +22,7 @@ import { request } from "./api";
 import { PixelEgg, Sprite } from "./Sprite";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
+import { CareFeedback } from "./CareFeedback";
 import {
   petGrowth,
   stageNames,
@@ -34,7 +35,7 @@ import type { GrowthStage, AdultForm } from "./types";
 import { careClip, clipDurations, sceneMotion } from "./motion";
 import type { MotionClip } from "./motion";
 import { personalities, species } from "./types";
-import type { PetState, Result } from "./types";
+import type { PetState, Result, CareFeedback as Feedback } from "./types";
 
 type Page =
   | "choose"
@@ -94,6 +95,7 @@ export default function App() {
   const busyRef = useRef(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [careFeedback, setCareFeedback] = useState<Feedback | null>(null);
   const [clip, setClip] = useState<MotionClip | null>(null);
   const clipRef = useRef<MotionClip | null>(null);
   const clipSequence = useRef(0);
@@ -204,6 +206,13 @@ export default function App() {
     );
     setEvolution(null);
   }, [evolution, page, busy, clip, pet?.sleeping]);
+  // Keep the result readable for eight seconds after care/evolution clips.
+  // Polling never replays it, and C skips only the animation, not saved care.
+  useEffect(() => {
+    if (!careFeedback || clip || evolution || page !== "home") return;
+    const timer = setTimeout(() => setCareFeedback(null), 8000);
+    return () => clearTimeout(timer);
+  }, [careFeedback, clip, evolution, page]);
   function finishClip() {
     clipRef.current = null;
     setClip(null);
@@ -261,6 +270,7 @@ export default function App() {
   }
   async function act(kind: string, extra: Record<string, unknown> = {}) {
     if (busyRef.current) return;
+    setCareFeedback(null);
     busyRef.current = true;
     setBusy(true);
     try {
@@ -270,6 +280,7 @@ export default function App() {
         requestId: crypto.randomUUID(),
       });
       apply(r);
+      setCareFeedback(r.careFeedback ?? null);
       const clipKind = careClip(kind, r.state.sleeping);
       if (clipKind) {
         const next = { kind: clipKind, id: ++clipSequence.current };
@@ -403,6 +414,7 @@ export default function App() {
       latestRevision.current = -1;
       knownStage.current = null;
       setEvolution(null);
+      setCareFeedback(null);
       finishClip();
       apply(r);
       setPage(r.state.hatchedAt ? "home" : "choose");
@@ -430,6 +442,7 @@ export default function App() {
       latestRevision.current = -1;
       knownStage.current = null;
       setEvolution(null);
+      setCareFeedback(null);
       finishClip();
       apply(r);
       setChosen(0);
@@ -724,10 +737,12 @@ export default function App() {
                               form={growth.form}
                               dirty={pet.needs.clean < 35}
                             />
-                            <div className="pet-thought">
-                              <Heart size={10} fill="currentColor" />
-                              {message || mood}
-                            </div>
+                            <CareFeedback
+                              feedback={careFeedback}
+                              growth={growth}
+                              mood={message || mood}
+                              now={now}
+                            />
                           </>
                         )}
                         {page === "menu" && (

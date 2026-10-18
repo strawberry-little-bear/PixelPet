@@ -314,3 +314,28 @@
     margin: 13px auto 0;
   }
 }
+
+/* Two fixed, non-interactive lines fit below every growth-stage scene. */
+.growth-feedback {
+  display: grid;
+  align-content: center;
+  gap: 0;
+  margin-top: 4px;
+  min-height: 24px;
+  text-align: center;
+  color: #77885a;
+  font-size: 7px;
+  line-height: 12px;
+}
+.growth-feedback strong {
+  font-size: inherit;
+  font-weight: 400;
+}
+.growth-feedback small {
+  font-size: 7px;
+  color: #82916b;
+}
+.growth-feedback.has-feedback strong {
+  color: #50693c;
+  font-weight: 600;
+}

@@ -316,3 +316,102 @@ describe("evolution while resting", () => {
     expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(1);
   });
 });
+
+describe("saved care feedback with three buttons", () => {
+  function rewardNextMeal() {
+    const normal = api.getMockImplementation()!;
+    api.mockImplementation(async (path, body) => {
+      const response = await normal(path, body);
+      if (path === "action" && (body as { kind: string }).kind === "feed") {
+        saved.growth!.points += .25;
+        saved.growth!.care.nutrition++;
+        return { ...state(), careFeedback: {
+          kind: "feed", points: .25, habit: "nutrition", habitGain: 1, reason: "credited",
+        } };
+      }
+      return response;
+    });
+  }
+
+  it("shows only saved credit, survives C, and expires after the care clip", async () => {
+    await mount();
+    expect(document.querySelector(".growth-feedback")?.textContent).toContain("距成长期还差 24.00 点");
+    rewardNextMeal();
+    await choose(0);
+    expect(document.querySelector(".growth-feedback")?.textContent).toContain("成长 +0.25 · 喂食习惯 +1");
+    expect(document.querySelector(".growth-feedback")?.textContent).toContain("23.75 点");
+    await advance(2999);
+    await key("c");
+    await advance(7999);
+    expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("credited");
+    await advance(1);
+    expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("idle");
+    await advance(15000);
+    expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("idle");
+    expect(saved.growth!.points).toBe(.25);
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button")).toBeNull();
+  });
+
+  it("keeps capped feedback readable after evolution, and reload does not replay it", async () => {
+    saved.growth = { ...emptyGrowth("growing"), points: 71.9, growingAt: Date.now() - 1000 };
+    await mount();
+    const normal = api.getMockImplementation()!;
+    api.mockImplementation(async (path, body) => {
+      const response = await normal(path, body);
+      if (path !== "action") return response;
+      saved.growth = { ...saved.growth!, stage: "adult", points: 72, form: "balanced", adultAt: Date.now() };
+      return { ...state(), careFeedback: {
+        kind: "feed", points: .1, habit: "nutrition", habitGain: 1, reason: "credited",
+      } };
+    });
+    await choose(0);
+    await advance(3000);
+    expect(scene()).toBe("celebrating");
+    await advance(2400);
+    expect(scene()).toBe("idle");
+    await advance(7999);
+    expect(document.querySelector(".growth-feedback")?.textContent).toContain("成长 +0.10");
+    await advance(1);
+    expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("idle");
+    cleanup();
+    await mount();
+    expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("idle");
+    expect(document.querySelector(".growth-feedback")?.textContent).toContain("均衡型已定型");
+  });
+
+  it("explains reward cooldown but never shows a success receipt after failure", async () => {
+    await mount();
+    const normal = api.getMockImplementation()!;
+    api.mockImplementation(async (path, body) => ({ ...await normal(path, body),
+      ...(path === "action" ? { careFeedback: {
+        kind: "feed", points: 0, habit: "nutrition", habitGain: 0,
+        reason: "cooldown", retryAt: Date.now() + 20 * 60000,
+      } } : {}),
+    }));
+    await choose(0);
+    expect(document.querySelector(".growth-feedback")?.textContent).toContain("同类奖励还需 20 分钟");
+    expect(document.querySelector(".growth-feedback")?.textContent).not.toContain("成长 +");
+    await key("c");
+    api.mockRejectedValueOnce(new Error("保存失败"));
+    await choose(0);
+    expect(document.querySelector(".growth-feedback")).toBeNull(); // Still in the menu after failure.
+    expect(screen.getByRole("alert").textContent).toContain("保存失败");
+    await key("c");
+    expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("idle");
+  });
+
+  it("an old feedback timer cannot clear the next care result", async () => {
+    await mount();
+    rewardNextMeal();
+    await choose(0);
+    await key("c");
+    await advance(7000);
+    await choose(0);
+    await key("c");
+    await advance(1000);
+    expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("credited");
+    await advance(7000);
+    expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("idle");
+  });
+});
