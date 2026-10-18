@@ -24,3 +24,19 @@
 .shop-preview .room-window { width:20px; height:23px; bottom:12px; right:20px; }
 .shop-preview .room-window:before { left:7px; }
 .shop-preview .room-window:after { top:9px; }
+/* Surfaces are behind furniture and the fixed actor/blanket/tub layers. */
+.room-surface { position:absolute; left:0; width:100%; pointer-events:none; }
+.surface-wallpaper { top:0; height:100%; border-radius:4px; }
+.surface-floor { bottom:1px; height:18px; border-top:1px solid #8f9f7955; }
+.album-picture .room-surface { position:static; width:80px; height:36px; border:2px solid #97a57b; border-radius:4px; }
+.shop-breadcrumb { font-size:8px; padding:3px 0 0; opacity:.8; }
+.shop-sections { display:grid; grid-template-columns:1fr 1fr; gap:2px 6px; margin:4px 0; }
+.shop-sections [role="listitem"] { display:flex; justify-content:space-between; padding:0 4px; border:1px solid transparent; font-size:9px; }
+.shop-sections [aria-current="true"] { border-color:#849773; background:#a9bb872b; font-weight:bold; }
+.shop-sections small { font-size:8px; opacity:.7; }
+.shop-panel .shop-section-note { font-size:9px; min-height:14px; }
+.shop-panel[data-shop-category="directory"] .shop-preview { height:40px; }
+.shop-panel[data-shop-category="directory"] .shop-preview .pet-scene { height:28px; }
+.shop-panel[data-shop-category="directory"] .shop-preview .pet-actor { transform:scale(.25); }
+.shop-preview .surface-floor { height:10px; bottom:0; }
+.shop-preview .pet-scene *, .shop-preview .pet-scene *::before, .shop-preview .pet-scene *::after { animation:none !important; transition:none !important; }

@@ -1,4 +1,4 @@
-import { RoomDecoration } from "./EquipmentArt";
+import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
 import { Heart, Moon, Sparkles, Utensils, Waves } from "lucide-react";
 import type { Memory, PetState } from "./types";
 import { formNames } from "./growth";
@@ -24,6 +24,8 @@ export function memoryWords(m: Memory, legacy: boolean) {
     case "snake": return { title: "果园里一起转过的弯", story: "吃到至少三颗果子后完成的一局贪吃蛇。你负责转弯，小伙伴把甜甜的果子收好。" };
     case "tiles": return { title: "把小图案一起收好", story: "你找到连线，小伙伴接住图案。完整连好八对，记下的是一起完成的这盘游戏。" };
     case "outfit": return { title: "第一次选好小装扮", story: "挑一件喜欢的装扮，陪你回家，也陪你追星星。不改变长大的模样。" };
+    case "wallpaper": return { title: "为小窝换一面墙", story: "第一次铺好喜欢的墙纸。留下当时的花纹，之后换装也不会改写这一天。" };
+    case "floor": return { title: "脚下的小小新风景", story: "第一次铺好喜欢的地板。和摆件一起布置，不改变宠物的成长。" };
     case "decoration": return { title: "把小窝布置成喜欢的样子", story: "亲手摆上第一件小装饰，让等你回来的地方多一点温暖。" };
     case "days": return { title: `相识 ${m.days} 天的小纪念`, story: "时间慢慢走，小窝还在。不必每天来，也不需要补上错过的日子。" };
   }
@@ -40,7 +42,7 @@ export function AlbumPanel({ pet, now, page }: { pet: PetState; now: number; pag
   return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage}>
     <header><strong>{memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
     <div className={`album-picture ${isPortrait ? "album-portrait" : ""}`} aria-hidden="true">
-      {isPortrait ? <PetArt index={pet.species} stage={stage} expression="still" /> : memory?.kind === "decoration" ? <RoomDecoration id={memory.item} /> : memory?.kind === "outfit" ? <PetArt index={pet.species} stage={pet.growth?.stage || "baby"} accessory={memory.item} /> : <Icon size={30} strokeWidth={1.5} />}
+      {isPortrait ? <PetArt index={pet.species} stage={stage} expression="still" /> : memory?.kind === "wallpaper" || memory?.kind === "floor" ? <RoomSurfaceArt id={memory.item} /> : memory?.kind === "decoration" ? <RoomDecoration id={memory.item} /> : memory?.kind === "outfit" ? <PetArt index={pet.species} stage={pet.growth?.stage || "baby"} accessory={memory.item} /> : <Icon size={30} strokeWidth={1.5} />}
     </div>
     {memory && words ? <>
       <time dateTime={new Date(memory.at).toISOString()}>{dateLabel(memory.at)}</time>

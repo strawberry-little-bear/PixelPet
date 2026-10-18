@@ -1,4 +1,4 @@
-import { RoomDecoration } from "./EquipmentArt";
+import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
 import { useId } from "react";
 import type { CSSProperties } from "react";
 import { Cloud } from "lucide-react";
@@ -190,10 +190,12 @@ export function PetScene({
       aria-label={labels[motion] + (activeNeed ? `，${(rig === "dolphin" ? dolphinNeedLabels : rig === "mushroom" ? mushroomNeedLabels : rig === "bear" ? bearNeedLabels : rig === "frog" ? frogNeedLabels : rig === "dragon" ? dragonNeedLabels : rig === "dog" ? dogNeedLabels : needLabels)[activeNeed]}` : "")}
     >
       <div className="scene-environment" aria-hidden="true">
+        <RoomSurfaceArt id={equipped?.wallpaper} />
         <Cloud className="room-cloud" size={30} strokeWidth={1.5} />
         <span className="room-sun">{motion === "sleeping" ? "☾" : "✳"}</span>
         <div className="room-window" />
         <div className="room-floor" />
+        <RoomSurfaceArt id={equipped?.floor} />
         <RoomDecoration id={equipped?.room} />
       </div>
       <div

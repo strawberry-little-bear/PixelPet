@@ -81,6 +81,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		s.Pond = newPond(now)
 		s.Schema = 8
 	}
+	if s.Schema == 8 {
+		// New cosmetic slots start empty. Preserve gear, fish, sessions and all
+		// past care; buying or previewing must never invent an earlier memory.
+		s.Schema = 9
+	}
 	return true
 }
 

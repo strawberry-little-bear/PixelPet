@@ -73,7 +73,7 @@ func (s State) validAlbum(now time.Time) bool {
 		return s.Album == nil
 	}
 	a := s.Album
-	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > 14+len(albumDays) {
+	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > 16+len(albumDays) {
 		return false
 	}
 	if s.HatchedAt == 0 {
@@ -99,7 +99,7 @@ func (s State) validAlbum(now time.Time) bool {
 		} else if m.Source != "elapsed" || m.Kind != "days" {
 			return false
 		}
-		if m.Kind != "outfit" && m.Kind != "decoration" && m.Item != "" {
+		if m.Kind != "outfit" && m.Kind != "decoration" && m.Kind != "wallpaper" && m.Kind != "floor" && m.Item != "" {
 			return false
 		}
 		if (m.Kind != "adult" && m.Form != "") || (m.Kind != "days" && m.Days != 0) || (m.Kind != "stars" && m.Kind != "perfect-stars" && m.Score != 0) {
@@ -124,11 +124,17 @@ func (s State) validAlbum(now time.Time) bool {
 			if s.Growth.Stage != "adult" || m.At != s.Growth.AdultAt || m.Form != s.Growth.Form {
 				return false
 			}
-		case "outfit", "decoration":
+		case "outfit", "decoration", "wallpaper", "floor":
 			item, ok := shopItem(m.Item)
 			slot := "accessory"
 			if m.Kind == "decoration" {
 				slot = "room"
+			}
+			if m.Kind == "wallpaper" || m.Kind == "floor" {
+				if s.Schema < 9 {
+					return false
+				}
+				slot = m.Kind
 			}
 			if s.Schema < 4 || m.Source != "shared" || !ok || item.Slot != slot || s.Economy == nil || !s.Economy.owns(m.Item) {
 				return false

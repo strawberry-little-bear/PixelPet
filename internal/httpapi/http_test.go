@@ -96,7 +96,7 @@ func TestShopAPIRejectsClientPricesScoresAndForeignWrites(t *testing.T) {
 	}
 	for _, body := range []string{
 		`{"kind":"daily","coins":10000}`, `{"kind":"daily","day":"2099-01-01"}`,
-		`{"kind":"buy","item":"leaf-pin","price":0}`, `{"kind":"catch","score":5}`,
+		`{"kind":"buy","item":"leaf-pin","price":0}`, `{"kind":"buy","item":"meadow-wall","price":0}`, `{"kind":"equip","item":"mint-floor","slot":"accessory"}`, `{"kind":"catch","score":5}`,
 		`{"kind":"buy","item":"not-real"}`, `{"kind":"equip","item":"leaf-pin"}`,
 		`{"kind":"catch","lane":1}`, `{"kind":"daily"}`,
 	} {

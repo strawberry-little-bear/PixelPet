@@ -7,6 +7,8 @@ import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
 import { games, rememberGuide } from "./games";
 import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
+import { shopItems, shopSections } from "./shop";
+import type { ShopCategory } from "./shop";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowDownToLine,
@@ -183,6 +185,7 @@ export default function App() {
   const tileLinkSequence = useRef(0);
   const [shop, setShop] = useState<Shop | null>(null);
   const [shopPage, setShopPage] = useState(0);
+  const [shopCategory, setShopCategory] = useState<ShopCategory | null>(null);
   const [purchaseConfirm, setPurchaseConfirm] = useState(false);
   const [albumPage, setAlbumPage] = useState(0);
   const [returnRecap, setReturnRecap] = useState<ReturnRecap | null>(null);
@@ -682,32 +685,35 @@ export default function App() {
       return;
     }
     if (page === "shop") {
+      const items = shopCategory ? shopItems(shop, pet, shopCategory) : [];
+      const item = items[shopPage];
       if (purchaseConfirm) {
         if (key === "A" || key === "C") setPurchaseConfirm(false);
-        else if (key === "B" && shop?.catalog[shopPage - 1]) {
-          void act("buy", { item: shop.catalog[shopPage - 1].id }).then(
-            (ok) => {
-              if (ok) setPurchaseConfirm(false);
-            },
-          );
+        else if (key === "B" && item) {
+          if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
+          else void act("buy", { item: item.id }).then(ok => {
+            if (ok) setPurchaseConfirm(false);
+          });
         }
-      } else if (key === "A")
-        setShopPage((v) => (v + 1) % (1 + (shop?.catalog.length ?? 0)));
-      else if (key === "C") setPage("home");
-      else if (key === "B") {
+      } else if (key === "A") {
+        setShopPage(v => (v + 1) % (shopCategory ? Math.max(1, items.length) : shopSections.length));
+      } else if (key === "C") {
+        if (shopCategory) {
+          setShopPage(shopSections.findIndex(s => s.id === shopCategory));
+          setShopCategory(null);
+        } else setPage("home");
+      } else if (key === "B") {
         if (!pet.economy || !shop) setError("请更新小窝服务，再来逛小店。");
-        else if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
-        else if (shopPage === 0) {
-          if (dailyClaimed(pet, now))
-            setMessage("今天的问候已经收好啦，不必连续来。");
+        else if (!shopCategory && shopPage !== 0) {
+          const section = shopSections[shopPage];
+          if (section.id !== "daily") { setShopCategory(section.id); setShopPage(0); }
+        } else if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
+        else if (!shopCategory) {
+          if (dailyClaimed(pet, now)) setMessage("今天的问候已经收好啦，不必连续来。");
           else void act("daily");
-        } else {
-          const item = shop.catalog[shopPage - 1];
-          if (!item) return;
-          if (pet.economy.owned.includes(item.id))
-            void act("equip", { item: item.id });
-          else if (pet.economy.coins < item.price)
-            setMessage("金币还不够，慢慢来，不着急。");
+        } else if (item) {
+          if (pet.economy.owned.includes(item.id)) void act("equip", { item: item.id });
+          else if (pet.economy.coins < item.price) setMessage("金币还不够，慢慢来，不着急。");
           else setPurchaseConfirm(true);
         }
       }
@@ -771,6 +777,7 @@ export default function App() {
           );
       } else if (item.kind === "shop") {
         setShopPage(0);
+        setShopCategory(null);
         setPurchaseConfirm(false);
         setPage("shop");
       } else if (item.kind === "fish-album") {
@@ -918,7 +925,7 @@ export default function App() {
           : page === "shop"
             ? purchaseConfirm
               ? "A / C 取消　 B 确认购买"
-              : "A 逛逛　 B 领取 / 使用　 C 返回"
+              : shopCategory ? "A 下一件　 B 购买 / 使用　 C 分类" : "A 换分类　 B 查看 / 领取　 C 返回"
             : page === "return"
               ? "A 换页　 B 继续　 C 返回"
               : page === "home"
@@ -1161,6 +1168,7 @@ export default function App() {
                           <ShopPanel
                             pet={pet}
                             shop={shop}
+                            category={shopCategory}
                             page={shopPage}
                             confirm={purchaseConfirm}
                             now={now}

@@ -195,7 +195,7 @@ func TestCompletedGameRewardRetriesWithAndWithoutCache(t *testing.T) {
 	if r.State.Economy.Coins != 8 {
 		t.Fatal("cache eviction replayed coins")
 	}
-	if len(r.Shop.Catalog) != 6 || r.Shop.DailyCoins != game.DailyCoins {
+	if len(r.Shop.Catalog) != len(game.ShopRules().Catalog) || r.Shop.DailyCoins != game.DailyCoins {
 		t.Fatal("missing server catalog")
 	}
 }

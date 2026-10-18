@@ -47,7 +47,7 @@ func TestDailyUsesServerUTCDayWithoutStreakOrPassiveRewards(t *testing.T) {
 }
 func TestShopOwnershipSlotsAndMemoriesDoNotChangeGrowth(t *testing.T) {
 	s, now := economyPet(t)
-	s.Economy.Coins = 200
+	s.Economy.Coins = 1000
 	growth, needs, care := *s.Growth, s.Needs, s.CareCount
 	for _, item := range ShopRules().Catalog {
 		before := s.Economy.Coins
@@ -77,13 +77,13 @@ func TestShopOwnershipSlotsAndMemoriesDoNotChangeGrowth(t *testing.T) {
 	if *s.Growth != growth || s.Needs != needs || s.CareCount != care {
 		t.Fatal("cosmetics changed care or growth")
 	}
-	if len(s.Album.Entries) != 3 {
+	if len(s.Album.Entries) != 5 {
 		t.Fatal("memories repeated", s.Album)
 	}
 	for i := 0; i < 40; i++ {
 		s.Log(now, "普通日记")
 	}
-	if len(s.Album.Entries) != 3 || len(s.Logs) != 30 {
+	if len(s.Album.Entries) != 5 || len(s.Logs) != 30 {
 		t.Fatal("permanent memory rolled away")
 	}
 }

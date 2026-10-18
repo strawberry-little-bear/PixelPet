@@ -127,7 +127,7 @@ func TestSchemaSevenPondMigrationSnapshotsOnceWithoutInventedDiscoveries(t *test
 	}
 	now = now.Add(time.Second)
 	r, err := db.Do(nil, nil, false, now)
-	if err != nil || r.State.Schema != 8 || len(r.State.Pond.Fish) != 0 || r.State.Pond.Since != now.UnixMilli() || !reflect.DeepEqual(old.Game, r.State.Game) {
+	if err != nil || r.State.Schema != game.Schema || len(r.State.Pond.Fish) != 0 || r.State.Pond.Since != now.UnixMilli() || !reflect.DeepEqual(old.Game, r.State.Game) {
 		t.Fatal(r, err)
 	}
 	if err = r.State.Validate(now); err != nil {

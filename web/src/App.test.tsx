@@ -792,6 +792,8 @@ describe("three-key shop and persistent equipment", () => {
   const shop = { dailyCoins: 10, gameDailyLimit: 30, catalog: [
     { id: "leaf-pin", name: "嫩叶胸针", slot: "accessory" as const, price: 12, description: "把春天别在胸前。" },
     { id: "clover-pot", name: "四叶草盆栽", slot: "room" as const, price: 16, description: "一起回家。" },
+    { id: "meadow-wall", name: "小叶墙纸", slot: "wallpaper" as const, price: 18, description: "独立的墙纸。" },
+    { id: "mint-floor", name: "薄荷方砖", slot: "floor" as const, price: 22, description: "独立的地板。" },
   ] };
   function setup(coins = 30) {
     saved.schema = 4;
@@ -832,14 +834,14 @@ describe("three-key shop and persistent equipment", () => {
     expect(mutations()).toHaveLength(1);
   });
   it("previews without a write, requires confirmation, A/C cancel in place, B buys once", async () => {
-    setup(); await mount(); await choose(9); await key("a");
+    setup(); await mount(); await choose(9); await key("a"); await key("b");
     expect(document.querySelector('.shop-preview [data-item="leaf-pin"]')).not.toBeNull();
     expect(saved.economy!.equipped.accessory).toBe("");
     expect(mutations()).toHaveLength(0);
     await key("b");
     expect(screen.getByText("确认花 12 金币购买？")).toBeTruthy();
     await key("a");
-    expect(document.querySelector('.shop-panel')?.getAttribute('data-shop-page')).toBe("1");
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-shop-page')).toBe("0");
     await key("b"); await key("c");
     expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("false");
     expect(mutations()).toHaveLength(0);
@@ -853,12 +855,12 @@ describe("three-key shop and persistent equipment", () => {
     await key("b"); // Equip, not repurchase.
     expect(saved.economy!.equipped.accessory).toBe("leaf-pin");
     expect(saved.economy!.coins).toBe(18);
-    await key("c");
+    await key("c"); await key("c");
     expect(document.querySelector('.pet-scene .equipped-accessory[data-item="leaf-pin"]')).not.toBeNull();
     expect(document.querySelector('.pet-scene .growth-outfit')).toBeNull();
     cleanup(); await mount();
     expect(document.querySelector('.pet-scene .equipped-accessory[data-item="leaf-pin"]')).not.toBeNull();
-    await choose(9); await key("a"); await key("b"); await key("c");
+    await choose(9); await key("a"); await key("b"); await key("b"); await key("c"); await key("c");
     expect(saved.economy!.equipped.accessory).toBe("");
     expect(document.querySelector('.pet-scene .growth-outfit')).not.toBeNull();
   });
@@ -866,10 +868,10 @@ describe("three-key shop and persistent equipment", () => {
     setup();
     saved.economy!.owned = ["leaf-pin", "clover-pot"];
     saved.economy!.equipped.accessory = "leaf-pin";
-    await mount(); await choose(9); await key("a"); await key("a"); await key("b");
+    await mount(); await choose(9); await key("a"); await key("b"); await key("a"); await key("b");
     expect(saved.economy!.equipped.room).toBe("clover-pot");
     expect(saved.economy!.coins).toBe(30);
-    await key("c");
+    await key("c"); await key("c");
     expect(document.querySelector('.pet-scene .room-decoration[data-item="clover-pot"]')).not.toBeNull();
     await choose(1);
     // The action response persists the session before entering the game.
@@ -877,7 +879,7 @@ describe("three-key shop and persistent equipment", () => {
     expect(document.querySelector('.game-lane .equipped-accessory[data-item="leaf-pin"]')).not.toBeNull();
   });
   it("does not offer a purchase or send an action when coins are insufficient", async () => {
-    setup(0); await mount(); await choose(9); await key("a"); await key("b");
+    setup(0); await mount(); await choose(9); await key("a"); await key("b"); await key("b");
     expect(screen.getByText("还差 12 金币，慢慢来。")).toBeTruthy();
     expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("false");
     expect(mutations()).toHaveLength(0);
@@ -888,10 +890,10 @@ describe("three-key shop and persistent equipment", () => {
     expect(saved.sleeping).toBe(true);
     expect(mutations()).toHaveLength(0);
     expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("false");
-    await key("c"); expect(scene()).toBe("sleeping");
+    await key("b"); await key("c"); await key("c"); expect(scene()).toBe("sleeping");
   });
   it("keeps a failed purchase on its confirmation screen without pretending ownership", async () => {
-    setup(); await mount(); await choose(9); await key("a"); await key("b");
+    setup(); await mount(); await choose(9); await key("a"); await key("b"); await key("b");
     const original = api.getMockImplementation()!;
     api.mockImplementation(async (path, body) => {
       if (path === "action") throw new Error("金币还不够，慢慢来，不着急");
@@ -902,7 +904,56 @@ describe("three-key shop and persistent equipment", () => {
     expect(saved.economy!.coins).toBe(30);
     expect(document.querySelector('.shop-panel')?.getAttribute('data-confirm')).toBe("true");
     expect(screen.getByRole("alert").textContent).toContain("金币还不够");
-    await key("c"); await key("c"); expect(scene()).toBe("idle");
+    await key("c"); await key("c"); await key("c"); expect(scene()).toBe("idle");
+  });
+  it("navigates an empty owned filter using only three keys and C returns to its category", async () => {
+    setup(); await mount(); await choose(9);
+    for (let i = 0; i < 6; i++) await key("a");
+    await key("b");
+    expect(screen.getByText("这里还空着呢")).toBeTruthy();
+    await key("a"); await key("b");
+    expect(mutations()).toHaveLength(0);
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-shop-category')).toBe("owned");
+    await key("c");
+    expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("已拥有");
+    await key("a");
+    expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("今日问候");
+    await key("c"); expect(scene()).toBe("idle");
+  });
+  it("buys and toggles independent surfaces from categories/owned, preserving other gear through reload", async () => {
+    setup(100); saved.economy!.owned = ["leaf-pin", "clover-pot"];
+    saved.economy!.equipped = { accessory: "leaf-pin", room: "clover-pot" };
+    const growth = structuredClone(saved.growth);
+    await mount(); await choose(9);
+    for (let i = 0; i < 4; i++) await key("a");
+    await key("b");
+    expect(document.querySelector('.shop-preview [data-item="meadow-wall"]')).not.toBeNull();
+    expect(saved.economy!.equipped.wallpaper).toBeUndefined();
+    expect(mutations()).toHaveLength(0);
+    await key("b"); await key("b");
+    expect(saved.economy!.coins).toBe(82);
+    expect(saved.economy!.equipped.wallpaper).toBeUndefined();
+    await key("b");
+    expect(saved.economy!.equipped.wallpaper).toBe("meadow-wall");
+    await key("c"); await key("a"); await key("b");
+    expect(document.querySelector('.shop-preview [data-item="meadow-wall"]')).not.toBeNull();
+    expect(document.querySelector('.shop-preview [data-item="mint-floor"]')).not.toBeNull();
+    await key("b"); await key("b"); await key("b");
+    expect(saved.economy!.coins).toBe(60);
+    expect(saved.economy!.equipped).toEqual({ accessory: "leaf-pin", room: "clover-pot", wallpaper: "meadow-wall", floor: "mint-floor" });
+    await key("c"); await key("a"); await key("b");
+    expect(document.querySelector('.shop-panel')?.getAttribute('data-shop-category')).toBe("owned");
+    await key("a"); await key("a"); await key("b");
+    expect(saved.economy!.equipped.wallpaper).toBe("");
+    expect(saved.economy!.equipped.floor).toBe("mint-floor");
+    expect(saved.economy!.coins).toBe(60);
+    expect(saved.growth).toEqual(growth);
+    await key("c"); await key("c"); cleanup(); await mount();
+    expect(document.querySelector('.pet-scene .surface-mint-floor')).not.toBeNull();
+    expect(document.querySelector('.pet-scene .surface-meadow-wall')).toBeNull();
+    expect(document.querySelector('.pet-scene .room-decoration')).not.toBeNull();
+    expect(document.querySelectorAll('.physical-button')).toHaveLength(3);
+    expect(document.querySelectorAll('.lcd button, .lcd [role="button"]')).toHaveLength(0);
   });
   it("does not break older service responses or silently fabricate a wallet", async () => {
     await mount(); await choose(9);

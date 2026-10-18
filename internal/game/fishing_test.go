@@ -246,7 +246,7 @@ func TestFishingInvalidDataAndLegacyMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	later := now.Add(time.Second)
-	if !old.Upgrade(later) || old.Schema != 8 || old.Pond.Since != later.UnixMilli() || len(old.Pond.Fish) != 0 {
+	if !old.Upgrade(later) || old.Schema != Schema || old.Pond.Since != later.UnixMilli() || len(old.Pond.Fish) != 0 {
 		t.Fatal(old)
 	}
 	after, _ := json.Marshal(old.Game)

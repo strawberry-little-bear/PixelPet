@@ -34,6 +34,12 @@ func ShopRules() Shop {
 		{"clover-pot", "四叶草盆栽", "room", 16, "窗边长出一点绿，等你一起回家。"},
 		{"patchwork-rug", "拼布地毯", "room", 20, "为小脚丫留下一块柔软的地方。"},
 		{"moon-lamp", "月亮夜灯", "room", 26, "睡着时，也有一小盏温柔的光。"},
+		{"sunflower-pin", "向日葵胸针", "accessory", 16, "胸前开一朵小花，不遮住自己的模样。"},
+		{"sky-bow", "晴空领结", "accessory", 22, "带着浅蓝色的风，继续一起散步。"},
+		{"meadow-wall", "小叶墙纸", "wallpaper", 18, "让墙上长出小叶子，窗户仍望向外面。"},
+		{"starlit-wall", "晚星墙纸", "wallpaper", 24, "把几颗晚星留在墙上，白天也能看见。"},
+		{"honey-floor", "蜂蜜木地板", "floor", 18, "一条条温暖木纹，不占小窝摆件的位置。"},
+		{"mint-floor", "薄荷方砖", "floor", 22, "浅浅的绿格子，和喜欢的地毯一起铺好。"},
 	}}
 }
 func shopItem(id string) (ShopItem, bool) {
@@ -48,6 +54,8 @@ func shopItem(id string) (ShopItem, bool) {
 type Equipment struct {
 	Accessory string `json:"accessory"`
 	Room      string `json:"room"`
+	Wallpaper string `json:"wallpaper"`
+	Floor     string `json:"floor"`
 }
 type Economy struct {
 	Coins       int       `json:"coins"`
@@ -106,9 +114,13 @@ func (s *State) applyEconomy(a Action, now time.Time) (string, error) {
 		}
 		slot := &e.Equipped.Accessory
 		memory := "outfit"
-		if item.Slot == "room" {
-			slot = &e.Equipped.Room
-			memory = "decoration"
+		switch item.Slot {
+		case "room":
+			slot, memory = &e.Equipped.Room, "decoration"
+		case "wallpaper":
+			slot, memory = &e.Equipped.Wallpaper, "wallpaper"
+		case "floor":
+			slot, memory = &e.Equipped.Floor, "floor"
 		}
 		if *slot == item.ID {
 			*slot = ""
@@ -167,12 +179,15 @@ func (s State) validEconomy(now time.Time) bool {
 	}
 	owned := map[string]bool{}
 	for _, id := range e.Owned {
-		if _, ok := shopItem(id); !ok || owned[id] {
+		if _, ok := shopItem(id); !ok || owned[id] || (s.Schema < 9 && !legacyShopItem(id)) {
 			return false
 		}
 		owned[id] = true
 	}
-	for slot, id := range map[string]string{"accessory": e.Equipped.Accessory, "room": e.Equipped.Room} {
+	if s.Schema < 9 && (e.Equipped.Wallpaper != "" || e.Equipped.Floor != "") {
+		return false
+	}
+	for slot, id := range map[string]string{"accessory": e.Equipped.Accessory, "room": e.Equipped.Room, "wallpaper": e.Equipped.Wallpaper, "floor": e.Equipped.Floor} {
 		if id == "" {
 			continue
 		}
@@ -185,4 +200,14 @@ func (s State) validEconomy(now time.Time) bool {
 		return false
 	}
 	return true
+}
+
+// Version 4–8 backups only contained the original six items. Do not accept new
+// belongings disguised as an old schema and then silently migrate them.
+func legacyShopItem(id string) bool {
+	switch id {
+	case "leaf-pin", "berry-scarf", "star-badge", "clover-pot", "patchwork-rug", "moon-lamp":
+		return true
+	}
+	return false
 }

@@ -126,6 +126,8 @@ export type Memory = {
     | "days"
     | "outfit"
     | "decoration"
+    | "wallpaper"
+    | "floor"
     | "tiles"
     | "snake"
     | "tetris"
@@ -139,7 +141,7 @@ export type Memory = {
 };
 export type Album = { since: number; legacy: boolean; entries: Memory[] };
 
-export type Equipment = { accessory: string; room: string };
+export type Equipment = { accessory: string; room: string; wallpaper?: string; floor?: string };
 export type Economy = {
   coins: number;
   lastDailyAt: number;
@@ -151,7 +153,7 @@ export type Economy = {
 export type ShopItem = {
   id: string;
   name: string;
-  slot: "accessory" | "room";
+  slot: "accessory" | "room" | "wallpaper" | "floor";
   price: number;
   description: string;
 };
