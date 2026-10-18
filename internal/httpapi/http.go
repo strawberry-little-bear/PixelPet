@@ -21,6 +21,10 @@ func Handler(db *store.Store, web string) http.Handler {
 		if err != nil {
 			status := http.StatusBadRequest
 			body := map[string]string{"error": err.Error()}
+			if errors.Is(err, store.ErrClockAhead) {
+				status = http.StatusConflict
+				body["code"] = "clock_ahead"
+			}
 			if errors.Is(err, store.ErrInvalidSave) {
 				status = http.StatusConflict
 				body["code"] = "save_corrupt"

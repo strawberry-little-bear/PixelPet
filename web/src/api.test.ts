@@ -68,3 +68,21 @@ describe("explicit save-corruption diagnosis", () => {
     await expect(request("state")).rejects.toMatchObject({ code: undefined });
   });
 });
+
+describe("explicit clock diagnosis", () => {
+  it.each(["state", "action"]) ("retains only a typed 409 for %s", async path => {
+    respond(new Response('{"error":"请校准服务电脑时间","code":"clock_ahead"}', { status: 409 }));
+    await expect(request(path, path === "action" ? { kind: "feed" } : undefined)).rejects.toMatchObject({
+      code: "clock_ahead", outcome: path === "action" ? "rejected" : "unavailable",
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it.each([400, 500, 503]) ("ignores clock code on HTTP %s", async status => {
+    respond(new Response('{"error":"clock_ahead","code":"clock_ahead"}', { status }));
+    await expect(request("state")).rejects.toMatchObject({ code: undefined });
+  });
+  it("does not infer clock state from error wording", async () => {
+    respond(new Response('{"error":"服务时间早于存档时间"}', { status: 409 }));
+    await expect(request("state")).rejects.toMatchObject({ code: undefined });
+  });
+});

@@ -20,10 +20,10 @@ export async function request(path: string, body?: unknown): Promise<Result> {
     if (!response.ok) {
       const text = await response.text();
       let message = text.trim() || "服务暂时无法连接";
-      let code: "save_corrupt" | undefined;
+      let code: "save_corrupt" | "clock_ahead" | undefined;
       try {
         const data = JSON.parse(text);
-        if (response.status === 409 && data?.code === "save_corrupt") code = "save_corrupt";
+        if (response.status === 409 && (data?.code === "save_corrupt" || data?.code === "clock_ahead")) code = data.code;
         if (typeof data?.error === "string" && data.error.trim()) message = data.error;
       } catch { /* Non-JSON error responses are still not successful saves. */ }
       const rejected = response.status >= 400 && response.status < 500 && response.status !== 408;

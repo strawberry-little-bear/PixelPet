@@ -19,6 +19,11 @@ import (
 // The database remains intact until an explicit, validated import or reset.
 var ErrInvalidSave = errors.New("现有存档校验失败")
 
+// ErrClockAhead means the stored state is internally valid at its last tick,
+// but the service clock is behind it. Never migrate, settle, replace or reset
+// such a save until the service clock catches up.
+var ErrClockAhead = errors.New("服务时间早于存档时间，请校准运行 Go 服务的电脑时间后按 B 重新检查；不要重置存档")
+
 type Store struct {
 	db *sql.DB
 	mu sync.Mutex
@@ -72,7 +77,22 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		return Result{}, err
 	}
 	defer tx.Rollback()
-	if a != nil && a.RequestID != "" {
+	var body string
+	if err = tx.QueryRow("SELECT body FROM saves WHERE id=1").Scan(&body); err != nil {
+		return Result{}, err
+	}
+	var state game.State
+	readErr := json.Unmarshal([]byte(body), &state)
+	if readErr == nil {
+		readErr = state.Validate(now)
+		if readErr != nil && state.LastTick > now.UnixMilli() && state.Validate(time.UnixMilli(state.LastTick)) == nil {
+			// This alternative validation is diagnostic only. It is never used
+			// to accept an import or to advance the pet using a future clock.
+			return Result{}, ErrClockAhead
+		}
+	}
+	// Cached actions must not bypass current-save clock/corruption checks.
+	if readErr == nil && a != nil && a.RequestID != "" {
 		var cached string
 		err = tx.QueryRow("SELECT body FROM requests WHERE id=?", a.RequestID).Scan(&cached)
 		if err == nil {
@@ -89,15 +109,6 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		if err != sql.ErrNoRows {
 			return Result{}, err
 		}
-	}
-	var body string
-	if err = tx.QueryRow("SELECT body FROM saves WHERE id=1").Scan(&body); err != nil {
-		return Result{}, err
-	}
-	var state game.State
-	readErr := json.Unmarshal([]byte(body), &state)
-	if readErr == nil {
-		readErr = state.Validate(now)
 	}
 	migrated := false
 	if readErr == nil {

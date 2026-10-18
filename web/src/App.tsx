@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { petNeed } from "./needs";
 import { request } from "./api";
-import { isSaveCorrupt, needsReconciliation } from "./requestFailure";
+import { isClockAhead, isSaveCorrupt, needsReconciliation } from "./requestFailure";
 import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
@@ -159,6 +159,8 @@ export default function App() {
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState(false);
   const unavailableRef = useRef(false);
+  const [clockAhead, setClockAhead] = useState(false);
+  const clockAheadRef = useRef(false);
   const [corrupt, setCorrupt] = useState(false);
   const corruptRef = useRef(false);
   const [uncertain, setUncertain] = useState(false);
@@ -265,6 +267,8 @@ export default function App() {
     if (r.shop) setShop(r.shop);
     setSavedAt(r.state.lastTick);
     setError("");
+    clockAheadRef.current = false;
+    setClockAhead(false);
     corruptRef.current = false;
     setCorrupt(false);
     unavailableRef.current = false;
@@ -294,6 +298,8 @@ export default function App() {
     // Repeated corrupt-state polls must not close the toolbox or cancel a
     // repair preview. Only the first authoritative diagnosis enters recovery.
     if (corruptRef.current && !reconciled) return;
+    clockAheadRef.current = false;
+    setClockAhead(false);
     corruptRef.current = true;
     setCorrupt(true);
     // An explicit repair may replace an unreadable revision with a new one.
@@ -314,6 +320,27 @@ export default function App() {
     setPurchaseConfirm(false);
     setError("存档未通过校验，未自动替换。请从存档盒选择已有备份修复，或明确确认重新开始。");
   }, [discardImport, stopActivity]);
+  const markClockAhead = useCallback(() => {
+    setClockAhead(true);
+    if (clockAheadRef.current) return;
+    clockAheadRef.current = true;
+    corruptRef.current = false;
+    setCorrupt(false);
+    unavailableRef.current = true;
+    setUnavailable(true);
+    // Keep an unknown write unknown: a clock diagnosis is not a healthy read.
+    discardImport();
+    stopActivity();
+    setHelp(false);
+    setAbandonGame(null);
+    setReturnRecap(null);
+    setReturnPending(false);
+    setReset(false);
+    setTools(false);
+    setPurchaseConfirm(false);
+    setPage("choose");
+    setError("服务时间早于存档时间。请校准运行 Go 服务的电脑时间，再按 B 检查；不要重置存档。");
+  }, [discardImport, stopActivity]);
   const markUncertain = useCallback(() => {
     discardImport();
     corruptRef.current = false;
@@ -328,18 +355,19 @@ export default function App() {
     const epoch = syncEpoch.current;
     const recovering = uncertainRef.current;
     const repairing = corruptRef.current;
+    const clockBlocked = clockAheadRef.current;
     readInFlight.current = epoch;
     if (recovering || repairing || unavailableRef.current) setChecking(true);
     try {
       // Recovery only reads authoritative state. Never replay the lost mutation
       // or claim a recap as a substitute for finding out what was saved.
-      const r = recovering || repairing ? await request("state") : await request("visit", {});
+      const r = recovering || repairing || clockBlocked ? await request("state") : await request("visit", {});
       if (epoch !== syncEpoch.current) return;
-      if (!apply(r, recovering || repairing)) {
-        if (recovering) setError("读到较旧的存档，结果仍未确认。按 B 再次核对。");
+      if (!apply(r, recovering || repairing || clockBlocked)) {
+        if (recovering || clockBlocked) setError("读到较旧的存档，结果仍未确认。按 B 再次核对。");
         return;
       }
-      if (recovering || repairing) {
+      if (recovering || repairing || clockBlocked) {
         discardImport();
         uncertainRef.current = false;
         setUncertain(false);
@@ -350,7 +378,7 @@ export default function App() {
         setPurchaseConfirm(false);
         returnAttempt.current = r.returnRecap?.id ?? "";
         initialized.current = true;
-        setMessage(repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。" : "已核对当前存档，请查看状态。上次操作没有自动重试。");
+        setMessage(clockBlocked ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。" : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。" : "已核对当前存档，请查看状态。上次操作没有自动重试。");
       } else if (r.recapPending) returnAttempt.current = "";
       if (!initialized.current) {
         setChosen(r.state.species);
@@ -359,12 +387,16 @@ export default function App() {
       }
     } catch (error) {
       if (epoch !== syncEpoch.current) return;
+      if (isClockAhead(error)) { markClockAhead(); return; }
       if (isSaveCorrupt(error)) {
         // An explicit diagnosis is authoritative current-state evidence, not
         // a retry of a previous unknown write. Its payload was discarded.
         markCorrupt(recovering);
         return;
       }
+      // Keep the read-only recovery marker across transport failures, but do
+      // not present an old clock diagnosis as a fresh server response.
+      setClockAhead(false);
       corruptRef.current = false;
       setCorrupt(false);
       if (!recovering) {
@@ -383,7 +415,7 @@ export default function App() {
         setChecking(false);
       }
     }
-  }, [apply, stopActivity, discardImport, markCorrupt]);
+  }, [apply, stopActivity, discardImport, markCorrupt, markClockAhead]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
@@ -494,6 +526,7 @@ export default function App() {
         }
       })
       .catch((error: unknown) => {
+        if (isClockAhead(error)) { markClockAhead(); return; }
         if (isSaveCorrupt(error)) { markCorrupt(); return; }
         if (needsReconciliation(error)) { markUncertain(); return; }
         // If not accepted, a later heartbeat retries. If the response was lost
@@ -509,6 +542,7 @@ export default function App() {
     unavailable,
     corrupt,
     markCorrupt,
+    markClockAhead,
     markUncertain,
     returnRecap,
     returnPending,
@@ -672,7 +706,8 @@ export default function App() {
       }
       return true;
     } catch (e) {
-      if (isSaveCorrupt(e)) markCorrupt();
+      if (isClockAhead(e)) markClockAhead();
+      else if (isSaveCorrupt(e)) markCorrupt();
       else if (needsReconciliation(e)) markUncertain();
       else setError(e instanceof Error ? e.message : "操作被拒绝，请查看提示。");
       return false;
@@ -1109,7 +1144,8 @@ export default function App() {
       setPage(r.state.hatchedAt ? "home" : "choose");
       setChosen(r.state.species);
     } catch (e) {
-      if (needsReconciliation(e)) markUncertain();
+      if (isClockAhead(e)) markClockAhead();
+      else if (needsReconciliation(e)) markUncertain();
       else setError(e instanceof Error ? e.message : "导入被拒绝，现有存档未替换。");
     } finally {
       busyRef.current = false;
@@ -1138,7 +1174,8 @@ export default function App() {
       setPage("choose");
       setReset(false);
     } catch (e) {
-      if (needsReconciliation(e)) { setReset(false); markUncertain(); }
+      if (isClockAhead(e)) markClockAhead();
+      else if (needsReconciliation(e)) { setReset(false); markUncertain(); }
       else setError(e instanceof Error ? e.message : "重新开始失败");
     } finally {
       busyRef.current = false;
@@ -1176,7 +1213,7 @@ export default function App() {
     : page === "game-guide"
       ? "A 翻页  B 开始  C 返回选择"
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A / B 翻页  C 返回" : "";
-  const lcdHint = page === "import-preview"
+  const lcdHint = clockAhead ? "B 重新检查 · 不重置存档" : page === "import-preview"
       ? busy ? "正在导入…" : pendingImport?.backup ? "A / C 取消  B 确认替换" : "A / C 取消"
       : corrupt ? "B 重新检查 · 存档盒可修复"
       : !pet ? "B 重新连接"
@@ -1269,7 +1306,7 @@ export default function App() {
             {tools && (
               <div className="tools-menu">
                 <p>装好每一次小小的成长</p>
-                {corrupt ? <p>当前存档无法正常导出；修复前会保留原始内容快照。</p> : <a href="/api/backup" download onClick={() => setTools(false)}>
+                {clockAhead ? <p>先校准运行 Go 服务的电脑时间，再按 B 检查；暂不导出或替换存档。</p> : corrupt ? <p>当前存档无法正常导出；修复前会保留原始内容快照。</p> : <a href="/api/backup" download onClick={() => setTools(false)}>
                   <ArrowDownToLine size={16} />
                   导出存档
                 </a>}
@@ -1341,7 +1378,7 @@ export default function App() {
             </div>
             <div className="local-status">
               <span className={error ? "status-dot warning" : "status-dot"} />
-              {uncertain
+              {clockAhead ? "服务时间待校准" : uncertain
                 ? checking ? "正在核对存档…" : "保存结果待核对"
                 : corrupt ? "存档需要修复"
                 : unavailable ? "小窝暂未连接"
@@ -1383,7 +1420,7 @@ export default function App() {
                 >
                   <div className="lcd-top">
                     <span>
-                      {page === "import-preview" ? "BACKUP PREVIEW" : corrupt ? "SAVE RECOVERY" : page === "choose"
+                      {clockAhead ? "CLOCK CHECK" : page === "import-preview" ? "BACKUP PREVIEW" : corrupt ? "SAVE RECOVERY" : page === "choose"
                         ? "HELLO, FRIEND"
                         : (page === "arcade" || page === "game-guide")
                           ? "PLAY TOGETHER"
@@ -1421,12 +1458,12 @@ export default function App() {
                   </div>
                   <div className={`lcd-content content-${page}`}>
                     {uncertain || unavailable ? (
-                      <div className="save-recovery" role="status" aria-live="polite">
+                      <div className={`save-recovery ${clockAhead ? "clock-recovery" : ""}`} role="status" aria-live="polite">
                         <Cloud size={28} />
-                        <h2>{checking ? "正在核对存档" : uncertain ? "先核对，再继续" : "小窝暂时未连接"}</h2>
-                        <p>{uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
-                        <p>{checking ? "只读取当前存档，不重做操作。" : "按 B 重连并查看当前存档。"}</p>
-                        <small>游戏不会自动继续 · 不重播成功动作</small>
+                        <h2>{checking ? "正在核对存档" : clockAhead ? "服务时间待校准" : uncertain ? "先核对，再继续" : "小窝暂时未连接"}</h2>
+                        <p>{clockAhead ? "服务时间早于存档时间，先暂停操作；这不表示存档损坏。" : uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
+                        <p>{checking ? "只读取当前存档，不重做操作。" : clockAhead ? "请校准运行 Go 服务的电脑时间，再按 B 检查。不要重置存档。" : "按 B 重连并查看当前存档。"}</p>
+                        <small>{clockAhead && uncertain ? "上次操作结果仍待核对 · 不自动重试" : "游戏不会自动继续 · 不重播成功动作"}</small>
                       </div>
                     ) : page === "import-preview" && pendingImport ? (
                       <ImportPreview pending={pendingImport} pet={corrupt ? null : pet} busy={busy} />
@@ -1737,7 +1774,10 @@ export default function App() {
               <span className="eyebrow">YOUR LITTLE COMPANION</span>
               <span className="small-cross">+</span>
             </div>
-            {corrupt ? <>
+            {clockAhead ? <>
+              <div className="companion-title"><h2>先校时，再继续</h2><span>存档未替换</span></div>
+              <p className="personality">暂不展示可能过时的伙伴状态。校准服务电脑时间后按 B 检查，不要重置或重复提交。</p>
+            </> : corrupt ? <>
               <div className="companion-title"><h2>先保留，再修复</h2><span>存档待修复</span></div>
               <p className="personality">当前内容未通过校验，暂不展示伙伴状态。</p>
               <div className="note-rule" />
@@ -1824,7 +1864,7 @@ export default function App() {
         </section>
         <section
           className="collection"
-          aria-label={corrupt ? "十位原创小伙伴展示" : "十位原创小伙伴，使用 A 键选择"}
+          aria-label={corrupt || clockAhead ? "十位原创小伙伴展示" : "十位原创小伙伴，使用 A 键选择"}
         >
           <div className="collection-label">
             <span>THE LITTLE FAMILY</span>
@@ -1836,17 +1876,17 @@ export default function App() {
           <div className="collection-pets">
             {species.map((name, i) => (
               <div
-                className={`collection-pet ${!corrupt && index === i ? "is-chosen" : ""}`}
+                className={`collection-pet ${!corrupt && !clockAhead && index === i ? "is-chosen" : ""}`}
                 key={name}
               >
                 <div>
                   <PetArt
                     index={i}
-                    stage={!corrupt && i === index ? growth.stage : "baby"}
+                    stage={!corrupt && !clockAhead && i === index ? growth.stage : "baby"}
                   />
                 </div>
                 <span>{name}</span>
-                {!corrupt && index === i && <i />}
+                {!corrupt && !clockAhead && index === i && <i />}
               </div>
             ))}
           </div>
