@@ -1,3 +1,5 @@
+import { ArcadePanel, TileGame, nextTile } from "./TileGame";
+import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -42,7 +44,11 @@ import { careClip, clipDurations, sceneMotion } from "./motion";
 import type { MotionClip } from "./motion";
 import { personalities, species } from "./types";
 import type {
-  PetState, Result, CareFeedback as Feedback, ReturnRecap, Shop,
+  PetState,
+  Result,
+  CareFeedback as Feedback,
+  ReturnRecap,
+  Shop,
 } from "./types";
 
 type Page =
@@ -53,6 +59,7 @@ type Page =
   | "status"
   | "journal"
   | "game"
+  | "arcade"
   | "growth"
   | "return"
   | "album"
@@ -64,7 +71,12 @@ const items = [
     icon: Utensils,
     kind: "feed",
   },
-  { label: "一起玩耍", hint: "来接住闪闪的星星", icon: Sparkles, kind: "play" },
+  {
+    label: "一起玩耍",
+    hint: "接星星 / 连连看",
+    icon: Sparkles,
+    kind: "arcade",
+  },
   { label: "洗个澡澡", hint: "把小烦恼也洗掉", icon: Waves, kind: "clean" },
   { label: "睡个好觉", hint: "做一个软绵绵的梦", icon: Moon, kind: "sleep" },
   { label: "看看状态", hint: "了解小伙伴的心情", icon: Heart, kind: "status" },
@@ -81,11 +93,23 @@ const items = [
     kind: "growth",
   },
   {
-    label: "回访小结", hint: "重看最近一次离开后的变化",
-    icon: Sprout, kind: "return",
+    label: "回访小结",
+    hint: "重看最近一次离开后的变化",
+    icon: Sprout,
+    kind: "return",
   },
-  { label: "永久纪念册", hint: "收藏一起走过的日子", icon: Heart, kind: "album" },
-  { label: "小窝商店", hint: "小问候、装扮与布置", icon: Sparkles, kind: "shop" },
+  {
+    label: "永久纪念册",
+    hint: "收藏一起走过的日子",
+    icon: Heart,
+    kind: "album",
+  },
+  {
+    label: "小窝商店",
+    hint: "小问候、装扮与布置",
+    icon: Sparkles,
+    kind: "shop",
+  },
 ];
 const needs = [
   { key: "hunger", label: "饱食", icon: Utensils, color: "orange" },
@@ -130,6 +154,10 @@ export default function App() {
   const [pressed, setPressed] = useState("");
   const [journalIndex, setJournalIndex] = useState(0);
   const [growthPage, setGrowthPage] = useState(0);
+  const [arcadeChoice, setArcadeChoice] = useState(0);
+  const [tileCursor, setTileCursor] = useState(0);
+  const [tileLink, setTileLink] = useState<TileLink | null>(null);
+  const tileLinkSequence = useRef(0);
   const [shop, setShop] = useState<Shop | null>(null);
   const [shopPage, setShopPage] = useState(0);
   const [purchaseConfirm, setPurchaseConfirm] = useState(false);
@@ -209,6 +237,23 @@ export default function App() {
     return () => clearInterval(timer);
   }, [page]);
   useEffect(() => {
+    if (!tileLink) return;
+    const timer = setTimeout(() => setTileLink(null), 850);
+    return () => clearTimeout(timer);
+  }, [tileLink]);
+  useEffect(() => {
+    const board = pet?.game?.tiles?.board;
+    if (board && !board[tileCursor]) setTileCursor(nextTile(board, tileCursor));
+  }, [pet?.game?.id, pet?.game?.tiles?.board, tileCursor]);
+  // A different tab can finish or cancel the persisted game. Do not leave a
+  // blank game screen or replay its reward/celebration on this tab.
+  useEffect(() => {
+    if (pet && page === "game" && !pet.game && !busy) {
+      setTileLink(null);
+      setPage("home");
+    }
+  }, [pet, page, busy]);
+  useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 4200);
     return () => clearTimeout(timer);
@@ -236,27 +281,61 @@ export default function App() {
     setEvolution(null);
   }, [evolution, page, busy, clip, pet?.sleeping]);
   useEffect(() => {
-    if (!returnRecap || !returnPending || page !== "home" || busy || clip || evolution ||
-        pet?.sleeping || pet?.game || tools || help || reset || document.hidden ||
-        returnAttempt.current === returnRecap.id) return;
+    if (
+      !returnRecap ||
+      !returnPending ||
+      page !== "home" ||
+      busy ||
+      clip ||
+      evolution ||
+      pet?.sleeping ||
+      pet?.game ||
+      tools ||
+      help ||
+      reset ||
+      document.hidden ||
+      returnAttempt.current === returnRecap.id
+    )
+      return;
     returnAttempt.current = returnRecap.id;
     busyRef.current = true;
     setBusy(true);
-    void request("recap/read", { id: returnRecap.id }).then((r) => {
-      apply(r);
-      if (r.recapClaimed && r.returnRecap?.id === returnRecap.id && !r.state.sleeping && !r.state.game) {
-        setReturnPage(0);
-        setPage("return");
-      }
-    }).catch(() => {
-      // If not accepted, a later heartbeat retries. If the response was lost
-      // after acceptance, the saved recap remains available in the menu.
-      setError("回访小结暂时没连上，下次连接时再看。");
-    }).finally(() => {
-      busyRef.current = false;
-      setBusy(false);
-    });
-  }, [returnRecap, returnPending, page, busy, clip, evolution, pet?.sleeping, pet?.game, tools, help, reset, apply]);
+    void request("recap/read", { id: returnRecap.id })
+      .then((r) => {
+        apply(r);
+        if (
+          r.recapClaimed &&
+          r.returnRecap?.id === returnRecap.id &&
+          !r.state.sleeping &&
+          !r.state.game
+        ) {
+          setReturnPage(0);
+          setPage("return");
+        }
+      })
+      .catch(() => {
+        // If not accepted, a later heartbeat retries. If the response was lost
+        // after acceptance, the saved recap remains available in the menu.
+        setError("回访小结暂时没连上，下次连接时再看。");
+      })
+      .finally(() => {
+        busyRef.current = false;
+        setBusy(false);
+      });
+  }, [
+    returnRecap,
+    returnPending,
+    page,
+    busy,
+    clip,
+    evolution,
+    pet?.sleeping,
+    pet?.game,
+    tools,
+    help,
+    reset,
+    apply,
+  ]);
   // Keep the result readable for eight seconds after care/evolution clips.
   // Polling never replays it, and C skips only the animation, not saved care.
   useEffect(() => {
@@ -327,11 +406,28 @@ export default function App() {
     try {
       const r = await request("action", {
         kind,
-        ...((kind === "catch" || kind === "cancel-play") && pet?.game?.id ? { gameId: pet.game.id } : {}),
+        ...((kind === "catch" ||
+          kind === "cancel-play" ||
+          kind === "tile-pick" ||
+          kind === "tile-clear") &&
+        pet?.game?.id
+          ? { gameId: pet.game.id }
+          : {}),
         ...extra,
         requestId: crypto.randomUUID(),
       });
       apply(r);
+      if (r.tileLink?.length && pet?.game?.tiles) {
+        setTileLink({
+          path:
+            r.state.game?.tiles &&
+            r.state.game.tiles.shuffles !== pet.game.tiles.shuffles
+              ? []
+              : r.tileLink,
+          tile: pet.game.tiles.board[pet.game.tiles.pick],
+          id: ++tileLinkSequence.current,
+        });
+      }
       setCareFeedback(r.careFeedback ?? null);
       const clipKind = careClip(kind, r.state.sleeping);
       if (clipKind) {
@@ -341,16 +437,20 @@ export default function App() {
       }
       if (kind === "hatch") {
         setPage("home");
-      } else if (kind === "play") {
+      } else if (kind === "play" || kind === "play-tiles") {
         setPage("game");
         setLane(1);
-      } else if (kind === "catch" && !r.state.game) {
+        setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
+        setTileLink(null);
+      } else if ((kind === "catch" || kind === "tile-pick") && !r.state.game) {
         setPage("home");
         const next = { kind: "play" as const, id: ++clipSequence.current };
         clipRef.current = next;
         setClip(next);
-      } else if (kind === "cancel-play") setPage("home");
-      else if (kind === "feed" || kind === "clean" || kind === "sleep") {
+      } else if (kind === "cancel-play") {
+        setTileLink(null);
+        setPage("home");
+      } else if (kind === "feed" || kind === "clean" || kind === "sleep") {
         setPage("home");
       }
       return true;
@@ -380,25 +480,46 @@ export default function App() {
       return;
     }
     setError("");
+    if (page === "arcade") {
+      if (key === "A") setArcadeChoice((v) => (v + 1) % 2);
+      else if (key === "C") setPage("home");
+      else void act(arcadeChoice === 0 ? "play" : "play-tiles");
+      return;
+    }
+    if (page === "game" && pet.game?.kind === "tiles" && pet.game.tiles) {
+      if (key === "A")
+        setTileCursor((v) => nextTile(pet.game!.tiles!.board, v));
+      else if (key === "B") void act("tile-pick", { tile: tileCursor });
+      else void act(pet.game.tiles.pick >= 0 ? "tile-clear" : "cancel-play");
+      return;
+    }
     if (page === "shop") {
       if (purchaseConfirm) {
         if (key === "A" || key === "C") setPurchaseConfirm(false);
         else if (key === "B" && shop?.catalog[shopPage - 1]) {
-          void act("buy", { item: shop.catalog[shopPage - 1].id }).then((ok) => { if (ok) setPurchaseConfirm(false); });
+          void act("buy", { item: shop.catalog[shopPage - 1].id }).then(
+            (ok) => {
+              if (ok) setPurchaseConfirm(false);
+            },
+          );
         }
-      } else if (key === "A") setShopPage((v) => (v + 1) % (1 + (shop?.catalog.length ?? 0)));
+      } else if (key === "A")
+        setShopPage((v) => (v + 1) % (1 + (shop?.catalog.length ?? 0)));
       else if (key === "C") setPage("home");
       else if (key === "B") {
         if (!pet.economy || !shop) setError("请更新小窝服务，再来逛小店。");
         else if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
         else if (shopPage === 0) {
-          if (dailyClaimed(pet, now)) setMessage("今天的问候已经收好啦，不必连续来。");
+          if (dailyClaimed(pet, now))
+            setMessage("今天的问候已经收好啦，不必连续来。");
           else void act("daily");
         } else {
           const item = shop.catalog[shopPage - 1];
           if (!item) return;
-          if (pet.economy.owned.includes(item.id)) void act("equip", { item: item.id });
-          else if (pet.economy.coins < item.price) setMessage("金币还不够，慢慢来，不着急。");
+          if (pet.economy.owned.includes(item.id))
+            void act("equip", { item: item.id });
+          else if (pet.economy.coins < item.price)
+            setMessage("金币还不够，慢慢来，不着急。");
           else setPurchaseConfirm(true);
         }
       }
@@ -417,8 +538,10 @@ export default function App() {
         setSelected(0);
       } else if (page === "menu") setSelected((v) => (v + 1) % items.length);
       else if (page === "game") setLane((v) => (v + 1) % 3);
-      else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
-      else if (page === "album") setAlbumPage((v) => (v + 1) % albumPageCount(pet));
+      else if (page === "growth")
+        setGrowthPage((v) => (v + 1) % growthPageCount);
+      else if (page === "album")
+        setAlbumPage((v) => (v + 1) % albumPageCount(pet));
       else if (page === "journal")
         setJournalIndex((v) => (v + 1) % Math.max(1, pet.logs.length));
       return;
@@ -447,9 +570,17 @@ export default function App() {
     }
     if (page === "menu") {
       const item = items[selected];
-      if (item.kind === "return") {
-        if (returnRecap) { setReturnPage(0); setPage("return"); }
-        else setMessage("还没有回访小结。离开至少 15 分钟后，回来会记录真实变化。");
+      if (item.kind === "arcade") {
+        setArcadeChoice(0);
+        setPage("arcade");
+      } else if (item.kind === "return") {
+        if (returnRecap) {
+          setReturnPage(0);
+          setPage("return");
+        } else
+          setMessage(
+            "还没有回访小结。离开至少 15 分钟后，回来会记录真实变化。",
+          );
       } else if (item.kind === "shop") {
         setShopPage(0);
         setPurchaseConfirm(false);
@@ -466,7 +597,8 @@ export default function App() {
         setJournalIndex(0);
       } else void act(item.kind);
     } else if (page === "game") void act("catch", { lane });
-    else if (page === "album") setAlbumPage((v) => (v + 1) % albumPageCount(pet));
+    else if (page === "album")
+      setAlbumPage((v) => (v + 1) % albumPageCount(pet));
     else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
     else setPage("home");
   };
@@ -563,34 +695,42 @@ export default function App() {
   const stage = stageNames[growth.stage];
   const form = tendency(growth);
   const need = petNeed(pet);
-  const mood = pet?.sleeping ? "正在做一个甜甜的梦" : need?.text || "今天也是好心情";
+  const mood = pet?.sleeping
+    ? "正在做一个甜甜的梦"
+    : need?.text || "今天也是好心情";
   const target = pet?.game
     ? Math.floor(Math.max(0, now - pet.game.startedAt) / 900) % 3
     : 0;
   const motion = sceneMotion(pet?.sleeping ?? false, clip);
   const lcdHint = !pet
     ? "B 重新连接"
-    : page === "choose"
-      ? "A 换一位　 B 就是它"
-      : page === "hatch"
-        ? "B 轻轻唤醒　 C 再选选"
-        : page === "shop"
-        ? purchaseConfirm ? "A / C 取消　 B 确认购买" : "A 逛逛　 B 领取 / 使用　 C 返回"
-      : page === "return"
-          ? "A 换页　 B 继续　 C 返回"
-          : page === "home"
-          ? clip
-            ? `${clip.kind === "feed" ? "吃得香香" : clip.kind === "clean" ? "泡泡时间" : clip.kind === "wake" ? "伸个懒腰" : clip.kind === "evolve" ? "长大啦" : "好开心呀"} · C 跳过`
-            : "A / B 打开菜单"
-          : page === "menu"
-            ? "A 选择　 B 确认　 C 返回"
-            : page === "game"
-              ? "A 移动　 B 接住　 C 退出"
-              : page === "growth" || page === "album"
-                ? "A / B 换页　 C 返回"
-                : page === "journal"
-                  ? "A 下一条　 C 返回"
-                  : "C 返回小窝";
+    : page === "arcade"
+      ? "A 换游戏  B 开始  C 返回"
+      : page === "choose"
+        ? "A 换一位　 B 就是它"
+        : page === "hatch"
+          ? "B 轻轻唤醒　 C 再选选"
+          : page === "shop"
+            ? purchaseConfirm
+              ? "A / C 取消　 B 确认购买"
+              : "A 逛逛　 B 领取 / 使用　 C 返回"
+            : page === "return"
+              ? "A 换页　 B 继续　 C 返回"
+              : page === "home"
+                ? clip
+                  ? `${clip.kind === "feed" ? "吃得香香" : clip.kind === "clean" ? "泡泡时间" : clip.kind === "wake" ? "伸个懒腰" : clip.kind === "evolve" ? "长大啦" : "好开心呀"} · C 跳过`
+                  : "A / B 打开菜单"
+                : page === "menu"
+                  ? "A 选择　 B 确认　 C 返回"
+                  : page === "game"
+                    ? pet.game?.kind === "tiles"
+                      ? "A 移动  B 选牌  C 取消 / 退出"
+                      : "A 移动　 B 接住　 C 退出"
+                    : page === "growth" || page === "album"
+                      ? "A / B 换页　 C 返回"
+                      : page === "journal"
+                        ? "A 下一条　 C 返回"
+                        : "C 返回小窝";
 
   return (
     <div className="app">
@@ -751,23 +891,27 @@ export default function App() {
                     <span>
                       {page === "choose"
                         ? "HELLO, FRIEND"
-                        : page === "menu"
-                          ? "CARE MENU"
-                          : page === "shop"
-                            ? "LITTLE SHOP"
-                          : page === "album"
-                            ? "OUR MEMORIES"
-                          : page === "return"
-                            ? "WELCOME BACK"
-                            : page === "status"
-                            ? "MY STATUS"
-                            : page === "growth"
-                              ? "GROWTH BOOK"
-                              : page === "journal"
-                                ? "LITTLE DIARY"
-                                : page === "game"
-                                  ? "CATCH A STAR"
-                                  : "PIXELPET / 01"}
+                        : page === "arcade"
+                          ? "PLAY TOGETHER"
+                          : page === "menu"
+                            ? "CARE MENU"
+                            : page === "shop"
+                              ? "LITTLE SHOP"
+                              : page === "album"
+                                ? "OUR MEMORIES"
+                                : page === "return"
+                                  ? "WELCOME BACK"
+                                  : page === "status"
+                                    ? "MY STATUS"
+                                    : page === "growth"
+                                      ? "GROWTH BOOK"
+                                      : page === "journal"
+                                        ? "LITTLE DIARY"
+                                        : page === "game"
+                                          ? pet?.game?.kind === "tiles"
+                                            ? "LINK & COLLECT"
+                                            : "CATCH A STAR"
+                                          : "PIXELPET / 01"}
                     </span>
                     <span className="lcd-battery">
                       <i />
@@ -786,8 +930,24 @@ export default function App() {
                       </div>
                     ) : (
                       <>
-                        {page === "shop" && <ShopPanel pet={pet} shop={shop} page={shopPage} confirm={purchaseConfirm} now={now} />}
-                        {page === "album" && <AlbumPanel pet={pet} now={now} page={albumPage} />}
+                        {page === "arcade" && (
+                          <ArcadePanel
+                            choice={arcadeChoice}
+                            limit={shop?.gameDailyLimit ?? 30}
+                          />
+                        )}
+                        {page === "shop" && (
+                          <ShopPanel
+                            pet={pet}
+                            shop={shop}
+                            page={shopPage}
+                            confirm={purchaseConfirm}
+                            now={now}
+                          />
+                        )}
+                        {page === "album" && (
+                          <AlbumPanel pet={pet} now={now} page={albumPage} />
+                        )}
                         {page === "return" && returnRecap && (
                           <ReturnPanel recap={returnRecap} page={returnPage} />
                         )}
@@ -903,7 +1063,11 @@ export default function App() {
                         {page === "status" && (
                           <div className="screen-status">
                             <div className="status-name">
-                              <PetArt index={index} stage={growth.stage} accessory={pet.economy?.equipped.accessory} />
+                              <PetArt
+                                index={index}
+                                stage={growth.stage}
+                                accessory={pet.economy?.equipped.accessory}
+                              />
                               <div>
                                 <strong>{pet.name}</strong>
                                 <small>
@@ -940,7 +1104,16 @@ export default function App() {
                             </span>
                           </div>
                         )}
-                        {page === "game" && pet.game && (
+                        {page === "game" && pet.game?.kind === "tiles" && (
+                          <TileGame
+                            pet={pet}
+                            cursor={tileCursor}
+                            link={tileLink}
+                            message={message}
+                            now={now}
+                          />
+                        )}
+                        {page === "game" && pet.game && !pet.game.kind && (
                           <div className="star-game">
                             <div className="game-score">
                               ROUND {pet.game.round + 1}/5{" "}
@@ -958,7 +1131,13 @@ export default function App() {
                                     ★
                                   </span>
                                   {lane === i ? (
-                                    <PetArt index={index} stage={growth.stage} accessory={pet.economy?.equipped.accessory} />
+                                    <PetArt
+                                      index={index}
+                                      stage={growth.stage}
+                                      accessory={
+                                        pet.economy?.equipped.accessory
+                                      }
+                                    />
                                   ) : (
                                     <span className="lane-dot">·</span>
                                   )}
@@ -1112,7 +1291,10 @@ export default function App() {
                 key={name}
               >
                 <div>
-                  <PetArt index={i} stage={i === index ? growth.stage : "baby"} />
+                  <PetArt
+                    index={i}
+                    stage={i === index ? growth.stage : "baby"}
+                  />
                 </div>
                 <span>{name}</span>
                 {index === i && <i />}

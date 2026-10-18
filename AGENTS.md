@@ -6,7 +6,7 @@
 - 邮箱使用 `182593643+strawberry-little-bear@users.noreply.github.com`。
 - 不要使用电脑全局配置中的 `xjx` 身份，也不要为本项目修改全局 Git 配置。
 - 提交前执行 `git var GIT_AUTHOR_IDENT`、`git var GIT_COMMITTER_IDENT` 核对实际生效身份；提交后执行 `git log -1 --format=fuller` 再确认。
-- 未获明确授权不推送，不重写历史提交。
+- 用户已明确授权：每批功能测试通过后，及时提交并推送 GitHub；不重写历史提交。
 
 ## 游戏开发约束
 

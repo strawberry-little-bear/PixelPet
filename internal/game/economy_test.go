@@ -237,7 +237,7 @@ func TestSchemaThreeUpgradeStartsEmptyWithoutInventingEconomy(t *testing.T) {
 	if err := s.Validate(now); err != nil {
 		t.Fatal(err)
 	}
-	if !s.Upgrade(now) || s.Schema != 4 || !reflect.DeepEqual(s.Economy, newEconomy()) {
+	if !s.Upgrade(now) || s.Schema != Schema || !reflect.DeepEqual(s.Economy, newEconomy()) {
 		t.Fatal("migration failed")
 	}
 	if !reflect.DeepEqual(*s.Album, beforeAlbum) || *s.Growth != beforeGrowth {

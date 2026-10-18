@@ -19,6 +19,7 @@ export function memoryWords(m: Memory, legacy: boolean) {
     case "goodnight": return { title: "轻轻说一声晚安", story: `${legacy ? "纪念册开启后第一次道晚安" : "你第一次轻轻道晚安"}。放心休息，小窝一直在这里。` };
     case "stars": return { title: "一起追过的星光", story: `${legacy ? "纪念册里记下的第一场" : "你们完整玩完的第一场"}接星星，接住了 ${m.score ?? 0} 颗。记住的是一起玩，不只是分数。` };
     case "perfect-stars": return { title: "五颗星，都接住啦", story: "五次默契的小接应，凑成一整把星光。值得记住，但不用每次都做到。" };
+    case "tiles": return { title: "把小图案一起收好", story: "你找到连线，小伙伴接住图案。完整连好八对，记下的是一起完成的这盘游戏。" };
     case "outfit": return { title: "第一次选好小装扮", story: "挑一件喜欢的装扮，陪你回家，也陪你追星星。不改变长大的模样。" };
     case "decoration": return { title: "把小窝布置成喜欢的样子", story: "亲手摆上第一件小装饰，让等你回来的地方多一点温暖。" };
     case "days": return { title: `相识 ${m.days} 天的小纪念`, story: "时间慢慢走，小窝还在。不必每天来，也不需要补上错过的日子。" };
@@ -32,7 +33,7 @@ export function AlbumPanel({ pet, now, page }: { pet: PetState; now: number; pag
   const words = memory ? memoryWords(memory, pet.album?.legacy ?? false) : undefined;
   const stage = memory?.kind === "hatch" ? "baby" : memory?.kind === "growing" ? "growing" : memory?.kind === "adult" ? "adult" : pet.growth?.stage || "baby";
   const isPortrait = !memory || ["hatch", "growing", "adult"].includes(memory.kind);
-  const Icon = memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : memory?.kind === "goodnight" ? Moon : memory?.kind.includes("stars") ? Sparkles : Heart;
+  const Icon = memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : memory?.kind === "goodnight" ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
   return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage}>
     <header><strong>{memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
     <div className={`album-picture ${isPortrait ? "album-portrait" : ""}`} aria-hidden="true">

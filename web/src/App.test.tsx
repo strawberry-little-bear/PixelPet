@@ -31,6 +31,8 @@ async function choose(menuIndex: number) {
   await key("a");
   for (let i = 0; i < menuIndex; i++) await key("a");
   await key("b");
+  // The default choice in the play selector remains the star game.
+  if (menuIndex === 1) await key("b");
 }
 async function advance(ms: number) {
   await act(async () => {
@@ -798,6 +800,7 @@ describe("three-key shop and persistent equipment", () => {
       if (path === "action") {
         const action = body as { kind: string; item?: string };
         const e = saved.economy!;
+        if (action.kind === "play") saved.game = { id: "0123456789abcdef0123456789abcdef", startedAt: Date.now(), round: 0, score: 0, lastBeat: -1 };
         if (action.kind === "daily") { e.coins += 10; e.lastDailyAt = Date.now(); }
         if (action.kind === "buy") { const item = shop.catalog.find(i => i.id === action.item)!; e.coins -= item.price; e.owned.push(item.id); }
         if (action.kind === "equip") { const item = shop.catalog.find(i => i.id === action.item)!; e.equipped[item.slot] = e.equipped[item.slot] === item.id ? "" : item.id; }
@@ -868,9 +871,7 @@ describe("three-key shop and persistent equipment", () => {
     await key("c");
     expect(document.querySelector('.pet-scene .room-decoration[data-item="clover-pot"]')).not.toBeNull();
     await choose(1);
-    // This mock only simulates the saved play session, not game scoring.
-    saved.game = { startedAt: Date.now(), round: 0, score: 0, lastBeat: -1 };
-    saved.revision++;
+    // The action response persists the session before entering the game.
     await advance(15000);
     expect(document.querySelector('.game-lane .equipped-accessory[data-item="leaf-pin"]')).not.toBeNull();
   });

@@ -116,3 +116,89 @@ func TestShopAPIRejectsClientPricesScoresAndForeignWrites(t *testing.T) {
 		t.Fatal("rejected actions changed wallet", state)
 	}
 }
+
+func TestTileAPIValidatesBoardSessionAndReward(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "tile-api.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	h := Handler(db, t.TempDir())
+	call := func(body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "/api/action", bytes.NewBufferString(body))
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	read := func() store.Result {
+		r := httptest.NewRequest("GET", "/api/state", nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		var out store.Result
+		if w.Code != 200 {
+			t.Fatal(w.Body.String())
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	for _, body := range []string{`{"kind":"hatch","species":2}`, `{"kind":"play-tiles"}`} {
+		if w := call(body); w.Code != 200 {
+			t.Fatal(w.Body.String())
+		}
+	}
+	initial := read()
+	id := initial.State.Game.ID
+	for _, fields := range []string{`"coins":1000`, `"score":8`, `"board":[1,1]`, `"pairs":8`, `"tileLink":[{"x":1,"y":1}]`, `"path":[0,1]`} {
+		body := `{"kind":"tile-pick","gameId":"` + id + `","tile":0,` + fields + `}`
+		if w := call(body); w.Code != 400 {
+			t.Fatal("accepted client authority", body, w.Body.String())
+		}
+	}
+	for _, body := range []string{
+		`{"kind":"tile-pick","gameId":"stale","tile":0}`,
+		`{"kind":"tile-pick","tile":0}`,
+		`{"kind":"tile-pick","gameId":"` + id + `","tile":16}`,
+		`{"kind":"tile-pick","gameId":"` + id + `","tile":-1}`,
+		`{"kind":"catch","gameId":"` + id + `","lane":0}`,
+	} {
+		if w := call(body); w.Code != 400 {
+			t.Fatal("accepted invalid move", body, w.Body.String())
+		}
+	}
+	unchanged := read()
+	if unchanged.State.Game.Tiles.Pick != -1 || unchanged.State.Game.Tiles.Pairs != 0 || unchanged.State.Economy.Coins != 0 {
+		t.Fatal("rejected input mutated game")
+	}
+	for current := read(); current.State.Game != nil; current = read() {
+		a, b := -1, -1
+		for i := 0; i < 16 && a < 0; i++ {
+			for j := i + 1; j < 16; j++ {
+				if game.TilePath(current.State.Game.Tiles.Board, i, j) != nil {
+					a, b = i, j
+					break
+				}
+			}
+		}
+		if a < 0 {
+			t.Fatal("no route")
+		}
+		for _, cell := range []int{a, b} {
+			body, _ := json.Marshal(game.Action{Kind: "tile-pick", GameID: id, Tile: cell})
+			if w := call(string(body)); w.Code != 200 {
+				t.Fatal(w.Body.String())
+			}
+		}
+	}
+	final := read()
+	if final.State.Economy.Coins != game.TileCoins || final.State.CareCount != 1 {
+		t.Fatal("wrong server payout")
+	}
+	if w := call(`{"kind":"tile-pick","gameId":"` + id + `","tile":0}`); w.Code != 400 {
+		t.Fatal("paid ended session twice")
+	}
+	if read().State.Economy.Coins != game.TileCoins {
+		t.Fatal("replay changed coins")
+	}
+}

@@ -39,10 +39,18 @@ export type PetState = {
   album?: Album;
   economy?: Economy;
   logs: { at: number; text: string }[];
-  game?: { id?: string; startedAt: number; round: number; score: number; lastBeat: number };
+  game?: {
+    kind?: "tiles";
+    tiles?: TileMatch;
+    id?: string;
+    startedAt: number;
+    round: number;
+    score: number;
+    lastBeat: number;
+  };
 };
 export type CareFeedback = {
-  kind: "feed" | "clean" | "catch" | "sleep";
+  kind: "feed" | "clean" | "catch" | "tile-pick" | "sleep";
   points: number;
   habit?: "nutrition" | "clean" | "play";
   habitGain: number;
@@ -54,6 +62,7 @@ export type Result = {
   message: string;
   serverTime: number;
   careFeedback?: CareFeedback;
+  tileLink?: TilePoint[];
   shop?: Shop;
   returnRecap?: ReturnRecap;
   recapPending?: boolean;
@@ -101,7 +110,19 @@ export type ReturnRecap = {
 };
 
 export type Memory = {
-  kind: "hatch" | "growing" | "adult" | "meal" | "bath" | "goodnight" | "stars" | "perfect-stars" | "days" | "outfit" | "decoration";
+  kind:
+    | "hatch"
+    | "growing"
+    | "adult"
+    | "meal"
+    | "bath"
+    | "goodnight"
+    | "stars"
+    | "perfect-stars"
+    | "days"
+    | "outfit"
+    | "decoration"
+    | "tiles";
   at: number;
   source: "shared" | "saved" | "elapsed";
   form?: AdultForm;
@@ -112,6 +133,31 @@ export type Memory = {
 export type Album = { since: number; legacy: boolean; entries: Memory[] };
 
 export type Equipment = { accessory: string; room: string };
-export type Economy = { coins: number; lastDailyAt: number; lastGameAt: number; gameCoins: number; owned: string[]; equipped: Equipment };
-export type ShopItem = { id: string; name: string; slot: "accessory" | "room"; price: number; description: string };
-export type Shop = { catalog: ShopItem[]; dailyCoins: number; gameDailyLimit: number };
+export type Economy = {
+  coins: number;
+  lastDailyAt: number;
+  lastGameAt: number;
+  gameCoins: number;
+  owned: string[];
+  equipped: Equipment;
+};
+export type ShopItem = {
+  id: string;
+  name: string;
+  slot: "accessory" | "room";
+  price: number;
+  description: string;
+};
+export type Shop = {
+  catalog: ShopItem[];
+  dailyCoins: number;
+  gameDailyLimit: number;
+};
+
+export type TilePoint = { x: number; y: number };
+export type TileMatch = {
+  board: number[];
+  pick: number;
+  pairs: number;
+  shuffles: number;
+};

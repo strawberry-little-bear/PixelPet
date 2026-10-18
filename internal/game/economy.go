@@ -124,6 +124,12 @@ func (s *State) applyEconomy(a Action, now time.Time) (string, error) {
 // earn anything; the store transaction and session removal make retries safe
 // even after the bounded request cache has expired. UTC days never go backwards.
 func (s *State) rewardStars(score int, now time.Time) int {
+	return s.rewardGame(3+score, now)
+}
+func coinMessage(coins int) string {
+	return fmt.Sprintf("+%d 金币（小游戏每日最多 %d）。", coins, GameDailyLimit)
+}
+func (s *State) rewardGame(amount int, now time.Time) int {
 	e := s.Economy
 	if e == nil {
 		return 0
@@ -135,7 +141,7 @@ func (s *State) rewardStars(score int, now time.Time) int {
 	if e.LastGameAt == 0 || day > utcDay(e.LastGameAt) {
 		e.GameCoins = 0
 	}
-	reward := min(3+score, GameDailyLimit-e.GameCoins, MaxCoins-e.Coins)
+	reward := min(amount, GameDailyLimit-e.GameCoins, MaxCoins-e.Coins)
 	e.Coins += reward
 	e.GameCoins += reward
 	e.LastGameAt = now.UnixMilli()

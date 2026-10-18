@@ -18,6 +18,7 @@ type Store struct {
 	mu sync.Mutex
 }
 type Result struct {
+	TileLink     []game.TilePoint   `json:"tileLink,omitempty"`
 	Shop         game.Shop          `json:"shop"`
 	State        game.State         `json:"state"`
 	Message      string             `json:"message"`
@@ -120,7 +121,9 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	settledSnapshot := returnSnapshot(state)
 	message := ""
 	var feedback *game.CareFeedback
+	var tileLink []game.TilePoint
 	if a != nil {
+		tileLink = state.TileLink(*a)
 		message, feedback, err = state.ApplyWithFeedback(*a, now)
 		if err != nil {
 			return Result{}, err
@@ -193,7 +196,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 	}
-	result := Result{Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
+	result := Result{TileLink: tileLink, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
 	if a != nil && a.RequestID != "" {
 		encoded, _ := json.Marshal(result)
 		if _, err = tx.Exec("INSERT INTO requests(id,body) VALUES(?,?)", a.RequestID, string(encoded)); err != nil {

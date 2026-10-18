@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 4
+const Schema = 5
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -40,11 +40,13 @@ func validGameID(id string) bool {
 }
 
 type MiniGame struct {
-	ID        string `json:"id,omitempty"`
-	StartedAt int64  `json:"startedAt"`
-	Round     int    `json:"round"`
-	Score     int    `json:"score"`
-	LastBeat  int64  `json:"lastBeat"`
+	Kind      string     `json:"kind,omitempty"`
+	Tiles     *TileMatch `json:"tiles,omitempty"`
+	ID        string     `json:"id,omitempty"`
+	StartedAt int64      `json:"startedAt"`
+	Round     int        `json:"round"`
+	Score     int        `json:"score"`
+	LastBeat  int64      `json:"lastBeat"`
 }
 type State struct {
 	Schema    int       `json:"schema"`
@@ -70,6 +72,7 @@ type Action struct {
 	Name      string `json:"name"`
 	RequestID string `json:"requestId"`
 	Item      string `json:"item,omitempty"`
+	Tile      int    `json:"tile,omitempty"`
 	GameID    string `json:"gameId,omitempty"`
 }
 
@@ -123,14 +126,14 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	if s.HatchedAt == 0 {
 		return "", errors.New("先迎接你的第一只小伙伴吧")
 	}
-	if (a.Kind == "catch" || a.Kind == "cancel-play") && s.Game != nil && a.GameID != s.Game.ID {
+	if (a.Kind == "catch" || a.Kind == "cancel-play" || a.Kind == "tile-pick" || a.Kind == "tile-clear") && s.Game != nil && a.GameID != s.Game.ID {
 		return "", errors.New("这不是当前的一局，请刷新后再试")
 	}
 	if a.Kind == "cancel-play" {
 		s.Game = nil
 		return "下次再一起玩吧", nil
 	}
-	if s.Game != nil && a.Kind != "catch" {
+	if s.Game != nil && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
 		return "", errors.New("请先完成小游戏，或按 C 返回")
 	}
 	if s.Sleeping && a.Kind != "sleep" && a.Kind != "rename" {
@@ -175,6 +178,18 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		} else {
 			msg = "早安！今天也一起慢慢长大吧。"
 		}
+	case "tile-pick", "tile-clear":
+		return s.applyTile(a, now)
+	case "play-tiles":
+		if s.Needs.Energy < 10 {
+			return "", errors.New("有点累了，先睡一觉吧")
+		}
+		tiles, err := newTiles()
+		if err != nil {
+			return "", err
+		}
+		s.Game = &MiniGame{ID: newGameID(), Kind: "tiles", Tiles: tiles, StartedAt: now.UnixMilli(), LastBeat: -1}
+		return "A 移动 · B 选牌 · C 取消选择 / 退出", nil
 	case "play":
 		if s.Needs.Energy < 10 {
 			return "", errors.New("有点累了，先睡一觉吧")
@@ -182,7 +197,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		s.Game = &MiniGame{ID: newGameID(), StartedAt: now.UnixMilli(), LastBeat: -1}
 		return "A 移动 · B 接星星 · C 返回", nil
 	case "catch":
-		if s.Game == nil || a.Lane < 0 || a.Lane > 2 {
+		if s.Game == nil || s.Game.Kind != "" || a.Lane < 0 || a.Lane > 2 {
 			return "", errors.New("游戏还没有开始")
 		}
 		beat := (now.UnixMilli() - s.Game.StartedAt) / 900
@@ -256,7 +271,7 @@ func (s State) Validate(now time.Time) error {
 	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
 		return bad
 	}
-	if !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) {
+	if !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() {
 		return bad
 	}
 	return nil

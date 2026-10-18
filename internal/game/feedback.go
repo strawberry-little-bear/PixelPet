@@ -43,7 +43,7 @@ func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedbac
 		if beforeNeeds.Clean > 65 {
 			f.Reason = "not-needed"
 		}
-	case "catch":
+	case "catch", "tile-pick":
 		if s.Game != nil {
 			return message, nil, nil
 		}
