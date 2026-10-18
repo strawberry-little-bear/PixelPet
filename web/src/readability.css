@@ -21,3 +21,19 @@
   .park-album p, .fish-album p { font-size: 11px; line-height: 17px; }
   .park-album > small, .fish-album > small { font-size: 10px; line-height: 15px; }
 }
+
+/* An uncertain write replaces gameplay until B has read authoritative state. */
+.save-recovery {
+  height: 100%;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  overflow-y: auto;
+}
+.save-recovery h2 { font-size: 16px; margin: 0; }
+.save-recovery p { font-size: 12px; line-height: 1.6; margin: 0; }
+.save-recovery small { font-size: 10px; line-height: 1.5; }

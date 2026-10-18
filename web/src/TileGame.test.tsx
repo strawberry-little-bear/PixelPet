@@ -1,3 +1,4 @@
+import { RequestFailure } from "./requestFailure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   act,
@@ -98,7 +99,7 @@ beforeEach(() => {
   api.mockImplementation(async (path, body) => {
     if (path === "action") {
       const a = body as { kind: string; tile: number };
-      if (saved.sleeping) throw new Error("先起床再玩吧");
+      if (saved.sleeping) throw new RequestFailure("先起床再玩吧", "rejected");
       if (a.kind === "play-tiles") saved.game = game();
       if (a.kind === "tile-pick" && saved.game?.tiles)
         saved.game.tiles.pick = a.tile;
@@ -295,7 +296,7 @@ describe("three-key pet tile matching", () => {
   it("does not show a successful link or remove a tile when saving fails", async () => {
     saved.game = game();
     api.mockImplementation(async (path) => {
-      if (path === "action") throw new Error("没有保存");
+      if (path === "action") throw new RequestFailure("没有保存", "rejected");
       return result();
     });
     await mount();

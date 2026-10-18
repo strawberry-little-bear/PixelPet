@@ -1,3 +1,4 @@
+import { RequestFailure } from "./requestFailure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import App from "./App";
@@ -28,7 +29,7 @@ beforeEach(() => {
       const n = saved.game?.snake;
       if (n && a.kind === "snake-resume") { n.paused = false; n.lastMoveAt = Date.now(); }
       if (n && a.kind === "snake-pause") n.paused = true;
-      if (n && a.kind === "snake-step") { if (failStep) throw new Error("连接中断"); n.step++; n.direction = (n.direction + a.turn + 4) % 4; n.lastMoveAt = Date.now(); }
+      if (n && a.kind === "snake-step") { if (failStep) throw new RequestFailure("服务端拒绝了这一步", "rejected"); n.step++; n.direction = (n.direction + a.turn + 4) % 4; n.lastMoveAt = Date.now(); }
       if (a.kind === "cancel-play" || a.kind === "snake-finish") delete saved.game;
       saved.revision++;
     }
@@ -65,7 +66,7 @@ describe("three-key realtime snake", () => {
     expect(document.querySelector(".snake-overlay")?.textContent).toContain("已暂停");
     await key("c"); await clock(650); expect(actions().at(-1)?.kind).toBe("snake-step");
   });
-  it("stops after losing connection, and requires explicit resume", async () => {
+  it("stops after a rejected step, and requires explicit resume", async () => {
     saved.game = snakeGame(); await mount(); await key("a"); failStep = true; await clock(650);
     const count = actions().length; await clock(5000); expect(actions()).toHaveLength(count);
     expect(document.querySelector(".snake-overlay")?.textContent).toContain("已暂停");

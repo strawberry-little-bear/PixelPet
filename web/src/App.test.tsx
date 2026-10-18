@@ -1,3 +1,4 @@
+import { RequestFailure } from "./requestFailure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   act,
@@ -161,7 +162,7 @@ describe("three-button pet animation lifecycle", () => {
 
   it("does not show a successful care animation when saving fails", async () => {
     await mount();
-    api.mockRejectedValueOnce(new Error("保存失败，请重试"));
+    api.mockRejectedValueOnce(new RequestFailure("保存失败，请重试", "rejected"));
     await choose(0);
     expect(scene()).toBeUndefined(); // Still in the menu, awaiting a successful save.
     expect(screen.getByRole("alert").textContent).toContain("保存失败");
@@ -409,7 +410,7 @@ describe("saved care feedback with three buttons", () => {
     expect(document.querySelector(".growth-feedback")?.textContent).toContain("同类奖励还需 20 分钟");
     expect(document.querySelector(".growth-feedback")?.textContent).not.toContain("成长 +");
     await key("c");
-    api.mockRejectedValueOnce(new Error("保存失败"));
+    api.mockRejectedValueOnce(new RequestFailure("保存失败", "rejected"));
     await choose(0);
     expect(document.querySelector(".growth-feedback")).toBeNull(); // Still in the menu after failure.
     expect(screen.getByRole("alert").textContent).toContain("保存失败");
@@ -577,7 +578,7 @@ describe("saved-state proactive expression", () => {
   it("does not falsely satisfy a need when the care save fails", async () => {
     saved.needs.hunger = 40;
     await mount();
-    api.mockRejectedValueOnce(new Error("保存失败，请重试"));
+    api.mockRejectedValueOnce(new RequestFailure("保存失败，请重试", "rejected"));
     await choose(0);
     expect(screen.getByRole("alert").textContent).toContain("保存失败");
     await key("c");
@@ -900,7 +901,7 @@ describe("three-key shop and persistent equipment", () => {
     setup(); await mount(); await choose(9); await key("a"); await key("b"); await key("b");
     const original = api.getMockImplementation()!;
     api.mockImplementation(async (path, body) => {
-      if (path === "action") throw new Error("金币还不够，慢慢来，不着急");
+      if (path === "action") throw new RequestFailure("金币还不够，慢慢来，不着急", "rejected");
       return original(path, body);
     });
     await key("b");
@@ -1012,7 +1013,7 @@ describe("real completed-game home echoes", () => {
     api.mockImplementation(async(path,body)=>{
       if(path==='action' && (body as {kind:string}).kind==='catch'){
         await options.responseGate;
-        if (options.failure) throw new Error("network unavailable");
+        if (options.failure) throw new RequestFailure("network unavailable", "unknown");
         saved.game=undefined;saved.revision++;saved.careCount++;
         saved.companion!.interests[0]={kind:"stars",points:1,lastAt:Date.now()};
         saved.companion!.recent={kind:"stars",id:options.mismatch?'different-session':id,at:Date.now()};

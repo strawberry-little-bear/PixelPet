@@ -1,3 +1,4 @@
+import { RequestFailure } from "./requestFailure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
@@ -44,8 +45,8 @@ beforeEach(() => {
     if (path === "action") {
       const a = body as { kind: string; };
       const info = games.find(g => g.startAction === a.kind);
-      if (info) { if (failStart) throw new Error("开局没有保存"); saved.game = session(info); }
-      if (a.kind === "cancel-play") { if (failCancel) throw new Error("放弃没有保存"); delete saved.game; }
+      if (info) { if (failStart) throw new RequestFailure("开局没有保存", "rejected"); saved.game = session(info); }
+      if (a.kind === "cancel-play") { if (failCancel) throw new RequestFailure("放弃没有保存", "rejected"); delete saved.game; }
       const n = saved.game?.snake;
       if (n && a.kind === "snake-resume") { n.paused = false; n.lastMoveAt = Date.now(); }
       if (n && a.kind === "snake-pause") n.paused = true;

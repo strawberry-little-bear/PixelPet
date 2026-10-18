@@ -1,3 +1,4 @@
+import { RequestFailure } from "./requestFailure";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -19,7 +20,7 @@ async function clock(ms:number){await act(async()=>{await vi.advanceTimersByTime
 async function mount(){await act(async()=>{render(<App/>)})}
 async function hidden(value:boolean){Object.defineProperty(document,"hidden",{configurable:true,value});await act(async()=>{document.dispatchEvent(new Event("visibilitychange"))})}
 beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-19T10:00:00Z"));Object.defineProperty(document,"hidden",{configurable:true,value:false});localStorage.clear();api.mockReset();saved=fixture();failure="";delayResume=false;
- api.mockImplementation(async(path,body)=>{if(path==="action"){const a=body as {kind:string;step:number};if(a.kind===failure)throw new Error("这一步没有保存");const n=saved.game?.walking;
+ api.mockImplementation(async(path,body)=>{if(path==="action"){const a=body as {kind:string;step:number};if(a.kind===failure)throw new RequestFailure("这一步没有保存", "rejected");const n=saved.game?.walking;
   if(n){if(a.kind==="walk-resume"){n.paused=false;n.lastPulseAt=Date.now()}if(a.kind==="walk-pause")n.paused=true;
    if(a.kind==="walk-step"){n.beat++;n.lastPulseAt=Date.now();if(n.beat%24===0)saved.park!.finds.push({id:n.souvenirs[n.beat/24-1],firstAt:Date.now(),lastAt:Date.now(),count:1})}
    if(a.kind==="walk-jump"||a.kind==="walk-duck"){n.pose=a.kind==="walk-jump"?"jump":"duck";n.poseUntil=Math.min(72,n.beat+3);n.lastInputAt=Date.now()}

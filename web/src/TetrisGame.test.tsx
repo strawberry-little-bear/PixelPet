@@ -1,3 +1,4 @@
+import { RequestFailure } from "./requestFailure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import App from "./App";
@@ -23,13 +24,13 @@ beforeEach(() => {
       const a = body as { kind: string; step: number; turn: number; };
       if (a.kind === "play-tetris") saved.game = game();
       const n = saved.game?.tetris;
-      if (n && a.kind.startsWith("tetris-") && a.step !== n.step) throw new Error("stale step");
+      if (n && a.kind.startsWith("tetris-") && a.step !== n.step) throw new RequestFailure("stale step", "rejected");
       if (n && a.kind === "tetris-pause") n.paused = true;
       if (n && ["tetris-resume", "tetris-rotate", "tetris-drop"].includes(a.kind)) { n.paused = false; n.lastFallAt = Date.now(); }
       if (n && a.kind === "tetris-rotate") n.active!.rotation = (n.active!.rotation + 1) % 4;
       if (n && a.kind === "tetris-drop") n.pieces++;
       if (n && a.kind === "tetris-move") n.active!.x += a.turn;
-      if (n && a.kind === "tetris-step") { if (failStep) throw new Error("连接中断"); n.active!.y++; n.lastFallAt = Date.now(); }
+      if (n && a.kind === "tetris-step") { if (failStep) throw new RequestFailure("服务端拒绝了这一步", "rejected"); n.active!.y++; n.lastFallAt = Date.now(); }
       if (n && a.kind.startsWith("tetris-")) n.step++;
       if (["cancel-play", "tetris-finish"].includes(a.kind)) delete saved.game;
       saved.revision++;
@@ -68,7 +69,7 @@ describe("three-key Tetris", () => {
     await key("a"); await key("b");
     expect(actions()).toMatchObject([{ kind: "tetris-pause", step: 0 }, { kind: "tetris-rotate", step: 1 }]);
   });
-  it("stops on a failed pulse and requires explicit resume", async () => {
+  it("stops on a rejected pulse and requires explicit resume", async () => {
     saved.game = game(); await mount(); await key("c"); failStep = true; await clock(1050);
     const count = actions().length; await clock(5000); expect(actions()).toHaveLength(count);
     expect(document.querySelector(".tetris-overlay")).toBeTruthy();

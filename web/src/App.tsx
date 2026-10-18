@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { petNeed } from "./needs";
 import { request } from "./api";
+import { needsReconciliation } from "./requestFailure";
 import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
@@ -152,6 +153,14 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
+  const unavailableRef = useRef(false);
+  const [uncertain, setUncertain] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const uncertainRef = useRef(false);
+  const readInFlight = useRef<number | null>(null);
+  // Invalidate reads that started before a write, even when their response is late.
+  const syncEpoch = useRef(0);
   const [message, setMessage] = useState("");
   const [careFeedback, setCareFeedback] = useState<Feedback | null>(null);
   const [homeEcho, setHomeEcho] = useState<(GameExperience & { until: number }) | null>(null);
@@ -216,14 +225,14 @@ export default function App() {
   const latestRevision = useRef(-1);
   const modalRef = useRef<HTMLElement>(null);
 
-  const apply = useCallback((r: Result) => {
-    if (r.state.revision < latestRevision.current) return;
+  const apply = useCallback((r: Result, silent = false) => {
+    if (r.state.revision < latestRevision.current) return false;
     latestRevision.current = r.state.revision;
     const nextStage = r.state.growth?.stage;
     if (nextStage) {
       const rank = ["egg", "baby", "growing", "adult"];
       if (
-        knownStage.current &&
+        !silent && knownStage.current &&
         rank.indexOf(nextStage) > rank.indexOf(knownStage.current) &&
         nextStage !== "baby"
       )
@@ -237,25 +246,83 @@ export default function App() {
     if (r.shop) setShop(r.shop);
     setSavedAt(r.state.lastTick);
     setError("");
-    if (r.message) setMessage(r.message);
+    unavailableRef.current = false;
+    setUnavailable(false);
+    if (!silent && r.message) setMessage(r.message);
+    return true;
   }, []);
+  const stopActivity = useCallback(() => {
+    setMessage("");
+    setCareFeedback(null);
+    setHomeEcho(null);
+    setEvolution(null);
+    clipRef.current = null;
+    setClip(null);
+    walkEpoch.current++;
+    fishingEpoch.current++;
+    homeEchoEpoch.current++;
+    setWalkSession("");
+    setFishingSession("");
+    setTetrisSession("");
+    setSnakeSession("");
+    snakeTurn.current = 0;
+    setQueuedTurn(0);
+    setTileLink(null);
+  }, []);
+  const markUncertain = useCallback(() => {
+    uncertainRef.current = true;
+    setUncertain(true);
+    stopActivity();
+    setError("这次操作的结果还未确认，可能已经保存。按 B 核对存档，不会自动重试。");
+  }, [stopActivity]);
   const refresh = useCallback(async () => {
-    if (busyRef.current || document.hidden) return;
+    if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
+    const epoch = syncEpoch.current;
+    const recovering = uncertainRef.current;
+    readInFlight.current = epoch;
+    if (recovering || unavailableRef.current) setChecking(true);
     try {
-      const r = await request("visit", {});
-      if (r.recapPending) returnAttempt.current = "";
-      apply(r);
+      // Recovery only reads authoritative state. Never replay the lost mutation
+      // or claim a recap as a substitute for finding out what was saved.
+      const r = recovering ? await request("state") : await request("visit", {});
+      if (epoch !== syncEpoch.current) return;
+      if (!apply(r, recovering)) {
+        if (recovering) setError("读到较旧的存档，结果仍未确认。按 B 再次核对。");
+        return;
+      }
+      if (recovering) {
+        uncertainRef.current = false;
+        setUncertain(false);
+        setChosen(r.state.species);
+        setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
+        setReset(false);
+        setTools(false);
+        setPurchaseConfirm(false);
+        returnAttempt.current = r.returnRecap?.id ?? "";
+        setMessage("已核对当前存档，请查看状态。上次操作没有自动重试。");
+      } else if (r.recapPending) returnAttempt.current = "";
       if (!initialized.current) {
         setChosen(r.state.species);
-        setPage(
-          r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose",
-        );
+        setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
         initialized.current = true;
       }
     } catch {
-      setError("还没连上小窝，请确认 Go 服务已启动。");
+      if (epoch !== syncEpoch.current) return;
+      if (!recovering) {
+        unavailableRef.current = true;
+        setUnavailable(true);
+        stopActivity();
+      }
+      setError(recovering
+        ? "还无法核对存档，结果仍未确认。按 B 重连，不会重复提交上次操作。"
+        : "还没连上小窝，请确认 Go 服务已启动。");
+    } finally {
+      if (readInFlight.current === epoch) {
+        readInFlight.current = null;
+        setChecking(false);
+      }
     }
-  }, [apply]);
+  }, [apply, stopActivity]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
@@ -319,7 +386,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [clip]);
   useEffect(() => {
-    if (!evolution || page !== "home" || busy || clip || pet?.sleeping) return;
+    if (!evolution || uncertain || unavailable || page !== "home" || busy || clip || pet?.sleeping) return;
     const next = { kind: "evolve" as const, id: ++clipSequence.current };
     clipRef.current = next;
     setClip(next);
@@ -329,9 +396,10 @@ export default function App() {
         : "进入成长期，戴上了小围巾！",
     );
     setEvolution(null);
-  }, [evolution, page, busy, clip, pet?.sleeping]);
+  }, [evolution, uncertain, unavailable, page, busy, clip, pet?.sleeping]);
   useEffect(() => {
     if (
+      uncertain || unavailable ||
       !returnRecap ||
       !returnPending ||
       page !== "home" ||
@@ -348,6 +416,7 @@ export default function App() {
     )
       return;
     returnAttempt.current = returnRecap.id;
+    syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
     void request("recap/read", { id: returnRecap.id })
@@ -363,7 +432,8 @@ export default function App() {
           setPage("return");
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (needsReconciliation(error)) { markUncertain(); return; }
         // If not accepted, a later heartbeat retries. If the response was lost
         // after acceptance, the saved recap remains available in the menu.
         setError("回访小结暂时没连上，下次连接时再看。");
@@ -373,6 +443,9 @@ export default function App() {
         setBusy(false);
       });
   }, [
+    uncertain,
+    unavailable,
+    markUncertain,
     returnRecap,
     returnPending,
     page,
@@ -449,7 +522,8 @@ export default function App() {
     }
   }
   async function act(kind: string, extra: Record<string, unknown> = {}) {
-    if (busyRef.current) return;
+    if (busyRef.current || uncertainRef.current || unavailableRef.current) return false;
+    syncEpoch.current++;
     setCareFeedback(null);
     setHomeEcho(null);
     busyRef.current = true;
@@ -471,7 +545,10 @@ export default function App() {
         ...extra,
         requestId: crypto.randomUUID(),
       });
-      apply(r);
+      if (!apply(r)) {
+        markUncertain();
+        return false;
+      }
       const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
       if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
         setHomeEcho({ ...experience, until: Date.now() + 12000 });
@@ -530,7 +607,8 @@ export default function App() {
       }
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "操作没有保存，请重试");
+      if (needsReconciliation(e)) markUncertain();
+      else setError(e instanceof Error ? e.message : "操作被拒绝，请查看提示。");
       return false;
     } finally {
       busyRef.current = false;
@@ -622,7 +700,12 @@ export default function App() {
 
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
-    if (tools || help || reset || busyRef.current) return;
+    if (busyRef.current) return;
+    if (uncertainRef.current || unavailableRef.current) {
+      if (key === "B") void refresh();
+      return;
+    }
+    if (tools || help || reset) return;
     if (clipRef.current) {
       if (key === "C") {
         beep();
@@ -891,12 +974,14 @@ export default function App() {
     return () => window.removeEventListener("keydown", down);
   }, []);
   async function importFile(file?: File) {
+    if (busyRef.current || uncertainRef.current || unavailableRef.current) return;
     setTools(false);
     if (!file) return;
     if (file.size > 64 * 1024) {
       setError("备份文件过大，请选择 PixelPet 导出的 JSON 文件。");
       return;
     }
+    syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -913,7 +998,8 @@ export default function App() {
       setPage(r.state.hatchedAt ? "home" : "choose");
       setChosen(r.state.species);
     } catch (e) {
-      setError(
+      if (!(e instanceof SyntaxError) && needsReconciliation(e)) markUncertain();
+      else setError(
         e instanceof SyntaxError
           ? "文件不是有效的 JSON 备份。"
           : e instanceof Error
@@ -927,7 +1013,8 @@ export default function App() {
     }
   }
   async function restart() {
-    if (busyRef.current) return;
+    if (busyRef.current || uncertainRef.current || unavailableRef.current) return;
+    syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -945,7 +1032,8 @@ export default function App() {
       setPage("choose");
       setReset(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "重新开始失败");
+      if (needsReconciliation(e)) { setReset(false); markUncertain(); }
+      else setError(e instanceof Error ? e.message : "重新开始失败");
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -1076,14 +1164,14 @@ export default function App() {
                   导出存档
                 </a>
                 <button
-                  disabled={busy}
+                  disabled={busy || uncertain || unavailable}
                   onClick={() => fileRef.current?.click()}
                 >
                   <ArrowUpFromLine size={16} />
                   导入备份
                 </button>
                 <button
-                  disabled={busy}
+                  disabled={busy || uncertain || unavailable}
                   className="reset-link"
                   onClick={() => {
                     setTools(false);
@@ -1142,7 +1230,10 @@ export default function App() {
             </div>
             <div className="local-status">
               <span className={error ? "status-dot warning" : "status-dot"} />
-              {!pet
+              {uncertain
+                ? checking ? "正在核对存档…" : "保存结果待核对"
+                : unavailable ? "小窝暂未连接"
+                : !pet
                 ? "小窝连接中"
                 : busy
                   ? "正在保存…"
@@ -1150,7 +1241,7 @@ export default function App() {
                     ? "有一条小提醒"
                     : "成长已好好保存"}
               <small>
-                {savedAt ? `${timeLabel(savedAt)} · 本机存档` : "GO + SQLITE"}
+                {savedAt ? `${timeLabel(savedAt)} · ${uncertain || unavailable ? "上次读取" : "本机存档"}` : "GO + SQLITE"}
               </small>
             </div>
           </div>
@@ -1212,7 +1303,15 @@ export default function App() {
                     </span>
                   </div>
                   <div className={`lcd-content content-${page}`}>
-                    {!pet ? (
+                    {uncertain || unavailable ? (
+                      <div className="save-recovery" role="status" aria-live="polite">
+                        <Cloud size={28} />
+                        <h2>{checking ? "正在核对存档" : uncertain ? "先核对，再继续" : "小窝暂时未连接"}</h2>
+                        <p>{uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
+                        <p>{checking ? "只读取当前存档，不重做操作。" : "按 B 重连并查看当前存档。"}</p>
+                        <small>游戏不会自动继续 · 不重播成功动作</small>
+                      </div>
+                    ) : !pet ? (
                       <div className="screen-wait">
                         <PixelEgg />
                         <p>
@@ -1488,7 +1587,7 @@ export default function App() {
                 {["A", "B", "C"].map((key, i) => (
                   <div className="button-unit" key={key}>
                     <button
-                      disabled={busy || (clip !== null && key !== "C")}
+                      disabled={busy || checking || ((uncertain || unavailable) && key !== "B") || (clip !== null && key !== "C")}
                       className={`physical-button button-${key.toLowerCase()} ${pressed === key ? "is-pressed" : ""}`}
                       aria-label={`${key} ${["选择", "确认", "返回"][i]}`}
                       onClick={() => controls.current(key)}
@@ -1689,7 +1788,7 @@ export default function App() {
                   先导出当前存档
                 </a>
                 <button
-                  disabled={busy}
+                  disabled={busy || uncertain || unavailable}
                   className="confirm-reset"
                   onClick={() => void restart()}
                 >

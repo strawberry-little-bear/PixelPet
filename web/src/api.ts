@@ -1,27 +1,44 @@
 import type { Result } from "./types";
+import { RequestFailure } from "./requestFailure";
 
 export async function request(path: string, body?: unknown): Promise<Result> {
-  const response = await fetch(`/api/${path}`, {
-    cache: "no-store",
-    ...(body === undefined
-      ? {}
-      : {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }),
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    try {
-      const data = JSON.parse(text);
-      throw new Error(data.error || "保存失败，请重试");
-    } catch (error) {
-      if (error instanceof SyntaxError)
-        throw new Error(text.trim() || "服务暂时无法连接");
-      throw error;
-    }
+  const writing = body !== undefined;
+  let encoded: string | undefined;
+  try {
+    if (writing) encoded = JSON.stringify(body);
+  } catch {
+    throw new RequestFailure("操作内容无效，还没有发送到小窝。", "rejected");
   }
-  return response.json();
+  try {
+    const response = await fetch(`/api/${path}`, {
+      cache: "no-store",
+      ...(writing
+        ? { method: "POST", headers: { "Content-Type": "application/json" }, body: encoded }
+        : {}),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      let message = text.trim() || "服务暂时无法连接";
+      try {
+        const data = JSON.parse(text);
+        if (typeof data?.error === "string" && data.error.trim()) message = data.error;
+      } catch { /* Non-JSON error responses are still not successful saves. */ }
+      const rejected = response.status >= 400 && response.status < 500 && response.status !== 408;
+      throw new RequestFailure(message, writing ? (rejected ? "rejected" : "unknown") : "unavailable");
+    }
+    const result = await response.json();
+    // Do not announce a saved game after an HTML/proxy/invalid JSON response.
+    if (!result?.state || !Number.isSafeInteger(result.state.revision) || result.state.revision < 0 ||
+        !Number.isFinite(result.state.lastTick) || !Number.isFinite(result.serverTime)) {
+      throw new Error("Invalid save response");
+    }
+    return result;
+  } catch (error) {
+    if (error instanceof RequestFailure) throw error;
+    throw new RequestFailure(
+      writing ? "这次操作的结果还未确认，可能已经保存。" : "暂时无法读取小窝存档。",
+      writing ? "unknown" : "unavailable",
+    );
+  }
 }

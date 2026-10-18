@@ -1,3 +1,4 @@
+import { RequestFailure } from "./requestFailure";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -21,7 +22,7 @@ beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-19T10:00:00Z")); localStorage.clear(); api.mockReset(); failure = ""; saved = fixture();
   api.mockImplementation(async (path, body) => {
     if (path === "action") {
-      const a = body as { kind: string; step: number; }; if (a.kind === failure) throw new Error("本次钓鱼没有保存");
+      const a = body as { kind: string; step: number; }; if (a.kind === failure) throw new RequestFailure("本次钓鱼没有保存", "rejected");
       const n = saved.game?.fishing;
       if (n) {
         if (a.kind === "fish-spot") n.spot = (n.spot + 1) % 3;
