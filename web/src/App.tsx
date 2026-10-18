@@ -206,6 +206,9 @@ export default function App() {
   const [walkChoice,setWalkChoice] = useState(0);
   const [parkPage,setParkPage] = useState(0);
   const walkEpoch = useRef(0);
+  // A late accepted response may update the board, but cannot restore local
+  // permission to run after backgrounding or opening a non-game panel.
+  const boardEpoch = useRef(0);
   const [tetrisSession, setTetrisSession] = useState("");
   const [tetrisChoice, setTetrisChoice] = useState(0);
   const [snakeSession, setSnakeSession] = useState("");
@@ -286,6 +289,7 @@ export default function App() {
     setClip(null);
     walkEpoch.current++;
     fishingEpoch.current++;
+    boardEpoch.current++;
     homeEchoEpoch.current++;
     setWalkSession("");
     setFishingSession("");
@@ -630,6 +634,7 @@ export default function App() {
     setBusy(true);
     const activeEpoch = fishingEpoch.current;
     const activeWalkEpoch = walkEpoch.current;
+    const activeBoardEpoch = boardEpoch.current;
     const echoEpoch = homeEchoEpoch.current;
     try {
       const r = await request("action", {
@@ -656,9 +661,9 @@ export default function App() {
       if (["walk-pause","walk-finish","cancel-play"].includes(kind)) {setWalkSession("");setWalkChoice(0);}
       if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden) setFishingSession(r.state.game?.id ?? "");
       if (["fish-pause", "fish-finish", "cancel-play"].includes(kind)) { setFishingSession(""); setFishingChoice(0); }
-      if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind)) setTetrisSession(r.state.game?.id ?? "");
+      if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind) && activeBoardEpoch === boardEpoch.current && !document.hidden) setTetrisSession(r.state.game?.id ?? "");
       if (["tetris-pause", "tetris-finish", "cancel-play"].includes(kind)) { setTetrisSession(""); setTetrisChoice(0); }
-      if (kind === "snake-resume") setSnakeSession(r.state.game?.id ?? "");
+      if (kind === "snake-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden) setSnakeSession(r.state.game?.id ?? "");
       if (
         kind === "snake-pause" ||
         kind === "snake-finish" ||
@@ -719,6 +724,7 @@ export default function App() {
   }
   useEffect(() => {
     if (tools || help || reset) {
+      boardEpoch.current++;
       walkEpoch.current++;setWalkSession("");
       fishingEpoch.current++;
       setFishingSession("");
@@ -750,7 +756,7 @@ export default function App() {
     const n = pet?.game?.tetris;
     if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || document.hidden || tools || help || reset || abandoning) return;
     const timer = setTimeout(() => {
-      if (document.hidden) { setTetrisSession(""); return; }
+      if (document.hidden) { boardEpoch.current++; setTetrisSession(""); return; }
       void act("tetris-step", { step: n.step }).then(ok => {
         if (!ok) { setTetrisSession(""); void refresh(); }
       });
@@ -768,8 +774,7 @@ export default function App() {
     // Never synthesize missed beats after backgrounding or a slow request.
     const timer = setTimeout(() => {
       if (document.hidden) {
-        fishingEpoch.current++;
-        setFishingSession("");
+        boardEpoch.current++;
         setSnakeSession("");
         return;
       }
@@ -788,6 +793,7 @@ export default function App() {
   useEffect(() => {
     const stop = () => {
       if (document.hidden) {
+        boardEpoch.current++;
         walkEpoch.current++;setWalkSession("");
         fishingEpoch.current++;setFishingSession("");
         setSnakeSession("");
@@ -912,7 +918,10 @@ export default function App() {
           // before a menu operation; the server never runs offline gravity.
           if (kind === "cancel-play") { setTetrisSession(""); setAbandonGame(sessionKey); }
           else if (!n.paused && (kind === "tetris-rotate" || kind === "tetris-drop")) {
-            void act("tetris-pause", { step: n.step }).then(ok => { if (ok) void act(kind, { step: n.step + 1 }); });
+            const epoch = boardEpoch.current;
+            void act("tetris-pause", { step: n.step }).then(ok => {
+              if (ok && epoch === boardEpoch.current && !document.hidden) void act(kind, { step: n.step + 1 });
+            });
           } else void act(kind, { step: n.step });
         }
       } else if (key === "C") {
