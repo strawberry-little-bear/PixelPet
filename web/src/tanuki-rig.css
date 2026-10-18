@@ -1,0 +1,531 @@
+/* Same canvas and scene size for all stages: anatomy, not scaling, grows. */
+.growth-baby .growth-size.has-tanuki-rig,
+.growth-growing .growth-size.has-tanuki-rig,
+.growth-adult .growth-size.has-tanuki-rig {
+  width: 104px;
+  height: 110px;
+  margin-left: -52px;
+}
+.has-tanuki-rig .growth-outfit {
+  bottom: 15px;
+  width: 28px;
+  height: 19px;
+  margin-left: -14px;
+}
+.growth-baby .has-tanuki-rig .growth-outfit {
+  bottom: 4px;
+  width: 22px;
+  height: 15px;
+  margin-left: -11px;
+}
+.pet-scene[data-rig="tanuki"].motion-idle .pet-actor {
+  animation: none;
+}
+.tanuki-rig {
+  overflow: visible;
+}
+.tanuki-head {
+  transform-box: view-box;
+  transform-origin: 32px 44px;
+}
+.tanuki-ear {
+  transform-box: view-box;
+  transform-origin: 23px 29px;
+}
+.tanuki-ear.ear-right {
+  transform-origin: 42px 29px;
+}
+.tanuki-tail {
+  transform-box: view-box;
+  transform-origin: 45px 58px;
+}
+.tanuki-torso {
+  transform-box: view-box;
+  transform-origin: 32px 61px;
+}
+.tanuki-foot {
+  transform-box: view-box;
+  transform-origin: 25px 60px;
+}
+.tanuki-foot.foot-right {
+  transform-origin: 39px 60px;
+}
+.tanuki-mouth-chew {
+  opacity: 0;
+}
+.tanuki-rig.expression-chewing .tanuki-mouth {
+  animation: tanuki-mouth-close 0.6s steps(1, end) infinite;
+}
+.tanuki-rig.expression-chewing .tanuki-mouth-chew {
+  animation: tanuki-mouth-open 0.6s steps(1, end) infinite;
+}
+.tanuki-rig.expression-tired .tanuki-mouth {
+  opacity: 0;
+}
+.tanuki-rig.expression-tired .tanuki-mouth-chew {
+  opacity: 1;
+}
+/* No stage habit may override a bodily need or a care action. */
+.tanuki-rig.rig-motion-idle:not(
+    :is(.gesture-hungry, .gesture-tired, .gesture-dirty, .gesture-quiet)
+  )
+  .tanuki-tail {
+  animation: tanuki-tail-flick 6s steps(4, end) infinite;
+}
+.tanuki-baby.rig-motion-idle:is(
+    .expression-awake,
+    .expression-still,
+    .gesture-content
+  )
+  .paw-left {
+  animation: tanuki-cub-hug 6.4s steps(3, end) infinite;
+}
+.tanuki-baby.rig-motion-idle:is(
+    .expression-awake,
+    .expression-still,
+    .gesture-content
+  )
+  .paw-right {
+  animation: tanuki-cub-hold 6.4s steps(3, end) infinite;
+}
+.tanuki-baby.rig-motion-idle:not(
+    :is(.gesture-hungry, .gesture-tired, .gesture-dirty, .gesture-quiet)
+  )
+  .ear-right {
+  animation: tanuki-listen 6.4s steps(3, end) infinite;
+}
+.tanuki-growing.rig-motion-idle:not(
+    :is(.gesture-hungry, .gesture-tired, .gesture-dirty, .gesture-quiet)
+  )
+  .tanuki-head {
+  animation: tanuki-scout-sniff 5.8s steps(3, end) infinite;
+}
+.tanuki-growing.rig-motion-idle:not(
+    :is(.gesture-hungry, .gesture-tired, .gesture-dirty, .gesture-quiet)
+  )
+  .foot-right {
+  animation: tanuki-scout-step 5.8s steps(3, end) infinite;
+}
+.tanuki-adult.rig-motion-idle:not(
+    :is(.gesture-hungry, .gesture-tired, .gesture-dirty, .gesture-quiet)
+  )
+  .tanuki-head {
+  animation: tanuki-star-watch 8s steps(3, end) infinite;
+}
+.tanuki-adult.rig-motion-idle:is(.expression-awake, .expression-still)
+  .paw-right {
+  animation: tanuki-star-point 8s steps(3, end) infinite;
+}
+.tanuki-rig.gesture-tired .tanuki-ear {
+  transform: rotate(-16deg);
+}
+.tanuki-rig.gesture-tired .ear-right {
+  transform: rotate(16deg);
+}
+.tanuki-rig:is(.gesture-tired, .gesture-quiet) .tanuki-tail {
+  transform: rotate(12deg);
+}
+/* Species-specific care uses the real paws, head and tail. */
+.tanuki-rig.rig-motion-eating .paw-left {
+  animation: tanuki-snack 0.65s steps(3, end) infinite;
+}
+.tanuki-rig.rig-motion-eating .paw-right {
+  transform: translate(-5px, -3px);
+}
+.tanuki-rig.rig-motion-eating .tanuki-head {
+  animation: tanuki-nibble 1.2s steps(3, end) infinite;
+}
+.tanuki-rig.rig-motion-bathing .tanuki-paw {
+  animation: tanuki-scrub 0.8s steps(3, end) infinite;
+}
+.tanuki-rig.rig-motion-bathing .paw-right {
+  animation-delay: -0.4s;
+}
+.tanuki-rig.rig-motion-bathing .tanuki-tail {
+  animation: tanuki-shake-tail 1s steps(3, end) infinite;
+}
+.tanuki-rig.rig-motion-bathing .tanuki-ear {
+  transform: rotate(-12deg);
+}
+.tanuki-rig.rig-motion-sleeping .tanuki-tail {
+  transform: rotate(18deg) translate(-2px, 1px);
+}
+.tanuki-rig.rig-motion-sleeping .tanuki-torso {
+  animation: tanuki-breath 4.5s steps(3, end) infinite;
+}
+.tanuki-rig.rig-motion-sleeping .paw-left {
+  transform: translate(5px, 3px);
+}
+.tanuki-rig.rig-motion-sleeping .paw-right {
+  transform: translate(-5px, 3px);
+}
+.tanuki-rig.rig-motion-sleeping .tanuki-ear {
+  transform: rotate(-12deg);
+}
+.tanuki-rig.rig-motion-sleeping .ear-right {
+  transform: rotate(12deg);
+}
+.tanuki-rig.rig-motion-waking .tanuki-paw {
+  animation: tanuki-stretch 1.4s steps(3, end) both;
+}
+.tanuki-rig.rig-motion-waking .tanuki-head {
+  animation: tanuki-wake-sniff 1.4s steps(3, end) both;
+}
+.tanuki-rig.rig-motion-waking .tanuki-tail {
+  animation: tanuki-wake-tail 1.4s steps(3, end) both;
+}
+.tanuki-rig.rig-motion-celebrating .tanuki-paw {
+  animation: tanuki-cheer 0.7s steps(3, end) infinite;
+}
+.tanuki-rig.rig-motion-celebrating .paw-right {
+  animation-delay: -0.35s;
+}
+.tanuki-rig.rig-motion-celebrating .tanuki-tail {
+  animation: tanuki-shake-tail 0.7s steps(3, end) infinite;
+}
+/* Fixed adult forms express different habits, never a new growth choice. */
+.form-lively
+  .tanuki-adult.rig-motion-idle:is(
+    .gesture-content,
+    .gesture-playful,
+    .expression-awake,
+    .expression-still
+  )
+  .tanuki-foot {
+  animation: tanuki-tap 4.8s steps(3, end) infinite;
+}
+.form-lively .tanuki-adult.rig-motion-idle .foot-right {
+  animation-delay: -0.3s;
+}
+.form-gentle
+  .tanuki-adult.rig-motion-idle:is(
+    .gesture-content,
+    .gesture-playful,
+    .expression-awake,
+    .expression-still
+  )
+  .tanuki-head {
+  animation: tanuki-gentle-nod 8s steps(3, end) infinite;
+}
+.form-easygoing
+  .tanuki-adult.rig-motion-idle:not(
+    :is(.gesture-hungry, .gesture-tired, .gesture-dirty, .gesture-quiet)
+  )
+  .tanuki-tail {
+  animation: tanuki-lazy-tail 9s steps(3, end) infinite;
+}
+.form-easygoing
+  .tanuki-adult.rig-motion-idle:is(.expression-awake, .expression-still)
+  .paw-right {
+  animation: tanuki-tail-pat 9s steps(3, end) infinite;
+}
+@keyframes tanuki-tail-flick {
+  0%,
+  20%,
+  70%,
+  100% {
+    transform: none;
+  }
+  35%,
+  55% {
+    transform: rotate(-8deg);
+  }
+  45%,
+  65% {
+    transform: rotate(5deg);
+  }
+}
+@keyframes tanuki-cub-hug {
+  0%,
+  20%,
+  75%,
+  100% {
+    transform: none;
+  }
+  35%,
+  60% {
+    transform: translate(6px, 1px) rotate(-18deg);
+  }
+  45% {
+    transform: translate(7px, -1px) rotate(-12deg);
+  }
+}
+@keyframes tanuki-cub-hold {
+  0%,
+  20%,
+  75%,
+  100% {
+    transform: none;
+  }
+  35%,
+  60% {
+    transform: translate(3px, 2px) rotate(10deg);
+  }
+  45% {
+    transform: translate(4px, 1px) rotate(5deg);
+  }
+}
+@keyframes tanuki-listen {
+  0%,
+  20%,
+  75%,
+  100% {
+    transform: none;
+  }
+  35%,
+  55% {
+    transform: rotate(13deg);
+  }
+  45%,
+  65% {
+    transform: rotate(-5deg);
+  }
+}
+@keyframes tanuki-scout-sniff {
+  0%,
+  20%,
+  75%,
+  100% {
+    transform: none;
+  }
+  35%,
+  55% {
+    transform: translate(-2px, 1px) rotate(-4deg);
+  }
+  45%,
+  65% {
+    transform: translate(-3px, 0);
+  }
+}
+@keyframes tanuki-scout-step {
+  0%,
+  20%,
+  75%,
+  100% {
+    transform: none;
+  }
+  35%,
+  55% {
+    transform: translate(2px, -3px) rotate(9deg);
+  }
+  45%,
+  65% {
+    transform: translate(3px, -1px);
+  }
+}
+@keyframes tanuki-star-watch {
+  0%,
+  20%,
+  75%,
+  100% {
+    transform: none;
+  }
+  35%,
+  55% {
+    transform: translateY(-2px) rotate(5deg);
+  }
+  45%,
+  65% {
+    transform: translateY(-1px) rotate(2deg);
+  }
+}
+@keyframes tanuki-star-point {
+  0%,
+  20%,
+  75%,
+  100% {
+    transform: none;
+  }
+  35%,
+  55% {
+    transform: translate(-1px, -11px) rotate(-20deg);
+  }
+  45%,
+  65% {
+    transform: translate(-2px, -12px) rotate(-28deg);
+  }
+}
+@keyframes tanuki-mouth-open {
+  0%,
+  60%,
+  100% {
+    opacity: 0;
+  }
+  30%,
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes tanuki-mouth-close {
+  0%,
+  60%,
+  100% {
+    opacity: 1;
+  }
+  30%,
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes tanuki-snack {
+  0%,
+  100% {
+    transform: translate(6px, -4px);
+  }
+  50% {
+    transform: translate(9px, -8px) rotate(-12deg);
+  }
+}
+@keyframes tanuki-nibble {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(1px) rotate(2deg);
+  }
+}
+@keyframes tanuki-scrub {
+  0%,
+  100% {
+    transform: translateY(-6px) rotate(-14deg);
+  }
+  50% {
+    transform: translateY(-11px) rotate(16deg);
+  }
+}
+@keyframes tanuki-shake-tail {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+@keyframes tanuki-breath {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: scaleY(1.025);
+  }
+}
+@keyframes tanuki-stretch {
+  0%,
+  100% {
+    transform: none;
+  }
+  35%,
+  70% {
+    transform: translateY(-11px) rotate(20deg);
+  }
+}
+@keyframes tanuki-wake-sniff {
+  0%,
+  100% {
+    transform: none;
+  }
+  35%,
+  70% {
+    transform: translateY(-2px) rotate(-4deg);
+  }
+}
+@keyframes tanuki-wake-tail {
+  0% {
+    transform: rotate(18deg);
+  }
+  40%,
+  70% {
+    transform: rotate(-10deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes tanuki-cheer {
+  0%,
+  100% {
+    transform: translateY(-3px) rotate(-14deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(20deg);
+  }
+}
+@keyframes tanuki-tap {
+  0%,
+  15%,
+  75%,
+  100% {
+    transform: none;
+  }
+  25%,
+  45%,
+  65% {
+    transform: translateY(-3px);
+  }
+  35%,
+  55% {
+    transform: translateY(1px);
+  }
+}
+@keyframes tanuki-gentle-nod {
+  0%,
+  20%,
+  75%,
+  100% {
+    transform: none;
+  }
+  35%,
+  60% {
+    transform: translateY(2px) rotate(-3deg);
+  }
+  45% {
+    transform: translateY(1px);
+  }
+}
+@keyframes tanuki-lazy-tail {
+  0%,
+  20%,
+  80%,
+  100% {
+    transform: rotate(3deg);
+  }
+  40%,
+  60% {
+    transform: rotate(11deg);
+  }
+}
+@keyframes tanuki-tail-pat {
+  0%,
+  20%,
+  80%,
+  100% {
+    transform: none;
+  }
+  40%,
+  60% {
+    transform: translate(3px, 3px) rotate(12deg);
+  }
+  50% {
+    transform: translate(4px, 1px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tanuki-rig * {
+    animation: none !important;
+  }
+  .tanuki-rig.rig-motion-eating .paw-left {
+    transform: translate(7px, -6px);
+  }
+  .tanuki-rig.rig-motion-bathing .paw-right {
+    transform: translateY(-10px);
+  }
+  .tanuki-rig.rig-motion-waking .tanuki-paw {
+    transform: translateY(-10px);
+  }
+  .tanuki-rig.rig-motion-celebrating .paw-left {
+    transform: translateY(-7px) rotate(-20deg);
+  }
+}
