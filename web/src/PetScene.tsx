@@ -212,11 +212,15 @@ export function PetScene({
             </div>
           </>
         )}
-        <div className="pet-actor">
-          <div className={`growth-size ${petRigClass(index, stage)}`}>
-            <PetArt index={index} stage={stage} expression={expression} motion={motion} need={activeNeed} accessory={equipped?.accessory} />
-            {!equipped?.accessory && <GrowthOutfit stage={stage} form={form} />}
-            {activeNeed && <NeedGesture kind={activeNeed} index={index} paws={rig === "original"} />}
+        {/* Keep occlusion in room coordinates: the actor and its limbs move
+            inside this fixed viewport, never underneath the bed or tub. */}
+        <div className="pet-actor-window">
+          <div className="pet-actor">
+            <div className={`growth-size ${petRigClass(index, stage)}`}>
+              <PetArt index={index} stage={stage} expression={expression} motion={motion} need={activeNeed} accessory={equipped?.accessory} />
+              {!equipped?.accessory && <GrowthOutfit stage={stage} form={form} />}
+              {activeNeed && <NeedGesture kind={activeNeed} index={index} paws={rig === "original"} />}
+            </div>
           </div>
         </div>
         {stage === "adult" && <FormEmblem form={form} />}

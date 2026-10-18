@@ -40,6 +40,20 @@
   inset: 0;
   pointer-events: none;
 }
+/* Fixed world-space occlusion, outside the breathing/washing transforms.
+   The cutoff overlaps opaque fabric/rim, not the visible head or arms. */
+.pet-actor-window {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.motion-sleeping .pet-actor-window {
+  clip-path: inset(-32px -32px 34px -32px);
+}
+.motion-bathing .pet-actor-window {
+  clip-path: inset(-32px -32px 43px -32px);
+}
 .pet-scene .pet-actor {
   position: absolute;
   width: 99px;
@@ -159,9 +173,8 @@
 .motion-bathing .pet-actor {
   animation: bath-wiggle var(--clip-duration) steps(2, end) both;
 }
-.bath-props {
-  animation: bath-appear var(--clip-duration) steps(2, end) both;
-}
+/* The tub stays opaque for the whole care clip, including its first and
+   last frame. Foam, water and the final sparkles animate independently. */
 .bath-tub {
   position: absolute;
   width: 116px;
@@ -668,19 +681,6 @@
   97% {
     opacity: 0;
     transform: translateY(-13px);
-  }
-}
-@keyframes bath-appear {
-  0% {
-    opacity: 0;
-  }
-  7%,
-  85% {
-    opacity: 1;
-  }
-  96%,
-  100% {
-    opacity: 0;
   }
 }
 @keyframes bath-wiggle {

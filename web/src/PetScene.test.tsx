@@ -78,3 +78,33 @@ describe("independently drawn strawberry rabbit growth sample", () => {
     }
   });
 });
+
+describe("bed and tub occlusion", () => {
+  it.each(["sleeping", "bathing"] as const)("keeps the %s foreground outside every animated species and stage", motion => {
+    for (let index = 0; index < 10; index++) for (const stage of ["baby", "growing", "adult"] as const) {
+      const { container, unmount } = render(<PetScene index={index} stage={stage} motion={motion} duration={4000} clipId={1} dirty={false} equipped={{ accessory: "berry-scarf", room: "moon-lamp" }} />);
+      const viewport = container.querySelector(".pet-actor-window")!;
+      const actor = viewport.querySelector(".pet-actor")!;
+      const foreground = container.querySelector(motion === "sleeping" ? ".sleep-blanket" : ".bath-props")!;
+      expect(viewport.parentElement?.className).toBe("motion-stage");
+      expect(actor.querySelector(".pet-sprite")).not.toBeNull();
+      expect(actor.querySelector(".equipped-accessory")).not.toBeNull();
+      expect(actor.querySelector(".expression-" + (motion === "sleeping" ? "asleep" : "content"))).not.toBeNull();
+      expect(viewport.contains(foreground)).toBe(false);
+      expect(viewport.compareDocumentPosition(foreground) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(container.querySelectorAll(".physical-button, button")).toHaveLength(0);
+      unmount();
+    }
+  });
+
+  it("keeps other care motions in an unclipped window and removes old props on transitions", () => {
+    const { container, rerender } = render(<PetScene index={3} stage="adult" motion="sleeping" clipId={0} dirty={false} />);
+    for (const motion of ["waking", "idle", "eating", "bathing", "celebrating"] as const) {
+      rerender(<PetScene index={3} stage="adult" motion={motion} clipId={1} dirty={false} />);
+      expect(container.querySelectorAll(".pet-actor-window")).toHaveLength(1);
+      expect(container.querySelectorAll(".pet-sprite")).toHaveLength(1);
+      expect(container.querySelector(".sleep-blanket")).toBeNull();
+      if (motion !== "bathing") expect(container.querySelector(".bath-props")).toBeNull();
+    }
+  });
+});
