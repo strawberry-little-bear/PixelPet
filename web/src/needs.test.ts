@@ -38,6 +38,20 @@ describe("deterministic proactive needs", () => {
     expect(petNeed({...pet(),species:3,sleeping:true})).toBeNull();
     expect(petNeed({...pet(),species:3,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
   });
+  it("describes mushroom gestures without changing priorities, save data or suppression", () => {
+    for (const needs of [{hunger:10},{energy:20},{clean:15},{mood:40},{mood:60,energy:44},{}]) {
+      const original=pet(needs), mushroom={...original,species:4}, before=structuredClone(mushroom);
+      const a=petNeed(original)!, b=petNeed(mushroom)!;
+      expect(b.kind).toBe(a.kind);
+      expect(b.urgent).toBe(a.urgent);
+      expect(b.text).toMatch(/菌盖|小手/);
+      expect(b.text).not.toMatch(/鳍|耳|尾/);
+      expect(b).toEqual(petNeed(mushroom));
+      expect(mushroom).toEqual(before);
+    }
+    expect(petNeed({...pet(),species:4,sleeping:true})).toBeNull();
+    expect(petNeed({...pet(),species:4,game:{startedAt:2,round:0,score:0,lastBeat:-1}})).toBeNull();
+  });
   it("stops hunger as soon as a saved meal has filled the pet", () => {
     const p=pet({hunger:50}); expect(petNeed(p)?.kind).toBe("hungry");
     p.needs.hunger=70; expect(petNeed(p)?.kind).toBe("content");

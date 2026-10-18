@@ -1,0 +1,95 @@
+/* The cap opens while the stalk learns to stand; all stages share one canvas. */
+.growth-baby .growth-size.has-mushroom-rig,
+.growth-growing .growth-size.has-mushroom-rig,
+.growth-adult .growth-size.has-mushroom-rig { width: 104px; height: 110px; margin-left: -52px; }
+.has-mushroom-rig .growth-outfit { bottom: 8px; width: 27px; height: 18px; margin-left: -13.5px; }
+.growth-baby .has-mushroom-rig .growth-outfit { bottom: 6px; width: 22px; height: 15px; margin-left: -11px; }
+.growth-growing .has-mushroom-rig .growth-outfit { bottom: 7px; width: 25px; height: 17px; margin-left: -12.5px; }
+.pet-scene[data-rig="mushroom"].motion-idle .pet-actor { animation: none; }
+.mushroom-rig { overflow: visible; --mushroom-cap-reach: -14px; }
+.mushroom-baby { --mushroom-cap-reach: -7px; }
+.mushroom-growing { --mushroom-cap-reach: -11px; }
+.mushroom-cap, .mushroom-stalk, .mushroom-arm, .mushroom-foot { transform-box: view-box; }
+.mushroom-stalk { transform-origin: 32px 60px; }
+.mushroom-foot { transform-origin: 26px 61px; }
+.mushroom-foot.foot-right { transform-origin: 40px 61px; }
+.mushroom-mouth-open { opacity: 0; }
+.mushroom-rig.expression-hungry .mushroom-mouth-open { opacity: 1; }
+.mushroom-rig.expression-chewing .mushroom-mouth-open { animation: mushroom-nibble .65s steps(1,end) infinite; }
+/* Cap habits are conditional: urgent signals and quiet companionship win. */
+.mushroom-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .mushroom-cap { animation: mushroom-peek 7s steps(3,end) infinite; }
+.mushroom-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .foot-left { animation: mushroom-toe-curl 7s steps(3,end) infinite; }
+.mushroom-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .mushroom-cap { animation: mushroom-curious-tilt 6s steps(3,end) infinite; }
+.mushroom-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .foot-left { animation: mushroom-test-step 6s steps(3,end) infinite; }
+.mushroom-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .mushroom-cap { animation: mushroom-umbrella-rock 8s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-idle.gesture-hungry .arm-left { animation: mushroom-belly-touch 5s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-idle.gesture-tired .mushroom-cap { transform: translateY(3px) rotate(3deg); }
+.mushroom-rig.rig-motion-idle.gesture-tired .arm-right { animation: mushroom-sleepy-arm 6s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-idle.gesture-dirty .arm-right { animation: mushroom-brush-cap 4.8s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-idle.gesture-playful .arm-right { animation: mushroom-invite 5.4s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-idle.gesture-content .arm-left { animation: mushroom-greeting 7s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-idle.gesture-quiet .mushroom-cap { transform: rotate(3deg); }
+.mushroom-rig.rig-motion-idle.gesture-quiet .arm-left { transform: translate(2px,1px) rotate(-8deg); }
+.mushroom-rig.rig-motion-idle.gesture-quiet .arm-right { transform: translate(-2px,1px) rotate(8deg); }
+.mushroom-rig.rig-motion-eating .mushroom-stalk { animation: mushroom-snack-nod 1s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-eating .mushroom-cap { animation: mushroom-snack-cap 1s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-eating .arm-left { animation: mushroom-hold-snack .65s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-eating .arm-right { transform: translate(-3px,-1px) rotate(12deg); }
+.mushroom-rig.rig-motion-bathing .arm-left { animation: mushroom-wash-stalk .8s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-bathing .arm-right { animation: mushroom-wash-cap .8s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-bathing .mushroom-cap { animation: mushroom-shake-drops 1s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-sleeping .mushroom-cap { transform: translateY(3px) rotate(3deg); }
+.mushroom-rig.rig-motion-sleeping .mushroom-arm { transform: translateY(3px); }
+.mushroom-rig.rig-motion-sleeping .mushroom-stalk { animation: mushroom-breathe 3.6s ease-in-out infinite; }
+.mushroom-rig.rig-motion-waking .arm-left { animation: mushroom-stretch-left var(--clip-duration,1400ms) steps(4,end) both; }
+.mushroom-rig.rig-motion-waking .arm-right { animation: mushroom-stretch-right var(--clip-duration,1400ms) steps(4,end) both; }
+.mushroom-rig.rig-motion-waking .mushroom-cap { animation: mushroom-lift-cap var(--clip-duration,1400ms) steps(4,end) both; }
+.mushroom-rig.rig-motion-celebrating .mushroom-arm { animation: mushroom-cheer .65s steps(3,end) infinite; }
+.mushroom-rig.rig-motion-celebrating .arm-right { animation-delay: -.3s; }
+.mushroom-rig.rig-motion-celebrating .mushroom-cap { animation: mushroom-cheer-cap .65s steps(3,end) infinite; }
+.form-lively .mushroom-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .mushroom-foot { animation: mushroom-toe-dance 5s steps(3,end) infinite; }
+.form-lively .mushroom-adult.rig-motion-idle .foot-right { animation-delay: -.4s; }
+.form-gentle .mushroom-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .mushroom-cap { animation: mushroom-soft-nod 9s steps(3,end) infinite; }
+.form-easygoing .mushroom-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .mushroom-cap { animation: mushroom-rest-cap 10s steps(3,end) infinite; }
+@keyframes mushroom-peek { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(-2px)} 45%{transform:translateY(-3px) rotate(-3deg)} }
+@keyframes mushroom-toe-curl { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(-1px) rotate(-8deg)} 45%{transform:translateY(-2px)} }
+@keyframes mushroom-curious-tilt { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-6deg)} 45%{transform:translateY(-1px) rotate(4deg)} }
+@keyframes mushroom-test-step { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,-3px)} 45%{transform:translate(1px,-4px)} }
+@keyframes mushroom-umbrella-rock { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-4deg)} 45%{transform:rotate(4deg)} }
+@keyframes mushroom-belly-touch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(6px,1px) rotate(-20deg)} 45%{transform:translate(7px,-1px) rotate(-12deg)} }
+@keyframes mushroom-sleepy-arm { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(2px) rotate(8deg)} 45%{transform:translateY(3px) rotate(12deg)} }
+@keyframes mushroom-brush-cap { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,var(--mushroom-cap-reach)) rotate(18deg)} 45%{transform:translate(-4px,calc(var(--mushroom-cap-reach) + 2px)) rotate(10deg)} }
+@keyframes mushroom-invite { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(1px,-4px) rotate(-20deg)} 45%{transform:translate(2px,-5px) rotate(-28deg)} }
+@keyframes mushroom-greeting { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-1px,-3px) rotate(15deg)} 45%{transform:translate(-2px,-4px) rotate(22deg)} }
+@keyframes mushroom-snack-nod { 0%,100%{transform:none} 50%{transform:translateY(2px)} }
+@keyframes mushroom-snack-cap { 0%,100%{transform:none} 50%{transform:translateY(2px) rotate(3deg)} }
+@keyframes mushroom-hold-snack { 0%,100%{transform:translate(5px,-2px) rotate(-18deg)} 50%{transform:translate(7px,-4px) rotate(-25deg)} }
+@keyframes mushroom-wash-stalk { 0%,100%{transform:translate(3px,0) rotate(-12deg)} 50%{transform:translate(5px,-3px) rotate(-20deg)} }
+@keyframes mushroom-wash-cap { 0%,100%{transform:translate(-2px,var(--mushroom-cap-reach)) rotate(12deg)} 50%{transform:translate(-4px,calc(var(--mushroom-cap-reach) + 2px)) rotate(20deg)} }
+@keyframes mushroom-shake-drops { 0%,100%{transform:rotate(-3deg)} 50%{transform:rotate(3deg)} }
+@keyframes mushroom-breathe { 0%,100%{transform:none} 50%{transform:translateY(-1px) scaleY(1.025)} }
+@keyframes mushroom-stretch-left { 0%,100%{transform:none} 40%,75%{transform:translate(-2px,-5px) rotate(25deg)} }
+@keyframes mushroom-stretch-right { 0%,100%{transform:none} 40%,75%{transform:translate(2px,-5px) rotate(-25deg)} }
+@keyframes mushroom-lift-cap { 0%,100%{transform:none} 40%,75%{transform:translateY(-3px) rotate(-3deg)} }
+@keyframes mushroom-cheer { 0%,100%{transform:translateY(-2px) rotate(-10deg)} 50%{transform:translateY(-5px) rotate(15deg)} }
+@keyframes mushroom-cheer-cap { 0%,100%{transform:none} 50%{transform:translateY(-2px) rotate(3deg)} }
+@keyframes mushroom-toe-dance { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(-2px) rotate(-8deg)} 45%{transform:translateY(-3px) rotate(8deg)} }
+@keyframes mushroom-soft-nod { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(2px) rotate(3deg)} 45%{transform:translateY(1px)} }
+@keyframes mushroom-rest-cap { 0%,20%,75%,100%{transform:rotate(3deg)} 35%,60%{transform:translateY(1px) rotate(5deg)} 45%{transform:rotate(4deg)} }
+@keyframes mushroom-nibble { 0%,100%{opacity:0} 50%{opacity:1} }
+@media (prefers-reduced-motion: reduce) {
+  .mushroom-rig, .mushroom-rig * { animation: none !important; }
+  .mushroom-rig.rig-motion-idle.gesture-hungry .arm-left { transform: translate(6px,1px) rotate(-20deg); }
+  .mushroom-rig.rig-motion-idle.gesture-tired .arm-right { transform: translateY(3px); }
+  .mushroom-rig.rig-motion-idle.gesture-dirty .arm-right { transform: translate(-2px,var(--mushroom-cap-reach)) rotate(18deg); }
+  .mushroom-rig.rig-motion-idle.gesture-playful .arm-right { transform: translateY(-4px) rotate(-20deg); }
+  .mushroom-rig.rig-motion-idle.gesture-content .arm-left { transform: translateY(-3px) rotate(15deg); }
+  .mushroom-rig.rig-motion-eating .arm-left { transform: translate(5px,-2px) rotate(-18deg); }
+  .mushroom-rig.rig-motion-bathing .arm-left { transform: translate(3px,0) rotate(-12deg); }
+  .mushroom-rig.rig-motion-bathing .arm-right { transform: translate(-2px,var(--mushroom-cap-reach)) rotate(12deg); }
+  .mushroom-rig.rig-motion-waking .arm-left { transform: translate(-2px,-5px) rotate(25deg); }
+  .mushroom-rig.rig-motion-waking .arm-right { transform: translate(2px,-5px) rotate(-25deg); }
+  .mushroom-rig.rig-motion-celebrating .arm-left { transform: translateY(-3px) rotate(15deg); }
+  .mushroom-rig.rig-motion-celebrating .arm-right { transform: translateY(-3px) rotate(-15deg); }
+  .mushroom-rig.expression-chewing .mushroom-mouth-open { opacity: 1; }
+}
