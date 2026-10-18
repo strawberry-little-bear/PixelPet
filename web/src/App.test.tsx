@@ -182,7 +182,7 @@ describe("three-button pet animation lifecycle", () => {
     ).toBe(false);
   });
 
-  it("uses saved growth rather than wall age and opens both handbook pages with A/B/C", async () => {
+  it("uses saved growth rather than wall age and opens all handbook pages with A/B/C", async () => {
     saved.hatchedAt = Date.now() - 80 * 3600000;
     saved.growth!.points = 12;
     await mount();
@@ -200,14 +200,24 @@ describe("three-button pet animation lifecycle", () => {
     expect(
       document.querySelector(".growth-panel")?.getAttribute("data-growth-page"),
     ).toBe("1");
+    expect(document.querySelectorAll("[data-preview-stage]")).toHaveLength(0);
     await key("b");
-    expect(
-      document.querySelector(".growth-panel")?.getAttribute("data-growth-page"),
-    ).toBe("0");
+    expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("2");
+    expect(document.querySelector(".form-guide")?.textContent).toContain("成年时按上方顺序确定");
+    await key("a");
+    expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("0");
+    expect(document.querySelectorAll("[data-preview-stage]")).toHaveLength(3);
+    await key("b");
+    await key("b");
+    await key("b");
+    expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("0");
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelector(".lcd button")).toBeNull();
     await key("c");
     expect(scene()).toBe("idle");
+    await choose(6);
+    expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("0");
   });
 
   it("does not display 100 percent before the next growth stage is reached", async () => {

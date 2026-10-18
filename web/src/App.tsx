@@ -26,6 +26,7 @@ import { CareFeedback } from "./CareFeedback";
 import {
   petGrowth,
   stageNames,
+  growthPageCount,
   formNames,
   tendency,
   growthProgress,
@@ -333,7 +334,7 @@ export default function App() {
         setSelected(0);
       } else if (page === "menu") setSelected((v) => (v + 1) % items.length);
       else if (page === "game") setLane((v) => (v + 1) % 3);
-      else if (page === "growth") setGrowthPage((v) => (v + 1) % 2);
+      else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
       else if (page === "journal")
         setJournalIndex((v) => (v + 1) % Math.max(1, pet.logs.length));
       return;
@@ -371,7 +372,7 @@ export default function App() {
         setJournalIndex(0);
       } else void act(item.kind);
     } else if (page === "game") void act("catch", { lane });
-    else if (page === "growth") setGrowthPage((v) => (v + 1) % 2);
+    else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
     else setPage("home");
   };
   useEffect(() => {

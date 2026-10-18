@@ -1,4 +1,5 @@
 import { Sprite } from "./Sprite";
+import { FormEmblem, GrowthOutfit } from "./GrowthOutfit";
 import {
   formDescriptions,
   formNames,
@@ -6,9 +7,40 @@ import {
   stageNames,
   tendency,
   stagePoints,
+  growthPageCount,
+  formRules,
 } from "./growth";
-import type { Growth } from "./types";
+import type { Growth, GrowthStage } from "./types";
 import "./growth.css";
+
+function StagePreviews({ growth, index }: { growth: Growth; index: number }) {
+  const stages: GrowthStage[] = ["baby", "growing", "adult"];
+  const current = stages.indexOf(growth.stage);
+  const form = tendency(growth);
+  return (
+    <div className="growth-previews" aria-label="三个成长阶段的外观预览">
+      {stages.map((stage, i) => (
+        <div key={stage} className={`growth-preview growth-${stage}`}
+          data-preview-stage={stage} data-preview-form={stage === "adult" ? form : ""}
+          aria-current={i === current ? "step" : undefined}>
+          <div className="growth-preview-frame" aria-hidden="true">
+            <div className="growth-preview-art">
+              <div className="growth-size">
+                <Sprite index={index} />
+                <GrowthOutfit stage={stage} form={stage === "adult" ? form : ""} />
+              </div>
+              {stage === "adult" && <FormEmblem form={form} />}
+            </div>
+          </div>
+          <strong>{stageNames[stage]}</strong>
+          <small>{stage === "adult"
+            ? `${formNames[form]}${growth.form ? " · 现在" : "预览"}`
+            : i === current ? "现在" : i < current ? "已走过" : "待成长"}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function GrowthPanel({
   growth: g,
@@ -36,25 +68,11 @@ export function GrowthPanel({
               <small>
                 {g.stage === "adult"
                   ? "你的照顾，成就了现在的它"
-                  : "每一点照顾，都会慢慢长大"}
+                  : "成年外观为当前倾向，尚未确定"}
               </small>
             </div>
           </div>
-          <div className="growth-stage-track">
-            {["幼年", "成长", "成年"].map((text, i) => (
-              <span
-                key={text}
-                className={
-                  i <= ["baby", "growing", "adult"].indexOf(g.stage)
-                    ? "reached"
-                    : ""
-                }
-              >
-                <i>{i + 1}</i>
-                {text}
-              </span>
-            ))}
-          </div>
+          <StagePreviews growth={g} index={index} />
           <div className="growth-score">
             <span>{g.stage === "adult" ? "成长完成" : "本阶段成长值"}</span>
             <b>
@@ -76,7 +94,7 @@ export function GrowthPanel({
               : "状态越舒适，成长越快；不用着急。"}
           </small>
         </>
-      ) : (
+      ) : page === 1 ? (
         <>
           <div className="habit-heading">
             <span>{g.form ? "成年形态" : "当前倾向"}</span>
@@ -104,15 +122,48 @@ export function GrowthPanel({
               : "照顾习惯从现在开始记录。"}
           </p>
           <small className="growth-panel-note">
-            有效照顾 +0.25，奖励间隔 30 分钟。
+            {g.stage === "adult"
+              ? "喂食/洗澡/陪玩：记习惯，间隔 30 分钟。"
+              : "喂食/洗澡/陪玩：+0.25，间隔 30 分钟。"}
             <br />
             饱食 ≤70 喂食、清洁 ≤65 洗澡才记入。
             <br />
-            完成陪玩 / 恢复体力也能帮助成长。
+            {g.stage === "adult"
+              ? "成年后不再加成长点，休息按恢复记录。"
+              : "休息按体力恢复积累，每 28 点 +0.25。"}
           </small>
         </>
+      ) : (
+        <div className="form-guide">
+          <div className="habit-heading">
+            <span>{g.form ? "已定型 · 形态依据" : "当前倾向 · 形态依据"}</span>
+            <strong>{formNames[form]}</strong>
+          </div>
+          <p className="form-guide-record">
+            当前陪玩 {g.care.play.toFixed(1)} · 恬静分 {((g.care.clean + g.care.rest) / 2).toFixed(1)}
+          </p>
+          <small className="form-guide-history">
+            记录 {(Math.floor(g.trackedHours * 10) / 10).toFixed(1)}h · {g.trackedHours > 0
+              ? `平均舒适约 ${Math.round(g.wellbeing / g.trackedHours * 100)}%`
+              : "尚无舒适度记录"}
+          </small>
+          <small className="form-guide-formula">恬静分 =（清洁习惯 + 休息习惯）÷ 2</small>
+          <ol className="form-rules" aria-label="成年形态判定顺序">
+            {formRules.map(({ form: ruleForm, rule }) => (
+              <li key={ruleForm} data-rule-form={ruleForm}
+                data-selected={ruleForm === form ? "true" : "false"}>
+                <strong>{formNames[ruleForm]}</strong><span>{rule}</span>
+              </li>
+            ))}
+          </ol>
+          <small className="form-guide-note">
+            {g.form ? "高亮为已定形态，当前习惯不改写它。" : "成年时按上方顺序确定，现在仍会变化。"}
+            <br />
+            {g.form ? "判定规则供参考，不代表成年时的记录。" : "保持舒适、适时照顾，不必刻意追求形态。"}
+          </small>
+        </div>
       )}
-      <span className="growth-page-dots">{page + 1} / 2</span>
+      <span className="growth-page-dots">{page + 1} / {growthPageCount}</span>
     </div>
   );
 }

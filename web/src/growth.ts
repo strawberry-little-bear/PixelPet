@@ -81,3 +81,14 @@ export function nextGrowthGoal(g: Growth): string {
   const remaining = Math.ceil(Math.max(0, target - g.points) * 100) / 100;
   return `距${g.stage === "baby" ? "成长期" : "成年期"}还差 ${remaining.toFixed(2)} 点`;
 }
+
+// Shared with handbook navigation so page count and wraparound cannot drift.
+export const growthPageCount = 3;
+
+// Keep the priority explicit: comfort is checked before dominant habits.
+export const formRules: { form: AdultForm; rule: string }[] = [
+  { form: "easygoing", rule: "记录 ≥12h 且平均舒适度 <45%" },
+  { form: "lively", rule: "陪玩 ≥2 且 > 恬静分 ×1.5" },
+  { form: "gentle", rule: "恬静分 ≥2 且 > 陪玩 ×1.5" },
+  { form: "balanced", rule: "其余情况，日常习惯相互配合" },
+];
