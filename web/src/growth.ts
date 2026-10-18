@@ -83,7 +83,7 @@ export function nextGrowthGoal(g: Growth): string {
 }
 
 // Shared with handbook navigation so page count and wraparound cannot drift.
-export const growthPageCount = 4;
+export const growthPageCount = 5;
 
 // Keep the priority explicit: comfort is checked before dominant habits.
 export const formRules: { form: AdultForm; rule: string }[] = [

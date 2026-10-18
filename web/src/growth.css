@@ -401,3 +401,14 @@
 .companion-rows > div > span:last-child { color: #547149; letter-spacing: 3px; }
 .companion-rules, .companion-since { display: block; font-size: 7px; line-height: 10px; margin-top: 4px; }
 .companion-since { margin-top: 2px; opacity: .8; }
+
+.growth-time-guide h3 { font-size: 12px; margin: 2px 0 10px; }
+.growth-time-guide dl { margin: 0; display: grid; gap: 9px; }
+.growth-time-guide dt { font-size: 10px; font-weight: 600; }
+.growth-time-guide dd { margin: 2px 0 0; font-size: 10px; line-height: 1.6; }
+.care-advice { font-size: 11px; line-height: 1.6; margin: 10px 0; }
+.growth-panel[data-growth-page="4"] { overflow-y: auto; }
+.growth-panel[data-growth-page="4"] .growth-page-dots { position: static; display: block; text-align: right; margin-top: 8px; }
+.screen-status .lcd-meter { margin: 9px 0; }
+.screen-status .care-advice { font-size: 10px; line-height: 1.5; margin: 6px 0; }
+.screen-status .care-total { margin-top: 6px; }

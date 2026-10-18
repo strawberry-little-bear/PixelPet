@@ -20,9 +20,9 @@ describe("honest growth feedback", () => {
     expect(feedbackText({ ...credit, points: .1 }, g, 0).title).toContain("成长 +0.10");
     expect(feedbackText({ ...credit, points: .001 }, g, 0).title).toContain("<0.01");
   });
-  it.each(["feed", "clean"] as const)("explains when %s improves state without a reward", kind => {
+  it.each(["feed", "clean"] as const)("explains when %s succeeds without habit credit", kind => {
     const text = feedbackText({ ...credit, kind, reason: "not-needed", points: 0, habitGain: 0 }, emptyGrowth(), 0);
-    expect(text.title).toContain("状态已改善");
+    expect(text.title).toContain("本次不记习惯");
     expect(text.title).not.toContain("+0.25");
     expect(text.detail).toContain(kind === "feed" ? "饱食 ≤70" : "清洁 ≤65");
   });

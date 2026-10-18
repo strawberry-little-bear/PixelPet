@@ -17,14 +17,14 @@ export function feedbackText(feedback: Feedback, growth: Growth, now: number) {
       : "每恢复 28 体力，休息 +1 · 成长 +0.25" };
   }
   if (feedback.reason === "awake") {
-    return { title: "早安，恢复的体力会记入休息习惯", detail: nextGrowthGoal(growth) };
+    return { title: "早安，只按实际恢复的体力记休息习惯", detail: nextGrowthGoal(growth) };
   }
-  const title = feedback.kind === "feed" ? "吃得香香 · 状态已改善"
-    : feedback.kind === "clean" ? "洗得干净 · 状态已改善" : "陪玩完成 · 状态已改善";
+  const title = feedback.kind === "feed" ? "饭团已吃好 · 本次不记习惯"
+    : feedback.kind === "clean" ? "泡泡澡洗好 · 本次不记习惯" : "陪玩完成 · 本次不记习惯";
   if (feedback.reason === "not-needed") {
     return { title, detail: feedback.kind === "feed"
-      ? "饱食 ≤70 时喂食，才记入成长习惯"
-      : "清洁 ≤65 时洗澡，才记入成长习惯" };
+      ? "刚才饱食已满足；饱食 ≤70 才记喂食习惯"
+      : "刚才清洁已满足；清洁 ≤65 才记清洁习惯" };
   }
   const minutes = Math.max(0, Math.ceil(((feedback.retryAt ?? now) - now) / 60000));
   return { title, detail: minutes > 0

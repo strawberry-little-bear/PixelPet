@@ -21,7 +21,7 @@ describe("growth handbook previews and form guide", () => {
       .toEqual(["baby", "growing", "adult"]);
     expect(container.querySelector(".growth-previews image")).toBeNull();
     expect(container.querySelector("button")).toBeNull();
-    expect(container.querySelector(".growth-page-dots")?.textContent).toBe("1 / 4");
+    expect(container.querySelector(".growth-page-dots")?.textContent).toBe("1 / 5");
     expect(g).toEqual(before);
   });
 
@@ -87,5 +87,19 @@ describe("growth handbook previews and form guide", () => {
     expect(container.querySelector('[data-selected="true"]')?.getAttribute("data-rule-form")).toBe(form);
     expect(container.textContent).toContain("当前习惯不改写它");
     expect(container.textContent).toContain("不代表成年时的记录");
+  });
+});
+
+describe("offline explanation", () => {
+  it.each(["baby", "growing", "adult"] as const)("explains time without changing %s state", stage => {
+    const g = emptyGrowth(stage), before = structuredClone(g);
+    const { container } = render(<GrowthPanel growth={g} index={0} page={4} />);
+    expect(container.textContent).toContain("最多结算 12 小时");
+    expect(container.textContent).toContain("多出的时间不补扣、不补长");
+    expect(container.textContent).toContain("不等于成长点");
+    expect(container.textContent).toContain("只按实际恢复量");
+    expect(container.textContent).toContain("成年形态固定");
+    expect(container.querySelector("button, a, input")).toBeNull();
+    expect(g).toEqual(before);
   });
 });

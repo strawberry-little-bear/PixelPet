@@ -93,7 +93,7 @@ export function GrowthPanel({
           </p>
           <small className="growth-panel-note">
             {g.stage === "adult"
-              ? "形态已确定，之后也要温柔照顾哦。"
+              ? "形态已确定，还能在纪念册留下新的经历。"
               : "状态越舒适，成长越快；不用着急。"}
           </small>
         </>
@@ -136,7 +136,17 @@ export function GrowthPanel({
               : "休息按体力恢复积累，每 28 点 +0.25。"}
           </small>
         </>
-      ) : page === 3 ? <CompanionPanel companion={companion} /> : (
+      ) : page === 3 ? <CompanionPanel companion={companion} /> : page === 4 ? (
+        <div className="growth-time-guide" aria-label="离线与成长说明">
+          <h3>不在的时候，也慢慢长大</h3>
+          <dl>
+            <div><dt>离线结算</dt><dd>从上次保存到回来，状态与成长最多结算 12 小时；多出的时间不补扣、不补长。</dd></div>
+            <div><dt>睡着以后</dt><dd>体力恢复到满为止；只按实际恢复量记休息习惯，不按睡了多久计次。</dd></div>
+            <div><dt>相识天数</dt><dd>按现实时间计算，不等于成长点，也不代表连续登录；不用补做任务。</dd></div>
+            <div><dt>{g.stage === "adult" ? "成年以后" : "长大以后"}</dt><dd>成年形态固定，照顾仍记习惯；新发生的纪念经历还能留下，不重复刷形态。</dd></div>
+          </dl>
+        </div>
+      ) : (
         <div className="form-guide">
           <div className="habit-heading">
             <span>{g.form ? "已定型 · 形态依据" : "当前倾向 · 形态依据"}</span>

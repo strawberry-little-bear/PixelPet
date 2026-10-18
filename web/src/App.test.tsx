@@ -10,7 +10,7 @@ import {
 import App from "./App";
 import { request } from "./api";
 import type { AdultForm, PetState } from "./types";
-import { emptyGrowth } from "./growth";
+import { emptyGrowth, growthPageCount } from "./growth";
 
 vi.mock("./api", () => ({ request: vi.fn() }));
 
@@ -211,12 +211,12 @@ describe("three-button pet animation lifecycle", () => {
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("3");
     expect(document.querySelector(".companion-panel")).not.toBeNull();
     await key("a");
+    expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("4");
+    expect(document.querySelector(".growth-time-guide")?.textContent).toContain("12 小时");
+    await key("a");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("0");
     expect(document.querySelectorAll("[data-preview-stage]")).toHaveLength(3);
-    await key("b");
-    await key("b");
-    await key("b");
-    await key("b");
+    for (let i = 0; i < growthPageCount; i++) await key("b");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("0");
     expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);

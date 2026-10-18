@@ -40,6 +40,7 @@ import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
+import { CareAdvice } from "./CareAdvice";
 import { AlbumPanel, albumPageCount } from "./AlbumPanel";
 import { ReturnPanel } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
@@ -1471,7 +1472,7 @@ export default function App() {
                               <div>
                                 <strong>{pet.name}</strong>
                                 <small>
-                                  {stage} · 第 {Math.floor(age / 86400000) + 1}{" "}
+                                  {stage} · 相识第 {Math.floor(age / 86400000) + 1}{" "}
                                   天
                                 </small>
                               </div>
@@ -1487,6 +1488,7 @@ export default function App() {
                                 <b>{Math.round(pet.needs[n.key])}</b>
                               </div>
                             ))}
+                            <CareAdvice pet={pet} />
                             <div className="care-total">
                               收到过 {pet.careCount} 次温柔照顾 ♡
                             </div>
