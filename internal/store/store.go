@@ -64,6 +64,8 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			if err = json.Unmarshal([]byte(cached), &r); err != nil {
 				return r, err
 			}
+			r.State.Upgrade(now)
+			r.ServerTime = now.UnixMilli()
 			return r, nil
 		}
 		if err != sql.ErrNoRows {
@@ -79,6 +81,10 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	if readErr == nil {
 		readErr = state.Validate(now)
 	}
+	migrated := false
+	if readErr == nil {
+		migrated = state.Upgrade(now)
+	}
 	if readErr != nil {
 		if imported == nil && !reset {
 			return Result{}, fmt.Errorf("现有存档校验失败，可从存档盒导入备份恢复：%w", readErr)
@@ -88,9 +94,17 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			state.Revision = 0
 		}
 	}
-	changed := false
+	changed := migrated
+	if migrated {
+		if _, err = tx.Exec("INSERT INTO snapshots(body,created_at) VALUES(?,?)", body, now.UnixMilli()); err != nil {
+			return Result{}, err
+		}
+		if _, err = tx.Exec("DELETE FROM snapshots WHERE id NOT IN (SELECT id FROM snapshots ORDER BY id DESC LIMIT 10)"); err != nil {
+			return Result{}, err
+		}
+	}
 	if now.UnixMilli()-state.LastTick >= 60000 || a != nil {
-		changed = state.Advance(now)
+		changed = state.Advance(now) || changed
 	}
 	message := ""
 	if a != nil {
@@ -115,7 +129,12 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			message = "一颗新的蛋，新的相遇。"
 		} else {
 			state = *imported
+			if imported.Growth != nil {
+				growth := *imported.Growth
+				state.Growth = &growth
+			}
 			state.Game = nil
+			state.Upgrade(now)
 			state.Advance(now)
 			message = "备份已恢复，欢迎回来。"
 		}

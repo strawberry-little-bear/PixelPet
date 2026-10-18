@@ -4,6 +4,26 @@ export type Needs = {
   clean: number;
   energy: number;
 };
+export type GrowthStage = "egg" | "baby" | "growing" | "adult";
+export type AdultForm = "balanced" | "lively" | "gentle" | "easygoing";
+export type Growth = {
+  stage: GrowthStage;
+  points: number;
+  form: AdultForm | "";
+  trackedHours: number;
+  wellbeing: number;
+  growingAt: number;
+  adultAt: number;
+  care: {
+    nutrition: number;
+    play: number;
+    clean: number;
+    rest: number;
+    lastFeed: number;
+    lastPlay: number;
+    lastClean: number;
+  };
+};
 export type PetState = {
   schema: number;
   revision: number;
@@ -15,6 +35,7 @@ export type PetState = {
   sleeping: boolean;
   needs: Needs;
   careCount: number;
+  growth?: Growth;
   logs: { at: number; text: string }[];
   game?: { startedAt: number; round: number; score: number; lastBeat: number };
 };

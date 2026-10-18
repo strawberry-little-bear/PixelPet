@@ -4,6 +4,7 @@ export const clipDurations = {
   hatch: 1500,
   play: 1500,
   wake: 1400,
+  evolve: 2400,
 } as const;
 export type ClipKind = keyof typeof clipDurations;
 export type MotionClip = { kind: ClipKind; id: number };

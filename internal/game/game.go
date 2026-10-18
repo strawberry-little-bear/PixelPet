@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 1
+const Schema = 2
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -42,6 +42,7 @@ type State struct {
 	CareCount int       `json:"careCount"`
 	Logs      []Log     `json:"logs"`
 	Game      *MiniGame `json:"game,omitempty"`
+	Growth    *Growth   `json:"growth,omitempty"`
 }
 type Action struct {
 	Kind      string `json:"kind"`
@@ -53,7 +54,7 @@ type Action struct {
 
 func New(now time.Time) State {
 	ms := now.UnixMilli()
-	return State{Schema: Schema, Species: 0, Name: Species[0], CreatedAt: ms, LastTick: ms, Needs: Needs{80, 80, 90, 85}, Logs: []Log{{ms, "一颗小小的蛋，正在等待与你相遇。"}}}
+	return State{Schema: Schema, Species: 0, Name: Species[0], CreatedAt: ms, LastTick: ms, Needs: Needs{80, 80, 90, 85}, Growth: &Growth{Stage: "egg"}, Logs: []Log{{ms, "一颗小小的蛋，正在等待与你相遇。"}}}
 }
 func clamp(n float64) float64 { return math.Max(0, math.Min(100, n)) }
 func (s *State) Log(now time.Time, message string) {
@@ -63,7 +64,7 @@ func (s *State) Log(now time.Time, message string) {
 	}
 }
 
-// Advance settles at most 12 hours of neglect. Wall-clock age is independent of needs.
+// Advance settles at most 12 hours, including the same interval of growth.
 func (s *State) Advance(now time.Time) bool {
 	ms := now.UnixMilli()
 	if ms <= s.LastTick {
@@ -74,14 +75,7 @@ func (s *State) Advance(now time.Time) bool {
 	if s.HatchedAt == 0 {
 		return true
 	}
-	s.Needs.Hunger = clamp(s.Needs.Hunger - hours*3)
-	s.Needs.Clean = clamp(s.Needs.Clean - hours*2)
-	if s.Sleeping {
-		s.Needs.Energy = clamp(s.Needs.Energy + hours*14)
-	} else {
-		s.Needs.Energy = clamp(s.Needs.Energy - hours*2)
-		s.Needs.Mood = clamp(s.Needs.Mood - hours*2.5)
-	}
+	s.settle(hours, now)
 	return true
 }
 func (s *State) Apply(a Action, now time.Time) (string, error) {
@@ -96,6 +90,9 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		s.Name = Species[a.Species]
 		s.HatchedAt = now.UnixMilli()
 		s.LastTick = now.UnixMilli()
+		if s.Growth != nil {
+			s.Growth.Stage = "baby"
+		}
 		msg := fmt.Sprintf("%s孵化了。今后请多多关照！", s.Name)
 		s.Log(now, msg)
 		return msg, nil
@@ -119,18 +116,22 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		if s.Needs.Hunger >= 96 {
 			return "", errors.New("肚子已经饱饱的啦，等一会儿再吃吧")
 		}
+		before := s.Needs.Hunger
 		s.Needs.Hunger = clamp(s.Needs.Hunger + 20)
 		s.Needs.Clean = clamp(s.Needs.Clean - 3)
 		s.Needs.Mood = clamp(s.Needs.Mood + 3)
 		s.CareCount++
+		s.recordCare("feed", before, now)
 		msg = "啊呜！吃了一份香喷喷的小饭团。"
 	case "clean":
 		if s.Needs.Clean >= 99 {
 			return "", errors.New("已经洗得干干净净啦")
 		}
+		before := s.Needs.Clean
 		s.Needs.Clean = clamp(s.Needs.Clean + 35)
 		s.Needs.Mood = clamp(s.Needs.Mood + 4)
 		s.CareCount++
+		s.recordCare("clean", before, now)
 		msg = "泡泡咕噜咕噜，又变得香香的了。"
 	case "sleep":
 		s.Sleeping = !s.Sleeping
@@ -168,6 +169,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			s.Needs.Energy = clamp(s.Needs.Energy - 8)
 			s.Needs.Hunger = clamp(s.Needs.Hunger - 4)
 			s.CareCount++
+			s.recordCare("play", 0, now)
 			msg = fmt.Sprintf("一起接住了 %d 颗星星，好开心！", score)
 		} else {
 			return msg, nil
@@ -188,7 +190,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 
 func (s State) Validate(now time.Time) error {
 	bad := errors.New("存档格式无效，请选择 PixelPet 导出的备份")
-	if s.Schema != Schema || s.Species < 0 || s.Species >= len(Species) || strings.TrimSpace(s.Name) == "" || utf8.RuneCountInString(s.Name) > 12 || s.Revision < 0 || s.Revision > 1_000_000_000 || s.CareCount < 0 || s.CareCount > 1_000_000 || len(s.Logs) > 30 {
+	if (s.Schema != Schema && s.Schema != 1) || s.Species < 0 || s.Species >= len(Species) || strings.TrimSpace(s.Name) == "" || utf8.RuneCountInString(s.Name) > 12 || s.Revision < 0 || s.Revision > 1_000_000_000 || s.CareCount < 0 || s.CareCount > 1_000_000 || len(s.Logs) > 30 {
 		return bad
 	}
 	ms := now.UnixMilli()
@@ -209,6 +211,9 @@ func (s State) Validate(now time.Time) error {
 		return bad
 	}
 	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
+		return bad
+	}
+	if !s.validGrowth(now) {
 		return bad
 	}
 	return nil

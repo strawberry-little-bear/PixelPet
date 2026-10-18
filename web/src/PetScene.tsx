@@ -4,6 +4,8 @@ import { Cloud } from "lucide-react";
 import { Sprite } from "./Sprite";
 import type { SceneMotion } from "./motion";
 import "./pet-motion.css";
+import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
+import type { AdultForm, GrowthStage } from "./types";
 
 const labels: Record<SceneMotion, string> = {
   idle: "待机，眨眼和轻轻摇晃",
@@ -99,12 +101,16 @@ export function PetScene({
   clipId,
   dirty,
   duration = 0,
+  stage = "baby",
+  form = "",
 }: {
   index: number;
   motion: SceneMotion;
   clipId: number;
   dirty: boolean;
   duration?: number;
+  stage?: GrowthStage;
+  form?: AdultForm | "";
 }) {
   const expression =
     motion === "sleeping"
@@ -118,8 +124,10 @@ export function PetScene({
             : "awake";
   return (
     <div
-      className={`pet-room pet-scene motion-${motion}`}
+      className={`pet-room pet-scene motion-${motion} growth-${stage} form-${form || "none"}`}
       data-motion={motion}
+      data-stage={stage}
+      data-form={form}
       role="img"
       aria-label={labels[motion]}
     >
@@ -147,8 +155,13 @@ export function PetScene({
           </>
         )}
         <div className="pet-actor">
-          <Sprite index={index} expression={expression} />
+          <div className="growth-size">
+            <Sprite index={index} expression={expression} />
+            <GrowthOutfit stage={stage} form={form} />
+          </div>
         </div>
+        {stage === "adult" && <FormEmblem form={form} />}
+        {motion === "celebrating" && <span className="growth-evolution-ring" />}
         {motion === "eating" && (
           <div className="meal-props">
             <span className="meal-plate" />

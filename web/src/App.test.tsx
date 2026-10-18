@@ -9,6 +9,7 @@ import {
 import App from "./App";
 import { request } from "./api";
 import type { PetState } from "./types";
+import { emptyGrowth } from "./growth";
 
 vi.mock("./api", () => ({ request: vi.fn() }));
 
@@ -47,7 +48,7 @@ beforeEach(() => {
   localStorage.clear();
   api.mockReset();
   saved = {
-    schema: 1,
+    schema: 2,
     revision: 1,
     species: 2,
     name: "草莓兔",
@@ -57,6 +58,7 @@ beforeEach(() => {
     sleeping: false,
     needs: { hunger: 60, mood: 70, clean: 60, energy: 80 },
     careCount: 0,
+    growth: emptyGrowth("baby"),
     logs: [{ at: Date.now(), text: "你好，小伙伴。" }],
   };
   api.mockImplementation(async (path, body) => {
@@ -178,5 +180,139 @@ describe("three-button pet animation lifecycle", () => {
       (screen.getByRole("button", { name: "A 选择" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  it("uses saved growth rather than wall age and opens both handbook pages with A/B/C", async () => {
+    saved.hatchedAt = Date.now() - 80 * 3600000;
+    saved.growth!.points = 12;
+    await mount();
+    expect(
+      document.querySelector(".pet-scene")?.getAttribute("data-stage"),
+    ).toBe("baby");
+    await choose(6);
+    expect(
+      document.querySelector(".growth-panel")?.getAttribute("data-growth-page"),
+    ).toBe("0");
+    expect(document.querySelector(".growth-score")?.textContent).toContain(
+      "12.0",
+    );
+    await key("a");
+    expect(
+      document.querySelector(".growth-panel")?.getAttribute("data-growth-page"),
+    ).toBe("1");
+    await key("b");
+    expect(
+      document.querySelector(".growth-panel")?.getAttribute("data-growth-page"),
+    ).toBe("0");
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button")).toBeNull();
+    await key("c");
+    expect(scene()).toBe("idle");
+  });
+
+  it("does not display 100 percent before the next growth stage is reached", async () => {
+    saved.growth!.points = 23.9;
+    await mount();
+    expect(document.querySelector(".companion-growth")?.textContent).toContain(
+      "99%",
+    );
+    expect(
+      document.querySelector(".pet-scene")?.getAttribute("data-stage"),
+    ).toBe("baby");
+  });
+
+  it("queues one evolution after care and C cannot undo the new stage", async () => {
+    await mount();
+    const normal = api.getMockImplementation()!;
+    api.mockImplementation(async (path, body) => {
+      const response = await normal(path, body);
+      if (path === "action" && (body as { kind: string }).kind === "feed") {
+        saved.growth = {
+          ...emptyGrowth("growing"),
+          points: 24.1,
+          growingAt: Date.now(),
+        };
+        return state();
+      }
+      return response;
+    });
+    await choose(0);
+    expect(scene()).toBe("eating");
+    await advance(3000);
+    expect(scene()).toBe("celebrating");
+    expect(
+      document.querySelector(".pet-scene")?.getAttribute("data-stage"),
+    ).toBe("growing");
+    await key("c");
+    expect(scene()).toBe("idle");
+    await advance(15000);
+    expect(scene()).toBe("idle");
+    expect(saved.growth!.stage).toBe("growing");
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(
+      1,
+    );
+  });
+
+  it("renders a saved adult form after reload without replaying evolution", async () => {
+    saved.growth = {
+      ...emptyGrowth("adult"),
+      points: 72,
+      form: "lively",
+      growingAt: Date.now() - 1000,
+      adultAt: Date.now(),
+    };
+    await mount();
+    expect(
+      document.querySelector(".pet-scene")?.getAttribute("data-stage"),
+    ).toBe("adult");
+    expect(
+      document.querySelector(".pet-scene")?.getAttribute("data-form"),
+    ).toBe("lively");
+    expect(document.querySelector(".growth-form-emblem")).not.toBeNull();
+    expect(scene()).toBe("idle");
+  });
+
+  it("shows stage-relative points consistently with the growing progress bar", async () => {
+    saved.growth = {
+      ...emptyGrowth("growing"),
+      points: 36,
+      growingAt: Date.now() - 1000,
+    };
+    await mount();
+    await choose(6);
+    expect(document.querySelector(".growth-score")?.textContent).toContain(
+      "12.0 / 48",
+    );
+    expect(
+      (document.querySelector(".growth-panel .growth-track i") as HTMLElement)
+        .style.width,
+    ).toBe("25%");
+  });
+});
+
+
+describe("evolution while resting", () => {
+  it("keeps sleeping usable, then celebrates after waking exactly once", async () => {
+    saved.sleeping = true;
+    await mount();
+    saved.revision++;
+    saved.growth = {
+      ...emptyGrowth("growing"),
+      points: 24.1,
+      growingAt: Date.now(),
+    };
+    await advance(15000);
+    expect(scene()).toBe("sleeping");
+    expect((screen.getByRole("button", { name: "A 选择" }) as HTMLButtonElement).disabled).toBe(false);
+    await advance(3000); // Must not consume the celebration invisibly in sleep.
+    await choose(3);
+    expect(scene()).toBe("waking");
+    await advance(1400);
+    expect(scene()).toBe("celebrating");
+    await advance(2400);
+    expect(scene()).toBe("idle");
+    await advance(15000);
+    expect(scene()).toBe("idle");
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(1);
   });
 });

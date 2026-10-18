@@ -21,13 +21,30 @@ import {
 import { request } from "./api";
 import { PixelEgg, Sprite } from "./Sprite";
 import { PetScene } from "./PetScene";
+import { GrowthPanel } from "./GrowthPanel";
+import {
+  petGrowth,
+  stageNames,
+  formNames,
+  tendency,
+  growthProgress,
+  stagePoints,
+} from "./growth";
+import type { GrowthStage, AdultForm } from "./types";
 import { careClip, clipDurations, sceneMotion } from "./motion";
 import type { MotionClip } from "./motion";
 import { personalities, species } from "./types";
 import type { PetState, Result } from "./types";
 
 type Page =
-  "choose" | "hatch" | "home" | "menu" | "status" | "journal" | "game";
+  | "choose"
+  | "hatch"
+  | "home"
+  | "menu"
+  | "status"
+  | "journal"
+  | "game"
+  | "growth";
 const items = [
   {
     label: "吃点东西",
@@ -44,6 +61,12 @@ const items = [
     hint: "记住每一个小瞬间",
     icon: Sprout,
     kind: "journal",
+  },
+  {
+    label: "成长手册",
+    hint: "看看成长与照顾习惯",
+    icon: Sprout,
+    kind: "growth",
   },
 ];
 const needs = [
@@ -87,6 +110,12 @@ export default function App() {
   const [reset, setReset] = useState(false);
   const [pressed, setPressed] = useState("");
   const [journalIndex, setJournalIndex] = useState(0);
+  const [growthPage, setGrowthPage] = useState(0);
+  const knownStage = useRef<GrowthStage | null>(null);
+  const [evolution, setEvolution] = useState<{
+    stage: GrowthStage;
+    form: AdultForm | "";
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const audio = useRef<AudioContext | null>(null);
   const initialized = useRef(false);
@@ -96,6 +125,17 @@ export default function App() {
   const apply = useCallback((r: Result) => {
     if (r.state.revision < latestRevision.current) return;
     latestRevision.current = r.state.revision;
+    const nextStage = r.state.growth?.stage;
+    if (nextStage) {
+      const rank = ["egg", "baby", "growing", "adult"];
+      if (
+        knownStage.current &&
+        rank.indexOf(nextStage) > rank.indexOf(knownStage.current) &&
+        nextStage !== "baby"
+      )
+        setEvolution({ stage: nextStage, form: r.state.growth?.form || "" });
+      knownStage.current = nextStage;
+    }
     offset.current = r.serverTime - Date.now();
     setPet(r.state);
     setSavedAt(r.state.lastTick);
@@ -152,6 +192,18 @@ export default function App() {
     }, clipDurations[clip.kind]);
     return () => clearTimeout(timer);
   }, [clip]);
+  useEffect(() => {
+    if (!evolution || page !== "home" || busy || clip || pet?.sleeping) return;
+    const next = { kind: "evolve" as const, id: ++clipSequence.current };
+    clipRef.current = next;
+    setClip(next);
+    setMessage(
+      evolution.stage === "adult"
+        ? `长大啦！成为了${formNames[evolution.form || "balanced"]}。`
+        : "进入成长期，戴上了小围巾！",
+    );
+    setEvolution(null);
+  }, [evolution, page, busy, clip, pet?.sleeping]);
   function finishClip() {
     clipRef.current = null;
     setClip(null);
@@ -270,6 +322,7 @@ export default function App() {
         setSelected(0);
       } else if (page === "menu") setSelected((v) => (v + 1) % items.length);
       else if (page === "game") setLane((v) => (v + 1) % 3);
+      else if (page === "growth") setGrowthPage((v) => (v + 1) % 2);
       else if (page === "journal")
         setJournalIndex((v) => (v + 1) % Math.max(1, pet.logs.length));
       return;
@@ -299,11 +352,15 @@ export default function App() {
     if (page === "menu") {
       const item = items[selected];
       if (item.kind === "status") setPage("status");
-      else if (item.kind === "journal") {
+      else if (item.kind === "growth") {
+        setPage("growth");
+        setGrowthPage(0);
+      } else if (item.kind === "journal") {
         setPage("journal");
         setJournalIndex(0);
       } else void act(item.kind);
     } else if (page === "game") void act("catch", { lane });
+    else if (page === "growth") setGrowthPage((v) => (v + 1) % 2);
     else setPage("home");
   };
   useEffect(() => {
@@ -344,6 +401,8 @@ export default function App() {
     try {
       const r = await request("import", JSON.parse(await file.text()));
       latestRevision.current = -1;
+      knownStage.current = null;
+      setEvolution(null);
       finishClip();
       apply(r);
       setPage(r.state.hatchedAt ? "home" : "choose");
@@ -369,6 +428,8 @@ export default function App() {
     try {
       const r = await request("reset", { confirm: true });
       latestRevision.current = -1;
+      knownStage.current = null;
+      setEvolution(null);
       finishClip();
       apply(r);
       setChosen(0);
@@ -383,8 +444,9 @@ export default function App() {
   }
   const index = pet?.hatchedAt ? pet.species : chosen;
   const age = pet?.hatchedAt ? Math.max(0, now - pet.hatchedAt) : 0;
-  const stage =
-    age >= 72 * 3600000 ? "成年期" : age >= 24 * 3600000 ? "成长期" : "幼年期";
+  const growth = petGrowth(pet, now);
+  const stage = stageNames[growth.stage];
+  const form = tendency(growth);
   const low = pet && Math.min(...Object.values(pet.needs)) < 25;
   const mood = pet?.sleeping
     ? "正在做一个甜甜的梦"
@@ -403,15 +465,17 @@ export default function App() {
         ? "B 轻轻唤醒　 C 再选选"
         : page === "home"
           ? clip
-            ? `${clip.kind === "feed" ? "吃得香香" : clip.kind === "clean" ? "泡泡时间" : clip.kind === "wake" ? "伸个懒腰" : "好开心呀"} · C 跳过`
+            ? `${clip.kind === "feed" ? "吃得香香" : clip.kind === "clean" ? "泡泡时间" : clip.kind === "wake" ? "伸个懒腰" : clip.kind === "evolve" ? "长大啦" : "好开心呀"} · C 跳过`
             : "A / B 打开菜单"
           : page === "menu"
             ? "A 选择　 B 确认　 C 返回"
             : page === "game"
               ? "A 移动　 B 接住　 C 退出"
-              : page === "journal"
-                ? "A 下一条　 C 返回"
-                : "C 返回小窝";
+              : page === "growth"
+                ? "A / B 换页　 C 返回"
+                : page === "journal"
+                  ? "A 下一条　 C 返回"
+                  : "C 返回小窝";
 
   return (
     <div className="app">
@@ -576,11 +640,13 @@ export default function App() {
                           ? "CARE MENU"
                           : page === "status"
                             ? "MY STATUS"
-                            : page === "journal"
-                              ? "LITTLE DIARY"
-                              : page === "game"
-                                ? "CATCH A STAR"
-                                : "PIXELPET / 01"}
+                            : page === "growth"
+                              ? "GROWTH BOOK"
+                              : page === "journal"
+                                ? "LITTLE DIARY"
+                                : page === "game"
+                                  ? "CATCH A STAR"
+                                  : "PIXELPET / 01"}
                     </span>
                     <span className="lcd-battery">
                       <i />
@@ -654,6 +720,8 @@ export default function App() {
                               motion={motion}
                               clipId={clip?.id ?? 0}
                               duration={clip ? clipDurations[clip.kind] : 0}
+                              stage={growth.stage}
+                              form={growth.form}
                               dirty={pet.needs.clean < 35}
                             />
                             <div className="pet-thought">
@@ -664,27 +732,42 @@ export default function App() {
                         )}
                         {page === "menu" && (
                           <div className="care-menu">
-                            {items.map((item, i) => {
-                              const Icon = item.icon;
-                              return (
-                                <div
-                                  key={item.kind}
-                                  className={`care-item ${i === selected ? "selected" : ""}`}
-                                >
-                                  <span className="menu-arrow">
-                                    {i === selected ? "▸" : ""}
-                                  </span>
-                                  <Icon size={15} />
-                                  <span>
-                                    {item.kind === "sleep" && pet.sleeping
-                                      ? "起床啦"
-                                      : item.label}
-                                  </span>
-                                  <span className="menu-number">0{i + 1}</span>
-                                </div>
-                              );
-                            })}
+                            {items
+                              .slice(
+                                Math.max(0, selected - 5),
+                                Math.max(0, selected - 5) + 6,
+                              )
+                              .map((item, offset) => {
+                                const i = Math.max(0, selected - 5) + offset;
+                                const Icon = item.icon;
+                                return (
+                                  <div
+                                    key={item.kind}
+                                    className={`care-item ${i === selected ? "selected" : ""}`}
+                                  >
+                                    <span className="menu-arrow">
+                                      {i === selected ? "▸" : ""}
+                                    </span>
+                                    <Icon size={15} />
+                                    <span>
+                                      {item.kind === "sleep" && pet.sleeping
+                                        ? "起床啦"
+                                        : item.label}
+                                    </span>
+                                    <span className="menu-number">
+                                      0{i + 1}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                           </div>
+                        )}
+                        {page === "growth" && (
+                          <GrowthPanel
+                            growth={growth}
+                            index={index}
+                            page={growthPage}
+                          />
                         )}
                         {page === "status" && (
                           <div className="screen-status">
@@ -807,6 +890,26 @@ export default function App() {
               <span>{pet?.hatchedAt ? stage : "等待相遇"}</span>
             </div>
             <p className="personality">{personalities[index]}</p>
+            {pet?.hatchedAt ? (
+              <div className="companion-growth">
+                <div>
+                  <span>
+                    {growth.stage === "adult"
+                      ? `成年 · ${formNames[growth.form || "balanced"]}`
+                      : "本阶段成长进度"}
+                  </span>
+                  <span>{Math.floor(growthProgress(growth))}%</span>
+                </div>
+                <div className="growth-track">
+                  <i style={{ width: `${growthProgress(growth)}%` }} />
+                </div>
+                <small>
+                  {growth.stage === "adult"
+                    ? "形态已确定，继续好好陪伴。"
+                    : `本阶段 ${(Math.floor(stagePoints(growth).points * 10) / 10).toFixed(1)} / ${stagePoints(growth).target} · ${formNames[form]}倾向`}
+                </small>
+              </div>
+            ) : null}
             <div className="note-rule" />
             {pet?.hatchedAt ? (
               <div className="outside-needs">
