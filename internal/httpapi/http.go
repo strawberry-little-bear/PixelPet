@@ -42,6 +42,28 @@ func Handler(db *store.Store, web string) http.Handler {
 		result, err := db.Do(nil, nil, false, time.Now())
 		write(w, result, err)
 	})
+	mux.HandleFunc("POST /api/visit", func(w http.ResponseWriter, r *http.Request) {
+		var visit struct{}
+		if !decode(w, r, &visit) {
+			return
+		}
+		result, err := db.Visit(time.Now())
+		write(w, result, err)
+	})
+	mux.HandleFunc("POST /api/recap/read", func(w http.ResponseWriter, r *http.Request) {
+		var receipt struct {
+			ID string `json:"id"`
+		}
+		if !decode(w, r, &receipt) {
+			return
+		}
+		if len(receipt.ID) == 0 || len(receipt.ID) > 100 {
+			http.Error(w, "无效的小结编号", 400)
+			return
+		}
+		result, err := db.ReadRecap(receipt.ID, time.Now())
+		write(w, result, err)
+	})
 	mux.HandleFunc("POST /api/action", func(w http.ResponseWriter, r *http.Request) {
 		var a game.Action
 		if !decode(w, r, &a) {

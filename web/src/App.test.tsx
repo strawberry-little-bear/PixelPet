@@ -425,3 +425,107 @@ describe("saved care feedback with three buttons", () => {
     expect(document.querySelector(".growth-feedback")?.getAttribute("data-feedback")).toBe("idle");
   });
 });
+
+describe("durable three-button return recap", () => {
+  function enableRecap() {
+    let pending = true;
+    const snapshot = {
+      needs: { ...saved.needs }, stage: saved.growth!.stage,
+      form: saved.growth!.form, points: saved.growth!.points,
+      rest: 0, trackedHours: 0,
+    };
+    const recap = {
+      id: "return-test", from: Date.now() - 3600000, to: Date.now(),
+      before: { ...snapshot, needs: { ...snapshot.needs, energy: 52 } },
+      after: { ...snapshot, trackedHours: 1, rest: 1 },
+    };
+    const normal = api.getMockImplementation()!;
+    api.mockImplementation(async (path, body) => {
+      const result = await normal(path, body);
+      const claimed = path === "recap/read" && pending && !saved.sleeping && !saved.game;
+      if (claimed) pending = false;
+      return { ...result, returnRecap: recap, recapPending: pending, recapClaimed: claimed };
+    });
+    return recap;
+  }
+
+  it("automatically shows actual changes, uses A/B/C, and reload never replays", async () => {
+    enableRecap();
+    await mount();
+    expect(screen.getByLabelText("回访小结").textContent).toContain("52.0 → 80.0");
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button")).toBeNull();
+    await key("a");
+    expect(screen.getByLabelText("回访小结").textContent).toContain("+1.00 习惯");
+    expect(screen.getByLabelText("回访小结").textContent).toContain("无额外奖励");
+    await key("b");
+    expect(screen.queryByLabelText("回访小结")).toBeNull();
+    cleanup(); await mount();
+    expect(screen.queryByLabelText("回访小结")).toBeNull();
+    await choose(7); // Deliberate menu review, without another claim/action.
+    expect(screen.getByLabelText("回访小结")).toBeTruthy();
+    await key("c");
+    expect(scene()).toBe("idle");
+    expect(api.mock.calls.filter(([path]) => path === "recap/read")).toHaveLength(1);
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
+  });
+
+  it("waits for waking and its clip before consuming the pending recap", async () => {
+    saved.sleeping = true;
+    enableRecap();
+    await mount();
+    expect(scene()).toBe("sleeping");
+    expect(screen.queryByLabelText("回访小结")).toBeNull();
+    expect(api.mock.calls.some(([path]) => path === "recap/read")).toBe(false);
+    await choose(3);
+    expect(scene()).toBe("waking");
+    await advance(1399);
+    expect(screen.queryByLabelText("回访小结")).toBeNull();
+    await advance(1);
+    expect(screen.getByLabelText("回访小结")).toBeTruthy();
+    await key("c");
+    expect(scene()).toBe("idle");
+  });
+
+  it("does not interrupt an active game", async () => {
+    saved.game = { startedAt: Date.now(), round: 0, score: 0, lastBeat: -1 };
+    enableRecap();
+    const normal = api.getMockImplementation()!;
+    api.mockImplementation(async (path, body) => {
+      if (path === "action" && (body as { kind: string }).kind === "cancel-play") delete saved.game;
+      return normal(path, body);
+    });
+    await mount();
+    expect(screen.queryByLabelText("回访小结")).toBeNull();
+    await advance(30000);
+    expect(api.mock.calls.some(([path]) => path === "recap/read")).toBe(false);
+    await key("c");
+    expect(screen.getByLabelText("回访小结")).toBeTruthy();
+  });
+
+  it("queues the recap after, not during, an online evolution celebration", async () => {
+    await mount();
+    enableRecap();
+    saved.revision++;
+    saved.growth = { ...saved.growth!, stage: "growing", points: 24, growingAt: Date.now() };
+    await advance(15000);
+    expect(scene()).toBe("celebrating");
+    expect(screen.queryByLabelText("回访小结")).toBeNull();
+    await advance(2399);
+    expect(api.mock.calls.some(([path]) => path === "recap/read")).toBe(false);
+    await advance(1);
+    expect(screen.getByLabelText("回访小结")).toBeTruthy();
+  });
+
+  it("does not record hidden-tab heartbeats as active visits", async () => {
+    await mount();
+    api.mockClear();
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    await advance(45000);
+    expect(api).not.toHaveBeenCalled();
+    hidden.mockReturnValue(false);
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    expect(api).toHaveBeenCalledWith("visit", {});
+    hidden.mockRestore();
+  });
+});

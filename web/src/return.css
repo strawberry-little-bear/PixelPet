@@ -1,0 +1,14 @@
+.return-panel { padding: 7px 12px; color: #3e5142; font-size: 11px; }
+.return-panel header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #7e987b55; padding-bottom:5px; }
+.return-panel header strong { font-size:14px; }
+.return-panel header span, .return-panel > small { font-size:9px; }
+.return-panel p { margin:7px 0; }
+.return-panel > small { display:block; line-height:1.5; }
+.return-needs { margin:8px 0; }
+.return-needs > div { display:grid; grid-template-columns:32px 1fr 38px; gap:4px; margin:5px 0; align-items:center; }
+.return-needs strong { font-size:11px; text-align:center; }
+.return-needs small { text-align:right; font-size:10px; }
+.return-panel dl { margin:8px 0; }
+.return-panel dl > div { display:flex; justify-content:space-between; margin:6px 0; }
+.return-panel dd { margin:0; font-weight:bold; }
+.return-panel .return-stage { font-size:13px; font-weight:bold; }

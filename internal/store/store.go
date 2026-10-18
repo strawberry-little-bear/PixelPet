@@ -22,6 +22,9 @@ type Result struct {
 	Message      string             `json:"message"`
 	ServerTime   int64              `json:"serverTime"`
 	CareFeedback *game.CareFeedback `json:"careFeedback,omitempty"`
+	ReturnRecap  *ReturnRecap       `json:"returnRecap,omitempty"`
+	RecapPending bool               `json:"recapPending"`
+	RecapClaimed bool               `json:"recapClaimed,omitempty"`
 }
 
 func Open(path string) (*Store, error) {
@@ -36,7 +39,8 @@ func Open(path string) (*Store, error) {
 	if _, err = db.Exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
 	CREATE TABLE IF NOT EXISTS saves (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL);
 	CREATE TABLE IF NOT EXISTS snapshots (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL, created_at INTEGER NOT NULL);
-	CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, body TEXT NOT NULL);`); err != nil {
+	CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, body TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS visits (id INTEGER PRIMARY KEY CHECK(id=1), last_seen INTEGER NOT NULL, baseline TEXT NOT NULL, recap TEXT NOT NULL, pending INTEGER NOT NULL);`); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -50,6 +54,9 @@ func Open(path string) (*Store, error) {
 }
 func (s *Store) Close() error { return s.db.Close() }
 func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Time) (Result, error) {
+	return s.do(a, imported, reset, now, false, "")
+}
+func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Time, visit bool, readID string) (Result, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tx, err := s.db.Begin()
@@ -67,6 +74,7 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			}
 			r.State.Upgrade(now)
 			r.ServerTime = now.UnixMilli()
+			r.ReturnRecap, r.RecapPending, r.RecapClaimed = nil, false, false
 			return r, nil
 		}
 		if err != sql.ErrNoRows {
@@ -104,9 +112,10 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 	}
-	if now.UnixMilli()-state.LastTick >= 60000 || a != nil {
+	if now.UnixMilli()-state.LastTick >= 60000 || a != nil || visit {
 		changed = state.Advance(now) || changed
 	}
+	settledSnapshot := returnSnapshot(state)
 	message := ""
 	var feedback *game.CareFeedback
 	if a != nil {
@@ -159,7 +168,19 @@ func (s *Store) Do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 	}
-	result := Result{State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback}
+	var recap *ReturnRecap
+	var pending, claimed bool
+	if imported != nil || reset {
+		if _, err = tx.Exec("DELETE FROM visits"); err != nil {
+			return Result{}, err
+		}
+	} else {
+		recap, pending, claimed, err = updateVisit(tx, settledSnapshot, state, visit || a != nil, readID, now)
+		if err != nil {
+			return Result{}, err
+		}
+	}
+	result := Result{State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
 	if a != nil && a.RequestID != "" {
 		encoded, _ := json.Marshal(result)
 		if _, err = tx.Exec("INSERT INTO requests(id,body) VALUES(?,?)", a.RequestID, string(encoded)); err != nil {

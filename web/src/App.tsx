@@ -22,6 +22,7 @@ import { request } from "./api";
 import { PixelEgg, Sprite } from "./Sprite";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
+import { ReturnPanel } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import {
   petGrowth,
@@ -36,7 +37,9 @@ import type { GrowthStage, AdultForm } from "./types";
 import { careClip, clipDurations, sceneMotion } from "./motion";
 import type { MotionClip } from "./motion";
 import { personalities, species } from "./types";
-import type { PetState, Result, CareFeedback as Feedback } from "./types";
+import type {
+  PetState, Result, CareFeedback as Feedback, ReturnRecap,
+} from "./types";
 
 type Page =
   | "choose"
@@ -46,7 +49,8 @@ type Page =
   | "status"
   | "journal"
   | "game"
-  | "growth";
+  | "growth"
+  | "return";
 const items = [
   {
     label: "吃点东西",
@@ -69,6 +73,10 @@ const items = [
     hint: "看看成长与照顾习惯",
     icon: Sprout,
     kind: "growth",
+  },
+  {
+    label: "回访小结", hint: "重看最近一次离开后的变化",
+    icon: Sprout, kind: "return",
   },
 ];
 const needs = [
@@ -114,6 +122,10 @@ export default function App() {
   const [pressed, setPressed] = useState("");
   const [journalIndex, setJournalIndex] = useState(0);
   const [growthPage, setGrowthPage] = useState(0);
+  const [returnRecap, setReturnRecap] = useState<ReturnRecap | null>(null);
+  const [returnPending, setReturnPending] = useState(false);
+  const [returnPage, setReturnPage] = useState(0);
+  const returnAttempt = useRef("");
   const knownStage = useRef<GrowthStage | null>(null);
   const [evolution, setEvolution] = useState<{
     stage: GrowthStage;
@@ -140,15 +152,18 @@ export default function App() {
       knownStage.current = nextStage;
     }
     offset.current = r.serverTime - Date.now();
+    if (r.returnRecap) setReturnRecap(r.returnRecap);
+    if (r.recapPending !== undefined) setReturnPending(r.recapPending);
     setPet(r.state);
     setSavedAt(r.state.lastTick);
     setError("");
     if (r.message) setMessage(r.message);
   }, []);
   const refresh = useCallback(async () => {
-    if (busyRef.current) return;
+    if (busyRef.current || document.hidden) return;
     try {
-      const r = await request("state");
+      const r = await request("visit", {});
+      if (r.recapPending) returnAttempt.current = "";
       apply(r);
       if (!initialized.current) {
         setChosen(r.state.species);
@@ -207,6 +222,28 @@ export default function App() {
     );
     setEvolution(null);
   }, [evolution, page, busy, clip, pet?.sleeping]);
+  useEffect(() => {
+    if (!returnRecap || !returnPending || page !== "home" || busy || clip || evolution ||
+        pet?.sleeping || pet?.game || tools || help || reset || document.hidden ||
+        returnAttempt.current === returnRecap.id) return;
+    returnAttempt.current = returnRecap.id;
+    busyRef.current = true;
+    setBusy(true);
+    void request("recap/read", { id: returnRecap.id }).then((r) => {
+      apply(r);
+      if (r.recapClaimed && r.returnRecap?.id === returnRecap.id && !r.state.sleeping && !r.state.game) {
+        setReturnPage(0);
+        setPage("return");
+      }
+    }).catch(() => {
+      // If not accepted, a later heartbeat retries. If the response was lost
+      // after acceptance, the saved recap remains available in the menu.
+      setError("回访小结暂时没连上，下次连接时再看。");
+    }).finally(() => {
+      busyRef.current = false;
+      setBusy(false);
+    });
+  }, [returnRecap, returnPending, page, busy, clip, evolution, pet?.sleeping, pet?.game, tools, help, reset, apply]);
   // Keep the result readable for eight seconds after care/evolution clips.
   // Polling never replays it, and C skips only the animation, not saved care.
   useEffect(() => {
@@ -327,6 +364,12 @@ export default function App() {
       return;
     }
     setError("");
+    if (page === "return") {
+      if (key === "A") setReturnPage((v) => (v + 1) % 2);
+      else if (key === "B" && returnPage === 0) setReturnPage(1);
+      else setPage("home");
+      return;
+    }
     if (key === "A") {
       if (page === "choose") setChosen((v) => (v + 1) % 10);
       else if (page === "home") {
@@ -363,7 +406,10 @@ export default function App() {
     }
     if (page === "menu") {
       const item = items[selected];
-      if (item.kind === "status") setPage("status");
+      if (item.kind === "return") {
+        if (returnRecap) { setReturnPage(0); setPage("return"); }
+        else setMessage("还没有回访小结。离开至少 15 分钟后，回来会记录真实变化。");
+      } else if (item.kind === "status") setPage("status");
       else if (item.kind === "growth") {
         setPage("growth");
         setGrowthPage(0);
@@ -416,6 +462,9 @@ export default function App() {
       knownStage.current = null;
       setEvolution(null);
       setCareFeedback(null);
+      setReturnRecap(null);
+      setReturnPending(false);
+      returnAttempt.current = "";
       finishClip();
       apply(r);
       setPage(r.state.hatchedAt ? "home" : "choose");
@@ -444,6 +493,9 @@ export default function App() {
       knownStage.current = null;
       setEvolution(null);
       setCareFeedback(null);
+      setReturnRecap(null);
+      setReturnPending(false);
+      returnAttempt.current = "";
       finishClip();
       apply(r);
       setChosen(0);
@@ -477,7 +529,9 @@ export default function App() {
       ? "A 换一位　 B 就是它"
       : page === "hatch"
         ? "B 轻轻唤醒　 C 再选选"
-        : page === "home"
+        : page === "return"
+          ? "A 换页　 B 继续　 C 返回"
+          : page === "home"
           ? clip
             ? `${clip.kind === "feed" ? "吃得香香" : clip.kind === "clean" ? "泡泡时间" : clip.kind === "wake" ? "伸个懒腰" : clip.kind === "evolve" ? "长大啦" : "好开心呀"} · C 跳过`
             : "A / B 打开菜单"
@@ -652,7 +706,9 @@ export default function App() {
                         ? "HELLO, FRIEND"
                         : page === "menu"
                           ? "CARE MENU"
-                          : page === "status"
+                          : page === "return"
+                            ? "WELCOME BACK"
+                            : page === "status"
                             ? "MY STATUS"
                             : page === "growth"
                               ? "GROWTH BOOK"
@@ -679,6 +735,9 @@ export default function App() {
                       </div>
                     ) : (
                       <>
+                        {page === "return" && returnRecap && (
+                          <ReturnPanel recap={returnRecap} page={returnPage} />
+                        )}
                         {page === "choose" && (
                           <>
                             <div className="screen-caption">

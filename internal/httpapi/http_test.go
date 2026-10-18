@@ -36,6 +36,24 @@ func TestAPIFlowAndOriginProtection(t *testing.T) {
 	if w := call("POST", "/api/action", `{"kind":"hatch","species":1}`, ""); w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}
+	for _, path := range []string{"/api/visit", "/api/recap/read"} {
+		body := `{}`
+		if path == "/api/recap/read" {
+			body = `{"id":"not-pending"}`
+		}
+		if w := call("POST", path, body, "https://foreign.example"); w.Code != 403 {
+			t.Fatal("cross-origin presence accepted", path)
+		}
+		if w := call("POST", path, body, ""); w.Code != 200 {
+			t.Fatal(path, w.Body.String())
+		}
+		if w := call("POST", path, `{"unknown":true}`, ""); w.Code != 400 {
+			t.Fatal("invalid presence accepted", path)
+		}
+	}
+	if w := call("POST", "/api/recap/read", `{"id":""}`, ""); w.Code != 400 {
+		t.Fatal("empty recap ID accepted")
+	}
 	backup := call("GET", "/api/backup", "", "")
 	var state game.State
 	if err = json.Unmarshal(backup.Body.Bytes(), &state); err != nil || state.Species != 1 || state.HatchedAt == 0 {

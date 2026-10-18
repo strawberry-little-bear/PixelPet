@@ -52,6 +52,9 @@ export type Result = {
   message: string;
   serverTime: number;
   careFeedback?: CareFeedback;
+  returnRecap?: ReturnRecap;
+  recapPending?: boolean;
+  recapClaimed?: boolean;
 };
 export const species = [
   "星星狸",
@@ -77,3 +80,19 @@ export const personalities = [
   "小小的身体，装着整个银河。",
   "焦糖色的日子，有你就很甜。",
 ];
+
+export type ReturnSnapshot = {
+  needs: Needs;
+  stage: GrowthStage;
+  form: AdultForm | "";
+  points: number;
+  rest: number;
+  trackedHours: number;
+};
+export type ReturnRecap = {
+  id: string;
+  from: number;
+  to: number;
+  before: ReturnSnapshot;
+  after: ReturnSnapshot;
+};
