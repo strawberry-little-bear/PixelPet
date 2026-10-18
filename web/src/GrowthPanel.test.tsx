@@ -21,7 +21,7 @@ describe("growth handbook previews and form guide", () => {
       .toEqual(["baby", "growing", "adult"]);
     expect(container.querySelector(".growth-previews image")).toBeNull();
     expect(container.querySelector("button")).toBeNull();
-    expect(container.querySelector(".growth-page-dots")?.textContent).toBe("1 / 3");
+    expect(container.querySelector(".growth-page-dots")?.textContent).toBe("1 / 4");
     expect(g).toEqual(before);
   });
 

@@ -1,3 +1,4 @@
+import { CompanionPanel } from "./CompanionPanel";
 import { PetArt, petRigClass } from "./PetArt";
 import { FormEmblem, GrowthOutfit } from "./GrowthOutfit";
 import {
@@ -10,7 +11,7 @@ import {
   growthPageCount,
   formRules,
 } from "./growth";
-import type { Growth, GrowthStage } from "./types";
+import type { Companion, Growth, GrowthStage } from "./types";
 import "./growth.css";
 
 function StagePreviews({ growth, index }: { growth: Growth; index: number }) {
@@ -44,10 +45,12 @@ function StagePreviews({ growth, index }: { growth: Growth; index: number }) {
 
 export function GrowthPanel({
   growth: g,
+  companion,
   index,
   page,
 }: {
   growth: Growth;
+  companion?: Companion;
   index: number;
   page: number;
 }) {
@@ -133,7 +136,7 @@ export function GrowthPanel({
               : "休息按体力恢复积累，每 28 点 +0.25。"}
           </small>
         </>
-      ) : (
+      ) : page === 3 ? <CompanionPanel companion={companion} /> : (
         <div className="form-guide">
           <div className="habit-heading">
             <span>{g.form ? "已定型 · 形态依据" : "当前倾向 · 形态依据"}</span>

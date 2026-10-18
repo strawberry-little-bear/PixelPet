@@ -239,6 +239,7 @@ func TestSchemaThreeStoreUpgradeKeepsSnapshotAndPast(t *testing.T) {
 	r, _ := s.Do(nil, nil, false, now)
 	legacy := r.State
 	legacy.Schema = 3
+	legacy.Companion = nil
 	legacy.Pond = nil
 	legacy.Economy = nil
 	before, _ := json.Marshal(legacy)

@@ -1,3 +1,5 @@
+import { completedExperience, experienceWords } from "./companion";
+import type { GameExperience } from "./types";
 import { FishingGame, FishAlbum } from "./FishingGame";
 import { fishCatalog, fishingMenu } from "./fishing";
 import { TetrisGame } from "./TetrisGame";
@@ -148,6 +150,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [careFeedback, setCareFeedback] = useState<Feedback | null>(null);
+  const [homeEcho, setHomeEcho] = useState<(GameExperience & { until: number }) | null>(null);
+  const seenExperiences = useRef(new Set<string>());
+  const homeEchoEpoch = useRef(0);
   const [clip, setClip] = useState<MotionClip | null>(null);
   const clipRef = useRef<MotionClip | null>(null);
   const clipSequence = useRef(0);
@@ -247,7 +252,10 @@ export default function App() {
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
     const focus = () => {
-      if (!document.hidden) void refresh();
+      if (document.hidden) {
+        homeEchoEpoch.current++;
+        setHomeEcho(null);
+      } else void refresh();
     };
     document.addEventListener("visibilitychange", focus);
     return () => {
@@ -279,6 +287,14 @@ export default function App() {
       setPage("home");
     }
   }, [pet, page, busy]);
+  useEffect(() => {
+    if (page !== "home" || tools || help || reset) setHomeEcho(null);
+  }, [page, tools, help, reset]);
+  useEffect(() => {
+    if (!homeEcho) return;
+    const timer = setTimeout(() => setHomeEcho(null), Math.max(0, homeEcho.until - Date.now()));
+    return () => clearTimeout(timer);
+  }, [homeEcho]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 4200);
@@ -427,9 +443,11 @@ export default function App() {
   async function act(kind: string, extra: Record<string, unknown> = {}) {
     if (busyRef.current) return;
     setCareFeedback(null);
+    setHomeEcho(null);
     busyRef.current = true;
     setBusy(true);
     const activeEpoch = fishingEpoch.current;
+    const echoEpoch = homeEchoEpoch.current;
     try {
       const r = await request("action", {
         kind,
@@ -445,6 +463,9 @@ export default function App() {
         requestId: crypto.randomUUID(),
       });
       apply(r);
+      const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
+      if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
+        setHomeEcho({ ...experience, until: Date.now() + 12000 });
       if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden) setFishingSession(r.state.game?.id ?? "");
       if (["fish-pause", "fish-finish", "cancel-play"].includes(kind)) { setFishingSession(""); setFishingChoice(0); }
       if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind)) setTetrisSession(r.state.game?.id ?? "");
@@ -582,6 +603,7 @@ export default function App() {
     if (clipRef.current) {
       if (key === "C") {
         beep();
+        setHomeEcho(null);
         finishClip();
       }
       return;
@@ -898,6 +920,7 @@ export default function App() {
   const target = pet?.game
     ? Math.floor(Math.max(0, now - pet.game.startedAt) / 900) % 3
     : 0;
+  const echo = homeEcho && page === "home" && !clip && !evolution && !tools && !help && !reset && !document.hidden && Date.now() < homeEcho.until && !pet?.sleeping && !["hungry", "tired", "dirty"].includes(need?.kind ?? "") ? homeEcho.kind : undefined;
   const motion = sceneMotion(pet?.sleeping ?? false, clip);
   const blocks = pet?.game?.tetris;
   const tetrisHint = blocks?.end ? "B / C 收好成绩" : blocks?.paused || tetrisSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 左移  B 右移  C 操作 / 暂停";
@@ -1235,6 +1258,7 @@ export default function App() {
                             <PetScene
                               index={index}
                               motion={motion}
+                              echo={echo}
                               need={need?.kind}
                               clipId={clip?.id ?? 0}
                               duration={clip ? clipDurations[clip.kind] : 0}
@@ -1246,7 +1270,7 @@ export default function App() {
                             <CareFeedback
                               feedback={careFeedback}
                               growth={growth}
-                              mood={message || mood}
+                              mood={echo ? experienceWords[echo] : message || mood}
                               now={now}
                             />
                           </>
@@ -1286,6 +1310,7 @@ export default function App() {
                         {page === "growth" && (
                           <GrowthPanel
                             growth={growth}
+                            companion={pet.companion}
                             index={index}
                             page={growthPage}
                           />

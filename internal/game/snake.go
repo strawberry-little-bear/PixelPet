@@ -84,6 +84,9 @@ func (s *State) applySnake(a Action, now time.Time) (string, error) {
 			return "", errors.New("还没结束，可以按 C 暂停")
 		}
 		eaten := n.Eaten
+		if eaten >= 3 {
+			s.recordGameExperience("snake", now)
+		}
 		s.Game = nil
 		coins := 0
 		if eaten >= 3 {

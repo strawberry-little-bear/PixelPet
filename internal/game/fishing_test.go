@@ -240,6 +240,7 @@ func TestFishingInvalidDataAndLegacyMigration(t *testing.T) {
 	old.Apply(Action{Kind: "hatch"}, now)
 	old.Apply(Action{Kind: "play-tetris"}, now)
 	old.Schema = 7
+	old.Companion = nil
 	old.Pond = nil
 	before, _ := json.Marshal(old.Game)
 	if err := old.Validate(now); err != nil {

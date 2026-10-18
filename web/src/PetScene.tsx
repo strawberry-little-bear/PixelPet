@@ -1,3 +1,5 @@
+import { experienceWords } from "./companion";
+import type { SharedGameKind } from "./companion";
 import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
 import { useId } from "react";
 import type { CSSProperties } from "react";
@@ -155,6 +157,7 @@ export function PetScene({
   form = "",
   need,
   equipped,
+  echo,
 }: {
   index: number;
   motion: SceneMotion;
@@ -165,9 +168,12 @@ export function PetScene({
   form?: AdultForm | "";
   need?: NeedKind;
   equipped?: Equipment;
+  echo?: SharedGameKind;
 }) {
   const rig = petRigKind(index, stage);
-  const activeNeed = motion === "idle" && stage !== "egg" ? need : undefined;
+  const sharedEcho = motion === "idle" && stage !== "egg" && !["hungry", "tired", "dirty"].includes(need || "") ? echo : undefined;
+  const echoNeed = sharedEcho ? ({ stars: "content", tiles: "quiet", snake: "content", tetris: "content", fishing: "quiet" } as const)[sharedEcho] : undefined;
+  const activeNeed = motion === "idle" && stage !== "egg" ? echoNeed || need : undefined;
   const expression: Expression =
     motion === "sleeping"
       ? "asleep"
@@ -181,13 +187,14 @@ export function PetScene({
   return (
     <div
       className={`pet-room pet-scene motion-${motion} growth-${stage} form-${form || "none"} need-${activeNeed || "none"}`}
+      data-echo={sharedEcho}
       data-motion={motion}
       data-need={activeNeed || "none"}
       data-rig={rig}
       data-stage={stage}
       data-form={form}
       role="img"
-      aria-label={labels[motion] + (activeNeed ? `，${(rig === "dolphin" ? dolphinNeedLabels : rig === "mushroom" ? mushroomNeedLabels : rig === "bear" ? bearNeedLabels : rig === "frog" ? frogNeedLabels : rig === "dragon" ? dragonNeedLabels : rig === "dog" ? dogNeedLabels : needLabels)[activeNeed]}` : "")}
+      aria-label={(sharedEcho ? experienceWords[sharedEcho] : labels[motion]) + (activeNeed ? `，${(rig === "dolphin" ? dolphinNeedLabels : rig === "mushroom" ? mushroomNeedLabels : rig === "bear" ? bearNeedLabels : rig === "frog" ? frogNeedLabels : rig === "dragon" ? dragonNeedLabels : rig === "dog" ? dogNeedLabels : needLabels)[activeNeed]}` : "")}
     >
       <div className="scene-environment" aria-hidden="true">
         <RoomSurfaceArt id={equipped?.wallpaper} />
@@ -205,6 +212,7 @@ export function PetScene({
         style={{ "--clip-duration": `${duration}ms` } as CSSProperties}
       >
         <span className="pet-ground-shadow" />
+        {sharedEcho && <div className="home-game-token" data-game={sharedEcho}><span>{({ stars: "★", tiles: "▧ ▧", snake: "●", tetris: "▥", fishing: "<><" })[sharedEcho]}</span><small>刚才 · {({ stars: "接星星", tiles: "连连看", snake: "贪吃蛇", tetris: "俄罗斯方块", fishing: "池塘钓鱼" })[sharedEcho]}</small></div>}
         {motion === "sleeping" && (
           <>
             <span className="sleep-pillow" />

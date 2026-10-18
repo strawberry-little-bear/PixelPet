@@ -86,6 +86,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		// past care; buying or previewing must never invent an earlier memory.
 		s.Schema = 9
 	}
+	if s.Schema == 9 {
+		s.Advance(now)
+		s.Companion = newCompanion(now)
+		s.Schema = 10
+	}
 	return true
 }
 

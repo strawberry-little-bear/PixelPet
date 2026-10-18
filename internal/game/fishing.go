@@ -108,6 +108,9 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 			return "", errors.New("还有抛竿机会，先慢慢玩完吧")
 		}
 		caught := len(n.Catches)
+		if caught > 0 {
+			s.recordGameExperience("fishing", now)
+		}
 		s.Game = nil
 		coins := 0
 		if caught > 0 {

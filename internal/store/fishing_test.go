@@ -120,6 +120,7 @@ func TestSchemaSevenPondMigrationSnapshotsOnceWithoutInventedDiscoveries(t *test
 	old.Apply(game.Action{Kind: "hatch", Species: 1}, now)
 	old.Apply(game.Action{Kind: "play-tetris"}, now)
 	old.Schema = 7
+	old.Companion = nil
 	old.Pond = nil
 	raw, _ := json.Marshal(old)
 	if _, err = db.db.Exec("UPDATE saves SET body=? WHERE id=1", string(raw)); err != nil {

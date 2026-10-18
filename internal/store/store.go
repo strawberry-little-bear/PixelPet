@@ -176,6 +176,15 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 				pond.Fish = append([]game.FishDiscovery{}, imported.Pond.Fish...)
 				state.Pond = &pond
 			}
+			if imported.Companion != nil {
+				companion := *imported.Companion
+				companion.Interests = append([]game.Interest{}, imported.Companion.Interests...)
+				if companion.Recent != nil {
+					recent := *companion.Recent
+					companion.Recent = &recent
+				}
+				state.Companion = &companion
+			}
 			state.Logs = append([]game.Log{}, imported.Logs...)
 			state.Game = nil
 			state.Upgrade(now)

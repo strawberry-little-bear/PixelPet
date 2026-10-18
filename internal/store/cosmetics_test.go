@@ -84,6 +84,7 @@ func TestSchemaEightShopUpgradeSnapshotsAndPreservesOldGear(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.State.Schema = 8
+	r.State.Companion = nil
 	r.State.Economy.Owned = []string{"berry-scarf", "patchwork-rug"}
 	r.State.Economy.Equipped = game.Equipment{Accessory: "berry-scarf", Room: "patchwork-rug"}
 	raw, _ := json.Marshal(r.State)

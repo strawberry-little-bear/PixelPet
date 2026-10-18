@@ -207,8 +207,12 @@ describe("three-button pet animation lifecycle", () => {
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("2");
     expect(document.querySelector(".form-guide")?.textContent).toContain("成年时按上方顺序确定");
     await key("a");
+    expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("3");
+    expect(document.querySelector(".companion-panel")).not.toBeNull();
+    await key("a");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("0");
     expect(document.querySelectorAll("[data-preview-stage]")).toHaveLength(3);
+    await key("b");
     await key("b");
     await key("b");
     await key("b");
@@ -996,5 +1000,85 @@ describe("server-owned game sessions", () => {
     const calls = api.mock.calls.filter(([p]) => p === "action").map(([, b]) => b as { kind: string; gameId: string });
     expect(calls.map(c => c.kind)).toEqual(["catch", "cancel-play"]);
     expect(calls.every(c => c.gameId === "saved-session-identity")).toBe(true);
+  });
+});
+
+describe("real completed-game home echoes", () => {
+  const id="0123456789abcdef0123456789abcdef";
+  async function finalStar(options: {feedback?:boolean; mismatch?:boolean; hungry?:boolean; responseGate?:Promise<void>; failure?:boolean} = {}) {
+    saved.game={id,startedAt:Date.now()-4500,round:4,score:3,lastBeat:3};
+    if(options.hungry)saved.needs.hunger=20;
+    saved.companion={since:saved.createdAt,interests:["stars","tiles","snake","tetris","fishing"].map(kind=>({kind:kind as "stars",points:0,lastAt:0}))};
+    api.mockImplementation(async(path,body)=>{
+      if(path==='action' && (body as {kind:string}).kind==='catch'){
+        await options.responseGate;
+        if (options.failure) throw new Error("network unavailable");
+        saved.game=undefined;saved.revision++;saved.careCount++;
+        saved.companion!.interests[0]={kind:"stars",points:1,lastAt:Date.now()};
+        saved.companion!.recent={kind:"stars",id:options.mismatch?'different-session':id,at:Date.now()};
+        return {...state(),careFeedback:options.feedback===false?undefined:{kind:"catch" as const,points:.25,habit:"play" as const,habitGain:1,reason:"credited" as const}};
+      }
+      return state();
+    });
+    await mount();await key('b');
+  }
+  it("responds after a real local settlement, expires, and never replays on refresh",async()=>{
+    await finalStar();expect(scene()).toBe('celebrating');
+    expect(document.querySelector('.home-game-token')).toBeNull();
+    await advance(1500);expect(document.querySelector('[data-echo="stars"]')).not.toBeNull();
+    expect(document.querySelectorAll('.physical-button')).toHaveLength(3);
+    expect(document.querySelectorAll('.lcd button')).toHaveLength(0);
+    const writes=api.mock.calls.filter(([p])=>p==='action').length;
+    await advance(10500);expect(document.querySelector('.home-game-token')).toBeNull();
+    cleanup();await mount();await advance(15000);
+    expect(document.querySelector('.home-game-token')).toBeNull();
+    expect(api.mock.calls.filter(([p])=>p==='action')).toHaveLength(writes);
+    expect(saved.companion!.interests[0].points).toBe(1);
+  });
+  it.each([{feedback:false},{mismatch:true},{hungry:true}])("does not fabricate an echo or cover needs: %j",async options=>{
+    await finalStar(options);await advance(1500);expect(document.querySelector('.home-game-token')).toBeNull();
+  });
+  it("leaving home consumes the transient response without replay on return",async()=>{
+    await finalStar();await advance(1500);expect(document.querySelector('.home-game-token')).not.toBeNull();
+    await key('a');await key('c');expect(scene()).toBe('idle');expect(document.querySelector('.home-game-token')).toBeNull();
+  });
+  it("C skips both the celebration and its pending echo",async()=>{
+    await finalStar();await key('c');expect(scene()).toBe('idle');expect(document.querySelector('.home-game-token')).toBeNull();
+  });
+  it.each([false, true])("does not queue an in-flight response across backgrounding (return first: %s)", async returnFirst => {
+    let release!: () => void;
+    const responseGate = new Promise<void>(resolve => { release = resolve; });
+    await finalStar({ responseGate });
+    const visibility = async (hidden: boolean) => {
+      Object.defineProperty(document, "hidden", { configurable: true, value: hidden });
+      await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    };
+    try {
+      await visibility(true);
+      if (returnFirst) await visibility(false);
+      await act(async () => { release(); });
+      if (!returnFirst) await visibility(false);
+      await advance(1500);
+      expect(document.querySelector(".home-game-token")).toBeNull();
+      expect(saved.companion!.interests[0].points).toBe(1);
+    } finally {
+      Object.defineProperty(document, "hidden", { configurable: true, value: false });
+    }
+  });
+  it("a failed settlement cannot fabricate a saved experience or home response", async () => {
+    await finalStar({ failure: true });
+    await advance(1500);
+    expect(saved.game?.id).toBe(id);
+    expect(saved.companion!.recent).toBeUndefined();
+    expect(saved.companion!.interests[0].points).toBe(0);
+    expect(document.querySelector(".home-game-token")).toBeNull();
+  });
+  it("backgrounding discards rather than queues an echo",async()=>{
+    await finalStar();await advance(1500);
+    Object.defineProperty(document,'hidden',{configurable:true,value:true});
+    await act(async()=>{document.dispatchEvent(new Event('visibilitychange'))});
+    Object.defineProperty(document,'hidden',{configurable:true,value:false});
+    await act(async()=>{document.dispatchEvent(new Event('visibilitychange'))});
+    expect(document.querySelector('.home-game-token')).toBeNull();
   });
 });

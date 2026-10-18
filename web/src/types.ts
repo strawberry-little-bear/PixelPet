@@ -24,7 +24,10 @@ export type Growth = {
     lastClean: number;
   };
 };
+export type GameExperience = { kind: "stars" | "tiles" | "snake" | "tetris" | "fishing"; id: string; at: number };
+export type Companion = { since: number; interests: {kind: GameExperience["kind"]; points: number; lastAt: number}[]; recent?: GameExperience };
 export type PetState = {
+ companion?: Companion;
  pond?: {since:number;fish:FishDiscovery[]};
   schema: number;
   revision: number;

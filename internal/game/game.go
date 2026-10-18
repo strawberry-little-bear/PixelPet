@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 9
+const Schema = 10
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -52,22 +52,23 @@ type MiniGame struct {
 	LastBeat  int64      `json:"lastBeat"`
 }
 type State struct {
-	Pond      *Pond     `json:"pond,omitempty"`
-	Schema    int       `json:"schema"`
-	Revision  int64     `json:"revision"`
-	Species   int       `json:"species"`
-	Name      string    `json:"name"`
-	CreatedAt int64     `json:"createdAt"`
-	HatchedAt int64     `json:"hatchedAt"`
-	LastTick  int64     `json:"lastTick"`
-	Sleeping  bool      `json:"sleeping"`
-	Needs     Needs     `json:"needs"`
-	CareCount int       `json:"careCount"`
-	Logs      []Log     `json:"logs"`
-	Game      *MiniGame `json:"game,omitempty"`
-	Growth    *Growth   `json:"growth,omitempty"`
-	Album     *Album    `json:"album,omitempty"`
-	Economy   *Economy  `json:"economy,omitempty"`
+	Companion *Companion `json:"companion,omitempty"`
+	Pond      *Pond      `json:"pond,omitempty"`
+	Schema    int        `json:"schema"`
+	Revision  int64      `json:"revision"`
+	Species   int        `json:"species"`
+	Name      string     `json:"name"`
+	CreatedAt int64      `json:"createdAt"`
+	HatchedAt int64      `json:"hatchedAt"`
+	LastTick  int64      `json:"lastTick"`
+	Sleeping  bool       `json:"sleeping"`
+	Needs     Needs      `json:"needs"`
+	CareCount int        `json:"careCount"`
+	Logs      []Log      `json:"logs"`
+	Game      *MiniGame  `json:"game,omitempty"`
+	Growth    *Growth    `json:"growth,omitempty"`
+	Album     *Album     `json:"album,omitempty"`
+	Economy   *Economy   `json:"economy,omitempty"`
 }
 type Action struct {
 	Step      int    `json:"step,omitempty"`
@@ -84,7 +85,7 @@ type Action struct {
 
 func New(now time.Time) State {
 	ms := now.UnixMilli()
-	return State{Pond: newPond(now), Economy: newEconomy(), Schema: Schema, Species: 0, Name: Species[0], CreatedAt: ms, LastTick: ms, Needs: Needs{80, 80, 90, 85}, Growth: &Growth{Stage: "egg"}, Album: &Album{Since: ms, Entries: []Memory{}}, Logs: []Log{{ms, "一颗小小的蛋，正在等待与你相遇。"}}}
+	return State{Companion: newCompanion(now), Pond: newPond(now), Economy: newEconomy(), Schema: Schema, Species: 0, Name: Species[0], CreatedAt: ms, LastTick: ms, Needs: Needs{80, 80, 90, 85}, Growth: &Growth{Stage: "egg"}, Album: &Album{Since: ms, Entries: []Memory{}}, Logs: []Log{{ms, "一颗小小的蛋，正在等待与你相遇。"}}}
 }
 func clamp(n float64) float64 { return math.Max(0, math.Min(100, n)) }
 func (s *State) Log(now time.Time, message string) {
@@ -252,6 +253,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		}
 		if s.Game.Round >= 5 {
 			score := s.Game.Score
+			s.recordGameExperience("stars", now)
 			s.Game = nil
 			s.Needs.Mood = clamp(s.Needs.Mood + 6 + float64(score)*4)
 			s.Needs.Energy = clamp(s.Needs.Energy - 8)
@@ -309,7 +311,7 @@ func (s State) Validate(now time.Time) error {
 	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
 		return bad
 	}
-	if !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() || !s.validPond() || !s.validFishingGame() {
+	if !s.validCompanion() || !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() || !s.validPond() || !s.validFishingGame() {
 		return bad
 	}
 	return nil

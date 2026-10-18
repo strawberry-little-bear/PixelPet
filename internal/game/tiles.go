@@ -171,6 +171,7 @@ func (s *State) applyTile(a Action, now time.Time) (string, error) {
 	t.Pick = -1
 	t.Pairs++
 	if t.Pairs == TilePairs {
+		s.recordGameExperience("tiles", now)
 		s.Game = nil
 		s.Needs.Mood = clamp(s.Needs.Mood + 18)
 		s.Needs.Energy = clamp(s.Needs.Energy - 6)

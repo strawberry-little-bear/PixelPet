@@ -20,6 +20,7 @@ func TestLegacyMigrationPersistsOnceAndKeepsOriginalSnapshot(t *testing.T) {
 	born := now.Add(-80 * time.Hour)
 	legacy := game.New(born)
 	legacy.Schema = 1
+	legacy.Companion = nil
 	legacy.Pond = nil
 	legacy.Economy = nil
 	legacy.Growth = nil

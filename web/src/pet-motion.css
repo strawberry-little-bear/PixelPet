@@ -933,3 +933,21 @@
   .expression-content .sprite-eyes-happy {opacity:1}
   .expression-content .sprite-eyes-open {opacity:0}
 }
+
+/* Short echoes only follow a just-settled local session, never saved/replayed.
+   The same articulated rigs/anchored accessories keep their own anatomy. */
+.home-game-token { position: absolute; z-index: 5; top: 10px; left: 6px; display: grid; gap: 3px; text-align: center; color: #647b50; pointer-events: none; }
+.home-game-token > span { font-size: 17px; line-height: 20px; }
+.home-game-token > small { font-size: 7px; }
+[data-echo="stars"] .pet-actor { animation: shared-star 2.2s ease-in-out 3; }
+[data-echo="tiles"] .pet-actor { animation: shared-look 2.5s ease-in-out 3; }
+[data-echo="snake"] .pet-actor { animation: shared-sway 2s ease-in-out 3; }
+[data-echo="tetris"] .pet-actor { animation: shared-nod 2.8s ease-in-out 3; }
+[data-echo="fishing"] .pet-actor { animation: shared-look 3.2s ease-in-out 2; }
+[data-echo="stars"] .home-game-token > span { animation: shared-token 2s ease-in-out 3; }
+@keyframes shared-star { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-4px) rotate(-3deg); } 65% { transform: translateY(-2px) rotate(3deg); } }
+@keyframes shared-look { 0%, 100% { transform: rotate(0); } 45%, 65% { transform: rotate(-4deg) translateX(-2px); } }
+@keyframes shared-sway { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+@keyframes shared-nod { 0%, 100% { transform: translateY(0); } 40%, 60% { transform: translateY(3px) rotate(-2deg); } }
+@keyframes shared-token { 50% { transform: translateY(-3px); opacity: .65; } }
+@media (prefers-reduced-motion: reduce) { [data-echo] .pet-actor, .home-game-token > span { animation: none !important; } }

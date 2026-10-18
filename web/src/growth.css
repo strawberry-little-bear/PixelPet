@@ -383,3 +383,21 @@
   margin-top: 3px;
   line-height: 1.4;
 }
+
+/* The LCD has a fixed height: reserve room for all five records and rules. */
+.companion-panel .habit-heading {
+  margin: 2px 0 4px;
+  padding-bottom: 4px;
+}
+.companion-panel .habit-heading strong { font-size: 9px; letter-spacing: 0; }
+.companion-panel .companion-summary {
+  margin: 3px 0;
+  min-height: 22px;
+  font-size: 8px;
+  line-height: 11px;
+}
+.companion-rows { display: grid; gap: 2px; font-size: 8px; line-height: 12px; }
+.companion-rows > div { display: flex; justify-content: space-between; }
+.companion-rows > div > span:last-child { color: #547149; letter-spacing: 3px; }
+.companion-rules, .companion-since { display: block; font-size: 7px; line-height: 10px; margin-top: 4px; }
+.companion-since { margin-top: 2px; opacity: .8; }

@@ -1,0 +1,66 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render } from "@testing-library/react";
+import { games } from "./games";
+import { completedExperience, experienceWords, interestSummary } from "./companion";
+import { CompanionPanel } from "./CompanionPanel";
+import { PetScene } from "./PetScene";
+import type { Companion, GameExperience } from "./types";
+afterEach(cleanup);
+const fresh = (): Companion => ({ since: 1792310000000, interests: games.map(g => ({kind:g.id,points:0,lastAt:0})) });
+describe("bounded explainable shared interests", () => {
+  it("does not infer old history or demand a fixed game", () => {
+    const c=fresh(),before=structuredClone(c);
+    const {container,rerender}=render(<CompanionPanel companion={c}/>);
+    expect(container.textContent).toContain("还在慢慢了解彼此");
+    expect(container.querySelectorAll('[data-points="0"]')).toHaveLength(5);
+    expect(container.textContent).toContain("同一游戏间隔 30 分钟，每种最多记 5 次");
+    expect(container.textContent).toContain("满额金币也会记住");
+    expect(container.textContent).toContain("不补写旧经历");
+    expect(container.querySelectorAll('button,a,input,[role="button"]')).toHaveLength(0);
+    rerender(<CompanionPanel/>);expect(container.textContent).toContain("更新服务后");
+    expect(c).toEqual(before);
+  });
+  it("explains ties and capped familiarity without rewriting personality", () => {
+    const c=fresh();c.interests[0].points=1;expect(interestSummary(c)).toContain("还在慢慢");
+    c.interests[0].points=5;expect(interestSummary(c)).toContain("更熟悉接星星");
+    expect(interestSummary(c)).toContain("不是固定性格");
+    c.interests[1].points=5;expect(interestSummary(c)).toContain("不止一种");
+    const {container}=render(<CompanionPanel companion={c}/>);
+    expect(container.querySelector('[data-interest="stars"]')?.getAttribute('data-points')).toBe("5");
+  });
+  it("requires this local settled session, feedback, and one-time delivery", () => {
+    const x: GameExperience={kind:"stars",id:"saved-session",at:1},seen=new Set<string>();
+    expect(completedExperience(undefined,x,true,seen)).toBeNull();
+    expect(completedExperience("different",x,true,seen)).toBeNull();
+    expect(completedExperience(x.id,x,false,seen)).toBeNull();
+    expect(completedExperience(x.id,undefined,true,seen)).toBeNull();
+    expect(completedExperience(x.id,x,true,seen)).toEqual(x);
+    expect(completedExperience(x.id,x,true,seen)).toBeNull();
+    for(let i=0;i<50;i++)completedExperience(`${i}`,{...x,id:`${i}`},true,seen);
+    expect(seen.size).toBe(16);
+  });
+});
+describe("home echoes respect anatomy and care priority", () => {
+  it.each(games.map(g=>g.id))("renders %s only as a passive finite home response", echo => {
+    for(let index=0;index<10;index++) for(const stage of ["baby","growing","adult"] as const){
+      const {container,unmount}=render(<PetScene index={index} stage={stage} motion="idle" echo={echo} need="content" clipId={0} dirty={false} equipped={{accessory:"sky-bow",room:"moon-lamp",wallpaper:"starlit-wall",floor:"mint-floor"}}/>);
+      expect(container.querySelector('.pet-scene')?.getAttribute('data-echo')).toBe(echo);
+      expect(container.querySelector('.pet-scene')?.getAttribute('aria-label')).toContain(experienceWords[echo]);
+      expect(container.querySelectorAll('.pet-sprite')).toHaveLength(1);
+      expect(container.querySelectorAll('.equipped-accessory')).toHaveLength(1);
+      expect(container.querySelectorAll('.room-surface')).toHaveLength(2);
+      expect(container.querySelectorAll('.home-game-token')).toHaveLength(1);
+      expect(container.querySelectorAll('button,[role="button"]')).toHaveLength(0);
+      unmount();
+    }
+  });
+  it.each(["hungry","tired","dirty"] as const)("never covers a %s signal", need=>{
+    const {container}=render(<PetScene index={3} motion="idle" echo="fishing" need={need} clipId={0} dirty/>);
+    expect(container.querySelector('[data-echo]')).toBeNull();
+    expect(container.querySelector('[data-need]')?.getAttribute('data-need')).toBe(need);
+  });
+  it.each(["eating","bathing","sleeping","waking","celebrating"] as const)("never intrudes on %s",motion=>{
+    const {container}=render(<PetScene index={2} motion={motion} echo="stars" clipId={1} dirty={false}/>);
+    expect(container.querySelector('[data-echo]')).toBeNull();expect(container.querySelector('.home-game-token')).toBeNull();
+  });
+});

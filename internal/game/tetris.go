@@ -182,6 +182,9 @@ func (s *State) applyTetris(a Action, now time.Time) (string, error) {
 			return "", errors.New("这局还没有结束")
 		}
 		lines := n.Lines
+		if lines >= 2 {
+			s.recordGameExperience("tetris", now)
+		}
 		s.Game = nil
 		coins := 0
 		if lines >= 2 {
