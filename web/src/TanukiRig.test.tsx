@@ -239,9 +239,9 @@ describe("independently drawn star tanuki", () => {
     },
   );
 
-  it("leaves eggs and the seven undrawn species on the original artwork", () => {
+  it("leaves eggs and the six undrawn species on the original artwork", () => {
     expect(petRigKind(0, "egg")).toBe("original");
-    for (const index of [1, 3, 4, 5, 6, 8, 9])
+    for (const index of [3, 4, 5, 6, 8, 9])
       for (const stage of stages)
         expect(petRigKind(index, stage)).toBe("original");
     expect(petRigKind(2, "adult")).toBe("rabbit");

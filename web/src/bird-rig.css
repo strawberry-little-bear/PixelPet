@@ -1,0 +1,108 @@
+/* One canvas/scene size, three independently drafted cloud-bird anatomies. */
+.growth-baby .growth-size.has-bird-rig,
+.growth-growing .growth-size.has-bird-rig,
+.growth-adult .growth-size.has-bird-rig {
+  width: 104px; height: 110px; margin-left: -52px;
+}
+.has-bird-rig .growth-outfit { bottom: 15px; width: 28px; height: 19px; margin-left: -14px; }
+.growth-baby .has-bird-rig .growth-outfit { bottom: 4px; width: 22px; height: 15px; margin-left: -11px; }
+.pet-scene[data-rig="bird"].motion-idle .pet-actor { animation: none; }
+.bird-rig { overflow: visible; }
+.bird-head { transform-box: view-box; transform-origin: 32px 42px; }
+.bird-crest { transform-box: view-box; transform-origin: 33px 22px; }
+.bird-wing { transform-box: view-box; transform-origin: 19px 42px; }
+.bird-wing.wing-right { transform-origin: 46px 42px; }
+.bird-tail { transform-box: view-box; transform-origin: 35px 57px; }
+.bird-torso { transform-box: view-box; transform-origin: 32px 61px; }
+.bird-foot { transform-box: view-box; transform-origin: 25px 60px; }
+.bird-foot.foot-right { transform-origin: 39px 60px; }
+.bird-beak-open { opacity: 0; }
+.bird-rig.expression-chewing .bird-beak-open { animation: bird-beak-nibble .65s steps(1,end) infinite; }
+.bird-rig.expression-hungry .bird-beak-open { opacity: 1; }
+/* Idle habits require a non-urgent signal. They cannot win over care/needs. */
+.bird-rig.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bird-tail {
+  animation: bird-tail-fan 7s steps(3,end) infinite;
+}
+.bird-baby.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bird-wing {
+  animation: bird-chick-tuck 6s steps(3,end) infinite;
+}
+.bird-baby.rig-motion-idle .wing-right { animation-delay: -.3s; }
+.bird-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .wing-right {
+  animation: bird-test-wing 6s steps(3,end) infinite;
+}
+.bird-growing.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .foot-left {
+  animation: bird-test-step 6s steps(3,end) infinite;
+}
+.bird-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bird-head {
+  animation: bird-preen 8s steps(3,end) infinite;
+}
+.bird-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .wing-left {
+  animation: bird-preen-wing 8s steps(3,end) infinite;
+}
+/* Use actual wings, not mammal hands or a second overlay pair. */
+.bird-rig.rig-motion-idle.gesture-hungry .wing-left { animation: bird-belly-wing 5s steps(3,end) infinite; }
+.bird-rig.rig-motion-idle.gesture-tired .wing-right { animation: bird-sleepy-wing 6s steps(3,end) infinite; }
+.bird-rig.rig-motion-idle.gesture-tired .bird-head { transform: translateY(2px) rotate(5deg); }
+.bird-rig.rig-motion-idle.gesture-dirty .wing-right { animation: bird-feather-scratch 4.8s steps(3,end) infinite; }
+.bird-rig.rig-motion-idle.gesture-playful .wing-left { animation: bird-invite 5.4s steps(3,end) infinite; }
+.bird-rig.rig-motion-idle.gesture-quiet .wing-left { transform: translate(3px,1px) rotate(-10deg); }
+.bird-rig.rig-motion-idle.gesture-quiet .wing-right { transform: translate(-3px,1px) rotate(10deg); }
+.bird-rig.rig-motion-idle:is(.gesture-quiet,.gesture-tired) .bird-tail { transform: rotate(12deg); }
+.bird-rig.rig-motion-eating .bird-head { animation: bird-peck 1s steps(3,end) infinite; }
+.bird-rig.rig-motion-eating .wing-left { animation: bird-hold-snack .65s steps(3,end) infinite; }
+.bird-rig.rig-motion-eating .wing-right { transform: translate(-4px,2px) rotate(12deg); }
+.bird-rig.rig-motion-bathing .bird-wing { animation: bird-splash .8s steps(3,end) infinite; }
+.bird-rig.rig-motion-bathing .wing-right { animation-direction: reverse; animation-delay: -.4s; }
+.bird-rig.rig-motion-bathing .bird-tail { animation: bird-shake 1s steps(3,end) infinite; }
+.bird-rig.rig-motion-sleeping .bird-wing { transform: translateY(3px); }
+.bird-rig.rig-motion-sleeping .bird-head { transform: translateY(3px) rotate(6deg); }
+.bird-rig.rig-motion-sleeping .bird-tail { transform: rotate(12deg); }
+.bird-rig.rig-motion-sleeping .bird-torso { animation: bird-breathe 3.6s ease-in-out infinite; }
+.bird-rig.rig-motion-waking .bird-wing { animation: bird-stretch var(--clip-duration,1400ms) steps(4,end) both; }
+.bird-rig.rig-motion-waking .wing-right { animation-direction: reverse; }
+.bird-rig.rig-motion-waking .bird-head { animation: bird-look-up var(--clip-duration,1400ms) steps(4,end) both; }
+.bird-rig.rig-motion-celebrating .bird-wing { animation: bird-cheer .65s steps(3,end) infinite; }
+.bird-rig.rig-motion-celebrating .wing-right { animation-delay: -.3s; }
+.bird-rig.rig-motion-celebrating .bird-tail { animation: bird-shake .65s steps(3,end) infinite; }
+.form-lively .bird-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bird-wing {
+  animation: bird-ready-flight 5s steps(3,end) infinite;
+}
+.form-gentle .bird-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bird-head {
+  animation: bird-soft-nod 9s steps(3,end) infinite;
+}
+.form-easygoing .bird-adult.rig-motion-idle:not(:is(.gesture-hungry,.gesture-tired,.gesture-dirty,.gesture-quiet)) .bird-tail {
+  animation: bird-rest-feathers 10s steps(3,end) infinite;
+}
+@keyframes bird-tail-fan { 0%,20%,75%,100%{transform:none} 35%,60%{transform:rotate(-7deg)} 45%{transform:rotate(5deg)} }
+@keyframes bird-chick-tuck { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(2px,2px) rotate(-8deg)} 45%{transform:translate(3px,0)} }
+@keyframes bird-test-wing { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(1px,-3px) rotate(-15deg)} 45%{transform:translate(-1px,-5px) rotate(-22deg)} }
+@keyframes bird-test-step { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-1px,-3px)} 45%{transform:translate(2px,-2px)} }
+@keyframes bird-preen { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,3px) rotate(-9deg)} 45%{transform:translate(-3px,2px) rotate(-12deg)} }
+@keyframes bird-preen-wing { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(3px,-2px) rotate(-14deg)} 45%{transform:translate(4px,-3px) rotate(-18deg)} }
+@keyframes bird-belly-wing { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(7px,3px) rotate(-25deg)} 45%{transform:translate(8px,1px) rotate(-16deg)} }
+@keyframes bird-sleepy-wing { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-4px,-9px) rotate(18deg)} 45%{transform:translate(-5px,-10px) rotate(12deg)} }
+@keyframes bird-feather-scratch { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(0,-13px) rotate(-20deg)} 45%{transform:translate(2px,-15px) rotate(-28deg)} }
+@keyframes bird-invite { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translate(-2px,-5px) rotate(-25deg)} 45%{transform:translate(-3px,-6px) rotate(-32deg)} }
+@keyframes bird-beak-nibble { 0%,60%,100%{opacity:0} 30%,50%{opacity:1} }
+@keyframes bird-peck { 0%,100%{transform:none} 50%{transform:translate(-2px,3px) rotate(-5deg)} }
+@keyframes bird-hold-snack { 0%,100%{transform:translate(6px,-3px) rotate(-12deg)} 50%{transform:translate(8px,-6px) rotate(-20deg)} }
+@keyframes bird-splash { 0%,100%{transform:translate(0,-3px) rotate(-12deg)} 50%{transform:translate(1px,-7px) rotate(16deg)} }
+@keyframes bird-shake { 0%,100%{transform:rotate(-8deg)} 50%{transform:rotate(8deg)} }
+@keyframes bird-breathe { 0%,100%{transform:none} 50%{transform:scaleY(1.025)} }
+@keyframes bird-stretch { 0%,100%{transform:none} 35%,70%{transform:translate(-3px,-9px) rotate(-28deg)} }
+@keyframes bird-look-up { 0%,100%{transform:none} 35%,70%{transform:translateY(-3px) rotate(4deg)} }
+@keyframes bird-cheer { 0%,100%{transform:translateY(-4px) rotate(-15deg)} 50%{transform:translateY(-8px) rotate(18deg)} }
+@keyframes bird-ready-flight { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(-3px) rotate(-18deg)} 45%{transform:translateY(-6px) rotate(-28deg)} }
+@keyframes bird-soft-nod { 0%,20%,75%,100%{transform:none} 35%,60%{transform:translateY(2px) rotate(3deg)} 45%{transform:translateY(1px)} }
+@keyframes bird-rest-feathers { 0%,20%,75%,100%{transform:rotate(4deg)} 40%,60%{transform:rotate(12deg)} }
+@media (prefers-reduced-motion: reduce) {
+  .bird-rig * { animation: none !important; }
+  .bird-rig.rig-motion-idle.gesture-hungry .wing-left { transform: translate(7px,2px) rotate(-20deg); }
+  .bird-rig.rig-motion-idle.gesture-tired .wing-right { transform: translate(-4px,-9px) rotate(15deg); }
+  .bird-rig.rig-motion-idle.gesture-dirty .wing-right { transform: translateY(-13px) rotate(-20deg); }
+  .bird-rig.rig-motion-idle.gesture-playful .wing-left { transform: translate(-2px,-5px) rotate(-25deg); }
+  .bird-rig.rig-motion-eating .wing-left { transform: translate(7px,-5px); }
+  .bird-rig.rig-motion-bathing .wing-right { transform: translateY(-7px); }
+  .bird-rig.rig-motion-waking .bird-wing { transform: translateY(-9px); }
+  .bird-rig.rig-motion-celebrating .wing-left { transform: translateY(-8px) rotate(-20deg); }
+}
