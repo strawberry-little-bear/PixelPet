@@ -1127,44 +1127,6 @@ footer i {
 .pet-thought svg {
   flex-shrink: 0;
 }
-.sleep-sprite {
-  transform: translateY(10px) rotate(-6deg);
-  animation: sleep-breathe 4s infinite;
-}
-.sleep-z {
-  position: absolute;
-  left: 60%;
-  top: 37px;
-  font: 15px var(--mono);
-  color: #698056;
-  animation: float-up 3s infinite;
-}
-.sleeping .room-cloud {
-  opacity: 0.25;
-}
-.action-prop {
-  position: absolute;
-  bottom: 55px;
-  right: 30px;
-  font-size: 25px;
-  z-index: 3;
-  animation: float-up 1.2s both;
-}
-.action-prop.bubbles {
-  font-size: 28px;
-  color: #80b1b1;
-  left: 70px;
-  right: auto;
-  bottom: 60px;
-  white-space: nowrap;
-}
-.animation-hatch > .pet-sprite,
-.animation-play > .pet-sprite {
-  animation: pet-jump 0.35s 3;
-}
-.animation-feed > .pet-sprite {
-  animation: pet-munch 0.2s 5;
-}
 .dirty-mark {
   position: absolute;
   left: 28px;
@@ -1555,46 +1517,6 @@ footer i {
   }
   94% {
     transform: rotate(-3deg);
-  }
-}
-@keyframes sleep-breathe {
-  0%,
-  100% {
-    transform: translateY(10px) rotate(-6deg) scale(1);
-  }
-  50% {
-    transform: translateY(10px) rotate(-6deg) scale(1.03, 0.98);
-  }
-}
-@keyframes float-up {
-  0% {
-    transform: translateY(5px);
-    opacity: 0;
-  }
-  30% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-18px);
-    opacity: 0;
-  }
-}
-@keyframes pet-jump {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-15px);
-  }
-}
-@keyframes pet-munch {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.08, 0.94);
   }
 }
 @keyframes star-fall {

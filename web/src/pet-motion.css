@@ -1,0 +1,891 @@
+/* The original sheet stays intact; the rig animates pixel eyes, body and props. */
+.sprite-eyes-open,
+.sprite-eyes-closed,
+.sprite-eyes-happy {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.sprite-eyes-closed,
+.sprite-eyes-happy {
+  opacity: 0;
+}
+.expression-awake .sprite-eyes-open {
+  animation: pixel-blink 5.6s steps(1, end) infinite;
+}
+.expression-awake .sprite-eyes-closed {
+  animation: pixel-blink-closed 5.6s steps(1, end) infinite;
+}
+.expression-chewing .sprite-eyes-open {
+  animation: chew-eyes 0.62s steps(1, end) infinite;
+}
+.expression-chewing .sprite-eyes-happy {
+  animation: chew-smile 0.62s steps(1, end) infinite;
+}
+.expression-asleep .sprite-eyes-open,
+.expression-content .sprite-eyes-open {
+  opacity: 0;
+}
+.expression-asleep .sprite-eyes-closed,
+.expression-content .sprite-eyes-happy {
+  opacity: 1;
+}
+.expression-waking .sprite-eyes-open {
+  animation: waking-eyes 1.4s steps(1, end) both;
+}
+.expression-waking .sprite-eyes-closed {
+  animation: waking-lids 1.4s steps(1, end) both;
+}
+.pet-scene .motion-stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pet-scene .pet-actor {
+  position: absolute;
+  width: 99px;
+  height: 105px;
+  left: 50%;
+  margin-left: -49.5px;
+  bottom: 13px;
+  z-index: 2;
+  transform-origin: 50% 95%;
+  mix-blend-mode: multiply;
+}
+.pet-actor > .pet-sprite {
+  width: 100%;
+  height: 100%;
+  filter: saturate(0.85);
+}
+.pet-ground-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 11px;
+  width: 63px;
+  margin-left: -31.5px;
+  height: 6px;
+  background: #8fa17644;
+  border-radius: 50%;
+}
+.motion-idle .pet-actor {
+  animation: idle-life 6.4s steps(2, end) infinite;
+}
+.motion-idle .pet-ground-shadow {
+  animation: idle-shadow 6.4s steps(2, end) infinite;
+}
+.motion-eating .pet-actor {
+  animation: eating-pose var(--clip-duration) steps(2, end) both;
+}
+.meal-props,
+.bath-props {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+.meal-plate {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  margin-left: -6px;
+  width: 57px;
+  height: 6px;
+  background: #d5dbc0;
+  border: 2px solid #8f9e72;
+  border-radius: 0 0 7px 7px;
+  animation: meal-plate var(--clip-duration) steps(1, end) both;
+}
+.rice-ball {
+  position: absolute;
+  left: 50%;
+  margin-left: 16px;
+  bottom: 40px;
+  width: 36px;
+  height: 36px;
+  animation: serve-rice var(--clip-duration) steps(3, end) both;
+}
+.rice-bite {
+  opacity: 0;
+}
+.bite-one {
+  animation: first-bite var(--clip-duration) steps(1, end) both;
+}
+.bite-two {
+  animation: second-bite var(--clip-duration) steps(1, end) both;
+}
+.rice-crumbs {
+  position: absolute;
+  left: 50%;
+  top: 70px;
+}
+.rice-crumbs i {
+  width: 3px;
+  height: 3px;
+  display: block;
+  position: absolute;
+  background: #fff9df;
+  box-shadow: 1px 1px #9ba879;
+  animation: rice-crumb var(--clip-duration) steps(4, end) both;
+}
+.rice-crumbs i:nth-child(1) {
+  --crumb-x: -9px;
+  --crumb-y: 13px;
+  left: 14px;
+}
+.rice-crumbs i:nth-child(2) {
+  --crumb-x: 11px;
+  --crumb-y: 20px;
+  left: 22px;
+  top: 2px;
+}
+.rice-crumbs i:nth-child(3) {
+  --crumb-x: -14px;
+  --crumb-y: 26px;
+  left: 20px;
+  top: -4px;
+}
+.rice-crumbs i:nth-child(4) {
+  --crumb-x: 9px;
+  --crumb-y: 17px;
+  left: 12px;
+  top: 6px;
+}
+.meal-heart {
+  position: absolute;
+  top: 28px;
+  left: 65%;
+  color: #b58b7f;
+  font-size: 17px;
+  animation: meal-heart var(--clip-duration) steps(4, end) both;
+}
+.motion-bathing .pet-actor {
+  animation: bath-wiggle var(--clip-duration) steps(2, end) both;
+}
+.bath-props {
+  animation: bath-appear var(--clip-duration) steps(2, end) both;
+}
+.bath-tub {
+  position: absolute;
+  width: 116px;
+  height: 53px;
+  bottom: 1px;
+  left: 50%;
+  margin-left: -58px;
+  z-index: 5;
+}
+.bath-soap {
+  position: absolute;
+  width: 27px;
+  height: 20px;
+  left: 50%;
+  margin-left: 34px;
+  top: 54px;
+  z-index: 3;
+  animation: soap-scrub 0.56s steps(3, end) infinite;
+}
+.bath-foam {
+  position: absolute;
+  left: 50%;
+  margin-left: -26px;
+  top: 33px;
+  width: 53px;
+  height: 19px;
+  z-index: 4;
+  animation: foam-scrub 0.56s steps(2, end) infinite;
+}
+.bath-foam i {
+  position: absolute;
+  bottom: 0;
+  width: 21px;
+  height: 13px;
+  background: #f5f8e9;
+  box-shadow: 0 3px #b9d2bb;
+  border-radius: 7px 7px 3px 3px;
+}
+.bath-foam i:nth-child(2) {
+  left: 17px;
+  height: 19px;
+}
+.bath-foam i:nth-child(3) {
+  left: 34px;
+  width: 18px;
+  height: 12px;
+}
+.bath-bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+}
+.bath-bubbles i {
+  width: 9px;
+  height: 9px;
+  border: 2px solid #91b9a4;
+  box-shadow: inset 2px 2px #f8fbe9;
+  position: absolute;
+  bottom: 33px;
+  left: 26%;
+  animation: bath-bubble 1.4s steps(5, end) infinite both;
+  opacity: 0;
+}
+.bath-bubbles i:nth-child(2) {
+  left: 65%;
+  animation-delay: 0.25s;
+  width: 7px;
+  height: 7px;
+}
+.bath-bubbles i:nth-child(3) {
+  left: 35%;
+  animation-delay: 0.6s;
+}
+.bath-bubbles i:nth-child(4) {
+  left: 71%;
+  animation-delay: 0.9s;
+  width: 6px;
+  height: 6px;
+}
+.bath-bubbles i:nth-child(5) {
+  left: 18%;
+  animation-delay: 1.1s;
+  width: 7px;
+  height: 7px;
+}
+.bath-bubbles i:nth-child(6) {
+  left: 54%;
+  animation-delay: 0.75s;
+  width: 6px;
+  height: 6px;
+}
+.bath-splashes i {
+  display: block;
+  position: absolute;
+  width: 4px;
+  height: 7px;
+  bottom: 37px;
+  background: #91b9a4;
+  animation: splash-drop 0.8s steps(3, end) infinite;
+}
+.bath-splashes i:nth-child(1) {
+  left: 24%;
+  transform: rotate(-35deg);
+}
+.bath-splashes i:nth-child(2) {
+  right: 24%;
+  animation-delay: 0.2s;
+}
+.bath-splashes i:nth-child(3) {
+  left: 19%;
+  bottom: 27px;
+  animation-delay: 0.4s;
+}
+.bath-splashes i:nth-child(4) {
+  right: 18%;
+  bottom: 25px;
+  animation-delay: 0.6s;
+}
+.bath-shine {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  animation: wash-finished var(--clip-duration) steps(2, end) both;
+}
+.bath-shine i {
+  position: absolute;
+  font-style: normal;
+  color: #778d50;
+  font-size: 26px;
+  top: 35px;
+  left: 20%;
+}
+.bath-shine i:last-child {
+  left: auto;
+  right: 23%;
+  top: 59px;
+  font-size: 18px;
+}
+.motion-sleeping .pet-actor {
+  animation: sleep-breath 3.6s steps(4, end) infinite;
+}
+.motion-sleeping .room-cloud {
+  opacity: 0.25;
+}
+.motion-sleeping .room-sun {
+  color: #768864;
+  font-size: 25px;
+}
+.motion-sleeping .room-window {
+  background: #81957722;
+}
+.motion-sleeping .pet-ground-shadow {
+  width: 114px;
+  height: 9px;
+  margin-left: -57px;
+  background: #788d6733;
+}
+.sleep-pillow {
+  position: absolute;
+  left: 50%;
+  margin-left: -62px;
+  bottom: 34px;
+  width: 58px;
+  height: 19px;
+  border: 2px solid #99ad89;
+  background: #d9e2c5;
+  border-radius: 8px 4px 4px 8px;
+  transform: rotate(-8deg);
+  z-index: 1;
+}
+.sleep-blanket {
+  position: absolute;
+  width: 115px;
+  height: 42px;
+  left: 50%;
+  margin-left: -53px;
+  bottom: 5px;
+  z-index: 3;
+  animation: blanket-breath 3.6s steps(4, end) infinite;
+  transform-origin: bottom;
+}
+.dream-letters {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+}
+.dream-letters i {
+  position: absolute;
+  left: 66%;
+  top: 52px;
+  font: 12px var(--mono);
+  color: #73855e;
+  opacity: 0;
+  animation: sleepy-z 3.6s steps(5, end) infinite;
+}
+.dream-letters i:nth-child(2) {
+  animation-delay: 1.2s;
+  left: 69%;
+  font-size: 15px;
+}
+.dream-letters i:nth-child(3) {
+  animation-delay: 2.4s;
+  left: 72%;
+  font-size: 18px;
+}
+.dream-stars i {
+  position: absolute;
+  font-style: normal;
+  color: #8a9d71;
+  font-size: 14px;
+  animation: dream-twinkle 3.6s steps(2, end) infinite;
+}
+.dream-stars i:nth-child(1) {
+  left: 11%;
+  top: 45px;
+}
+.dream-stars i:nth-child(2) {
+  left: 26%;
+  top: 20px;
+  animation-delay: 1.2s;
+}
+.dream-stars i:nth-child(3) {
+  right: 11%;
+  top: 37px;
+  animation-delay: 2.4s;
+  font-size: 8px;
+}
+.motion-waking .pet-actor {
+  animation: waking-stretch var(--clip-duration) steps(3, end) both;
+}
+.wake-rays {
+  position: absolute;
+  left: 50%;
+  top: 32px;
+  width: 65px;
+  height: 26px;
+  margin-left: -32px;
+  animation: wake-rays var(--clip-duration) steps(2, end) both;
+}
+.wake-rays i {
+  position: absolute;
+  width: 3px;
+  height: 9px;
+  left: 0;
+  background: #97a875;
+  transform: rotate(-40deg);
+}
+.wake-rays i:nth-child(2) {
+  left: 31px;
+  top: -7px;
+  transform: none;
+}
+.wake-rays i:nth-child(3) {
+  left: 62px;
+  transform: rotate(40deg);
+}
+.motion-celebrating .pet-actor {
+  animation: happy-hop 0.38s steps(3, end) infinite;
+}
+.celebrate-sparks {
+  position: absolute;
+  inset: 0;
+}
+.celebrate-sparks i {
+  position: absolute;
+  font-style: normal;
+  top: 45px;
+  left: 20%;
+  color: #a1a16c;
+  font-size: 21px;
+  animation: celebration-spark 0.7s steps(3, end) infinite;
+}
+.celebrate-sparks i:nth-child(2) {
+  top: 23px;
+  left: 65%;
+  animation-delay: 0.15s;
+}
+.celebrate-sparks i:nth-child(3) {
+  top: 70px;
+  left: 72%;
+  animation-delay: 0.3s;
+  font-size: 16px;
+}
+
+@keyframes pixel-blink {
+  0%,
+  92%,
+  96%,
+  100% {
+    opacity: 1;
+  }
+  93%,
+  95% {
+    opacity: 0;
+  }
+}
+@keyframes pixel-blink-closed {
+  0%,
+  92%,
+  96%,
+  100% {
+    opacity: 0;
+  }
+  93%,
+  95% {
+    opacity: 1;
+  }
+}
+@keyframes chew-eyes {
+  0%,
+  65%,
+  100% {
+    opacity: 1;
+  }
+  20%,
+  60% {
+    opacity: 0;
+  }
+}
+@keyframes chew-smile {
+  0%,
+  65%,
+  100% {
+    opacity: 0;
+  }
+  20%,
+  60% {
+    opacity: 1;
+  }
+}
+@keyframes waking-eyes {
+  0%,
+  45% {
+    opacity: 0;
+  }
+  55%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes waking-lids {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes idle-life {
+  0%,
+  12%,
+  47%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  22%,
+  34% {
+    transform: translate(0, -2px) scale(1.015, 0.985);
+  }
+  58%,
+  67% {
+    transform: translate(-3px, -1px) rotate(-2deg);
+  }
+  76%,
+  84% {
+    transform: translate(3px, 0) rotate(2deg);
+  }
+}
+@keyframes idle-shadow {
+  0%,
+  12%,
+  47%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.8;
+  }
+  22%,
+  34% {
+    transform: scaleX(0.9);
+    opacity: 0.6;
+  }
+}
+@keyframes eating-pose {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  12%,
+  22% {
+    transform: translate(-6px, 1px) rotate(-3deg);
+  }
+  30%,
+  46%,
+  62% {
+    transform: translate(-5px, 2px) scale(1.05, 0.97);
+  }
+  38%,
+  54%,
+  70% {
+    transform: translate(-5px, 0) scale(0.99, 1.02);
+  }
+  82%,
+  91% {
+    transform: translate(0, -4px) rotate(2deg);
+  }
+}
+@keyframes meal-plate {
+  0%,
+  8%,
+  93%,
+  100% {
+    opacity: 0;
+  }
+  12%,
+  90% {
+    opacity: 1;
+  }
+}
+@keyframes serve-rice {
+  0%,
+  7% {
+    opacity: 0;
+    transform: translate(27px, 23px) scale(0.8);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(10px, 3px);
+  }
+  28%,
+  42%,
+  58% {
+    opacity: 1;
+    transform: translate(-17px, -5px) rotate(-9deg);
+  }
+  35%,
+  50%,
+  65% {
+    opacity: 1;
+    transform: translate(-11px, 0) rotate(0);
+  }
+  74% {
+    opacity: 1;
+    transform: translate(-19px, -3px) scale(0.7);
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: translate(-20px, -3px) scale(0.4);
+  }
+}
+@keyframes first-bite {
+  0%,
+  30% {
+    opacity: 0;
+  }
+  32%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes second-bite {
+  0%,
+  51% {
+    opacity: 0;
+  }
+  53%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes rice-crumb {
+  0%,
+  33%,
+  56%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  36%,
+  59% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  48%,
+  74% {
+    opacity: 0;
+    transform: translate(var(--crumb-x), var(--crumb-y));
+  }
+}
+@keyframes meal-heart {
+  0%,
+  76%,
+  100% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.5);
+  }
+  82%,
+  90% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1);
+  }
+  97% {
+    opacity: 0;
+    transform: translateY(-13px);
+  }
+}
+@keyframes bath-appear {
+  0% {
+    opacity: 0;
+  }
+  7%,
+  85% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes bath-wiggle {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  12%,
+  30%,
+  48%,
+  66% {
+    transform: translate(-4px, 5px) rotate(-4deg);
+  }
+  21%,
+  39%,
+  57%,
+  75% {
+    transform: translate(4px, 5px) rotate(4deg);
+  }
+  85%,
+  94% {
+    transform: translate(0, -3px);
+  }
+}
+@keyframes soap-scrub {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(15deg);
+  }
+  50% {
+    transform: translate(-13px, -10px) rotate(-12deg);
+  }
+}
+@keyframes foam-scrub {
+  0%,
+  100% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+@keyframes bath-bubble {
+  0% {
+    opacity: 0;
+    transform: translate(0, 4px) scale(0.6);
+  }
+  20%,
+  65% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(7px, -55px) scale(1.15);
+  }
+}
+@keyframes splash-drop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  40% {
+    opacity: 0.8;
+    transform: translateY(-8px);
+  }
+}
+@keyframes wash-finished {
+  0%,
+  72%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  80%,
+  92% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes sleep-breath {
+  0%,
+  100% {
+    transform: translate(-5px, 12px) rotate(-9deg) scale(1);
+  }
+  50% {
+    transform: translate(-5px, 10px) rotate(-9deg) scale(1.025, 1.01);
+  }
+}
+@keyframes blanket-breath {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.025);
+  }
+}
+@keyframes sleepy-z {
+  0% {
+    opacity: 0;
+    transform: translate(0, 7px) scale(0.7);
+  }
+  20%,
+  65% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(12px, -29px) scale(1.15);
+  }
+}
+@keyframes dream-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+@keyframes waking-stretch {
+  0% {
+    transform: translate(-5px, 12px) rotate(-9deg);
+  }
+  38%,
+  58% {
+    transform: translate(0, -5px) scale(0.93, 1.08);
+  }
+  75% {
+    transform: translate(0, 1px) scale(1.03, 0.98);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes wake-rays {
+  0%,
+  20%,
+  100% {
+    opacity: 0;
+  }
+  40%,
+  65% {
+    opacity: 1;
+  }
+}
+@keyframes happy-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.03, 0.98);
+  }
+  50% {
+    transform: translateY(-10px) scale(0.99, 1.02);
+  }
+}
+@keyframes celebration-spark {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.7);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-scene *,
+  .sprite-face * {
+    animation: none !important;
+  }
+  .expression-awake .sprite-eyes-open,
+  .expression-chewing .sprite-eyes-open,
+  .expression-waking .sprite-eyes-open {
+    opacity: 1;
+  }
+  .expression-asleep .sprite-eyes-closed,
+  .expression-content .sprite-eyes-happy {
+    opacity: 1;
+  }
+  .expression-asleep .sprite-eyes-open,
+  .expression-content .sprite-eyes-open {
+    opacity: 0;
+  }
+  .motion-sleeping .pet-actor {
+    transform: translate(-5px, 12px) rotate(-9deg);
+  }
+  .dream-letters i {
+    opacity: 0.65;
+  }
+  .dream-letters i:nth-child(2) {
+    top: 37px;
+  }
+  .dream-letters i:nth-child(3) {
+    top: 21px;
+  }
+  .bath-bubbles i {
+    opacity: 0.65;
+  }
+  .bath-bubbles i:nth-child(2n) {
+    bottom: 65px;
+  }
+  .meal-heart {
+    opacity: 0;
+  }
+}

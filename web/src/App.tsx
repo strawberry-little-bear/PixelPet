@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { request } from "./api";
 import { PixelEgg, Sprite } from "./Sprite";
+import { PetScene } from "./PetScene";
+import { careClip, clipDurations, sceneMotion } from "./motion";
+import type { MotionClip } from "./motion";
 import { personalities, species } from "./types";
 import type { PetState, Result } from "./types";
 
@@ -68,7 +71,9 @@ export default function App() {
   const busyRef = useRef(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [animation, setAnimation] = useState("");
+  const [clip, setClip] = useState<MotionClip | null>(null);
+  const clipRef = useRef<MotionClip | null>(null);
+  const clipSequence = useRef(0);
   const [savedAt, setSavedAt] = useState(0);
   const [sound, setSound] = useState(() => {
     try {
@@ -138,10 +143,19 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [message]);
   useEffect(() => {
-    if (!animation) return;
-    const timer = setTimeout(() => setAnimation(""), 1100);
+    if (!clip) return;
+    const timer = setTimeout(() => {
+      if (clipRef.current?.id === clip.id) {
+        clipRef.current = null;
+        setClip(null);
+      }
+    }, clipDurations[clip.kind]);
     return () => clearTimeout(timer);
-  }, [animation]);
+  }, [clip]);
+  function finishClip() {
+    clipRef.current = null;
+    setClip(null);
+  }
   useEffect(() => {
     if (!help && !reset) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -204,19 +218,25 @@ export default function App() {
         requestId: crypto.randomUUID(),
       });
       apply(r);
+      const clipKind = careClip(kind, r.state.sleeping);
+      if (clipKind) {
+        const next = { kind: clipKind, id: ++clipSequence.current };
+        clipRef.current = next;
+        setClip(next);
+      }
       if (kind === "hatch") {
         setPage("home");
-        setAnimation("hatch");
       } else if (kind === "play") {
         setPage("game");
         setLane(1);
       } else if (kind === "catch" && !r.state.game) {
         setPage("home");
-        setAnimation("play");
+        const next = { kind: "play" as const, id: ++clipSequence.current };
+        clipRef.current = next;
+        setClip(next);
       } else if (kind === "cancel-play") setPage("home");
       else if (kind === "feed" || kind === "clean" || kind === "sleep") {
         setPage("home");
-        setAnimation(kind);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "操作没有保存，请重试");
@@ -228,6 +248,13 @@ export default function App() {
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
     if (tools || help || reset || busyRef.current) return;
+    if (clipRef.current) {
+      if (key === "C") {
+        beep();
+        finishClip();
+      }
+      return;
+    }
     setPressed(key);
     setTimeout(() => setPressed(""), 140);
     beep(key === "B");
@@ -317,6 +344,7 @@ export default function App() {
     try {
       const r = await request("import", JSON.parse(await file.text()));
       latestRevision.current = -1;
+      finishClip();
       apply(r);
       setPage(r.state.hatchedAt ? "home" : "choose");
       setChosen(r.state.species);
@@ -341,6 +369,7 @@ export default function App() {
     try {
       const r = await request("reset", { confirm: true });
       latestRevision.current = -1;
+      finishClip();
       apply(r);
       setChosen(0);
       setPage("choose");
@@ -365,6 +394,7 @@ export default function App() {
   const target = pet?.game
     ? Math.floor(Math.max(0, now - pet.game.startedAt) / 900) % 3
     : 0;
+  const motion = sceneMotion(pet?.sleeping ?? false, clip);
   const lcdHint = !pet
     ? "B 重新连接"
     : page === "choose"
@@ -372,7 +402,9 @@ export default function App() {
       : page === "hatch"
         ? "B 轻轻唤醒　 C 再选选"
         : page === "home"
-          ? "A / B 打开菜单"
+          ? clip
+            ? `${clip.kind === "feed" ? "吃得香香" : clip.kind === "clean" ? "泡泡时间" : clip.kind === "wake" ? "伸个懒腰" : "好开心呀"} · C 跳过`
+            : "A / B 打开菜单"
           : page === "menu"
             ? "A 选择　 B 确认　 C 返回"
             : page === "game"
@@ -574,7 +606,11 @@ export default function App() {
                             </div>
                             <div className="choose-sprite">
                               <span className="pixel-spark spark-left">✦</span>
-                              <Sprite index={chosen} className="idle" />
+                              <Sprite
+                                index={chosen}
+                                className="idle"
+                                expression="awake"
+                              />
                               <span className="pixel-spark spark-right">✧</span>
                             </div>
                             <div className="choose-name">
@@ -613,44 +649,13 @@ export default function App() {
                                   : `${stage} · DAY ${Math.floor(age / 86400000) + 1}`}
                               </span>
                             </div>
-                            <div
-                              className={`pet-room ${pet.sleeping ? "sleeping" : ""} animation-${animation}`}
-                            >
-                              <Cloud
-                                className="room-cloud"
-                                size={30}
-                                strokeWidth={1.5}
-                              />
-                              <span className="room-sun">
-                                {pet.sleeping ? "☾" : "✳"}
-                              </span>
-                              <div className="room-window" />
-                              <Sprite
-                                index={index}
-                                className={
-                                  pet.sleeping ? "sleep-sprite" : "idle"
-                                }
-                              />
-                              {pet.sleeping && (
-                                <span className="sleep-z">z Z</span>
-                              )}
-                              {animation === "feed" && (
-                                <span className="action-prop">🍙</span>
-                              )}
-                              {animation === "clean" && (
-                                <span className="action-prop bubbles">
-                                  ○ ◌ ○
-                                </span>
-                              )}
-                              {(animation === "play" ||
-                                animation === "hatch") && (
-                                <span className="action-prop">✦ ♡ ✧</span>
-                              )}
-                              {pet.needs.clean < 35 && (
-                                <span className="dirty-mark">♨</span>
-                              )}
-                              <div className="room-floor" />
-                            </div>
+                            <PetScene
+                              index={index}
+                              motion={motion}
+                              clipId={clip?.id ?? 0}
+                              duration={clip ? clipDurations[clip.kind] : 0}
+                              dirty={pet.needs.clean < 35}
+                            />
                             <div className="pet-thought">
                               <Heart size={10} fill="currentColor" />
                               {message || mood}
@@ -776,7 +781,7 @@ export default function App() {
                 {["A", "B", "C"].map((key, i) => (
                   <div className="button-unit" key={key}>
                     <button
-                      disabled={busy}
+                      disabled={busy || (clip !== null && key !== "C")}
                       className={`physical-button button-${key.toLowerCase()} ${pressed === key ? "is-pressed" : ""}`}
                       aria-label={`${key} ${["选择", "确认", "返回"][i]}`}
                       onClick={() => controls.current(key)}
