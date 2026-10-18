@@ -1083,3 +1083,54 @@ describe("real completed-game home echoes", () => {
     expect(document.querySelector('.home-game-token')).toBeNull();
   });
 });
+
+describe("keyboard reading and focus safety", () => {
+  it("prevents native repeated activation on the three physical keys", async () => {
+    await mount();
+    const button = screen.getByRole("button", { name: "B 确认" }); button.focus();
+    for (const value of ["Enter", " ", "a", "b", "c", "ArrowDown"]) {
+      const event = new KeyboardEvent("keydown", { key: value, repeat: true, bubbles: true, cancelable: true });
+      await act(async () => { button.dispatchEvent(event); });
+      expect(event.defaultPrevented).toBe(true);
+    }
+    expect(document.querySelector(".care-menu")).toBeNull();
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
+    await key("b"); expect(document.querySelector(".care-menu")).not.toBeNull();
+    expect(document.querySelector('[aria-current="true"].care-item')?.textContent).toContain("吃点东西");
+  });
+  it("keeps help focus inside its dialog and restores the trigger on escape", async () => {
+    await mount();
+    const trigger = screen.getByRole("button", { name: "玩法说明" }); trigger.focus();
+    await act(async () => { fireEvent.click(trigger); });
+    const close = screen.getByRole("button", { name: /^关闭$/ });
+    expect(document.activeElement).toBe(close);
+    await act(async () => { fireEvent.keyDown(close, { key: "Tab", shiftKey: true }); });
+    expect(document.activeElement?.closest('[role="dialog"]')).not.toBeNull();
+    await act(async () => { fireEvent.keyDown(document.activeElement!, { key: "Tab" }); });
+    expect(document.activeElement).toBe(close);
+    await act(async () => { fireEvent.keyDown(close, { key: "Escape" }); });
+    expect(screen.queryByRole("dialog")).toBeNull(); expect(document.activeElement).toBe(trigger);
+    expect(document.querySelector(".care-menu")).toBeNull();
+  });
+  it("opts reading pages into reflow without adding LCD buttons", async () => {
+    await mount(); expect(document.querySelector(".device-stage.reading-mode")).not.toBeNull();
+    await choose(6);
+    expect(document.querySelector(".device-stage.reading-mode")).not.toBeNull();
+    expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();
+    await key("c"); expect(scene()).toBe("idle");
+  });
+});
+
+describe("reset focus restoration", () => {
+  it("returns to the persistent save-box trigger, not its removed menu item", async () => {
+    await mount();
+    const tools = screen.getByRole("button", { name: /存档盒/ });
+    await act(async () => { fireEvent.click(tools); });
+    const reset = screen.getByRole("button", { name: /重新开始/ }); reset.focus();
+    await act(async () => { fireEvent.click(reset); });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await act(async () => { fireEvent.keyDown(document.activeElement!, { key: "Escape" }); });
+    expect(screen.queryByRole("dialog")).toBeNull(); expect(document.activeElement).toBe(tools);
+    expect(api.mock.calls.filter(([path]) => path === "reset")).toHaveLength(0);
+  });
+});

@@ -225,6 +225,7 @@ export default function App() {
   const initialized = useRef(false);
   const latestRevision = useRef(-1);
   const modalRef = useRef<HTMLElement>(null);
+  const modalReturnFocus = useRef<HTMLElement | null>(null);
 
   const apply = useCallback((r: Result, silent = false) => {
     if (r.state.revision < latestRevision.current) return false;
@@ -473,7 +474,7 @@ export default function App() {
   }
   useEffect(() => {
     if (!help && !reset) return;
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = modalReturnFocus.current || document.activeElement as HTMLElement | null;
     modalRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const trap = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -500,7 +501,8 @@ export default function App() {
     document.addEventListener("keydown", trap, true);
     return () => {
       document.removeEventListener("keydown", trap, true);
-      previous?.focus();
+      if (previous?.isConnected) previous.focus();
+      modalReturnFocus.current = null;
     };
   }, [help, reset]);
 
@@ -950,7 +952,7 @@ export default function App() {
   };
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (
         e.target instanceof HTMLElement &&
         (["INPUT", "TEXTAREA", "SELECT", "A"].includes(e.target.tagName) ||
@@ -968,7 +970,8 @@ export default function App() {
             : null;
       if (mapped) {
         e.preventDefault();
-        controls.current(mapped);
+        // Suppress native Enter/Space repeats on a focused physical button too.
+        if (!e.repeat) controls.current(mapped);
       }
     };
     window.addEventListener("keydown", down);
@@ -1143,7 +1146,7 @@ export default function App() {
           <button
             className="icon-button"
             aria-label="玩法说明"
-            onClick={() => setHelp(true)}
+            onClick={(event) => { modalReturnFocus.current = event.currentTarget; setHelp(true); }}
           >
             <CircleHelp size={18} />
           </button>
@@ -1174,7 +1177,8 @@ export default function App() {
                 <button
                   disabled={busy || uncertain || unavailable}
                   className="reset-link"
-                  onClick={() => {
+                  onClick={(event) => {
+                    modalReturnFocus.current = event.currentTarget.closest(".tools-wrap")?.querySelector<HTMLButtonElement>(".backup-button") || null;
                     setTools(false);
                     setReset(true);
                   }}
@@ -1246,7 +1250,12 @@ export default function App() {
               </small>
             </div>
           </div>
-          <div className="device-stage">
+          <div className={`device-stage ${page !== "game" || abandoning || uncertain || unavailable
+            || (snake && (snake.paused || snake.end || snakeSession !== pet?.game?.id))
+            || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
+            || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
+            || (fishing && (fishing.paused || fishing.phase === "done" || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)))
+            ? "reading-mode" : ""}`}>
             <span className="device-orbit orbit-one">✧</span>
             <span className="device-orbit orbit-two">+</span>
             <div className="device-shadow" />
@@ -1435,6 +1444,7 @@ export default function App() {
                                   <div
                                     key={item.kind}
                                     className={`care-item ${i === selected ? "selected" : ""}`}
+                                    aria-current={i === selected ? "true" : undefined}
                                   >
                                     <span className="menu-arrow">
                                       {i === selected ? "▸" : ""}
@@ -1766,7 +1776,6 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              autoFocus
               className="modal-close icon-button"
               aria-label="关闭"
               onClick={() => {

@@ -1,6 +1,6 @@
 # 非小游戏完善计划（2026-10-19）
 
-状态：第一批保存/连接状态补强、第二批照顾/成长解释已交付并验收，细节见 [SAVE_RECOVERY.md](SAVE_RECOVERY.md)、[CARE_GUIDE.md](CARE_GUIDE.md)；第三、四批尚未完成。本轮转向可靠性、照顾理解和日常陪伴，不等待小游戏试玩反馈才开始，也不把已有功能重新算成新增交付。
+状态：第一批保存/连接状态补强、第二批照顾/成长解释已交付并验收，细节见 [SAVE_RECOVERY.md](SAVE_RECOVERY.md)、[CARE_GUIDE.md](CARE_GUIDE.md)；第三批三键阅读与可达性已完成自测（见 [READING_ACCESSIBILITY.md](READING_ACCESSIBILITY.md)）；第四批成年回忆浏览待实施。本轮转向可靠性、照顾理解和日常陪伴，不等待小游戏试玩反馈才开始，也不把已有功能重新算成新增交付。
 
 ## 现有基础与本轮边界
 

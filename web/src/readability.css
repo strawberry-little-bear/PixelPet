@@ -37,3 +37,68 @@
 .save-recovery h2 { font-size: 16px; margin: 0; }
 .save-recovery p { font-size: 12px; line-height: 1.6; margin: 0; }
 .save-recovery small { font-size: 10px; line-height: 1.5; }
+
+/* Reading uses normal document flow, not an inner scroll trap. Keep running
+   game geometry fixed; only non-game / paused / result screens opt in. */
+.device-stage.reading-mode { height: auto; min-height: 552px; padding: 12px 0; }
+.reading-mode .device { height: auto; min-height: 516px; padding-bottom: 38px; }
+.reading-mode .shell-brand, .reading-mode .device-model, .reading-mode .device-buttons { flex-shrink: 0; }
+.reading-mode .screen-bezel { height: auto; min-height: 284px; flex-shrink: 0; }
+.reading-mode .lcd { height: auto; }
+.reading-mode .lcd-content { height: auto; min-height: 204px; font-size: .857143rem; line-height: 1.6; }
+.reading-mode .lcd-content :is(p, small, strong, b, span, dt, dd, li, time, header, h3, .care-item, .lcd-meter, .companion-rows) {
+  font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere;
+}
+.reading-mode .lcd-content :is(header, .habit-heading, .home-caption, .shop-footer, .shop-panel h3, .form-rules li) { flex-wrap: wrap; gap: 4px; }
+.reading-mode .care-item { height: auto; min-height: 27px; padding: 3px; }
+.reading-mode .care-item > svg { flex-shrink: 0; }
+.reading-mode .care-item > span:not(.menu-arrow):not(.menu-number) { flex: 1; min-width: 0; }
+.reading-mode .growth-panel { height: auto; overflow: visible; }
+.reading-mode .growth-page-dots { position: static; display: block; text-align: right; margin-top: 8px; }
+.reading-mode .growth-panel-title small { margin-top: 2px; }
+.reading-mode .growth-previews { gap: 4px; }
+.reading-mode .habit-rows > div { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; }
+.reading-mode .habit-rows span, .reading-mode .habit-rows b { width: auto; }
+.reading-mode .shop-preview { height: auto; min-height: 65px; }
+.reading-mode .shop-preview small { position: static; display: block; }
+.reading-mode .screen-journal { height: auto; min-height: 184px; }
+.reading-mode .lcd-top, .reading-mode .lcd-bottom { height: auto; min-height: 25px; padding: 4px 0; gap: 4px; font-size: .642857rem; line-height: 1.6; }
+.reading-mode .lcd-bottom > span:last-child { font-size: inherit; flex-shrink: 0; }
+.reading-mode .save-recovery { height: auto; overflow: visible; }
+/* A paused overlay may grow with text, without stretching the live board. */
+.reading-mode :is(.snake-overlay, .tetris-overlay, .walk-pause, .fishing-pause) { position: relative; inset: auto; padding: 10px 4px; line-height: 1.6; }
+.reading-mode .snake-field:has(.snake-overlay) { height: auto; width: 100%; min-height: 122px; }
+.reading-mode .snake-field:has(.snake-overlay) > svg { margin: auto; }
+.reading-mode .tetris-playfield:has(.tetris-overlay) { height: auto; flex-wrap: wrap; }
+.reading-mode .tetris-overlay { width: 100%; }
+.reading-mode .tetris-overlay ol { width: auto; }
+.reading-mode .park-scene:has(.walk-pause), .reading-mode .pond-scene:has(.fishing-pause) { height: auto; min-height: 102px; }
+.reading-mode :is(.walking-game, .fishing-game) header { height: auto; min-height: 22px; }
+.reading-mode .walk-pause > div { flex-direction: column; }
+.reading-mode :is(.snake-companion, .tetris-companion) { height: auto; min-height: 38px; }
+@media (max-width: 700px) {
+  .device-stage.reading-mode { min-height: 612px; }
+  .reading-mode .device { min-height: 592px; }
+  .reading-mode .screen-bezel { min-height: 364px; }
+  .reading-mode .lcd-content { min-height: 284px; }
+}
+@media (forced-colors: active) {
+  /* Explicit system colors avoid Chromium composited text backplates hiding
+     the focused key. Keep the user's palette and a separate focus outline. */
+  .physical-button, .physical-button.button-b, .physical-button:hover,
+  .physical-button:active, .physical-button.is-pressed {
+    forced-color-adjust: none; filter: none; transform: none;
+    box-shadow: none; transition: none;
+    background: ButtonFace; color: ButtonText; border-color: ButtonText;
+  }
+  .physical-button span { forced-color-adjust: none; background: ButtonFace; color: ButtonText; }
+  .physical-button:disabled, .physical-button:disabled span { color: GrayText; border-color: GrayText; }
+  .lcd { border-color: CanvasText; }
+  .lcd-scanlines { display: none; }
+  .lcd :is(.selected, [aria-current="true"], [aria-current="step"], [data-selected="true"]) { outline: 2px solid Highlight; outline-offset: -2px; }
+  button:focus-visible, a:focus-visible { outline-color: Highlight; }
+  .lcd-meter > div { border: 1px solid CanvasText; }
+  .lcd-meter > div > i, .growth-track i, .habit-rows i { background: Highlight; forced-color-adjust: none; }
+}
+.reading-mode .lcd-content :is(.growth-feedback, .growth-score, .growth-next, .growth-panel-note, .care-total, .companion-panel, .form-guide, .album-panel, .shop-panel, .return-panel, .arcade-panel, .arcade-details, .game-guide, .game-abandon, .screen-journal, .fishing-game, .walking-game, .snake-game, .tetris-game, .fish-album, .park-album) { font-size: inherit; line-height: 1.6; }
+.reading-mode .lcd-content :is(.shop-decision, .shop-breadcrumb, .shop-section-note, .companion-rules, .companion-since) { font-size: .857143rem; line-height: 1.6; }
