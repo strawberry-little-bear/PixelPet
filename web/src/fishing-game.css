@@ -1,0 +1,61 @@
+.fishing-game, .fish-album { color:#405132; font-size:10px; line-height:1.5; }
+.fishing-game header, .fish-album header { display:flex; justify-content:space-between; align-items:center; height:22px; }
+.fishing-game header strong, .fish-album header strong { font-size:11px; }
+.fishing-game header span, .fish-album header span { font-size:9px; }
+.pond-scene { position:relative; height:102px; border:1px solid #798f66; overflow:hidden; }
+.pond-background { position:absolute; inset:0; width:100%; height:100%; }
+.fishing-companion { position:absolute; left:0; bottom:17px; width:68px; height:74px; }
+.fishing-companion .pet-sprite { width:68px; height:74px; position:absolute; }
+.fishing-companion .pet-sprite, .fishing-companion .pet-sprite * { animation:none; }
+.fishing-companion .tanuki-paw.paw-right, .fishing-companion .cat-paw.paw-right, .fishing-companion .rabbit-arm.paw-right,
+.fishing-companion .bear-paw-right, .fishing-companion .frog-hand-right, .fishing-companion .dragon-hand-right, .fishing-companion .dog-paw-right { transform-box:fill-box; transform-origin:25% 25%; transform:rotate(-26deg); }
+.fishing-companion .bird-wing.wing-right { transform-box:fill-box; transform-origin:10% 15%; transform:rotate(-32deg); }
+.fishing-companion .dolphin-flipper.flipper-right { transform-box:fill-box; transform-origin:10% 10%; transform:rotate(-24deg); }
+.fishing-companion .mushroom-arm.arm-right { transform-box:fill-box; transform-origin:10% 10%; transform:rotate(-18deg); }
+.pond-scene[data-rig="dolphin"] .fishing-companion { bottom:7px; }
+.pond-scene[data-motion="waiting"] .fishing-companion .tanuki-tail, .pond-scene[data-motion="waiting"] .fishing-companion .dog-tail,
+.pond-scene[data-motion="waiting"] .fishing-companion .cat-tail { animation:pond-tail 3s steps(3,end) infinite; transform-box:fill-box; transform-origin:15% 70%; }
+.pond-scene[data-motion="waiting"] .fishing-companion .bird-head { animation:pond-look 4s steps(2,end) infinite; transform-box:fill-box; transform-origin:50% 90%; }
+.pond-scene[data-motion="waiting"] .fishing-companion .rabbit-ear, .pond-scene[data-motion="waiting"] .fishing-companion .dog-ear { animation:pond-ear 4s steps(2,end) infinite; transform-box:fill-box; transform-origin:50% 100%; }
+.pond-scene[data-motion="waiting"] .fishing-companion .dolphin-tail { animation:pond-tail 3s steps(3,end) infinite; transform-box:fill-box; transform-origin:75% 25%; }
+.pond-scene[data-motion="waiting"] .fishing-companion .mushroom-cap { animation:pond-look 4s steps(2,end) infinite; transform-box:fill-box; transform-origin:50% 80%; }
+.pond-scene[data-motion="waiting"] .fishing-companion .bear-head { animation:pond-look 4s steps(2,end) infinite; transform-box:fill-box; transform-origin:50% 80%; }
+.pond-scene[data-motion="waiting"] .fishing-companion .frog-eye-pods { animation:pond-nod 4s steps(2,end) infinite; }
+.pond-scene[data-motion="waiting"] .fishing-companion .dragon-wing { animation:pond-ear 4s steps(2,end) infinite; transform-box:fill-box; transform-origin:15% 60%; }
+.pond-scene[data-motion="bite"] .fishing-companion .tanuki-paw.paw-right, .pond-scene[data-motion="bite"] .fishing-companion .rabbit-arm.paw-right,
+.pond-scene[data-motion="bite"] .fishing-companion .cat-paw.paw-right, .pond-scene[data-motion="bite"] .fishing-companion .bear-paw-right,
+.pond-scene[data-motion="bite"] .fishing-companion .frog-hand-right, .pond-scene[data-motion="bite"] .fishing-companion .dragon-hand-right,
+.pond-scene[data-motion="bite"] .fishing-companion .dog-paw-right { animation:pond-paw 1s steps(2,end) infinite; }
+.pond-scene[data-motion="bite"] .fishing-companion .bird-wing.wing-right, .pond-scene[data-motion="bite"] .fishing-companion .dolphin-flipper.flipper-right,
+.pond-scene[data-motion="bite"] .fishing-companion .mushroom-arm.arm-right { animation:pond-fin 1s steps(2,end) infinite; }
+.pond-scene[data-motion="caught"] .fishing-companion .bird-wing, .pond-scene[data-motion="caught"] .fishing-companion .dragon-wing { transform-box:fill-box; transform-origin:50% 15%; transform:rotate(-18deg); }
+.pond-scene[data-motion="caught"] .fishing-companion .dolphin-tail, .pond-scene[data-motion="caught"] .fishing-companion .frog-hand,
+.pond-scene[data-motion="caught"] .fishing-companion .mushroom-cap { animation:pond-nod 1.5s steps(2,end) 2; }
+.fishing-bobber { transform-box:fill-box; transform-origin:center; }
+.pond-scene[data-motion="waiting"] .fishing-bobber { animation:pond-nod 3s steps(3,end) infinite; }
+.pond-scene[data-motion="bite"] .fishing-bobber { animation:pond-nod .6s steps(2,end) infinite; }
+.fishing-bite { position:absolute; right:4px; top:5px; background:#e3e7c5; padding:3px 6px; border:1px solid #607a4a; font-size:10px; }
+.fishing-catch { position:absolute; left:90px; top:30px; width:66px; }
+.fish-art { width:100%; height:100%; display:block; }
+.fishing-pause { position:absolute; inset:0; background:#e3e7c5f5; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+.fishing-pause ol { list-style:none; margin:2px 0; padding:0; width:120px; font-size:10px; }
+.fishing-pause li { padding:1px 6px; }
+.fishing-pause li.selected { background:#63784c; color:#eef0d1; }
+.fishing-pause small { font-size:8px; }
+.fishing-status { font-size:10px; margin:5px 0 2px; font-weight:bold; }
+.fishing-comment { display:block; font-size:9px; min-height:27px; }
+.fishing-rule { display:block; font-size:8px; }
+.fish-album-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:2px; margin:5px 0; }
+.fish-album-grid > div { height:29px; padding:1px; border:1px dashed #9cab81; }
+.fish-album-grid > .selected { border:1px solid #516c40; background:#9fb68a55; }
+.fish-album h3 { font-size:12px; margin:7px 0 4px; }
+.fish-album p { margin:4px 0; font-size:10px; }
+.fish-album small { display:block; font-size:9px; }
+.fish-album .fish-record { border-top:1px solid #8e9d7166; padding-top:6px; margin-top:7px; font-size:9px; }
+@keyframes pond-tail { 50% { transform:rotate(9deg); } }
+@keyframes pond-look { 50% { transform:rotate(5deg); } }
+@keyframes pond-ear { 50% { transform:rotate(-7deg); } }
+@keyframes pond-nod { 50% { transform:translateY(2px); } }
+@keyframes pond-paw { 50% { transform:rotate(-46deg); } }
+@keyframes pond-fin { 50% { transform:rotate(-40deg); } }
+@media (prefers-reduced-motion:reduce) { .pond-scene *, .pond-scene .fishing-companion .pet-sprite * { animation:none!important; } }

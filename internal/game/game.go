@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 7
+const Schema = 8
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -40,6 +40,7 @@ func validGameID(id string) bool {
 }
 
 type MiniGame struct {
+	Fishing   *Fishing   `json:"fishing,omitempty"`
 	Tetris    *Tetris    `json:"tetris,omitempty"`
 	Snake     *Snake     `json:"snake,omitempty"`
 	Kind      string     `json:"kind,omitempty"`
@@ -51,6 +52,7 @@ type MiniGame struct {
 	LastBeat  int64      `json:"lastBeat"`
 }
 type State struct {
+	Pond      *Pond     `json:"pond,omitempty"`
 	Schema    int       `json:"schema"`
 	Revision  int64     `json:"revision"`
 	Species   int       `json:"species"`
@@ -82,7 +84,7 @@ type Action struct {
 
 func New(now time.Time) State {
 	ms := now.UnixMilli()
-	return State{Economy: newEconomy(), Schema: Schema, Species: 0, Name: Species[0], CreatedAt: ms, LastTick: ms, Needs: Needs{80, 80, 90, 85}, Growth: &Growth{Stage: "egg"}, Album: &Album{Since: ms, Entries: []Memory{}}, Logs: []Log{{ms, "一颗小小的蛋，正在等待与你相遇。"}}}
+	return State{Pond: newPond(now), Economy: newEconomy(), Schema: Schema, Species: 0, Name: Species[0], CreatedAt: ms, LastTick: ms, Needs: Needs{80, 80, 90, 85}, Growth: &Growth{Stage: "egg"}, Album: &Album{Since: ms, Entries: []Memory{}}, Logs: []Log{{ms, "一颗小小的蛋，正在等待与你相遇。"}}}
 }
 func clamp(n float64) float64 { return math.Max(0, math.Min(100, n)) }
 func (s *State) Log(now time.Time, message string) {
@@ -130,14 +132,14 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	if s.HatchedAt == 0 {
 		return "", errors.New("先迎接你的第一只小伙伴吧")
 	}
-	if ((strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-")) || a.Kind == "catch" || a.Kind == "cancel-play" || a.Kind == "tile-pick" || a.Kind == "tile-clear") && s.Game != nil && a.GameID != s.Game.ID {
+	if ((strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-") || strings.HasPrefix(a.Kind, "fish-")) || a.Kind == "catch" || a.Kind == "cancel-play" || a.Kind == "tile-pick" || a.Kind == "tile-clear") && s.Game != nil && a.GameID != s.Game.ID {
 		return "", errors.New("这不是当前的一局，请刷新后再试")
 	}
 	if a.Kind == "cancel-play" {
 		s.Game = nil
 		return "下次再一起玩吧", nil
 	}
-	if s.Game != nil && !(strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-")) && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
+	if s.Game != nil && !(strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-") || strings.HasPrefix(a.Kind, "fish-")) && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
 		return "", errors.New("请先完成小游戏，或通过放弃确认返回")
 	}
 	if s.Sleeping && a.Kind != "sleep" && a.Kind != "rename" {
@@ -192,6 +194,14 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		}
 		s.Game = &MiniGame{ID: newGameID(), Kind: "tetris", Tetris: blocks, StartedAt: now.UnixMilli(), LastBeat: -1}
 		return "A 选择 · B 确认 · C 继续；消除 2 行后完成才计入陪伴。", nil
+	case "play-fishing":
+		if s.Needs.Energy < 10 {
+			return "", errors.New("有点累了，先睡一觉吧")
+		}
+		s.Game = &MiniGame{ID: newGameID(), Kind: "fishing", Fishing: newFishing(now), StartedAt: now.UnixMilli(), LastBeat: -1}
+		return "A 换钓点 · B 抛竿 · C 暂停菜单；三次机会，慢慢来。", nil
+	case "fish-step", "fish-pause", "fish-resume", "fish-spot", "fish-cast", "fish-reel", "fish-finish":
+		return s.applyFishing(a, now)
 	case "tetris-step", "tetris-move", "tetris-pause", "tetris-resume", "tetris-rotate", "tetris-drop", "tetris-finish":
 		return s.applyTetris(a, now)
 	case "snake-step", "snake-pause", "snake-resume", "snake-finish":
@@ -299,7 +309,7 @@ func (s State) Validate(now time.Time) error {
 	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
 		return bad
 	}
-	if !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() {
+	if !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() || !s.validPond() || !s.validFishingGame() {
 		return bad
 	}
 	return nil

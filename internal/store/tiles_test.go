@@ -128,6 +128,7 @@ func TestSchemaFourTileUpgradeAndInvalidImportAreNonDestructive(t *testing.T) {
 	r, _ := s.Do(nil, nil, false, now)
 	legacy := r.State
 	legacy.Schema = 4
+	legacy.Pond = nil
 	legacy.Economy.Coins = 19
 	bytes, _ := json.Marshal(legacy)
 	s.db.Exec("UPDATE saves SET body=? WHERE id=1", string(bytes))

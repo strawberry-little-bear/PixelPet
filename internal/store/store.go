@@ -116,6 +116,9 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	if a == nil || !strings.HasPrefix(a.Kind, "tetris-") {
 		changed = state.ExpireTetris(now) || changed
 	}
+	if a == nil || !strings.HasPrefix(a.Kind, "fish-") {
+		changed = state.ExpireFishing(now) || changed
+	}
 	if migrated {
 		if _, err = tx.Exec("INSERT INTO snapshots(body,created_at) VALUES(?,?)", body, now.UnixMilli()); err != nil {
 			return Result{}, err
@@ -167,6 +170,11 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 				economy := *imported.Economy
 				economy.Owned = append([]string{}, imported.Economy.Owned...)
 				state.Economy = &economy
+			}
+			if imported.Pond != nil {
+				pond := *imported.Pond
+				pond.Fish = append([]game.FishDiscovery{}, imported.Pond.Fish...)
+				state.Pond = &pond
 			}
 			state.Logs = append([]game.Log{}, imported.Logs...)
 			state.Game = nil

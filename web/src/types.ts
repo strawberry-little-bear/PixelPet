@@ -25,6 +25,7 @@ export type Growth = {
   };
 };
 export type PetState = {
+ pond?: {since:number;fish:FishDiscovery[]};
   schema: number;
   revision: number;
   species: number;
@@ -40,7 +41,8 @@ export type PetState = {
   economy?: Economy;
   logs: { at: number; text: string }[];
   game?: {
-    kind?: "tiles" | "snake" | "tetris";
+    kind?: "tiles" | "snake" | "tetris" | "fishing";
+ fishing?: Fishing;
     tetris?: Tetris;
     snake?: Snake;
     tiles?: TileMatch;
@@ -52,7 +54,7 @@ export type PetState = {
   };
 };
 export type CareFeedback = {
-  kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "tetris-finish" | "sleep";
+  kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "tetris-finish" | "fish-finish" | "sleep";
   points: number;
   habit?: "nutrition" | "clean" | "play";
   habitGain: number;
@@ -126,7 +128,8 @@ export type Memory = {
     | "decoration"
     | "tiles"
     | "snake"
-    | "tetris";
+    | "tetris"
+    | "fishing";
   at: number;
   source: "shared" | "saved" | "elapsed";
   form?: AdultForm;
@@ -175,3 +178,6 @@ export type Falling = {kind:number;rotation:number;x:number;y:number};
 export type Tetris = {
  board:number[];active?:Falling;next:number;bag:number[];lines:number;pieces:number;step:number;lastFallAt:number;paused:boolean;end?:"won"|"stacked"|"limit";
 };
+
+export type FishDiscovery = {id:string;firstAt:number;lastAt:number;count:number};
+export type Fishing = {spot:number;casts:number;catches:string[];phase:"ready"|"wait"|"bite"|"result"|"done";step:number;waitMs:number;elapsedMs:number;candidate:string;lastPulseAt:number;paused:boolean;outcome?:"caught"|"early"|"missed";lastFish?:string};

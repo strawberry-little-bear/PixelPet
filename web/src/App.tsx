@@ -1,3 +1,5 @@
+import { FishingGame, FishAlbum } from "./FishingGame";
+import { fishCatalog, fishingMenu } from "./fishing";
 import { TetrisGame } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
 import { TileGame, nextTile } from "./TileGame";
@@ -68,7 +70,8 @@ type Page =
   | "growth"
   | "return"
   | "album"
-  | "shop";
+  | "shop"
+  | "fish-album";
 const items = [
   {
     label: "吃点东西",
@@ -78,7 +81,7 @@ const items = [
   },
   {
     label: "一起玩耍",
-    hint: "星星、配对、果园与积木",
+    hint: "星星、配对、果园、积木与池塘",
     icon: Sparkles,
     kind: "arcade",
   },
@@ -115,6 +118,7 @@ const items = [
     icon: Sparkles,
     kind: "shop",
   },
+  { label: "池塘鱼图鉴", hint: "看看真正遇见过的小鱼", icon: Waves, kind: "fish-album" },
 ];
 const needs = [
   { key: "hunger", label: "饱食", icon: Utensils, color: "orange" },
@@ -165,6 +169,10 @@ export default function App() {
   const sessionKey = pet?.game ? (pet.game.id ?? `legacy-${pet.game.startedAt}`) : null;
   const abandoning = page === "game" && abandonGame !== null && abandonGame === sessionKey;
   useEffect(() => { setAbandonGame(null); }, [sessionKey]);
+  const [fishingSession, setFishingSession] = useState("");
+  const [fishingChoice, setFishingChoice] = useState(0);
+  const [fishPage, setFishPage] = useState(0);
+  const fishingEpoch = useRef(0);
   const [tetrisSession, setTetrisSession] = useState("");
   const [tetrisChoice, setTetrisChoice] = useState(0);
   const [snakeSession, setSnakeSession] = useState("");
@@ -418,6 +426,7 @@ export default function App() {
     setCareFeedback(null);
     busyRef.current = true;
     setBusy(true);
+    const activeEpoch = fishingEpoch.current;
     try {
       const r = await request("action", {
         kind,
@@ -425,7 +434,7 @@ export default function App() {
           kind === "cancel-play" ||
           kind === "tile-pick" ||
           kind === "tile-clear" ||
-          kind.startsWith("snake-") || kind.startsWith("tetris-")) &&
+          kind.startsWith("snake-") || kind.startsWith("tetris-") || kind.startsWith("fish-")) &&
           pet?.game?.id
           ? { gameId: pet.game.id }
           : {}),
@@ -433,6 +442,8 @@ export default function App() {
         requestId: crypto.randomUUID(),
       });
       apply(r);
+      if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden) setFishingSession(r.state.game?.id ?? "");
+      if (["fish-pause", "fish-finish", "cancel-play"].includes(kind)) { setFishingSession(""); setFishingChoice(0); }
       if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind)) setTetrisSession(r.state.game?.id ?? "");
       if (["tetris-pause", "tetris-finish", "cancel-play"].includes(kind)) { setTetrisSession(""); setTetrisChoice(0); }
       if (kind === "snake-resume") setSnakeSession(r.state.game?.id ?? "");
@@ -470,13 +481,13 @@ export default function App() {
         setTileLink(null);
       } else if (
         (kind === "catch" || kind === "tile-pick" ||
-          (["snake-finish", "tetris-finish"].includes(kind) && r.careFeedback)) && !r.state.game
+          (["snake-finish", "tetris-finish", "fish-finish"].includes(kind) && r.careFeedback)) && !r.state.game
       ) {
         setPage("home");
         const next = { kind: "play" as const, id: ++clipSequence.current };
         clipRef.current = next;
         setClip(next);
-      } else if (kind === "cancel-play" || kind === "snake-finish" || kind === "tetris-finish") {
+      } else if (kind === "cancel-play" || kind === "snake-finish" || kind === "tetris-finish" || kind === "fish-finish") {
         setTileLink(null);
         setPage("home");
       } else if (kind === "feed" || kind === "clean" || kind === "sleep") {
@@ -493,12 +504,23 @@ export default function App() {
   }
   useEffect(() => {
     if (tools || help || reset) {
+      fishingEpoch.current++;
+      setFishingSession("");
       setTetrisSession("");
       setSnakeSession("");
       snakeTurn.current = 0;
       setQueuedTurn(0);
     }
   }, [tools, help, reset]);
+  useEffect(() => {
+    const n = pet?.game?.fishing;
+    if (page !== "game" || !n || n.paused || !["wait", "bite"].includes(n.phase) || fishingSession !== pet.game?.id || busy || document.hidden || tools || help || reset || abandoning) return;
+    const timer = setTimeout(() => {
+      if (document.hidden) { fishingEpoch.current++; setFishingSession(""); return; }
+      void act("fish-step", { step: n.step });
+    }, Math.max(80, 1050 - (Date.now() + offset.current - n.lastPulseAt)));
+    return () => clearTimeout(timer);
+  }, [pet?.game, fishingSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
     const n = pet?.game?.tetris;
     if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || document.hidden || tools || help || reset || abandoning) return;
@@ -521,6 +543,8 @@ export default function App() {
     // Never synthesize missed beats after backgrounding or a slow request.
     const timer = setTimeout(() => {
       if (document.hidden) {
+        fishingEpoch.current++;
+        setFishingSession("");
         setSnakeSession("");
         return;
       }
@@ -567,6 +591,11 @@ export default function App() {
       return;
     }
     setError("");
+    if (page === "fish-album") {
+      if (key === "C") { setPage(pet.game?.kind === "fishing" ? "game" : "home"); setFishingChoice(0); }
+      else setFishPage(v => (v + 1) % fishCatalog.length);
+      return;
+    }
     if (page === "arcade") {
       if (key === "A") setArcadeChoice((v) => (v + 1) % games.length);
       else if (key === "C") setPage("home");
@@ -584,7 +613,25 @@ export default function App() {
     }
     if (abandoning) {
       if (key === "B") void act("cancel-play").then(ok => { if (ok) setAbandonGame(null); });
-      else { setAbandonGame(null); setTetrisChoice(0); }
+      else { setAbandonGame(null); setTetrisChoice(0); setFishingChoice(0); }
+      return;
+    }
+    if (page === "game" && !abandoning && pet.game?.kind === "fishing" && pet.game.fishing) {
+      const n = pet.game.fishing;
+      const paused = n.paused || (["wait", "bite"].includes(n.phase) && fishingSession !== pet.game.id);
+      if (n.phase === "done") {
+        if (key !== "A") void act("fish-finish", { step: n.step });
+      } else if (paused) {
+        if (key === "A") setFishingChoice(v => (v + 1) % fishingMenu.length);
+        else if (key === "C" || fishingChoice === 0) void act("fish-resume", { step: n.step });
+        else if (fishingChoice === 1) { setFishingSession(""); setFishPage(0); setPage("fish-album"); }
+        else { setFishingSession(""); setAbandonGame(sessionKey); }
+      } else if (key === "C") {
+        fishingEpoch.current++; setFishingSession(""); setFishingChoice(0);
+        void act("fish-pause", { step: n.step });
+      } else if (key === "A") {
+        if (["ready", "result"].includes(n.phase)) void act("fish-spot", { step: n.step });
+      } else void act(["wait", "bite"].includes(n.phase) ? "fish-reel" : "fish-cast", { step: n.step });
       return;
     }
     if (page === "game" && !abandoning && pet.game?.kind === "tetris" && pet.game.tetris) {
@@ -726,6 +773,8 @@ export default function App() {
         setShopPage(0);
         setPurchaseConfirm(false);
         setPage("shop");
+      } else if (item.kind === "fish-album") {
+        setPage("fish-album"); setFishPage(0);
       } else if (item.kind === "album") {
         setPage("album");
         setAlbumPage(0);
@@ -851,11 +900,13 @@ export default function App() {
     : snake?.paused || snakeSession !== pet?.game?.id
       ? "A / C 继续  B 放弃确认"
       : "A 左转  B 右转  C 暂停";
+  const fishing = pet?.game?.fishing;
+  const fishingHint = fishing?.phase === "done" ? "B / C 收好发现" : fishing?.paused || (["wait", "bite"].includes(fishing?.phase ?? "") && fishingSession !== pet?.game?.id) ? "A 选择  B 确认  C 继续" : "A 换钓点  B 抛 / 提竿  C 暂停";
   const gameNavHint = page === "arcade"
     ? "A 换游戏  B 看说明  C 返回"
     : page === "game-guide"
       ? "A 翻页  B 开始  C 返回选择"
-      : abandoning ? "A / C 留在本局  B 确认放弃" : "";
+      : abandoning ? "A / C 留在本局  B 确认放弃" : page === "fish-album" ? "A / B 翻页  C 返回" : "";
   const lcdHint = !pet
     ? "B 重新连接"
     : gameNavHint
@@ -877,7 +928,9 @@ export default function App() {
                 : page === "menu"
                   ? "A 选择　 B 确认　 C 返回"
                   : page === "game"
-                    ? pet.game?.kind === "tetris"
+                    ? pet.game?.kind === "fishing"
+                      ? fishingHint
+                      : pet.game?.kind === "tetris"
                       ? tetrisHint
                       : pet.game?.kind === "snake"
                         ? snakeHint
@@ -1066,7 +1119,9 @@ export default function App() {
                                       : page === "journal"
                                         ? "LITTLE DIARY"
                                         : page === "game"
-                                          ? pet?.game?.kind === "tetris"
+                                          ? pet?.game?.kind === "fishing"
+                                            ? "POND TOGETHER"
+                                            : pet?.game?.kind === "tetris"
                                             ? "BLOCK GARDEN"
                                             : pet?.game?.kind === "snake"
                                               ? "ORCHARD SNAKE"
@@ -1101,7 +1156,7 @@ export default function App() {
                           />
                         )}
                         {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} />}
-                        {abandoning && <AbandonGame stars={!pet.game?.kind} />}
+                        {abandoning && <AbandonGame stars={!pet.game?.kind} fishing={pet.game?.kind === "fishing"} />}
                         {page === "shop" && (
                           <ShopPanel
                             pet={pet}
@@ -1111,6 +1166,7 @@ export default function App() {
                             now={now}
                           />
                         )}
+                        {page === "fish-album" && <FishAlbum pet={pet} page={fishPage} />}
                         {page === "album" && (
                           <AlbumPanel pet={pet} now={now} page={albumPage} />
                         )}
@@ -1270,6 +1326,7 @@ export default function App() {
                             </span>
                           </div>
                         )}
+                        {page === "game" && !abandoning && pet.game?.kind === "fishing" && <FishingGame pet={pet} active={fishingSession === pet.game.id && !tools && !help && !reset} choice={fishingChoice} />}
                         {page === "game" && !abandoning && pet.game?.kind === "tetris" && (
                           <TetrisGame key={pet.game.id} pet={pet} active={tetrisSession === pet.game.id && !tools && !help && !reset} choice={tetrisChoice} />
                         )}

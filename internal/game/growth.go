@@ -76,6 +76,11 @@ func (s *State) Upgrade(now time.Time) bool {
 	if s.Schema == 6 {
 		s.Schema = 7
 	}
+	if s.Schema == 7 {
+		s.Advance(now)
+		s.Pond = newPond(now)
+		s.Schema = 8
+	}
 	return true
 }
 

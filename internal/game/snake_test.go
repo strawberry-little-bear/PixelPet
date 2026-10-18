@@ -206,11 +206,13 @@ func TestSnakeValidationAndSchemaFivePreservation(t *testing.T) {
 	}
 	s.Game = nil
 	s.Schema = 5
+	s.Pond = nil
 	raw, _ := json.Marshal(s)
 	if !s.Upgrade(now) || s.Schema != Schema {
 		t.Fatal("upgrade")
 	}
 	s.Schema = 5
+	s.Pond = nil
 	after, _ := json.Marshal(s)
 	if string(raw) != string(after) {
 		t.Fatal("upgrade modified player data")

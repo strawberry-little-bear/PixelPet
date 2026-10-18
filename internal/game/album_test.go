@@ -199,6 +199,7 @@ func TestAlbumMigrationDoesNotInventOldExperiences(t *testing.T) {
 	for _, schema := range []int{1, 2} {
 		s := babyAt(now.Add(-80 * time.Hour))
 		s.Schema = schema
+		s.Pond = nil
 		s.Economy = nil
 		s.Album = nil
 		s.CareCount = 100
@@ -239,6 +240,7 @@ func TestAlbumMigrationDoesNotInventOldExperiences(t *testing.T) {
 	}
 	egg := New(now.Add(-time.Hour))
 	egg.Schema = 2
+	egg.Pond = nil
 	egg.Economy = nil
 	egg.Album = nil
 	egg.Upgrade(now)

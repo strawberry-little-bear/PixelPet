@@ -1,0 +1,64 @@
+import { PetArt } from "./PetArt";
+import { petGrowth } from "./growth";
+import { fishCatalog, fishInfo, fishingCompanions, fishingMenu, fishingSpots } from "./fishing";
+import type { PetState } from "./types";
+import "./fishing-game.css";
+
+export function FishArt({ id, hidden = false }: { id: string; hidden?: boolean; }) {
+  const fish = fishInfo(id) ?? fishCatalog[0];
+  const long = fish.shape === "long", slim = fish.shape === "slim";
+  return <svg className={`fish-art fish-${fish.shape}`} viewBox="0 0 56 36" aria-hidden="true" shapeRendering="crispEdges">
+    <g fill={hidden ? "#7c8c66" : fish.color} stroke="#4b5e42" strokeWidth="1.5">
+      <path d={long ? "M9 15h32v3h5v6H11v-3H7v-3h2z" : slim ? "M12 12h25v3h8v9h-8v3H12z" : "M16 7h17v4h8v6h5v6h-5v6h-8v3H16v-5h-6V13h6z"} />
+      <path d="M11 16L2 9v20l9-7z" />
+      {!hidden && <><path d={fish.shape === "petal" ? "M22 8V2h5v3h5v6M22 27v7h7v-5" : "M18 11V5h10v6M19 27v5h8v-5"} /><path d="M20 17h8v6h-8z" fill="#e0d9ac" stroke="none" />{fish.shape === "striped" && <path d="M18 10v17m9-17v17m8-14v12" fill="none" stroke="#4e5d76" strokeWidth="3" />}{fish.shape === "spotted" && <path d="M17 12h3v3h-3zm10 10h3v3h-3zm5-9h3v3h-3z" fill="#594f38" stroke="none" />}<path d="M38 16h3v3h-3z" fill="#2f3e2b" stroke="none" /></>}
+    </g>{hidden && <text x="28" y="25" textAnchor="middle" fontSize="16" fill="#e4e9c9">?</text>}
+  </svg>;
+}
+
+export function FishingGame({ pet, active, choice }: { pet: PetState; active: boolean; choice: number; }) {
+  const n = pet.game?.fishing;
+  if (!n) return null;
+  const timed = n.phase === "wait" || n.phase === "bite";
+  const paused = n.phase !== "done" && (n.paused || (timed && !active));
+  const companion = fishingCompanions[pet.species] ?? fishingCompanions[0];
+  const caught = n.outcome === "caught", bite = n.phase === "bite" && !paused;
+  const state = paused ? "paused" : bite ? "bite" : caught ? "caught" : n.phase === "wait" ? "waiting" : "ready";
+  const fish = fishInfo(n.lastFish);
+  return <section className="fishing-game" aria-label="池塘钓鱼">
+    <header><strong>池塘钓鱼 · {fishingSpots[n.spot]}</strong><span>第 {n.casts} / 3 竿 · {n.catches.length} 鱼</span></header>
+    <div className="pond-scene" data-motion={state} data-rig={companion.rig} data-method={companion.method}>
+      <svg className="pond-background" viewBox="0 0 240 102" preserveAspectRatio="none" aria-hidden="true" shapeRendering="crispEdges">
+        <path d="M0 62h240v40H0z" fill="#88ac94" /><path d="M0 0h240v62H0z" fill="#c6d5ac" />
+        <path d="M0 55h75v11h-5v16H0z" fill="#839669" /><path d="M0 51h73v8H0z" fill="#a8b784" />
+        {n.spot === 0 ? <g stroke="#657c4d" strokeWidth="2"><path d="M214 64V23m8 41V35m9 29V19m-25 45V38" /><path d="M211 19h6v13h-6zm17-5h6v14h-6z" fill="#9c8758" stroke="none" /></g> : n.spot === 1 ? <g fill="#678a5d"><path d="M188 73h27v8h-27zm-37 17h31v7h-31z" /><path d="M198 69h10v6h-10z" fill="#b48c88" /></g> : <g fill="#a5ad8e"><path d="M201 53h18v7h5v10h-29V60h6zm-21 25h10v9h-15v-5h5z" /></g>}
+        <path d="M88 89h19m14-18h13m60 23h19m-68-11h9" stroke="#c5ddbd" strokeWidth="2" />
+        {companion.rig === "dolphin" && <path d="M3 72h60v16H3z" fill="#88ac94" />}
+        {companion.method === "rest" && <path d="M64 77l5-17 5 17m-5-17v23" fill="none" stroke="#647653" strokeWidth="2" />}
+        <g className="fishing-rod"><path d={companion.method === "rest" ? "M69 66L111 21" : "M53 65L111 21"} stroke="#7d6845" strokeWidth="3" /><path d="M111 21l57 10v40" fill="none" stroke="#4f674d" strokeWidth="1" /></g>
+        {timed && <g className="fishing-bobber"><path d="M163 69h10v6h-10z" fill="#b27c68" /><path d="M163 75h10v4h-10z" fill="#eee4bf" /><path d="M157 83h22" stroke="#c8ddbd" strokeWidth="2" /></g>}
+      </svg>
+      <div className="fishing-companion" aria-label={companion.waiting}><PetArt index={pet.species} stage={petGrowth(pet, pet.lastTick).stage} expression={caught ? "content" : "awake"} motion="fishing" accessory={pet.economy?.equipped.accessory} /></div>
+      {caught && <div className="fishing-catch"><FishArt id={n.lastFish!} /></div>}
+      {bite && <strong className="fishing-bite" role="status">咬钩啦！按 B 提竿</strong>}
+      {paused && <div className="fishing-pause" role="status"><strong>池塘已暂停</strong><ol>{fishingMenu.map((label, i) => <li key={label} className={choice === i ? "selected" : ""}>{choice === i ? "▸ " : "　"}{label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></div>}
+    </div>
+    <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${n.catches.length} 条鱼，B / C 收好` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "鱼漂轻晃，等咬钩提示再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提早了，鱼还没咬钩。下竿等提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
+    <small className="fishing-comment">{paused ? "没有离线钓鱼，也不补跑漏掉的节拍。" : bite ? companion.bite : caught ? fish?.story : companion.waiting}</small>
+    <small className="fishing-rule">{n.phase === "done" ? n.catches.length ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币" : "A 换钓点（收竿后）· B 抛竿 / 提竿 · C 暂停"}</small>
+  </section>;
+}
+
+export function FishAlbum({ pet, page }: { pet: PetState; page: number; }) {
+  const fish = fishCatalog[page % fishCatalog.length];
+  const discovery = pet.pond?.fish.find(d => d.id === fish.id);
+  return <section className="fish-album" aria-label="池塘鱼图鉴">
+    <header><strong>池塘鱼图鉴</strong><span>已发现 {pet.pond?.fish.length ?? 0} / {fishCatalog.length}</span></header>
+    <div className="fish-album-grid">{fishCatalog.map((f, i) => <div key={f.id} aria-current={i === page} className={i === page ? "selected" : ""}><FishArt id={f.id} hidden={!pet.pond?.fish.some(d => d.id === f.id)} /></div>)}</div>
+    <h3>{discovery ? fish.name : "还未遇见的小鱼"}</h3>
+    <p>{discovery ? fish.story : "真实钓到以后，才会留下模样和发现日期。"}</p>
+    <small>可在{fish.spots.map(s => fishingSpots[s]).join(" / ")}遇见 · 各钓点三种鱼等概率</small>
+    <p className="fish-record">{discovery ? `初次：${new Date(discovery.firstAt).toLocaleDateString("zh-CN")} · 共遇见 ${discovery.count} 次` : "没有鱼饵付费，也不用按时打卡。"}</p>
+    <small>A / B 翻页 · C 返回{pet.game?.kind === "fishing" ? "暂停菜单" : "小窝"}</small>
+  </section>;
+}

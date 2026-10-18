@@ -63,6 +63,7 @@ const labels: Record<SceneMotion, string> = {
   sleeping: "闭眼盖被子睡觉",
   waking: "醒来伸懒腰",
   celebrating: "开心地蹦蹦跳跳",
+  fishing: "在池塘安静等待鱼漂",
 };
 
 function RiceBall() {

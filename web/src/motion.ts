@@ -9,7 +9,7 @@ export const clipDurations = {
 export type ClipKind = keyof typeof clipDurations;
 export type MotionClip = { kind: ClipKind; id: number };
 export type SceneMotion =
-  "idle" | "eating" | "bathing" | "sleeping" | "waking" | "celebrating";
+  "idle" | "eating" | "bathing" | "sleeping" | "waking" | "celebrating" | "fishing";
 
 export function sceneMotion(
   sleeping: boolean,

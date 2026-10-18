@@ -73,7 +73,7 @@ func (s State) validAlbum(now time.Time) bool {
 		return s.Album == nil
 	}
 	a := s.Album
-	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > 13+len(albumDays) {
+	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > 14+len(albumDays) {
 		return false
 	}
 	if s.HatchedAt == 0 {
@@ -131,6 +131,10 @@ func (s State) validAlbum(now time.Time) bool {
 				slot = "room"
 			}
 			if s.Schema < 4 || m.Source != "shared" || !ok || item.Slot != slot || s.Economy == nil || !s.Economy.owns(m.Item) {
+				return false
+			}
+		case "fishing":
+			if s.Schema < 8 || m.Source != "shared" || s.Pond == nil || len(s.Pond.Fish) == 0 {
 				return false
 			}
 		case "tetris":

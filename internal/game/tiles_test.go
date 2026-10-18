@@ -271,6 +271,7 @@ func TestTileSaveValidationAndSchemaFourMigration(t *testing.T) {
 	}
 	legacy, _ := economyPet(t)
 	legacy.Schema = 4
+	legacy.Pond = nil
 	legacy.Economy.Coins = 18
 	legacy.Apply(Action{Kind: "play"}, now)
 	before := *legacy.Game

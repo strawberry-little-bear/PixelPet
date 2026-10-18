@@ -148,6 +148,7 @@ func TestSchemaSixTetrisUpgradePreservesEveryOldGame(t *testing.T) {
 			legacy.Apply(game.Action{Kind: "hatch", Species: 2}, now)
 			legacy.Apply(game.Action{Kind: kind}, now)
 			legacy.Schema = 6
+			legacy.Pond = nil
 			legacy.Economy.Coins = 19
 			raw, _ := json.Marshal(legacy)
 			s.db.Exec("UPDATE saves SET body=? WHERE id=1", string(raw))

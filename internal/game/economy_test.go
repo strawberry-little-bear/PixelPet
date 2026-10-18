@@ -232,6 +232,7 @@ func TestEconomyRejectsInvalidBackups(t *testing.T) {
 func TestSchemaThreeUpgradeStartsEmptyWithoutInventingEconomy(t *testing.T) {
 	s, now := economyPet(t)
 	s.Schema = 3
+	s.Pond = nil
 	s.Economy = nil
 	beforeGrowth, beforeAlbum := *s.Growth, *s.Album
 	if err := s.Validate(now); err != nil {
@@ -286,6 +287,7 @@ func TestLegacyActiveGameMigrationKeepsProgressAndAssignsIdentity(t *testing.T) 
 	s.Apply(Action{Kind: "play"}, now)
 	s.Apply(Action{Kind: "catch", GameID: s.Game.ID, Lane: 0}, now)
 	s.Schema = 3
+	s.Pond = nil
 	s.Economy = nil
 	s.Game.ID = ""
 	before := *s.Game

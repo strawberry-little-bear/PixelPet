@@ -44,8 +44,8 @@ func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedbac
 		if beforeNeeds.Clean > 65 {
 			f.Reason = "not-needed"
 		}
-	case "catch", "tile-pick", "snake-finish", "tetris-finish":
-		if (a.Kind == "snake-finish" || a.Kind == "tetris-finish") && s.CareCount == beforeCare {
+	case "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish":
+		if (a.Kind == "snake-finish" || a.Kind == "tetris-finish" || a.Kind == "fish-finish") && s.CareCount == beforeCare {
 			return message, nil, nil
 		}
 		if s.Game != nil {
