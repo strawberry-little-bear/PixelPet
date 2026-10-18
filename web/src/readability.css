@@ -65,6 +65,7 @@
 .reading-mode .lcd-top, .reading-mode .lcd-bottom { height: auto; min-height: 25px; padding: 4px 0; gap: 4px; font-size: .642857rem; line-height: 1.6; }
 .reading-mode .lcd-bottom > span:last-child { font-size: inherit; flex-shrink: 0; }
 .reading-mode .save-recovery { height: auto; overflow: visible; }
+.reading-mode .save-recovery h2 { font-size: 1.142857rem; overflow-wrap: anywhere; }
 /* A paused overlay may grow with text, without stretching the live board. */
 .reading-mode :is(.snake-overlay, .tetris-overlay, .walk-pause, .fishing-pause) { position: relative; inset: auto; padding: 10px 4px; line-height: 1.6; }
 .reading-mode .snake-field:has(.snake-overlay) { height: auto; width: 100%; min-height: 122px; }

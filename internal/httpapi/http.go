@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -18,8 +19,14 @@ func Handler(db *store.Store, web string) http.Handler {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		if err != nil {
-			w.WriteHeader(400)
-			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			status := http.StatusBadRequest
+			body := map[string]string{"error": err.Error()}
+			if errors.Is(err, store.ErrInvalidSave) {
+				status = http.StatusConflict
+				body["code"] = "save_corrupt"
+			}
+			w.WriteHeader(status)
+			json.NewEncoder(w).Encode(body)
 			return
 		}
 		json.NewEncoder(w).Encode(result)

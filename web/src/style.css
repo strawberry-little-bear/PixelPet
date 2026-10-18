@@ -1411,11 +1411,16 @@ footer i {
   backdrop-filter: blur(7px);
   display: grid;
   place-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   padding: 24px;
 }
 .modal {
-  width: 440px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 440px;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: #faf9f1;
   border: 1px solid #fff;
   border-radius: 23px;
@@ -1424,6 +1429,8 @@ footer i {
   position: relative;
 }
 .modal-close {
+  min-width: 44px;
+  min-height: 44px;
   position: absolute;
   right: 15px;
   top: 15px;
@@ -1434,13 +1441,13 @@ footer i {
   color: #94a17e;
 }
 .modal h2 {
-  font-size: 24px;
+  font-size: 1.714286rem;
   font-weight: 500;
   line-height: 1.6;
   margin: 16px 0;
 }
 .modal p {
-  font-size: 12px;
+  font-size: .857143rem;
   color: #8a947c;
   line-height: 2;
 }
@@ -1884,7 +1891,7 @@ footer i {
     padding: 35px 25px;
   }
   .modal h2 {
-    font-size: 22px;
+    font-size: 1.571429rem;
   }
   .toast {
     bottom: 18px;

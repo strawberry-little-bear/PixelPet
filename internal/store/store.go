@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,10 @@ import (
 	"github.com/strawberry-little-bear/PixelPet/internal/game"
 	_ "modernc.org/sqlite"
 )
+
+// ErrInvalidSave identifies an unreadable saved state, not a transport failure.
+// The database remains intact until an explicit, validated import or reset.
+var ErrInvalidSave = errors.New("现有存档校验失败")
 
 type Store struct {
 	db *sql.DB
@@ -100,12 +105,16 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	}
 	if readErr != nil {
 		if imported == nil && !reset {
-			return Result{}, fmt.Errorf("现有存档校验失败，可从存档盒导入备份恢复：%w", readErr)
+			return Result{}, fmt.Errorf("%w，可从存档盒导入备份恢复：%v", ErrInvalidSave, readErr)
 		}
 		// Keep the damaged bytes as a snapshot, while allowing explicit recovery.
-		if state.Revision < 0 || state.Revision > 1_000_000_000 {
-			state.Revision = 0
+		revision := state.Revision
+		if revision < 0 || revision > 1_000_000_000 {
+			revision = 0
 		}
+		// Never run game/clock rules on unvalidated fields during recovery.
+		// The original bytes are preserved separately in body for the snapshot.
+		state = game.State{Revision: revision}
 	}
 	changed := migrated
 	// A late pulse handles its own expiry, returning a persisted pause instead

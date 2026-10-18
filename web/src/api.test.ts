@@ -52,3 +52,19 @@ describe("save response classification", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe("explicit save-corruption diagnosis", () => {
+  it.each(["state", "visit"])("retains the code from a typed 409 for %s", async path => {
+    respond(new Response('{"error":"存档校验失败","code":"save_corrupt"}', { status: 409 }));
+    await expect(request(path, path === "visit" ? {} : undefined)).rejects.toMatchObject({ code: "save_corrupt" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it.each([400, 500, 503])("does not enable repair from an error code with HTTP %s", async status => {
+    respond(new Response('{"error":"服务异常","code":"save_corrupt"}', { status }));
+    await expect(request("state")).rejects.toMatchObject({ outcome: "unavailable", code: undefined });
+  });
+  it("does not infer a repair diagnosis from error text or an unknown code", async () => {
+    respond(new Response('{"error":"现有存档校验失败","code":"something_else"}', { status: 409 }));
+    await expect(request("state")).rejects.toMatchObject({ code: undefined });
+  });
+});

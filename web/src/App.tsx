@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { petNeed } from "./needs";
 import { request } from "./api";
-import { needsReconciliation } from "./requestFailure";
+import { isSaveCorrupt, needsReconciliation } from "./requestFailure";
 import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
@@ -159,6 +159,8 @@ export default function App() {
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState(false);
   const unavailableRef = useRef(false);
+  const [corrupt, setCorrupt] = useState(false);
+  const corruptRef = useRef(false);
   const [uncertain, setUncertain] = useState(false);
   const [checking, setChecking] = useState(false);
   const uncertainRef = useRef(false);
@@ -263,6 +265,8 @@ export default function App() {
     if (r.shop) setShop(r.shop);
     setSavedAt(r.state.lastTick);
     setError("");
+    corruptRef.current = false;
+    setCorrupt(false);
     unavailableRef.current = false;
     setUnavailable(false);
     if (!silent && r.message) setMessage(r.message);
@@ -286,8 +290,34 @@ export default function App() {
     setQueuedTurn(0);
     setTileLink(null);
   }, []);
+  const markCorrupt = useCallback((reconciled = false) => {
+    // Repeated corrupt-state polls must not close the toolbox or cancel a
+    // repair preview. Only the first authoritative diagnosis enters recovery.
+    if (corruptRef.current && !reconciled) return;
+    corruptRef.current = true;
+    setCorrupt(true);
+    // An explicit repair may replace an unreadable revision with a new one.
+    // Do not compare that new save generation with the last healthy snapshot.
+    latestRevision.current = -1;
+    knownStage.current = null;
+    setReturnRecap(null);
+    setReturnPending(false);
+    unavailableRef.current = false;
+    setUnavailable(false);
+    uncertainRef.current = false;
+    setUncertain(false);
+    discardImport();
+    stopActivity();
+    setPage("choose");
+    setReset(false);
+    setTools(false);
+    setPurchaseConfirm(false);
+    setError("存档未通过校验，未自动替换。请从存档盒选择已有备份修复，或明确确认重新开始。");
+  }, [discardImport, stopActivity]);
   const markUncertain = useCallback(() => {
     discardImport();
+    corruptRef.current = false;
+    setCorrupt(false);
     uncertainRef.current = true;
     setUncertain(true);
     stopActivity();
@@ -297,18 +327,19 @@ export default function App() {
     if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
     const epoch = syncEpoch.current;
     const recovering = uncertainRef.current;
+    const repairing = corruptRef.current;
     readInFlight.current = epoch;
-    if (recovering || unavailableRef.current) setChecking(true);
+    if (recovering || repairing || unavailableRef.current) setChecking(true);
     try {
       // Recovery only reads authoritative state. Never replay the lost mutation
       // or claim a recap as a substitute for finding out what was saved.
-      const r = recovering ? await request("state") : await request("visit", {});
+      const r = recovering || repairing ? await request("state") : await request("visit", {});
       if (epoch !== syncEpoch.current) return;
-      if (!apply(r, recovering)) {
+      if (!apply(r, recovering || repairing)) {
         if (recovering) setError("读到较旧的存档，结果仍未确认。按 B 再次核对。");
         return;
       }
-      if (recovering) {
+      if (recovering || repairing) {
         discardImport();
         uncertainRef.current = false;
         setUncertain(false);
@@ -318,15 +349,24 @@ export default function App() {
         setTools(false);
         setPurchaseConfirm(false);
         returnAttempt.current = r.returnRecap?.id ?? "";
-        setMessage("已核对当前存档，请查看状态。上次操作没有自动重试。");
+        initialized.current = true;
+        setMessage(repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。" : "已核对当前存档，请查看状态。上次操作没有自动重试。");
       } else if (r.recapPending) returnAttempt.current = "";
       if (!initialized.current) {
         setChosen(r.state.species);
         setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
         initialized.current = true;
       }
-    } catch {
+    } catch (error) {
       if (epoch !== syncEpoch.current) return;
+      if (isSaveCorrupt(error)) {
+        // An explicit diagnosis is authoritative current-state evidence, not
+        // a retry of a previous unknown write. Its payload was discarded.
+        markCorrupt(recovering);
+        return;
+      }
+      corruptRef.current = false;
+      setCorrupt(false);
       if (!recovering) {
         discardImport();
         setPage(value => value === "import-preview" ? importReturn.current.page : value);
@@ -343,7 +383,7 @@ export default function App() {
         setChecking(false);
       }
     }
-  }, [apply, stopActivity, discardImport]);
+  }, [apply, stopActivity, discardImport, markCorrupt]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
@@ -420,7 +460,7 @@ export default function App() {
   }, [evolution, uncertain, unavailable, page, busy, clip, pet?.sleeping]);
   useEffect(() => {
     if (
-      uncertain || unavailable ||
+      uncertain || unavailable || corrupt ||
       !returnRecap ||
       !returnPending ||
       page !== "home" ||
@@ -454,6 +494,7 @@ export default function App() {
         }
       })
       .catch((error: unknown) => {
+        if (isSaveCorrupt(error)) { markCorrupt(); return; }
         if (needsReconciliation(error)) { markUncertain(); return; }
         // If not accepted, a later heartbeat retries. If the response was lost
         // after acceptance, the saved recap remains available in the menu.
@@ -466,6 +507,8 @@ export default function App() {
   }, [
     uncertain,
     unavailable,
+    corrupt,
+    markCorrupt,
     markUncertain,
     returnRecap,
     returnPending,
@@ -544,7 +587,7 @@ export default function App() {
     }
   }
   async function act(kind: string, extra: Record<string, unknown> = {}) {
-    if (busyRef.current || uncertainRef.current || unavailableRef.current) return false;
+    if (busyRef.current || uncertainRef.current || unavailableRef.current || corruptRef.current) return false;
     syncEpoch.current++;
     setCareFeedback(null);
     setHomeEcho(null);
@@ -629,7 +672,8 @@ export default function App() {
       }
       return true;
     } catch (e) {
-      if (needsReconciliation(e)) markUncertain();
+      if (isSaveCorrupt(e)) markCorrupt();
+      else if (needsReconciliation(e)) markUncertain();
       else setError(e instanceof Error ? e.message : "操作被拒绝，请查看提示。");
       return false;
     } finally {
@@ -739,16 +783,17 @@ export default function App() {
     setPressed(key);
     setTimeout(() => setPressed(""), 140);
     beep(key === "B");
-    if (!pet) {
-      if (key === "B") void refresh();
-      return;
-    }
-    setError("");
     if (page === "import-preview") {
+      setError("");
       if (key === "A" || key === "C") cancelImport();
       else if (key === "B" && pendingImportRef.current?.backup) void confirmImport();
       return;
     }
+    if (corruptRef.current || !pet) {
+      if (key === "B") void refresh();
+      return;
+    }
+    setError("");
     if (page === "album") {
       if (albumCategory === null) {
         if (key === "A") setAlbumChoice(v => (v + 1) % albumCategories.length);
@@ -1017,7 +1062,7 @@ export default function App() {
   async function importFile(file?: File) {
     // Clearing the input immediately also permits selecting the same file again.
     if (fileRef.current) fileRef.current.value = "";
-    if (!file || busyRef.current || uncertainRef.current || unavailableRef.current) return;
+    if (!file || busyRef.current || uncertainRef.current || unavailableRef.current || (!pet && !corruptRef.current)) return;
     if (page !== "import-preview") importReturn.current = { page, gameId: sessionKey };
     const sequence = ++importSequence.current;
     const pending: PendingImport = { fileName: file.name };
@@ -1050,6 +1095,7 @@ export default function App() {
     setBusy(true);
     try {
       const r = await request("import", pending.backup.data);
+      initialized.current = true;
       discardImport();
       latestRevision.current = -1;
       knownStage.current = null;
@@ -1077,6 +1123,7 @@ export default function App() {
     setBusy(true);
     try {
       const r = await request("reset", { confirm: true });
+      initialized.current = true;
       discardImport();
       latestRevision.current = -1;
       knownStage.current = null;
@@ -1129,10 +1176,10 @@ export default function App() {
     : page === "game-guide"
       ? "A 翻页  B 开始  C 返回选择"
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A / B 翻页  C 返回" : "";
-  const lcdHint = !pet
-    ? "B 重新连接"
-    : page === "import-preview"
+  const lcdHint = page === "import-preview"
       ? busy ? "正在导入…" : pendingImport?.backup ? "A / C 取消  B 确认替换" : "A / C 取消"
+      : corrupt ? "B 重新检查 · 存档盒可修复"
+      : !pet ? "B 重新连接"
       : gameNavHint
       ? gameNavHint
       : page === "choose"
@@ -1222,19 +1269,19 @@ export default function App() {
             {tools && (
               <div className="tools-menu">
                 <p>装好每一次小小的成长</p>
-                <a href="/api/backup" download onClick={() => setTools(false)}>
+                {corrupt ? <p>当前存档无法正常导出；修复前会保留原始内容快照。</p> : <a href="/api/backup" download onClick={() => setTools(false)}>
                   <ArrowDownToLine size={16} />
                   导出存档
-                </a>
+                </a>}
                 <button
-                  disabled={busy || uncertain || unavailable}
+                  disabled={busy || uncertain || unavailable || (!pet && !corrupt)}
                   onClick={() => fileRef.current?.click()}
                 >
                   <ArrowUpFromLine size={16} />
                   导入备份
                 </button>
                 <button
-                  disabled={busy || uncertain || unavailable}
+                  disabled={busy || uncertain || unavailable || (!pet && !corrupt)}
                   className="reset-link"
                   onClick={(event) => {
                     modalReturnFocus.current = event.currentTarget.closest(".tools-wrap")?.querySelector<HTMLButtonElement>(".backup-button") || null;
@@ -1296,6 +1343,7 @@ export default function App() {
               <span className={error ? "status-dot warning" : "status-dot"} />
               {uncertain
                 ? checking ? "正在核对存档…" : "保存结果待核对"
+                : corrupt ? "存档需要修复"
                 : unavailable ? "小窝暂未连接"
                 : !pet
                 ? "小窝连接中"
@@ -1305,11 +1353,11 @@ export default function App() {
                     ? "有一条小提醒"
                     : "成长已好好保存"}
               <small>
-                {savedAt ? `${timeLabel(savedAt)} · ${uncertain || unavailable ? "上次读取" : "本机存档"}` : "GO + SQLITE"}
+                {savedAt ? `${timeLabel(savedAt)} · ${uncertain || unavailable || corrupt ? "上次读取" : "本机存档"}` : "GO + SQLITE"}
               </small>
             </div>
           </div>
-          <div className={`device-stage ${page !== "game" || abandoning || uncertain || unavailable
+          <div className={`device-stage ${page !== "game" || abandoning || uncertain || unavailable || corrupt
             || (snake && (snake.paused || snake.end || snakeSession !== pet?.game?.id))
             || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
             || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
@@ -1335,7 +1383,7 @@ export default function App() {
                 >
                   <div className="lcd-top">
                     <span>
-                      {page === "import-preview" ? "BACKUP PREVIEW" : page === "choose"
+                      {page === "import-preview" ? "BACKUP PREVIEW" : corrupt ? "SAVE RECOVERY" : page === "choose"
                         ? "HELLO, FRIEND"
                         : (page === "arcade" || page === "game-guide")
                           ? "PLAY TOGETHER"
@@ -1380,8 +1428,16 @@ export default function App() {
                         <p>{checking ? "只读取当前存档，不重做操作。" : "按 B 重连并查看当前存档。"}</p>
                         <small>游戏不会自动继续 · 不重播成功动作</small>
                       </div>
-                    ) : pet && page === "import-preview" && pendingImport ? (
-                      <ImportPreview pending={pendingImport} pet={pet} busy={busy} />
+                    ) : page === "import-preview" && pendingImport ? (
+                      <ImportPreview pending={pendingImport} pet={corrupt ? null : pet} busy={busy} />
+                    ) : corrupt ? (
+                      <div className="save-recovery corrupt-recovery" role="status" aria-live="polite">
+                        <Cloud size={28} />
+                        <h2>{checking ? "正在重新检查" : "存档需要修复"}</h2>
+                        <p>服务已连接，但当前存档未通过校验；没有自动替换。</p>
+                        <p>从机身外的存档盒选择已有备份，预览后按 B 确认；A / C 可取消。</p>
+                        <small>没有备份也可在存档盒明确确认重新开始。B 只重新检查，不会自动导入或重置。</small>
+                      </div>
                     ) : !pet ? (
                       <div className="screen-wait">
                         <PixelEgg />
@@ -1681,6 +1737,12 @@ export default function App() {
               <span className="eyebrow">YOUR LITTLE COMPANION</span>
               <span className="small-cross">+</span>
             </div>
+            {corrupt ? <>
+              <div className="companion-title"><h2>先保留，再修复</h2><span>存档待修复</span></div>
+              <p className="personality">当前内容未通过校验，暂不展示伙伴状态。</p>
+              <div className="note-rule" />
+              <p>从存档盒选择备份后，在屏幕预览并用三键确认。B 重新检查不会替换存档。</p>
+            </> : <>
             <div className="companion-title">
               <h2>{pet?.hatchedAt ? pet.name : species[chosen]}</h2>
               <span>{pet?.hatchedAt ? stage : "等待相遇"}</span>
@@ -1740,6 +1802,7 @@ export default function App() {
                 </p>
               </div>
             )}
+            </>}
             <div className="control-guide">
               <span>玩法很简单</span>
               <div>
@@ -1761,7 +1824,7 @@ export default function App() {
         </section>
         <section
           className="collection"
-          aria-label="十位原创小伙伴，使用 A 键选择"
+          aria-label={corrupt ? "十位原创小伙伴展示" : "十位原创小伙伴，使用 A 键选择"}
         >
           <div className="collection-label">
             <span>THE LITTLE FAMILY</span>
@@ -1773,17 +1836,17 @@ export default function App() {
           <div className="collection-pets">
             {species.map((name, i) => (
               <div
-                className={`collection-pet ${index === i ? "is-chosen" : ""}`}
+                className={`collection-pet ${!corrupt && index === i ? "is-chosen" : ""}`}
                 key={name}
               >
                 <div>
                   <PetArt
                     index={i}
-                    stage={i === index ? growth.stage : "baby"}
+                    stage={!corrupt && i === index ? growth.stage : "baby"}
                   />
                 </div>
                 <span>{name}</span>
-                {index === i && <i />}
+                {!corrupt && index === i && <i />}
               </div>
             ))}
           </div>
@@ -1853,14 +1916,14 @@ export default function App() {
             {reset ? (
               <>
                 <p>
-                  重新开始会替换当前宠物。建议先导出备份，留住这段小小的陪伴。
+                  {corrupt ? "重新开始会用一颗新蛋替换无法读取的存档。也可以取消并导入已有备份；原始内容会保留为恢复快照。" : "重新开始会替换当前宠物。建议先导出备份，留住这段小小的陪伴。"}
                 </p>
-                <a className="modal-export" href="/api/backup" download>
+                {!corrupt && <a className="modal-export" href="/api/backup" download>
                   <ArrowDownToLine size={16} />
                   先导出当前存档
-                </a>
+                </a>}
                 <button
-                  disabled={busy || uncertain || unavailable}
+                  disabled={busy || uncertain || unavailable || (!pet && !corrupt)}
                   className="confirm-reset"
                   onClick={() => void restart()}
                 >
