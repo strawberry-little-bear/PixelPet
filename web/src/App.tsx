@@ -247,12 +247,14 @@ export default function App() {
   const audio = useRef<AudioContext | null>(null);
   const initialized = useRef(false);
   const latestRevision = useRef(-1);
+  const acceptedPet = useRef<PetState | null>(null);
   const modalRef = useRef<HTMLElement>(null);
   const modalReturnFocus = useRef<HTMLElement | null>(null);
 
   const apply = useCallback((r: Result, silent = false) => {
     if (r.state.revision < latestRevision.current) return false;
     latestRevision.current = r.state.revision;
+    acceptedPet.current = r.state;
     const nextStage = r.state.growth?.stage;
     if (nextStage) {
       const rank = ["egg", "baby", "growing", "adult"];
@@ -368,11 +370,31 @@ export default function App() {
       // or claim a recap as a substitute for finding out what was saved.
       const r = recovering || repairing || clockBlocked ? await request("state") : await request("visit", {});
       if (epoch !== syncEpoch.current) return;
-      if (!apply(r, recovering || repairing || clockBlocked)) {
+      // These fields are immutable during one hatched pet's life. They can
+      // change after another tab hatches, resets, or restores a different pet.
+      // Reject stale responses before invalidating any local intent.
+      const previous = acceptedPet.current;
+      const replaced = previous !== null && r.state.revision >= latestRevision.current && (
+        previous.createdAt !== r.state.createdAt ||
+        previous.hatchedAt !== r.state.hatchedAt ||
+        (r.state.hatchedAt > 0 && previous.species !== r.state.species)
+      );
+      if (!apply(r, recovering || repairing || clockBlocked || replaced)) {
         if (recovering || clockBlocked) setError("读到较旧的存档，结果仍未确认。按 B 再次核对。");
         return;
       }
-      if (recovering || repairing || clockBlocked) {
+      // Unlike cached action replies, this is an authoritative current read:
+      // an absent recap means it was cleared (including same-pet imports).
+      setReturnRecap(r.returnRecap ?? null);
+      setReturnPending(!!r.recapPending);
+      if (!r.returnRecap) setPage(value => value === "return" ? (r.state.hatchedAt ? "home" : "choose") : value);
+      if (replaced) {
+        stopActivity();
+        setHelp(false);
+        setAbandonGame(null);
+        setReturnPage(0);
+      }
+      if (recovering || repairing || clockBlocked || replaced) {
         discardImport();
         uncertainRef.current = false;
         setUncertain(false);
@@ -383,7 +405,7 @@ export default function App() {
         setPurchaseConfirm(false);
         returnAttempt.current = r.returnRecap?.id ?? "";
         initialized.current = true;
-        setMessage(clockBlocked ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。" : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。" : "已核对当前存档，请查看状态。上次操作没有自动重试。");
+        setMessage(clockBlocked ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。" : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。" : recovering ? "已核对当前存档，请查看状态。上次操作没有自动重试。" : "已同步其他页面更新的伙伴，请从当前画面继续。");
       } else if (r.recapPending) returnAttempt.current = "";
       if (!initialized.current) {
         setChosen(r.state.species);
