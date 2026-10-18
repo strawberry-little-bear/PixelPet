@@ -1,3 +1,4 @@
+import { CarePreview } from "./CarePreview";
 import { WalkingGame, ParkAlbum } from "./WalkingGame";
 import { parkCatalog, walkMenu } from "./walk";
 import { completedExperience, experienceWords } from "./companion";
@@ -1585,37 +1586,40 @@ export default function App() {
                           </>
                         )}
                         {page === "menu" && (
-                          <div className="care-menu">
-                            {items
-                              .slice(
-                                Math.max(0, selected - 5),
-                                Math.max(0, selected - 5) + 6,
-                              )
-                              .map((item, offset) => {
-                                const i = Math.max(0, selected - 5) + offset;
-                                const Icon = item.icon;
-                                return (
-                                  <div
-                                    key={item.kind}
-                                    className={`care-item ${i === selected ? "selected" : ""}`}
-                                    aria-current={i === selected ? "true" : undefined}
-                                  >
-                                    <span className="menu-arrow">
-                                      {i === selected ? "▸" : ""}
-                                    </span>
-                                    <Icon size={15} />
-                                    <span>
-                                      {item.kind === "sleep" && pet.sleeping
-                                        ? "起床啦"
-                                        : item.label}
-                                    </span>
-                                    <span className="menu-number">
-                                      {String(i + 1).padStart(2, "0")}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                          </div>
+                          <>
+                            <div className="care-menu">
+                              {items
+                                .slice(
+                                  Math.max(0, selected - 5),
+                                  Math.max(0, selected - 5) + 6,
+                                )
+                                .map((item, offset) => {
+                                  const i = Math.max(0, selected - 5) + offset;
+                                  const Icon = item.icon;
+                                  return (
+                                    <div
+                                      key={item.kind}
+                                      className={`care-item ${i === selected ? "selected" : ""}`}
+                                      aria-current={i === selected ? "true" : undefined}
+                                    >
+                                      <span className="menu-arrow">
+                                        {i === selected ? "▸" : ""}
+                                      </span>
+                                      <Icon size={15} />
+                                      <span>
+                                        {item.kind === "sleep" && pet.sleeping
+                                          ? "起床啦"
+                                          : item.label}
+                                      </span>
+                                      <span className="menu-number">
+                                        {String(i + 1).padStart(2, "0")}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                            <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} />
+                          </>
                         )}
                         {page === "growth" && (
                           <GrowthPanel

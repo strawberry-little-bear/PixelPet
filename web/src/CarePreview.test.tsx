@@ -1,0 +1,96 @@
+import { cleanup, render } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { CarePreview, carePreview } from "./CarePreview";
+import { emptyGrowth } from "./growth";
+import type { GrowthStage, PetState } from "./types";
+
+const now = 2_000_000_000_000;
+function pet(stage: GrowthStage = "baby"): PetState {
+  const growth = emptyGrowth(stage);
+  if (stage === "adult") Object.assign(growth, { points: 72, form: "gentle" });
+  return { schema: 11, revision: 1, species: 2, name: "预览伙伴", createdAt: now - 4 * 86400000,
+    hatchedAt: now - 4 * 86400000, lastTick: now, sleeping: false,
+    needs: { hunger: 60, clean: 60, mood: 80, energy: 80 }, careCount: 0, growth, logs: [] };
+}
+afterEach(cleanup);
+
+describe("read-only care preview", () => {
+  it.each([
+    ["feed", "hunger", 70, "符合记录"],
+    ["feed", "hunger", 70.000001, "饱食已满足"],
+    ["feed", "hunger", 95.999999, "饱食已满足"],
+    ["feed", "hunger", 96, "暂时不能喂食"],
+    ["clean", "clean", 65, "符合记录"],
+    ["clean", "clean", 65.000001, "清洁已满足"],
+    ["clean", "clean", 98.999999, "清洁已满足"],
+    ["clean", "clean", 99, "暂时不用洗澡"],
+  ] as const)("matches %s need boundary %s=%s", (kind, key, value, text) => {
+    const p = pet(); p.needs[key] = value;
+    expect(carePreview(p, kind).join("")).toContain(text);
+  });
+
+  it.each(["feed", "clean"] as const)("matches %s cooldown inclusivity and keeps need priority", kind => {
+    const p = pet(), field = kind === "feed" ? "lastFeed" : "lastClean";
+    for (const [ago, credited] of [[0, false], [30 * 60000 - 1, false], [30 * 60000, true], [31 * 60000, true]] as const) {
+      p.growth!.care[field] = now - ago;
+      expect(carePreview(p, kind).join("")).toContain(credited ? "符合记录" : "间隔内");
+    }
+    p.growth!.care[field] = now;
+    p.needs[kind === "feed" ? "hunger" : "clean"] = 80;
+    expect(carePreview(p, kind).join("")).toContain("已满足");
+    expect(carePreview(p, kind).join("")).not.toContain("间隔内");
+    p.growth!.care[field] = 0;
+    p.needs[kind === "feed" ? "hunger" : "clean"] = 60;
+    expect(carePreview(p, kind).join("")).toContain("符合记录");
+  });
+
+  it.each(["baby", "growing", "adult"] as const)("never mutates or promises a new adult form in %s", stage => {
+    const p = pet(stage), original = structuredClone(p);
+    for (const kind of ["feed", "clean", "sleep"] as const) {
+      const text = carePreview(p, kind).join("");
+      expect(text).toContain(stage === "adult" ? "形态不变" : "+0.25");
+      if (stage === "adult") expect(text).not.toContain("成长 +");
+    }
+    expect(p).toEqual(original);
+  });
+
+  it("does not manufacture legacy care history or rewards", () => {
+    const p = pet(); delete p.growth;
+    expect(carePreview(p, "feed").join("")).toContain("尚未读到");
+    expect(carePreview(p, "clean").join("")).not.toContain("+0.25");
+    expect(carePreview(p, "sleep").join("")).toContain("尚未读到");
+  });
+
+  it("does not expire cached cooldowns according to the client clock", () => {
+    const p = pet(); p.growth!.care.lastFeed = now - 10 * 60000;
+    const before = carePreview(p, "feed");
+    const native = Date.now;
+    try { Date.now = () => now + 86400000; expect(carePreview(p, "feed")).toEqual(before); }
+    finally { Date.now = native; }
+    p.lastTick = now + 21 * 60000;
+    expect(carePreview(p, "feed").join("")).toContain("符合记录");
+  });
+
+  it("explains sleeping, waking, full energy, and their real rest requirement", () => {
+    const p = pet(); p.sleeping = true;
+    for (const kind of ["feed", "clean"] as const) expect(carePreview(p, kind).join("")).toContain("先选「起床啦」");
+    expect(carePreview(p, "sleep").join("")).toContain("反复睡下或叫醒");
+    p.sleeping = false;
+    expect(carePreview(p, "sleep").join("")).toContain("饱食和清洁仍会下降");
+    p.needs.energy = 100;
+    expect(carePreview(p, "sleep").join("")).toContain("不增加休息习惯");
+  });
+
+  it.each(["feed", "clean", "sleep"] as const)("does not invite %s before hatching or during a game", kind => {
+    const p = pet(); p.hatchedAt = 0;
+    expect(carePreview(p, kind).join("")).toContain("先迎接");
+    p.hatchedAt = now - 10000; p.game = { startedAt: now, score: 0, round: 0, lastBeat: -1 };
+    expect(carePreview(p, kind).join("")).toContain("先收好或结束");
+  });
+
+  it.each(["feed", "clean", "sleep", "status", "arcade"])("renders %s without new controls or live announcements", kind => {
+    const p = pet(); const { container } = render(<CarePreview pet={p} kind={kind} hint="只读说明" />);
+    expect(container.querySelector("button,a,input,[tabindex],[aria-live]")).toBeNull();
+    expect(container.textContent).toContain(["status", "arcade"].includes(kind) ? "只读说明" : "实际以照顾结果为准");
+  });
+});
