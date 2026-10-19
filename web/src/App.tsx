@@ -182,6 +182,7 @@ export default function App() {
   const seenExperiences = useRef(new Set<string>());
   const homeEchoEpoch = useRef(0);
   const recapDisplayEpoch = useRef(0);
+  const [foreground, setForeground] = useState(() => !document.hidden);
   const [clip, setClip] = useState<MotionClip | null>(null);
   const clipRef = useRef<MotionClip | null>(null);
   const clipSequence = useRef(0);
@@ -235,6 +236,7 @@ export default function App() {
   const [returnPending, setReturnPending] = useState(false);
   const [returnPage, setReturnPage] = useState(0);
   const returnAttempt = useRef("");
+  const [queuedReturn, setQueuedReturn] = useState<{ id: string; epoch: number } | null>(null);
   const knownStage = useRef<GrowthStage | null>(null);
   const [evolution, setEvolution] = useState<{
     stage: GrowthStage;
@@ -297,6 +299,8 @@ export default function App() {
     return true;
   }, []);
   const stopActivity = useCallback(() => {
+    recapDisplayEpoch.current++;
+    setQueuedReturn(null);
     setMessage("");
     setCareFeedback(null);
     setHomeEcho(null);
@@ -517,6 +521,7 @@ export default function App() {
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
     const focus = () => {
+      setForeground(!document.hidden);
       if (document.hidden) {
         recapDisplayEpoch.current++;
         homeEchoEpoch.current++;
@@ -577,7 +582,11 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [clip]);
   useEffect(() => {
-    if (!evolution || uncertain || unavailable || page !== "home" || busy || clip || pet?.sleeping) return;
+    if (
+      !evolution || uncertain || unavailable || corrupt || page !== "home" ||
+      busy || clip || pet?.sleeping || pet?.game || tools || help || reset ||
+      !foreground || document.hidden
+    ) return;
     const next = { kind: "evolve" as const, id: ++clipSequence.current };
     clipRef.current = next;
     setClip(next);
@@ -587,8 +596,27 @@ export default function App() {
         : "进入成长期，戴上了小围巾！",
     );
     setEvolution(null);
-  }, [evolution, uncertain, unavailable, page, busy, clip, pet?.sleeping]);
+  }, [evolution, uncertain, unavailable, corrupt, page, busy, clip, pet?.sleeping, pet?.game, tools, help, reset, foreground]);
   useEffect(() => { recapDisplayEpoch.current++; }, [page, tools, help, reset]);
+  // An acknowledgement can itself cross a growth threshold. Let the saved
+  // growth celebration finish before presenting its recap, rather than hiding
+  // that celebration behind the recap. Navigation/backgrounding cancels only
+  // this automatic presentation; the acknowledged card stays in the menu.
+  useEffect(() => {
+    if (!queuedReturn) return;
+    if (
+      queuedReturn.epoch !== recapDisplayEpoch.current || !foreground || document.hidden ||
+      page !== "home" || tools || help || reset || uncertain || unavailable || corrupt ||
+      !pet?.hatchedAt || pet.sleeping || pet.game || returnRecap?.id !== queuedReturn.id
+    ) {
+      setQueuedReturn(null);
+      return;
+    }
+    if (busy || evolution || clip) return;
+    setQueuedReturn(null);
+    setReturnPage(0);
+    setPage("return");
+  }, [queuedReturn, page, tools, help, reset, uncertain, unavailable, corrupt, pet?.hatchedAt, pet?.sleeping, pet?.game, returnRecap?.id, busy, evolution, clip, foreground]);
   useEffect(() => {
     if (
       uncertain || unavailable || corrupt ||
@@ -622,8 +650,7 @@ export default function App() {
           !r.state.sleeping &&
           !r.state.game
         ) {
-          setReturnPage(0);
-          setPage("return");
+          setQueuedReturn({ id: returnRecap.id, epoch: displayEpoch });
         }
       })
       .catch((error: unknown) => {
