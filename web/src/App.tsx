@@ -344,6 +344,24 @@ export default function App() {
     setCareReadingDestination({ petKey: careReadingKey, page: destination });
   };
 
+  // Explicit navigation follows the stable item/quote, never a polling revision.
+  const [shopReadingDestination, setShopReadingDestination] = useState<{
+    petKey: string | null; category: ShopCategory | null; section: number;
+    itemId: string | null; target: "section" | "item" | "decision"; confirm: boolean;
+  } | null>(null);
+  useReadingViewport(readingRoot, shopReadingDestination,
+    !shop || !pet?.economy ? ".shop-panel > header" : shopReadingDestination?.target === "decision" ? ".shop-decision" :
+      shopCategory ? ".shop-panel h3" : '.shop-sections [aria-current="true"]',
+    !!careReadingKey && shopReadingDestination?.petKey === careReadingKey && page === "shop" &&
+    shopReadingDestination?.category === shopCategory &&
+    (shopCategory ? shopReadingDestination?.itemId === (visibleShopItems[shopItemIndex]?.id ?? null) : shopReadingDestination?.section === shopPage) &&
+    shopReadingDestination?.confirm === purchaseReady &&
+    !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  const navigateShopReading = (category: ShopCategory | null, itemId: string | null, section: number,
+    target: "section" | "item" | "decision", confirm = false) => {
+    setShopReadingDestination({ petKey: careReadingKey, category, section, itemId, target, confirm });
+  };
+
   const [arcadeReadingDestination, setArcadeReadingDestination] = useState<{
     petKey: string | null; page: "arcade" | "game-guide"; choice: number;
   } | null>(null);
@@ -1416,7 +1434,10 @@ export default function App() {
           setShopNotice("物品或当前状态已更新，购买确认已取消；请重新核对后再按 B。");
           return;
         }
-        if (key === "A" || key === "C") setPurchaseConfirm(null);
+        if (key === "A" || key === "C") {
+          setPurchaseConfirm(null);
+          navigateShopReading(shopCategory, item?.id ?? null, shopPage, "item");
+        }
         else if (key === "B" && item) {
           if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
           else void act("buy", { item: item.id }).then(ok => {
@@ -1424,12 +1445,21 @@ export default function App() {
           });
         }
       } else if (key === "A") {
-        if (shopCategory) setShopItemId(items[(itemIndex + 1) % Math.max(1, items.length)]?.id ?? null);
-        else setShopPage(v => (v + 1) % shopSections.length);
+        if (shopCategory) {
+          const nextId = items[(itemIndex + 1) % Math.max(1, items.length)]?.id ?? null;
+          setShopItemId(nextId);
+          navigateShopReading(shopCategory, nextId, shopPage, "item");
+        } else {
+          const nextSection = (shopPage + 1) % shopSections.length;
+          setShopPage(nextSection);
+          navigateShopReading(null, null, nextSection, "section");
+        }
       } else if (key === "C") {
         if (shopCategory) {
-          setShopPage(shopSections.findIndex(s => s.id === shopCategory));
+          const section = shopSections.findIndex(s => s.id === shopCategory);
+          setShopPage(section);
           setShopCategory(null);
+          navigateShopReading(null, null, section, "section");
         } else setPage("home");
       } else if (key === "B") {
         if (!pet.economy || !shop) setError("请更新小窝服务，再来逛小店。");
@@ -1437,16 +1467,28 @@ export default function App() {
           const section = shopSections[shopPage];
           if (section.id !== "daily") {
             setShopCategory(section.id); setShopPage(0);
-            setShopItemId(shopItems(shop, pet, section.id)[0]?.id ?? null);
+            const firstId = shopItems(shop, pet, section.id)[0]?.id ?? null;
+            setShopItemId(firstId);
+            navigateShopReading(section.id, firstId, 0, "item");
           }
-        } else if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
-        else if (!shopCategory) {
+        } else if (pet.sleeping) {
+          setError("让它安心睡吧，起床后再操作。");
+          navigateShopReading(shopCategory, item?.id ?? null, shopPage, "decision");
+        } else if (!shopCategory) {
+          navigateShopReading(null, null, shopPage, "decision");
           if (dailyClaimed(pet, now)) setMessage("今天的问候已经收好啦，不必连续来。");
           else void act("daily");
         } else if (item) {
-          if (pet.economy.owned.includes(item.id)) void act("equip", { item: item.id });
-          else if (pet.economy.coins < item.price) setMessage("金币还不够，慢慢来，不着急。");
-          else setPurchaseConfirm({ ...item });
+          if (pet.economy.owned.includes(item.id)) {
+            navigateShopReading(shopCategory, item.id, shopPage, "decision");
+            void act("equip", { item: item.id });
+          } else if (pet.economy.coins < item.price) {
+            setMessage("金币还不够，慢慢来，不着急。");
+            navigateShopReading(shopCategory, item.id, shopPage, "decision");
+          } else {
+            setPurchaseConfirm({ ...item });
+            navigateShopReading(shopCategory, item.id, shopPage, "decision", true);
+          }
         }
       }
       return;
@@ -1523,6 +1565,7 @@ export default function App() {
         setShopNotice("");
         setPurchaseConfirm(null);
         setPage("shop");
+        navigateShopReading(null, null, 0, "section");
       } else if (item.kind === "park-album") {
         setPage("park-album");setParkPage(0);navigateCollectionReading("park-album", 0);
       } else if (item.kind === "fish-album") {

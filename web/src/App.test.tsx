@@ -880,7 +880,7 @@ describe("three-key shop and persistent equipment", () => {
     expect(saved.economy!.equipped.accessory).toBe("");
     expect(mutations()).toHaveLength(0);
     await key("b");
-    expect(screen.getByText("确认花 12 金币购买？")).toBeTruthy();
+    expect(screen.getByText("确认花 12 金币购买「嫩叶胸针」？")).toBeTruthy();
     await key("a");
     expect(document.querySelector('.shop-panel')?.getAttribute('data-shop-page')).toBe("0");
     await key("b"); await key("c");
