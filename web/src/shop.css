@@ -40,3 +40,5 @@
 .shop-panel[data-shop-category="directory"] .shop-preview .pet-actor { transform:scale(.25); }
 .shop-preview .surface-floor { height:10px; bottom:0; }
 .shop-preview .pet-scene *, .shop-preview .pet-scene *::before, .shop-preview .pet-scene *::after { animation:none !important; transition:none !important; }
+
+.shop-sync-note { border-left: 2px solid currentColor; padding-left: 6px; }

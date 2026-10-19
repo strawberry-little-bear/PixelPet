@@ -10,8 +10,8 @@ export { dailyClaimed, utcDay } from "./shop";
 export function itemEquipped(pet: PetState, item: ShopItem) {
   return pet.economy?.equipped[item.slot] === item.id;
 }
-export function ShopPanel({ pet, shop, page, category = null, confirm, now }: {
-  pet: PetState; shop: Shop | null; page: number; category?: ShopCategory | null; confirm: boolean; now: number;
+export function ShopPanel({ pet, shop, page, category = null, confirm, now, notice = "" }: {
+  pet: PetState; shop: Shop | null; page: number; category?: ShopCategory | null; confirm: boolean; now: number; notice?: string;
 }) {
   const e = pet.economy;
   const items = category ? shopItems(shop, pet, category) : [];
@@ -24,6 +24,7 @@ export function ShopPanel({ pet, shop, page, category = null, confirm, now }: {
   const allowance = gameAllowance(e, shop, now);
   return <section className="shop-panel" aria-label="小窝商店" data-shop-page={page} data-shop-category={category || "directory"} data-confirm={confirm}>
     <header><strong>小窝商店</strong><span>◈ {e?.coins ?? 0} 金币</span></header>
+    {notice && <p className="shop-sync-note" role="status">{notice}</p>}
     {!e || !shop ? <p>小店还没开门，请更新服务后再来看看。</p> : <>
       {category && <div className="shop-breadcrumb">{section.title} · {items.length} 件 · C 返回分类</div>}
       <div className="shop-preview" aria-hidden="true">

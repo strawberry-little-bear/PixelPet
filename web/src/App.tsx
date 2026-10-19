@@ -1,3 +1,4 @@
+import { purchaseMatches, selectedShopIndex, type PurchaseQuote } from "./shopBrowsing";
 import { JournalPanel } from "./JournalPanel";
 import { nextJournal, reconcileJournal, startJournal } from "./journal";
 import { stageLook } from "./stageLooks";
@@ -231,7 +232,25 @@ export default function App() {
   const [shop, setShop] = useState<Shop | null>(null);
   const [shopPage, setShopPage] = useState(0);
   const [shopCategory, setShopCategory] = useState<ShopCategory | null>(null);
-  const [purchaseConfirm, setPurchaseConfirm] = useState(false);
+  const [shopItemId, setShopItemId] = useState<string | null>(null);
+  const [shopNotice, setShopNotice] = useState("");
+  const [purchaseConfirm, setPurchaseConfirm] = useState<PurchaseQuote | null>(null);
+  const visibleShopItems = pet && shopCategory ? shopItems(shop, pet, shopCategory) : [];
+  const shopItemIndex = selectedShopIndex(visibleShopItems, shopItemId);
+  const purchaseReady = !!pet && purchaseMatches(purchaseConfirm, visibleShopItems[shopItemIndex], pet);
+  useEffect(() => {
+    if (page !== "shop" || !shopCategory || !pet) return;
+    const entries = shopItems(shop, pet, shopCategory);
+    const item = entries[selectedShopIndex(entries, shopItemId)];
+    const removed = shopItemId !== null && !entries.some(entry => entry.id === shopItemId);
+    if (removed || (!shopItemId && item)) setShopItemId(item?.id ?? null);
+    if (purchaseConfirm && !busy && !purchaseMatches(purchaseConfirm, item, pet)) {
+      setPurchaseConfirm(null);
+      setShopNotice("物品或当前状态已更新，购买确认已取消；请重新核对后再按 B。");
+    } else if (removed) {
+      setShopNotice("刚才预览的物品已不在这个分类中，已更新预览；请重新核对。");
+    }
+  }, [page, shopCategory, shop, pet, shopItemId, purchaseConfirm, busy]);
   const [albumPage, setAlbumPage] = useState(0);
   const [albumChoice, setAlbumChoice] = useState(0);
   const [albumCategory, setAlbumCategory] = useState<AlbumCategory | null>(null);
@@ -352,7 +371,7 @@ export default function App() {
     setPage("choose");
     setReset(false);
     setTools(false);
-    setPurchaseConfirm(false);
+    setPurchaseConfirm(null);
     setError("存档未通过校验，未自动替换。请从存档盒选择已有备份修复，或明确确认重新开始。");
   }, [discardImport, stopActivity]);
   const markClockAhead = useCallback(() => {
@@ -372,7 +391,7 @@ export default function App() {
     setReturnPending(false);
     setReset(false);
     setTools(false);
-    setPurchaseConfirm(false);
+    setPurchaseConfirm(null);
     setPage("choose");
     setError("服务时间早于存档时间。请校准运行 Go 服务的电脑时间，再按 B 检查；不要重置存档。");
   }, [discardImport, stopActivity]);
@@ -394,7 +413,7 @@ export default function App() {
     setHelp(false);
     setReset(false);
     setTools(false);
-    setPurchaseConfirm(false);
+    setPurchaseConfirm(null);
     setAbandonGame(null);
     setError(reason === "save"
       ? "存档已在其他页面替换，本次操作未执行。按 B 读取当前存档，不会自动重试。"
@@ -449,7 +468,7 @@ export default function App() {
       setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
       setReset(false);
       setTools(false);
-      setPurchaseConfirm(false);
+      setPurchaseConfirm(null);
       setLane(1);
       setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
       setTetrisChoice(0);
@@ -1091,17 +1110,27 @@ export default function App() {
     }
     if (page === "shop") {
       const items = shopCategory ? shopItems(shop, pet, shopCategory) : [];
-      const item = items[shopPage];
+      const itemIndex = selectedShopIndex(items, shopItemId);
+      const item = items[itemIndex];
+      setShopNotice("");
       if (purchaseConfirm) {
-        if (key === "A" || key === "C") setPurchaseConfirm(false);
+        // Even if an input races the reconciliation effect, never confirm a
+        // different/changed item or convert the old B into an equip operation.
+        if (!purchaseMatches(purchaseConfirm, item, pet)) {
+          setPurchaseConfirm(null);
+          setShopNotice("物品或当前状态已更新，购买确认已取消；请重新核对后再按 B。");
+          return;
+        }
+        if (key === "A" || key === "C") setPurchaseConfirm(null);
         else if (key === "B" && item) {
           if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
           else void act("buy", { item: item.id }).then(ok => {
-            if (ok) setPurchaseConfirm(false);
+            if (ok) setPurchaseConfirm(null);
           });
         }
       } else if (key === "A") {
-        setShopPage(v => (v + 1) % (shopCategory ? Math.max(1, items.length) : shopSections.length));
+        if (shopCategory) setShopItemId(items[(itemIndex + 1) % Math.max(1, items.length)]?.id ?? null);
+        else setShopPage(v => (v + 1) % shopSections.length);
       } else if (key === "C") {
         if (shopCategory) {
           setShopPage(shopSections.findIndex(s => s.id === shopCategory));
@@ -1111,7 +1140,10 @@ export default function App() {
         if (!pet.economy || !shop) setError("请更新小窝服务，再来逛小店。");
         else if (!shopCategory && shopPage !== 0) {
           const section = shopSections[shopPage];
-          if (section.id !== "daily") { setShopCategory(section.id); setShopPage(0); }
+          if (section.id !== "daily") {
+            setShopCategory(section.id); setShopPage(0);
+            setShopItemId(shopItems(shop, pet, section.id)[0]?.id ?? null);
+          }
         } else if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
         else if (!shopCategory) {
           if (dailyClaimed(pet, now)) setMessage("今天的问候已经收好啦，不必连续来。");
@@ -1119,7 +1151,7 @@ export default function App() {
         } else if (item) {
           if (pet.economy.owned.includes(item.id)) void act("equip", { item: item.id });
           else if (pet.economy.coins < item.price) setMessage("金币还不够，慢慢来，不着急。");
-          else setPurchaseConfirm(true);
+          else setPurchaseConfirm({ ...item });
         }
       }
       return;
@@ -1182,7 +1214,9 @@ export default function App() {
       } else if (item.kind === "shop") {
         setShopPage(0);
         setShopCategory(null);
-        setPurchaseConfirm(false);
+        setShopItemId(null);
+        setShopNotice("");
+        setPurchaseConfirm(null);
         setPage("shop");
       } else if (item.kind === "park-album") {
         setPage("park-album");setParkPage(0);
@@ -1372,7 +1406,7 @@ export default function App() {
         : page === "hatch"
           ? "B 轻轻唤醒　 C 再选选"
           : page === "shop"
-            ? purchaseConfirm
+            ? purchaseReady
               ? "A / C 取消　 B 确认购买"
               : shopCategory ? "A 下一件　 B 购买 / 使用　 C 分类" : "A 换分类　 B 查看 / 领取　 C 返回"
             : page === "return"
@@ -1650,8 +1684,9 @@ export default function App() {
                             pet={pet}
                             shop={shop}
                             category={shopCategory}
-                            page={shopPage}
-                            confirm={purchaseConfirm}
+                            page={shopCategory ? shopItemIndex : shopPage}
+                            confirm={purchaseReady}
+                            notice={shopNotice}
                             now={now}
                           />
                         )}
