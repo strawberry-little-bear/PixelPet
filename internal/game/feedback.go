@@ -2,15 +2,24 @@ package game
 
 import "time"
 
+// CareEffect is response-only: the state is already settled before Apply.
+// Its timestamp stays with an idempotent acknowledgement, even on a later replay.
+type CareEffect struct {
+	At     int64 `json:"at"`
+	Before Needs `json:"before"`
+	After  Needs `json:"after"`
+}
+
 // CareFeedback describes only the saved action, not passive growth settled
 // before it. It is returned with the response, never added to the pet save.
 type CareFeedback struct {
-	Kind      string  `json:"kind"`
-	Points    float64 `json:"points"`
-	Habit     string  `json:"habit,omitempty"`
-	HabitGain float64 `json:"habitGain"`
-	Reason    string  `json:"reason"`
-	RetryAt   int64   `json:"retryAt,omitempty"`
+	Kind      string      `json:"kind"`
+	Points    float64     `json:"points"`
+	Habit     string      `json:"habit,omitempty"`
+	HabitGain float64     `json:"habitGain"`
+	Reason    string      `json:"reason"`
+	RetryAt   int64       `json:"retryAt,omitempty"`
+	Effect    *CareEffect `json:"effect,omitempty"`
 }
 
 // ApplyWithFeedback runs the existing rules first. Comparing settled growth
@@ -27,7 +36,8 @@ func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedbac
 	if err != nil || s.Growth == nil {
 		return message, nil, err
 	}
-	f := &CareFeedback{Kind: a.Kind, Points: s.Growth.Points - before.Points}
+	f := &CareFeedback{Kind: a.Kind, Points: s.Growth.Points - before.Points,
+		Effect: &CareEffect{At: now.UnixMilli(), Before: beforeNeeds, After: s.Needs}}
 	var last int64
 	switch a.Kind {
 	case "feed":

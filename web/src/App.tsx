@@ -53,6 +53,7 @@ import { ImportPreview, type PendingImport } from "./ImportPreview";
 import { AlbumDirectory, AlbumPanel, albumCategories, albumPageCount, type AlbumCategory } from "./AlbumPanel";
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
+import { CareOutcome } from "./CareOutcome";
 import {
   petGrowth,
   stageNames,
@@ -182,6 +183,9 @@ export default function App() {
   const syncEpoch = useRef(0);
   const [message, setMessage] = useState("");
   const [careFeedback, setCareFeedback] = useState<Feedback | null>(null);
+  // Keep the last received receipt readable after the short growth toast.
+  // It is page-local history, never reconstructed from later need readings.
+  const [careOutcome, setCareOutcome] = useState<Feedback | null>(null);
   const [homeEcho, setHomeEcho] = useState<(GameExperience & { until: number }) | null>(null);
   const seenExperiences = useRef(new Set<string>());
   const homeEchoEpoch = useRef(0);
@@ -338,6 +342,7 @@ export default function App() {
     setQueuedReturn(null);
     setMessage("");
     setCareFeedback(null);
+    setCareOutcome(null);
     setHomeEcho(null);
     setEvolution(null);
     activeEvolution.current = null;
@@ -808,6 +813,7 @@ export default function App() {
     if (busyRef.current || uncertainRef.current || unavailableRef.current || corruptRef.current) return false;
     syncEpoch.current++;
     setCareFeedback(null);
+    setCareOutcome(null);
     setHomeEcho(null);
     busyRef.current = true;
     setBusy(true);
@@ -860,6 +866,7 @@ export default function App() {
         });
       }
       setCareFeedback(r.careFeedback ?? null);
+      setCareOutcome(r.careFeedback ?? null);
       const clipKind = careClip(kind, r.state.sleeping);
       if (clipKind) {
         const next = { kind: clipKind, id: ++clipSequence.current };
@@ -1346,6 +1353,7 @@ export default function App() {
       knownStage.current = null;
       setEvolution(null);
       setCareFeedback(null);
+      setCareOutcome(null);
       setReturnRecap(null);
       setReturnPending(false);
       returnAttempt.current = "";
@@ -1376,6 +1384,7 @@ export default function App() {
       knownStage.current = null;
       setEvolution(null);
       setCareFeedback(null);
+      setCareOutcome(null);
       setReturnRecap(null);
       setReturnPending(false);
       returnAttempt.current = "";
@@ -1797,6 +1806,7 @@ export default function App() {
                               mood={echo ? experienceWords[echo] : message || mood}
                               now={now}
                             />
+                            <CareOutcome feedback={careOutcome} />
                           </>
                         )}
                         {page === "menu" && (
@@ -1872,6 +1882,7 @@ export default function App() {
                               </div>
                             ))}
                             <CareAdvice pet={pet} />
+                            <CareOutcome feedback={careOutcome} />
                             <div className="care-total">
                               收到过 {pet.careCount} 次温柔照顾 ♡
                             </div>

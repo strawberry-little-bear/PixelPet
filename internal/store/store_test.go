@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -236,7 +237,7 @@ func TestCareFeedbackExcludesPassiveGrowthAndReplaysWithRequest(t *testing.T) {
 		t.Fatalf("passive growth confused with action credit: %+v, %v", r, err)
 	}
 	replay, err := s.Do(a, nil, false, now.Add(time.Second))
-	if err != nil || replay.CareFeedback == nil || *replay.CareFeedback != *r.CareFeedback || replay.State.Revision != r.State.Revision {
+	if err != nil || replay.CareFeedback == nil || !reflect.DeepEqual(replay.CareFeedback, r.CareFeedback) || replay.State.Revision != r.State.Revision {
 		t.Fatal("idempotent replay lost saved feedback", err)
 	}
 	current, err := s.Do(nil, nil, false, now.Add(time.Second))

@@ -65,6 +65,7 @@ export type CareFeedback = {
   habitGain: number;
   reason: "credited" | "not-needed" | "cooldown" | "resting" | "awake";
   retryAt?: number;
+  effect?: { at: number; before: Needs; after: Needs };
 };
 export type CareRules = { awake: Needs; sleeping: Needs; maxOfflineHours: number };
 export type Result = {

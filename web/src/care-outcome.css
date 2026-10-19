@@ -1,0 +1,11 @@
+.care-outcome { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #839567; color: #50643e; text-align: left; overflow-wrap: anywhere; }
+.care-outcome h3 { margin: 0 0 4px; }
+.care-outcome > time, .care-outcome > small { display: block; }
+.care-outcome dl { margin: 8px 0; }
+.care-outcome dl > div { display: grid; grid-template-columns: 2.5em minmax(0, 1fr); gap: 4px; margin: 4px 0; }
+.care-outcome dd { margin: 0; display: flex; flex-wrap: wrap; gap: 0 8px; justify-content: space-between; min-width: 0; }
+.care-outcome dd strong { font-weight: 600; }
+.care-outcome p { margin: 6px 0; }
+@media (forced-colors: active) {
+  .care-outcome { color: CanvasText; border-color: CanvasText; }
+}
