@@ -1,3 +1,5 @@
+import type { PetState } from "./types";
+import { outingMemoryWords } from "./outing-memory";
 import type { OutingScenery as Scenery } from './outing';
 import './outing-scenery.css';
 
@@ -18,4 +20,16 @@ export function OutingCaption({ scenery, compact = false }: { scenery: Scenery; 
     <span className="outing-label">虚构风景 · {scenery.label}</span>
     {!compact && <span>{scenery.story}</span>}
   </small>;
+}
+
+// Provenance, not the decorative sky, decides whether this outing has a note.
+// Static reading content: refreshing must not announce another discovery.
+export function OutingEncounterNote({ pet }: { pet: PetState }) {
+  const game = pet.game;
+  if (pet.schema < 14 || !game || !game.id) return null;
+  const kind = game.kind === "fishing" ? "encounter-fishing-stars"
+    : game.kind === "walk" ? "encounter-walk-kite" : null;
+  if (!kind || !pet.album?.entries.some(m => m.kind === kind && m.source === "shared"
+    && m.outingId === game.id && m.at >= game.startedAt && m.at <= pet.lastTick)) return null;
+  return <small className="outing-encounter"><strong>本局{outingMemoryWords[kind].title}</strong><span>已收进风景手记，之后可在纪念册查看。</span></small>;
 }

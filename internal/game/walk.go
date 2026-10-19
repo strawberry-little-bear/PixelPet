@@ -99,6 +99,7 @@ func (s *State) applyWalking(a Action, now time.Time) (string, error) {
 	if n.Step >= walkStepLimit && a.Kind != "walk-pause" && a.Kind != "walk-finish" {
 		return "", errors.New("这次停留太久啦，可暂停后放弃再来")
 	}
+	message := ""
 	switch a.Kind {
 	case "walk-finish":
 		if n.Beat != WalkLength {
@@ -162,13 +163,13 @@ func (s *State) applyWalking(a Action, now time.Time) (string, error) {
 		}
 		if n.Beat%24 == 0 {
 			s.discoverPark(n.Souvenirs[n.Beat/24-1], now)
-			s.rememberOuting(now)
+			message = s.rememberOuting(now)
 		}
 	default:
 		return "", errors.New("不认识这个散步操作")
 	}
 	n.Step = min(walkStepLimit, n.Step+1)
-	return "", nil
+	return message, nil
 }
 func (s State) validPark() bool {
 	if s.Schema < 11 {

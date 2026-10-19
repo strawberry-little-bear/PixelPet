@@ -102,6 +102,7 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 	if n.Step >= fishingStepLimit && a.Kind != "fish-pause" && a.Kind != "fish-finish" {
 		return "", errors.New("这次池塘停留太久啦，可暂停后放弃，再来一局")
 	}
+	message := ""
 	switch a.Kind {
 	case "fish-finish":
 		if n.Phase != "done" {
@@ -169,7 +170,7 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 		}
 		if n.Phase == "bite" {
 			s.discoverFish(n.Candidate, now)
-			s.rememberOuting(now)
+			message = s.rememberOuting(now)
 			n.resolve("caught")
 		} else {
 			n.resolve("early")
@@ -195,7 +196,7 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 		return "", errors.New("不认识这个钓鱼操作")
 	}
 	n.Step = min(fishingStepLimit, n.Step+1)
-	return "", nil
+	return message, nil
 }
 func knownFish(id string) bool {
 	for _, v := range fishIDs {

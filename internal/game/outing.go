@@ -10,17 +10,18 @@ var outingWeather = [...]string{"clear", "cloud", "rain"}
 
 // Match the fictional sky in web/src/outing.ts. Session IDs, not client weather
 // or the real clock, select it. Only a real discovery calls this recorder.
-func (s *State) rememberOuting(now time.Time) {
+// Return a notification only for a newly saved encounter, never a read/repeat.
+func (s *State) rememberOuting(now time.Time) string {
 	if s.Schema < 13 || s.Album == nil || s.Game == nil || (s.Game.Kind != "fishing" && s.Game.Kind != "walk") {
-		return
+		return ""
 	}
 	id := s.Game.ID
 	if !validGameID(id) || id != strings.ToLower(id) {
-		return
+		return ""
 	}
 	prefix, err := strconv.ParseUint(id[:6], 16, 32)
 	if err != nil {
-		return
+		return ""
 	}
 	s.sharedMemory("scenery-"+s.Game.Kind+"-"+outingWeather[prefix%48%3], now)
 	if s.Schema >= 14 {
@@ -29,9 +30,15 @@ func (s *State) rememberOuting(now time.Time) {
 			s.remember(Memory{Kind: kind, At: now.UnixMilli(), Source: "shared", OutingID: id})
 			if len(s.Album.Entries) > before {
 				s.Log(now, "你们遇见了一处特别风景，已收进风景手记。")
+				title := "星光涟漪"
+				if kind == "encounter-walk-kite" {
+					title = "晚霞纸鸢"
+				}
+				return "偶遇 · " + title + "，已收进风景手记。"
 			}
 		}
 	}
+	return ""
 }
 
 // One in four sessions of the matching fictional light can carry an encounter.

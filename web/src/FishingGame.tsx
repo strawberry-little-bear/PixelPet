@@ -1,5 +1,5 @@
 import { outingScenery } from "./outing";
-import { OutingCaption, OutingSky } from "./OutingScenery";
+import { OutingCaption, OutingEncounterNote, OutingSky } from "./OutingScenery";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
 import { fishCatalog, fishInfo, fishingCompanions, fishingMenu, fishingSpots, fishingWaitNotes } from "./fishing";
@@ -58,7 +58,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
     <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${n.catches.length} 条鱼，B / C 收好${n.outcome === "early" ? "；提前提竿，这一竿已用掉。" : ""}` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "还没咬钩，等「咬钩啦」再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提前提竿，这一竿已用掉。下一竿等咬钩提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
     <small className={`fishing-comment${waiting ? " fishing-wait-note" : ""}`}>{paused ? "没有离线钓鱼，也不补跑漏掉的节拍。" : bite ? companion.bite : caught ? fish?.story : waiting ? waitingNote : companion.waiting}</small>
     <small className="fishing-rule">{n.phase === "done" ? n.catches.length ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币" : "A 换钓点（收竿后）· B 抛竿 / 提竿 · C 暂停"}</small>
-    {(paused || n.phase === "done") && <OutingCaption scenery={scenery} />}
+    {(paused || n.phase === "done") && <><OutingEncounterNote pet={pet} /><OutingCaption scenery={scenery} /></>}
   </section>;
 }
 

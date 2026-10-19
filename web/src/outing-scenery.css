@@ -6,3 +6,7 @@
 .outing-caption span { display:block; }
 .outing-label { font-weight:bold; }
 @media (forced-colors:active) { .outing-sky path { stroke:CanvasText; } .outing-compact { background:Canvas; color:CanvasText; border-color:CanvasText; } }
+
+/* Saved summaries only appear outside the fixed-height running scenes. */
+.outing-encounter { display:block; font-size:10px; line-height:1.5; margin-top:4px; overflow-wrap:anywhere; }
+.outing-encounter strong, .outing-encounter span { display:block; }

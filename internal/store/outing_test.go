@@ -147,8 +147,19 @@ func TestOutingAtomicDiscoveryReplayReopenAndBackup(t *testing.T) {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						if _, e := db.Do(a, nil, false, now); e != nil {
+						retry, e := db.Do(a, nil, false, now)
+						if e != nil {
 							t.Error(e)
+							return
+						}
+						if mode == "encounter" {
+							title := "星光涟漪"
+							if kind == "walk" {
+								title = "晚霞纸鸢"
+							}
+							if retry.Message != "偶遇 · "+title+"，已收进风景手记。" {
+								t.Error("retry lost discovery receipt", retry.Message)
+							}
 						}
 					}()
 				}
@@ -156,6 +167,9 @@ func TestOutingAtomicDiscoveryReplayReopenAndBackup(t *testing.T) {
 				r, err = db.Do(nil, nil, false, now)
 				if err != nil {
 					t.Fatal(err)
+				}
+				if r.Message != "" {
+					t.Fatal("read replayed discovery notification", r.Message)
 				}
 				memories := entries(r.State)
 				if len(memories) != 1 || memories[0].At != now.UnixMilli() || r.State.CareCount != 0 || r.State.Economy.Coins != 0 {

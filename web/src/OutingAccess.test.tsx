@@ -133,3 +133,13 @@ it.each(kinds)("reads a saved %s encounter from pause without starting or reward
   expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
   expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();
 });
+
+it.each(kinds)("refreshing saved %s summary is silent and browsing remains read-only", async kind => {
+  await mount(kind); saved.schema=14;
+  saved.game!.id=kind==="fishing"?"00002400000000000000000000000001":"00001800000000000000000000000001";
+  saved.album!.entries.push({kind:kind==="fishing"?"encounter-fishing-stars":"encounter-walk-kite",outingId:saved.game!.id,at:Date.now()-1000,source:"shared"});
+  await refresh(); expect(document.querySelector('.outing-encounter')?.textContent).toContain("本局偶遇");expect(document.querySelector('.toast')?.textContent??"").not.toContain("已收进风景手记");await clock(4200);
+  await open();expect(document.querySelector('.outing-encounter')).toBeNull();await key("c");expect(document.querySelector('.outing-encounter')).toBeTruthy();
+  cleanup();await act(async()=>{render(<App/>)});await clock(17000);
+  expect(document.querySelector('.outing-encounter')).toBeTruthy();expect(document.querySelector('.toast')).toBeNull();expect(writes()).toHaveLength(0);expect(pause(kind)).toBeTruthy();
+});

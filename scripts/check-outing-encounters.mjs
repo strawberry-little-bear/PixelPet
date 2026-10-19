@@ -37,6 +37,7 @@ async function openNotes(page){for(const k of ['A',...Array(8).fill('A'),'B',...
 async function pauseNotes(page,kind){
  const selector=kind==='walk'?'.walk-pause':'.fishing-pause';
  if(!await page.locator(selector).isVisible())await key(page,'C');await page.locator(selector).waitFor();
+ assert.match(await page.locator('.outing-encounter').innerText(),/本局偶遇/);
  const before=(await api('state')).state;
  for(const k of ['A','A','A','B'])await key(page,k);
  await page.locator('[data-album-category="scenery"]').waitFor();assert.match(await page.locator('.lcd-bottom').innerText(),/C 返回暂停/);
@@ -45,13 +46,13 @@ async function pauseNotes(page,kind){
  await page.screenshot({path:join(dir,'pause-note-'+kind+'.png'),fullPage:true});
  await key(page,'C');await page.locator(selector).waitFor();await wait(1300);
  const after=(await api('state')).state;assert.deepEqual(after.game,before.game);assert.deepEqual(notes(after),notes(before));assert.equal(after.careCount,before.careCount);assert.equal(after.economy.coins,before.economy.coins);
- await page.reload();await page.locator(selector).waitFor();await wait(1300);assert.deepEqual((await api('state')).state.game,before.game);
+ await page.reload();await page.locator(selector).waitFor();await wait(1300);assert.equal(await page.locator('.toast').count(),0,'refresh replayed discovery toast');assert.match(await page.locator('.outing-encounter').innerText(),/本局偶遇/);assert.deepEqual((await api('state')).state.game,before.game);
  await key(page,'C');
 }
 async function abandon(page,kind){await key(page,'C');await page.locator(kind==='walk'?'.walk-pause':'.fishing-pause').waitFor();for(const k of ['A','A','B','B'])await key(page,k);await page.locator('.home-caption').waitFor();}
-async function readable(page){
+async function readable(page,selector=".album-panel"){
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'horizontal page overflow');
- const errors=await page.locator('.album-panel').evaluate(el=>{
+ const errors=await page.locator(selector).evaluate(el=>{
   const bounds=document.querySelector('.lcd-content').getBoundingClientRect(),footer=document.querySelector('.lcd-bottom').getBoundingClientRect(),errors=[];
   const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let node;
   while((node=walker.nextNode())){if(!node.textContent.trim())continue;const r=document.createRange();r.selectNodeContents(node);
@@ -74,7 +75,7 @@ try{
  const ctx=await browser.newContext({viewport:{width:320,height:700},isMobile:true,hasTouch:true,reducedMotion:'reduce'}),page=await ctx.newPage(),errors=[],writes=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname==='/api/action')writes.push(r.postDataJSON());});
  const now=Date.now();await api('import',{schema:1,revision:1,species:2,name:'手记试玩',createdAt:now-3600000,hatchedAt:now-3600000,lastTick:now,sleeping:false,needs:{hunger:80,mood:80,clean:80,energy:80},careCount:0,logs:[]});
- const journeys=[];
+ const journeys=[], summaryFixtures={};
  for(const kind of ['fishing','walk']){
   const selected=await selectEligible(kind), before=(await api('state')).state;
   const rareKind=kind==='fishing'?'encounter-fishing-stars':'encounter-walk-kite';
@@ -90,6 +91,7 @@ try{
    if(kind==='fishing'&&await page.locator('.fishing-bite').isVisible())break;
    if(kind==='walk'&&s.game.walking.beat>=24)break;
    assert(!notes(s).some(m=>m.kind===rareKind),'recorded before real discovery');
+   assert.equal(await page.locator('.outing-encounter').count(),0,'predicted encounter during play');
    if(await page.locator(kind==='fishing'?'.fishing-pause':'.walk-pause').isVisible()){
     resumptions.push(Date.now());assert(resumptions.length<=8,'host repeatedly suspended');await key(page,'C');
    }
@@ -101,6 +103,9 @@ try{
    await key(page,'B');
   }
   const discovered=(await api('state')).state, rare=notes(discovered).filter(m=>m.kind===rareKind);
+  summaryFixtures[kind]=structuredClone(await api('state'));
+  await page.locator('.toast').filter({hasText:kind==='fishing'?'偶遇 · 星光涟漪':'偶遇 · 晚霞纸鸢'}).waitFor();
+  assert.equal(await page.locator('.outing-encounter').count(),0,'summary competes with active play');
   assert.equal(rare.length,1,'missing or duplicated encounter');assert.equal(rare[0].outingId,selected.id);
   assert(rare[0].at>=before.game.startedAt&&rare[0].at<=discovered.lastTick);
   assert.equal(discovered.careCount,before.careCount);assert.equal(discovered.economy.coins,before.economy.coins);
@@ -142,6 +147,29 @@ try{
    fixture.state.album.entries=[];await p.reload();await p.locator('.home-caption').waitFor();await openNotes(p);await readable(p);assert((await p.locator('.album-panel').innerText()).includes('还没有留下风景手记'));results.push({type:'empty-layout-fixture',width,scale});
    assert.deepEqual(errs,[]);
   }catch(e){await p.screenshot({path:join(dir,`failure-${width}-${scale}.png`),fullPage:true});console.error('Artifacts:',dir);throw e;}finally{await c.close();}
+ }
+ // Saved-summary layouts are intercepted responses, not extra completed games.
+ for(const kind of ['fishing','walk'])for(const width of [1200,320])for(const scale of [1,2]){
+  const c=await browser.newContext({viewport:{width,height:700},isMobile:width===320,hasTouch:true,reducedMotion:'reduce',forcedColors:scale===2?'active':'none'}),p=await c.newPage(),errors=[];
+  p.on('pageerror',e=>errors.push(e.message));
+  await p.addInitScript(scale=>document.addEventListener('DOMContentLoaded',()=>{
+   const style=document.createElement('style');style.textContent=`.reading-mode .lcd-content :is(p,small,strong,b,span,li,time,header,h3){font-size:${12*scale}px!important;line-height:1.6!important}.lcd-bottom{font-size:${9*scale}px!important}`;document.head.append(style);
+  }),scale);
+  const fixture=structuredClone(summaryFixtures[kind]),n=fixture.state.game[kind==='fishing'?'fishing':'walking'];
+  await p.route('**/api/**',async route=>{assert(['/api/state','/api/visit'].includes(new URL(route.request().url()).pathname),'summary attempted write');fixture.serverTime=Date.now();await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(fixture)});});
+  try{
+   for(const phase of ['paused','done']){
+    n.paused=phase==='paused';if(phase==='done'){if(kind==='fishing'){n.phase='done';n.casts=3;}else n.beat=72;}
+    await p.goto(base);await p.locator('.outing-encounter').waitFor();
+    // Reuse the text-range checker over the entire reading game, not just the new block.
+    await readable(p,kind==='fishing'?'.fishing-game':'.walking-game');
+    assert.match(await p.locator('.outing-encounter').innerText(),/已收进风景手记/);assert.equal(await p.locator('.toast').count(),0);
+    const size=await p.locator('.outing-encounter strong').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));assert.equal(size,12*scale);
+    await p.screenshot({path:join(dir,`summary-${kind}-${phase}-${width}-${scale}.png`),fullPage:true});
+    results.push({type:'saved-summary-layout-fixture',kind,width,scale,phase,size});
+   }
+   assert.deepEqual(errors,[]);
+  }catch(e){await p.screenshot({path:join(dir,`summary-failure-${kind}-${width}-${scale}.png`),fullPage:true});throw e;}finally{await c.close();}
  }
  await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({groups:results.length,artifacts:dir,port}));
 }finally{
