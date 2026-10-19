@@ -135,7 +135,17 @@ try {
         Object.assign(n, { paused: true, ...(kind === 'fishing' ? { phase: 'wait', casts: 1, waitMs: 32000, candidate: 'reed-minnow' } : { route: Array(12).fill('branch') }) });
         await page.goto(base); await page.locator('.outing-caption:not(.outing-compact)').waitFor();
         const keyBefore = await scene(page); await check(page, kind);
+        const seasonal = ['新芽把沿途染成浅绿。', '树荫留出一小片清凉。', '落叶给沿途添了暖色。', '远处的树披着淡淡冬色。'];
+        const dialogue = ['伙伴说：“有你在，开头就很好。”', '伙伴说：“平常的一刻也值得记住。”', '伙伴说：“晚霞再美，也不必赶着看。”', '伙伴说：“月色安静，我们也慢慢来。”'];
+        const story = await page.locator('.outing-caption > span').nth(1).innerText();
+        assert(story.includes(seasonal[Math.floor(index / 3) % 4]));
+        assert(story.includes(dialogue[Math.floor(index / 12)]));
+        // reading-mode overrides the game caption's 8px with rem-based text.
+        // Verify actual rendered spans, not just the root font or the container.
+        const sizes = await page.locator('.outing-caption > span').evaluateAll(spans => spans.map(el => parseFloat(getComputedStyle(el).fontSize)));
+        assert(sizes.every(size => Math.abs(size - (font === 28 ? 24 : 12)) < 0.01));
         assert.equal(await page.locator('.outing-caption > span').count(), 2);
+        if (index === 47) await page.screenshot({ path: join(dir, `${kind}-dialogue-paused-${width}-${font}.png`), fullPage: true });
         await key(page, 'C'); await page.locator('.outing-compact').waitFor();
         assert.equal(await scene(page), keyBefore); assert.equal(await page.locator('.outing-caption > span').count(), 1);
         await check(page, kind);

@@ -31,6 +31,22 @@ describe('fictional outing selection', () => {
     expect(new Set(scenes.map(s => s.season.id)).size).toBe(4);
     expect(new Set(scenes.map(s => s.light.id)).size).toBe(4);
   });
+  it.each(['fishing', 'walk'] as const)('%s stories reflect all seasons and times without changing the live label', kind => {
+    const scenes = Array.from({ length: 48 }, (_, i) => outingScenery(session(i, kind))!);
+    expect(new Set(scenes.map(s => s.story)).size).toBe(48);
+    const seasonal = ['新芽把沿途染成浅绿。', '树荫留出一小片清凉。', '落叶给沿途添了暖色。', '远处的树披着淡淡冬色。'];
+    const dialogue = ['伙伴说：“有你在，开头就很好。”', '伙伴说：“平常的一刻也值得记住。”', '伙伴说：“晚霞再美，也不必赶着看。”', '伙伴说：“月色安静，我们也慢慢来。”'];
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
+      expect(scene.story).toContain(seasonal[Math.floor(i / 3) % 4]);
+      expect(scene.story).toContain(dialogue[Math.floor(i / 12)]);
+      if (kind === 'fishing' && i % 3 === 2) expect(scene.story).toContain('不是咬钩信号');
+      const { container, unmount } = render(<OutingCaption scenery={scene} compact />);
+      expect(container.textContent).toBe(`虚构风景 · ${scene.label}`);
+      expect(container.querySelector('[aria-live]')).toBeNull();
+      unmount();
+    }
+  });
   it.each([undefined, '', '0', 'g'.repeat(32), 'F'.repeat(32), '0'.repeat(31), '0'.repeat(33), '0'.repeat(32) + '\n', ' 00000000000000000000000000000000'])('leaves old/invalid id %s unchanged', id => {
     expect(outingScenery({ ...session(), id })).toBeNull();
   });
