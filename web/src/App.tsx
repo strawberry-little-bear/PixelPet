@@ -256,7 +256,16 @@ export default function App() {
   const [albumCategory, setAlbumCategory] = useState<AlbumCategory | null>(null);
   const [returnRecap, setReturnRecap] = useState<ReturnRecap | null>(null);
   const [returnPending, setReturnPending] = useState(false);
-  const [returnPage, setReturnPage] = useState(0);
+  const [returnReading, setReturnReading] = useState<{ id: string; page: number; updated: boolean } | null>(null);
+  // Derive the first page immediately for a different record, so both render
+  // and an input before the reconciliation effect use the same new decision.
+  const returnChanged = !!returnRecap && !!returnReading && returnRecap.id !== returnReading.id;
+  const returnPage = returnReading?.id === returnRecap?.id ? returnReading?.page ?? 0 : 0;
+  const returnUpdated = returnChanged || !!returnReading?.updated;
+  useEffect(() => {
+    if (page === "return" && returnRecap && returnChanged)
+      setReturnReading(current => current?.id === returnRecap.id ? current : { id: returnRecap.id, page: 0, updated: true });
+  }, [page, returnRecap?.id, returnChanged]);
   const returnAttempt = useRef("");
   const [queuedReturn, setQueuedReturn] = useState<{ id: string; epoch: number } | null>(null);
   const knownStage = useRef<GrowthStage | null>(null);
@@ -458,7 +467,7 @@ export default function App() {
       stopActivity();
       setHelp(false);
       setAbandonGame(null);
-      setReturnPage(0);
+      setReturnReading(null);
     }
     if (recovering || repairing || clockBlocked || replaced || gameChanged) {
       discardImport();
@@ -658,7 +667,7 @@ export default function App() {
     }
     if (busy || evolution || clip) return;
     setQueuedReturn(null);
-    setReturnPage(0);
+    setReturnReading({ id: queuedReturn.id, page: 0, updated: false });
     setPage("return");
   }, [queuedReturn, page, tools, help, reset, uncertain, unavailable, corrupt, pet?.hatchedAt, pet?.sleeping, pet?.game, returnRecap?.id, busy, evolution, clip, foreground]);
   useEffect(() => {
@@ -1177,8 +1186,9 @@ export default function App() {
       return;
     }
     if (page === "return") {
-      if (key === "A") setReturnPage((v) => (v + 1) % returnPageCount);
-      else if (key === "B" && returnPage < returnPageCount - 1) setReturnPage((v) => v + 1);
+      if (!returnRecap) { setPage("home"); return; }
+      if (key === "A" || (key === "B" && returnPage < returnPageCount - 1))
+        setReturnReading({ id: returnRecap.id, page: (returnPage + 1) % returnPageCount, updated: returnUpdated });
       else setPage("home");
       return;
     }
@@ -1225,7 +1235,7 @@ export default function App() {
         setPage("arcade");
       } else if (item.kind === "return") {
         if (returnRecap) {
-          setReturnPage(0);
+          setReturnReading({ id: returnRecap.id, page: 0, updated: false });
           setPage("return");
         } else
           setMessage(
@@ -1716,7 +1726,7 @@ export default function App() {
                           albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} now={now} page={albumPage} category={albumCategory} />
                         )}
                         {page === "return" && returnRecap && (
-                          <ReturnPanel recap={returnRecap} page={returnPage} />
+                          <ReturnPanel recap={returnRecap} page={returnPage} updated={returnUpdated} />
                         )}
                         {page === "choose" && (
                           <>

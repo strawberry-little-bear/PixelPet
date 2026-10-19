@@ -12,3 +12,7 @@
 .return-panel dl > div { display:flex; justify-content:space-between; margin:6px 0; }
 .return-panel dd { margin:0; font-weight:bold; }
 .return-panel .return-stage { font-size:13px; font-weight:bold; }
+
+.return-period { margin: 7px 0; font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+.return-period > :is(small, span) { display: block; font-size: inherit; }
+.return-panel .return-sync-note { border-left: 2px solid currentColor; padding-left: 6px; line-height: 1.6; }

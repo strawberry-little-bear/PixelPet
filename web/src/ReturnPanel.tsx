@@ -9,11 +9,20 @@ export function absenceLabel(ms: number) {
   const minutes = Math.max(1, Math.floor(ms / 60000));
   return minutes < 60 ? `${minutes} 分钟` : `${Math.floor(minutes / 60)} 小时${minutes % 60 ? ` ${minutes % 60} 分钟` : ""}`;
 }
-export function ReturnPanel({ recap, page }: { recap: ReturnRecap; page: number }) {
+const recordTime = (at: number) => new Date(at).toLocaleString("zh-CN", {
+  year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+});
+export function ReturnPanel({ recap, page, updated = false }: { recap: ReturnRecap; page: number; updated?: boolean }) {
   const { before, after } = recap;
   const changed = before.stage !== after.stage;
   return <section className="return-panel" aria-label="回访小结">
     <header><strong>你回来啦</strong><span>{page + 1} / {returnPageCount}</span></header>
+    {updated && <p className="return-sync-note" role="status">已更新为最新回访记录，本次从第一页开始。</p>}
+    <div className="return-period" aria-label="记录时段（本地时间）">
+      <small>记录时段（本地时间）</small>
+      <span>从 <time dateTime={new Date(recap.from).toISOString()}>{recordTime(recap.from)}</time></span>
+      <span>到 <time dateTime={new Date(recap.to).toISOString()}>{recordTime(recap.to)}</time></span>
+    </div>
     {page === 0 ? <>
       <p>离开了 {absenceLabel(recap.to - recap.from)}</p>
       <div className="return-needs">

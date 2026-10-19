@@ -40,3 +40,30 @@ describe("truthful return summary", () => {
     expect(absenceLabel(72 * 3600000)).toBe("72 小时");
   });
 });
+
+describe("saved return record period", () => {
+  it.each([0, 1])("page %s shows both saved timestamps, not the current clock", page => {
+    render(<ReturnPanel recap={recap} page={page} />);
+    const period = screen.getByLabelText("记录时段（本地时间）");
+    const times = period.querySelectorAll('time');
+    expect(times).toHaveLength(2);
+    expect(times[0].dateTime).toBe(new Date(recap.from).toISOString());
+    expect(times[1].dateTime).toBe(new Date(recap.to).toISOString());
+    expect(times[0].textContent).toContain(new Date(recap.from).getFullYear().toString());
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+  it("announces synchronization separately from the saved record data", () => {
+    render(<ReturnPanel recap={recap} page={0} updated />);
+    expect(screen.getByRole('status').textContent).toContain('已更新为最新回访记录');
+    expect(screen.getByLabelText('回访小结').textContent).toContain('52.0 → 100.0+48.0');
+    expect(document.querySelector('button,a,input')).toBeNull();
+  });
+  it("formats local periods correctly across a date boundary", () => {
+    const from = new Date(2026, 9, 18, 23, 50).getTime(), to = new Date(2026, 9, 19, 0, 20).getTime();
+    render(<ReturnPanel recap={{ ...recap, from, to }} page={0} />);
+    const times = screen.getByLabelText('记录时段（本地时间）').querySelectorAll('time');
+    expect(times[0].textContent).toContain('2026/10/18'); expect(times[0].textContent).toContain('23:50');
+    expect(times[1].textContent).toContain('2026/10/19'); expect(times[1].textContent).toContain('00:20');
+    expect(screen.getByLabelText('回访小结').textContent).toContain('离开了 30 分钟');
+  });
+});
