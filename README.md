@@ -220,6 +220,8 @@ A 左转、B 右转、C 暂停，自动前进；暂停时 A/C 继续、B 打开�
 
 回访小结两页的三键操作与验证见 [docs/RETURN_NAVIGATION.md](docs/RETURN_NAVIGATION.md)。 小结同时保留离开时与结算结束时的历史睡眠状态，旧记录不倒推；见 [历史睡眠状态](docs/RETURN_SLEEP.md)。第二页也会区分历史与最近读取的状态，提供不自动执行的 [当前照顾建议](docs/RETURN_CARE.md)。 已提供的小结先检查历史状态与日期的显示安全；异常确认回复通过 B 只读核对，不在核对时重发，旧记录缺失睡眠信息仍不推测；见 [回访响应保护](docs/RETURN_RESPONSE_SAFETY.md)。
 
+下一款「森林寻宝」目前只有[规则原型](docs/TREASURE_RULES.md)，尚未接入界面/实际存档与结算，不能游玩；当前仍为六款小游戏。
+
 进度见 [docs/PROGRESS.md](docs/PROGRESS.md)。手机阅读改进、试玩反馈与下一款游戏评估见 [docs/PLAYTEST.md](docs/PLAYTEST.md)。
 
 按用户授权，每批功能测试通过后及时提交并推送 GitHub，不重写历史。
