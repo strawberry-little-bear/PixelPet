@@ -47,7 +47,9 @@ describe("read-only care preview", () => {
   it.each(["baby", "growing", "adult"] as const)("never mutates or promises a new adult form in %s", stage => {
     const p = pet(stage), original = structuredClone(p);
     for (const kind of ["feed", "clean", "sleep"] as const) {
-      const text = carePreview(p, kind).join("");
+      const text = carePreview(p, kind, { awake: { hunger: -3, mood: -2.5, clean: -2, energy: -2 },
+        sleeping: { hunger: -3, mood: 0, clean: -2, energy: 14 }, maxOfflineHours: 12,
+        growth: { basePerHour: .5, comfortPerHour: .75, restEnergyPerHabit: 28, restPointsPerHabit: .25 } }).join("");
       expect(text).toContain(stage === "adult" ? "形态不变" : "+0.25");
       if (stage === "adult") expect(text).not.toContain("成长 +");
     }

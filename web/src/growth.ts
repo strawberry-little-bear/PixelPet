@@ -1,4 +1,4 @@
-import type { AdultForm, Growth, GrowthStage, PetState } from "./types";
+import type { AdultForm, Growth, GrowthStage, GrowthRuleBasis, PetState } from "./types";
 
 export const stageNames: Record<GrowthStage, string> = {
   egg: "等待孵化",
@@ -101,3 +101,13 @@ export const formRules: { form: AdultForm; rule: string }[] = [
   { form: "gentle", rule: "恬静分 ≥2 且 > 陪玩 ×1.5" },
   { form: "balanced", rule: "其余情况，日常习惯相互配合" },
 ];
+
+// Response-only integration metadata. Share validation between sleep previews
+// and the handbook; missing coefficients must never acquire client defaults.
+export function validGrowthBasis(value: unknown): value is GrowthRuleBasis {
+  if (!value || typeof value !== "object") return false;
+  const v = value as GrowthRuleBasis;
+  const points = [v.basePerHour, v.comfortPerHour, v.restPointsPerHabit];
+  return points.every(n => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 72) &&
+    typeof v.restEnergyPerHabit === "number" && Number.isFinite(v.restEnergyPerHabit) && v.restEnergyPerHabit > 0 && v.restEnergyPerHabit <= 100;
+}

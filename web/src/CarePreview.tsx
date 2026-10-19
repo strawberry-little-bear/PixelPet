@@ -1,4 +1,5 @@
 import type { CareRules, Needs, PetState } from "./types";
+import { validGrowthBasis } from "./growth";
 
 type CareKind = "feed" | "clean" | "sleep";
 const interval = 30 * 60000;
@@ -24,10 +25,11 @@ function roundedReading(pet: PetState, kind: CareKind): string | null {
 // This is a read-only explanation of the last authoritative snapshot, not a
 // client-side reward decision. In particular, a local clock/timer must not make
 // a cached cooldown expire or disable an action that the server could accept.
-export function carePreview(pet: PetState, kind: CareKind): string[] {
+export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | null): string[] {
   if (!pet.hatchedAt) return ["先迎接小伙伴，再慢慢照顾它。"];
   if (pet.game) return ["先收好或结束本局，再照顾小伙伴。"];
   if (kind === "sleep") {
+    const basis = rules?.growth;
     if (pet.sleeping) return [
       "按 B 轻轻叫醒，停止睡眠恢复。",
       "只按实际恢复的体力记休息习惯，不因反复睡下或叫醒多记。",
@@ -38,9 +40,11 @@ export function carePreview(pet: PetState, kind: CareKind): string[] {
         : "睡着后体力慢慢恢复，到满为止；饱食和清洁仍会下降。",
       !pet.growth
         ? "成长记录尚未读到；只按实际恢复量记录休息，结果以服务端为准。"
+        : !validGrowthBasis(basis)
+        ? `成长基准尚未读到；休息习惯按实际恢复量记录，数字以服务端为准。${pet.growth.stage === "adult" ? "成年形态不变。" : ""}`
         : pet.growth.stage === "adult"
-        ? "每恢复 28 体力，休息习惯 +1；成年形态不变。"
-        : "每恢复 28 体力，休息习惯 +1、成长 +0.25；按实际恢复比例记录。",
+        ? `每恢复 ${basis.restEnergyPerHabit} 体力，休息习惯 +1；成年形态不变。`
+        : `每恢复 ${basis.restEnergyPerHabit} 体力，休息习惯 +1、成长 +${basis.restPointsPerHabit}；按实际恢复比例记录。`,
     ];
   }
   if (pet.sleeping) return ["正在睡觉；先选「起床啦」叫醒，再喂食或洗澡。"];
@@ -83,7 +87,7 @@ export function careBaseEffect(pet: PetState, kind: string, rules?: CareRules | 
 export function CarePreview({ pet, kind, hint, rules }: { pet: PetState; kind: string; hint: string; rules?: CareRules | null }) {
   const care = kind === "feed" || kind === "clean" || kind === "sleep";
   const effect = careBaseEffect(pet, kind, rules);
-  const lines = care ? carePreview(pet, kind) : [hint];
+  const lines = care ? carePreview(pet, kind, rules) : [hint];
   const reading = care ? roundedReading(pet, kind) : null;
   return (
     <div className="care-preview" role="note" aria-label="所选菜单说明" data-care-preview={kind}>

@@ -36,10 +36,10 @@ async function seed(stage, sleeping) {
 }
 async function key(page, key) { await page.locator('.button-' + key + ':not(:disabled)').tap(); }
 async function open(page) { await key(page, 'a'); for (let i = 0; i < 6; i++) await key(page, 'a'); await key(page, 'b'); for (let i = 0; i < 4; i++) await key(page, 'b'); }
-async function inspect(page, mode) {
-  const layout = await page.evaluate(() => {
+async function inspect(page, mode, sleepMenu = false) {
+  const layout = await page.evaluate(sleepMenu => {
     const parent = document.querySelector('.lcd-content').getBoundingClientRect();
-    const texts = [...document.querySelectorAll('.growth-basis, .growth-basis h4, .growth-basis p')];
+    const texts = [...document.querySelectorAll(sleepMenu ? '.care-preview, .care-preview p, .care-preview strong, .care-preview small' : '.growth-basis, .growth-basis h4, .growth-basis p')];
     return {
       overflow: document.documentElement.scrollWidth > innerWidth + 1,
       inside: texts.every(e => { const r = e.getBoundingClientRect(); return r.left >= parent.left - 1 && r.right <= parent.right + 1 && r.top >= parent.top - 1 && r.bottom <= parent.bottom + 1; }),
@@ -47,12 +47,12 @@ async function inspect(page, mode) {
       textSize: Math.min(...texts.slice(1).map(e => parseFloat(getComputedStyle(e).fontSize))),
       minKey: Math.min(...[...document.querySelectorAll('.physical-button')].map(e => Math.min(e.offsetWidth, e.offsetHeight))),
     };
-  });
+  }, sleepMenu);
   assert.equal(layout.overflow, false, JSON.stringify(layout)); assert.equal(layout.inside, true, JSON.stringify(layout));
   assert(layout.textSize >= layout.rootSize * .85 && layout.minKey >= 44, JSON.stringify(layout));
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
-  assert.equal(await page.locator('.growth-page-dots').textContent(), '5 / 6');
+  if (!sleepMenu) assert.equal(await page.locator('.growth-page-dots').textContent(), '5 / 6');
   return { mode, ...layout };
 }
 try {
@@ -73,7 +73,8 @@ try {
   ];
   const cases = [];
   for (const stage of ['baby', 'growing', 'adult']) for (const sleeping of [false, true]) for (const mode of modes) cases.push({ stage, sleeping, mode, metadata: 'real' });
-  for (const metadata of ['old-server', 'missing-growth', 'invalid-growth']) for (const stage of ['baby', 'adult']) cases.push({ stage, sleeping: true, mode: modes[1], metadata });
+  for (const metadata of ['old-server', 'missing-growth', 'invalid-growth']) for (const stage of ['baby', 'adult']) for (const sleeping of [false, true]) cases.push({ stage, sleeping, mode: modes[1], metadata });
+  for (const stage of ['baby', 'growing', 'adult']) cases.push({ stage, sleeping: false, mode: modes[1], metadata: 'custom' });
   for (const test of cases) {
     await seed(test.stage, test.sleeping);
     const ctx = await browser.newContext({ viewport: { width: test.mode.width, height: test.mode.height }, isMobile: true, hasTouch: true });
@@ -87,20 +88,41 @@ try {
           const response = await route.fetch(), reply = await response.json();
           if (test.metadata === 'old-server') delete reply.careRules;
           else if (test.metadata === 'missing-growth') delete reply.careRules.growth;
+          else if (test.metadata === 'custom') Object.assign(reply.careRules.growth, { restEnergyPerHabit: 20, restPointsPerHabit: .2 });
           else reply.careRules.growth.restEnergyPerHabit = 0;
           await route.fulfill({ response, json: reply });
         };
         await page.route('**/api/state', change); await page.route('**/api/visit', change);
       }
-      await page.goto(base); await page.locator('.home-caption').waitFor(); await open(page);
+      await page.goto(base); await page.locator('.home-caption').waitFor();
+      // Only select and cancel sleep: browsing must not toggle sleep or award recovery.
+      await key(page, 'a'); for (let i = 0; i < 3; i++) await key(page, 'a');
+      const menuText = await page.getByRole('note', { name: '所选菜单说明', exact: true }).textContent();
+      const valid = ['real', 'custom'].includes(test.metadata);
+      const energy = test.metadata === 'custom' ? 20 : 28;
+      const reward = test.metadata === 'custom' ? '0.2' : '0.25';
+      if (test.sleeping) {
+        assert(menuText.includes('按 B 轻轻叫醒')); assert(menuText.includes('不因反复睡下或叫醒多记'));
+        assert(!/28|20 体力|成长 \+/.test(menuText));
+      } else if (!valid) {
+        assert(menuText.includes('成长基准尚未读到')); assert(!/28|0\.25|习惯 \+1|成长 \+/.test(menuText));
+      } else {
+        assert(menuText.includes(`每恢复 ${energy} 体力，休息习惯 +1`));
+        if (test.stage === 'adult') { assert(menuText.includes('成年形态不变')); assert(!menuText.includes('成长 +')); }
+        else assert(menuText.includes(`成长 +${reward}；按实际恢复比例记录`));
+        if (test.metadata === 'custom') assert(!/28|0\.25/.test(menuText));
+      }
+      const menuLayout = await inspect(page, test.mode.label, true);
+      if (test.stage === 'growing' && !test.sleeping && test.metadata === 'real') await page.screenshot({ path: join(artifacts, `sleep-basis-${test.mode.label}.png`), fullPage: true });
+      await key(page, 'c'); await page.locator('.home-caption').waitFor(); await open(page);
       const basis = page.getByRole('region', { name: '成长与照顾基准', exact: true });
       const text = await basis.textContent();
-      if (test.metadata !== 'real') {
+      if (!valid) {
         assert(text.includes('成长基准尚未读到')); assert(!/0\.5|0\.75|28|0\.25/.test(text));
       } else {
-        assert(text.includes('每实际恢复 28 点体力')); assert(text.includes('1 点休息习惯'));
+        assert(text.includes(`每实际恢复 ${energy} 点体力`)); assert(text.includes('1 点休息习惯'));
         if (test.stage === 'adult') { assert(text.includes('成长已完成，不再增加成长点')); assert(!/0\.5|0\.75|\+0\.25/.test(text)); }
-        else { assert(text.includes('0.5 + 0.75 × 舒适比例')); assert(text.includes('随状态变化累计')); assert(text.includes('+0.25 成长点')); }
+        else { assert(text.includes('0.5 + 0.75 × 舒适比例')); assert(text.includes('随状态变化累计')); assert(text.includes(`+${reward} 成长点`)); }
       }
       assert(text.includes('入睡本身不送体力或成长点'));
       const layout = await inspect(page, test.mode.label);
@@ -113,7 +135,7 @@ try {
       assert.equal(state.growth.stage, test.stage); assert.equal(state.sleeping, test.sleeping); assert.equal(state.careCount, 0); assert.equal(state.schema, 12);
       const backup = await (await fetch(base + '/api/backup')).text();
       assert(!/basePerHour|restEnergyPerHabit|careRules/.test(backup));
-      results.push({ stage: test.stage, sleeping: test.sleeping, metadata: test.metadata, layout, writeCount: writes.length });
+      results.push({ stage: test.stage, sleeping: test.sleeping, metadata: test.metadata, menuLayout, layout, writeCount: writes.length });
       console.log('PASS', results.length, test.stage, test.sleeping, test.metadata, test.mode.label);
     } finally { await ctx.close(); }
   }
