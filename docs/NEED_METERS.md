@@ -17,4 +17,4 @@
 - 已查看大字和强制颜色截图。浏览器辅助语义检查不等于 VoiceOver/NVDA 真人读屏验收，受控时钟不等于自然长时测试；这些验收仍待真实反馈。
 - 玩家 `data/pixelpet.db` 哈希及原服务进程保持不变；没有启动、刷新或重启玩家服务。
 
-复现：先构建临时服务二进制及前端，再设置 `PIXELPET_TEST_BINARY`（绝对路径）、需要时设置 `PIXELPET_PLAYWRIGHT_MODULE`，运行 `node scripts/check-need-meters.mjs`。脚本自行创建临时库和随机端口，不接受玩家 URL/数据库。
+复现：先构建临时服务二进制及前端，再设置 `PIXELPET_TEST_BINARY` 与 `PIXELPET_TEST_WEB`（均为绝对路径，后者指向独立前端构建，不覆盖共享 `web/dist`）、需要时设置 `PIXELPET_PLAYWRIGHT_MODULE`，运行 `node scripts/check-need-meters.mjs`。脚本自行创建临时库和随机端口，不接受玩家 URL/数据库。

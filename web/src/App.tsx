@@ -1,3 +1,4 @@
+import { GrowthTrack } from "./GrowthTrack";
 import { useBackupExport } from "./useBackupExport";
 import { needMeterAttributes, needMeterDescriptionId } from "./needMeter";
 import { PetCareGuide } from "./PetCareGuide";
@@ -2167,9 +2168,7 @@ export default function App() {
                   </span>
                   <span>{Math.floor(growthProgress(growth))}%</span>
                 </div>
-                <div className="growth-track">
-                  <i style={{ width: `${growthProgress(growth)}%` }} />
-                </div>
+                <GrowthTrack growth={growth} estimated={!pet?.growth} />
                 <small>
                   {growth.stage === "adult"
                     ? "形态已确定，继续好好陪伴。"

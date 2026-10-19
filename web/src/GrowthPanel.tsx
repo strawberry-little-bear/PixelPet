@@ -1,3 +1,4 @@
+import { GrowthTrack } from "./GrowthTrack";
 import { GrowthSnapshot } from "./GrowthSnapshot";
 import { GrowthBasis } from "./GrowthBasis";
 import { CompanionPanel } from "./CompanionPanel";
@@ -6,7 +7,6 @@ import { FormEmblem, GrowthOutfit } from "./GrowthOutfit";
 import {
   formDescriptions,
   formNames,
-  growthProgress,
   stageNames,
   tendency,
   stagePoints,
@@ -113,11 +113,9 @@ export function GrowthPanel({
               <small> / {current.target}</small>
             </b>
           </div>
-          <div className="growth-track">
-            <i style={{ width: `${growthProgress(g)}%` }} />
-          </div>
+          <GrowthTrack growth={g} estimated={!!pet && !pet.growth} />
           <p className="growth-next">
-            {g.stage === "adult"
+            {g.stage === "egg" ? "孵化后开始成长旅程。" : g.stage === "adult"
               ? formDescriptions[form]
               : `还需 ${(Math.ceil(Math.max(0, target - g.points) * 10) / 10).toFixed(1)} 点，进入${g.stage === "baby" ? "成长期" : "成年期"}`}
           </p>
