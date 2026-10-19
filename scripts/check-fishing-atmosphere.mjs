@@ -8,8 +8,8 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY.');
-assert(web && isAbsolute(web), 'Set absolute PIXELPET_TEST_WEB to an isolated build.');
+assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary.');
+assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build.');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-fishing-atmosphere-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -102,11 +102,30 @@ try {
       }
       assert.equal((await api('state')).state.game.fishing.spot, 0);
       assert.equal(await page.locator('.fishing-ripples').count(), 0);
+      assert.equal(await page.locator('.fishing-shadows').count(), 0);
       await key(page, 'B'); await page.locator('.pond-scene[data-motion="waiting"]').waitFor();
       notes.add(await page.locator('.fishing-wait-note').innerText());
       await readable(page, '.fishing-game');
       assert((await page.locator('.fishing-status').innerText()).includes('还没咬钩'));
       assert.equal(await page.locator('.fishing-bite').count(), 0);
+      assert((await page.locator('.fishing-status').innerText()).includes('鱼影只是风景'));
+      assert.equal(await page.locator('.fishing-shadow').count(), 2);
+      assert.equal(await page.locator('.fishing-shadows').evaluate(el => el.closest('svg').getAttribute('aria-hidden')), 'true');
+      const shadowHTML = await page.locator('.fishing-shadows').evaluate(el => el.outerHTML);
+      assert.equal(await page.locator('.fishing-shadows').evaluate(el => getComputedStyle(el).pointerEvents), 'none');
+      const checkShadows = async () => {
+        const problems = await page.locator('.pond-scene').evaluate(el => {
+          const pond = el.getBoundingClientRect(), bobber = el.querySelector('.fishing-bobber').getBoundingClientRect();
+          return [...el.querySelectorAll('.fishing-shadow')].flatMap(fish => {
+            const b = fish.getBoundingClientRect(), issues = [];
+            if (b.left < pond.left || b.right > pond.right || b.top < pond.top + pond.height * .62 || b.bottom > pond.bottom) issues.push('shadow outside underwater area');
+            if (b.left < bobber.right && b.right > bobber.left && b.top < bobber.bottom && b.bottom > bobber.top) issues.push('shadow touches bobber');
+            return issues;
+          });
+        });
+        assert.deepEqual(problems, []);
+      };
+      await checkShadows();
       assert.equal(await page.locator('.fishing-wait-note').evaluate(el => el.closest('[aria-live],[role="status"]') === null), true);
       const snapshot = () => page.locator('.pond-scene').evaluate(el => ({
         motion: el.dataset.motion,
@@ -114,15 +133,20 @@ try {
         ripple: getComputedStyle(el.querySelector('.ripple-near')).transform,
         rippleAnimation: getComputedStyle(el.querySelector('.ripple-near')).animationName,
         bobberAnimation: getComputedStyle(el.querySelector('.fishing-bobber')).animationName,
+        shadow: el.querySelector('.shadow-near') ? getComputedStyle(el.querySelector('.shadow-near')).transform : null,
+        shadowAnimation: el.querySelector('.shadow-near') ? getComputedStyle(el.querySelector('.shadow-near')).animationName : null,
       }));
       const moving = await snapshot(); await wait(900); const moved = await snapshot();
       if (motion === 'reduce') {
         assert.deepEqual(moving.animations, []); assert.deepEqual(moved.animations, []);
-        assert.equal(moving.ripple, moved.ripple);
+        assert.equal(moving.ripple, moved.ripple); assert.equal(moving.shadow, moved.shadow); assert.equal(moving.shadowAnimation, 'none');
       } else {
         assert.equal(moving.rippleAnimation, 'pond-ripple'); assert.equal(moving.bobberAnimation, 'pond-drift');
         assert.notEqual(moving.ripple, moved.ripple, 'Ripples should visibly move, not just have a CSS name');
+        assert.equal(moving.shadowAnimation, 'pond-shadow-glide');
+        assert.notEqual(moving.shadow, moved.shadow, 'Shadow should actually glide, not just have a CSS name');
       }
+      await checkShadows();
       await page.screenshot({ path: join(dir, `waiting-${tag}.png`), fullPage: true });
       // Pause midway, then help and reload must never create an auto-resume.
       await key(page, 'C'); await page.locator('.fishing-pause').waitFor();
@@ -130,13 +154,16 @@ try {
       assert.equal(await page.locator('.outing-caption').getAttribute('data-scenery'), sceneryKey);
       assert.equal(paused.paused, true); assert.equal(await page.locator('.fishing-wait-note').count(), 0);
       assert.deepEqual((await snapshot()).animations, []);
+      assert.equal(await page.locator('.fishing-shadows').evaluate(el => el.outerHTML), shadowHTML);
+      const pausedShadow = (await snapshot()).shadow;
       await readable(page, '.fishing-game');
-      await wait(1200); assert.deepEqual((await api('state')).state.game.fishing, paused); assert.equal(writes.length, count);
+      await wait(1200); assert.deepEqual((await api('state')).state.game.fishing, paused); assert.equal(writes.length, count); assert.equal((await snapshot()).shadow, pausedShadow);
       await page.getByRole('button', { name: '玩法说明' }).click(); await page.getByRole('dialog').waitFor();
       assert.deepEqual((await snapshot()).animations, []);
       await page.getByRole('button', { name: '关闭', exact: true }).click();
       await page.reload(); await page.locator('.fishing-pause').waitFor();
       assert.equal(await page.locator('.outing-caption').getAttribute('data-scenery'), sceneryKey);
+      assert.equal(await page.locator('.fishing-shadows').evaluate(el => el.outerHTML), shadowHTML);
       assert.deepEqual((await snapshot()).animations, []); await wait(1200);
       assert.deepEqual((await api('state')).state.game.fishing, paused); assert.equal(writes.length, count);
       await key(page, 'C'); await page.locator('.pond-scene[data-motion="waiting"]').waitFor();
@@ -151,6 +178,8 @@ try {
         if (visible.motion === 'bite') break;
         assert.equal(visible.motion, 'waiting');
         assert(visible.note); notes.add(visible.note); assert.equal(visible.bite, false);
+        assert.equal(await page.locator('.fishing-shadows').evaluate(el => el.outerHTML), shadowHTML);
+        await checkShadows();
         await readable(page, '.fishing-game');
         await wait(850);
       }
@@ -162,6 +191,7 @@ try {
       assert(bite.elapsedMs < 10000, 'Original reaction window is still open');
       assert.equal(notes.size, 4, 'All four unhurried notes should be visible during a natural wait');
       assert.equal(await page.locator('.fishing-wait-note').count(), 0);
+      assert.equal(await page.locator('.fishing-shadows').count(), 0, 'Bite removes ambient fish, not just their motion');
       assert.equal((await snapshot()).bobberAnimation, motion === 'reduce' ? 'none' : 'pond-nod');
       assert.equal((await snapshot()).rippleAnimation, 'none', 'Bite is not a faster ambient ripple');
       await readable(page, '.fishing-game');
@@ -171,11 +201,13 @@ try {
       assert.equal(caught.game.fishing.outcome, 'caught'); assert.equal(caught.game.fishing.catches.length, 1);
       assert.equal(caught.pond.fish.length, 1); assert.equal(caught.economy.coins, 0, 'No reward before collecting three casts');
       assert.equal(await page.locator('.fishing-ripples').count(), 0);
+      assert.equal(await page.locator('.fishing-shadows').count(), 0);
       assert.equal(await page.locator('.fishing-wait-note').count(), 0);
       assert.equal(await page.locator('.fishing-bite').count(), 0);
       // An early next cast remains an ordinary consumed chance, not a fake catch.
       await key(page, 'B'); await key(page, 'B');
       const early = (await api('state')).state.game.fishing;
+      assert.equal(await page.locator('.fishing-shadows').count(), 0);
       assert.equal(early.casts, 2); assert.equal(early.outcome, 'early'); assert.equal(early.catches.length, 1);
       assert((await page.locator('.fishing-status').innerText()).includes('这一竿已用掉'));
       assert.equal(await page.locator('.fishing-wait-note').count(), 0);

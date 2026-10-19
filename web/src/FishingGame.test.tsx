@@ -134,7 +134,7 @@ describe("quiet waiting feedback without false bites", () => {
     const pet = fixture(); Object.assign(pet.game!.fishing!, { phase: "wait", casts: 1, waitMs: 40000, elapsedMs });
     render(<FishingGame pet={pet} active={true} choice={0} />);
     expect(document.querySelector('.fishing-wait-note')?.textContent).toBe(note);
-    expect(document.querySelector('.fishing-status')?.textContent).toBe('还没咬钩，等「咬钩啦」再按 B。');
+    expect(document.querySelector('.fishing-status')?.textContent).toBe('还没咬钩；鱼影只是风景，等「咬钩啦」再按 B。');
     expect(document.querySelector('.fishing-bite')).toBeNull();
     expect(document.querySelectorAll('.fishing-ripple')).toHaveLength(2);
     expect(document.querySelector('.fishing-ripples')?.closest('svg')?.getAttribute('aria-hidden')).toBe('true');

@@ -31,6 +31,11 @@
 .pond-scene[data-motion="caught"] .fishing-companion .bird-wing, .pond-scene[data-motion="caught"] .fishing-companion .dragon-wing { transform-box:fill-box; transform-origin:50% 15%; transform:rotate(-18deg); }
 .pond-scene[data-motion="caught"] .fishing-companion .dolphin-tail, .pond-scene[data-motion="caught"] .fishing-companion .frog-hand,
 .pond-scene[data-motion="caught"] .fishing-companion .mushroom-cap { animation:pond-nod 1.5s steps(2,end) 2; }
+/* Quiet horizontal scenery below the surface, away from the float. Only the
+   confirmed waiting state animates; existing pause/reduced-motion rules win. */
+.fishing-shadows { fill:#466b5d; opacity:.36; pointer-events:none; }
+.pond-scene[data-motion="waiting"] .fishing-shadow { animation:pond-shadow-glide 14s ease-in-out infinite; }
+.pond-scene[data-motion="waiting"] .shadow-far { animation-duration:19s; animation-delay:-8s; }
 .fishing-bobber { transform-box:fill-box; transform-origin:center; }
 /* Waiting drifts sideways; only a confirmed bite dips rapidly and shows B. */
 .pond-scene[data-motion="waiting"] .fishing-bobber { animation:pond-drift 6s steps(4,end) infinite; }
@@ -58,9 +63,10 @@
 .fish-album p { margin:4px 0; font-size:10px; }
 .fish-album small { display:block; font-size:9px; }
 .fish-album .fish-record { border-top:1px solid #8e9d7166; padding-top:6px; margin-top:7px; font-size:9px; }
+@keyframes pond-shadow-glide { 0%,100% { transform:translateX(-7px); } 50% { transform:translateX(7px); } }
 @keyframes pond-drift { 25% { transform:translateX(1px) rotate(2deg); } 75% { transform:translateX(-1px) rotate(-2deg); } }
 @keyframes pond-ripple { 0%,100% { opacity:.3; transform:scale(.8,.85); } 50% { opacity:.8; transform:scale(1.05,1); } }
-@media (forced-colors:active) { .fishing-ripples { stroke:CanvasText; } }
+@media (forced-colors:active) { .fishing-ripples { stroke:CanvasText; } .fishing-shadows { fill:CanvasText; opacity:.25; } }
 @keyframes pond-tail { 50% { transform:rotate(9deg); } }
 @keyframes pond-look { 50% { transform:rotate(5deg); } }
 @keyframes pond-ear { 50% { transform:rotate(-7deg); } }
