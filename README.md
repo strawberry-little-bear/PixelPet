@@ -220,7 +220,7 @@ A 左转、B 右转、C 暂停，自动前进；暂停时 A/C 继续、B 打开�
 
 回访小结两页的三键操作与验证见 [docs/RETURN_NAVIGATION.md](docs/RETURN_NAVIGATION.md)。 小结同时保留离开时与结算结束时的历史睡眠状态，旧记录不倒推；见 [历史睡眠状态](docs/RETURN_SLEEP.md)。第二页也会区分历史与最近读取的状态，提供不自动执行的 [当前照顾建议](docs/RETURN_CARE.md)。 已提供的小结先检查历史状态与日期的显示安全；异常确认回复通过 B 只读核对，不在核对时重发，旧记录缺失睡眠信息仍不推测；见 [回访响应保护](docs/RETURN_RESPONSE_SAFETY.md)。
 
-第七款[森林寻宝](docs/TREASURE_RULES.md)已接入：九格、六次探索或找齐三件，不限时；A选格、B探索、C暂停，结束B/C明确收好。刷新后需手动继续；揭示但未探索的小物不计成绩。沿用共享额度、有限兴趣与首次纪念，schema15旧档仅新增零值兴趣，不倒填历史。导入备份仍按原规则清除未收好的游戏。 小屏选格与探索反馈会在明确三键操作后定位，原机身三键随文档停靠，完整九格仍可滚动；见 [可见性回归](docs/TREASURE_VIEWPORT.md)。
+第七款[森林寻宝](docs/TREASURE_RULES.md)已接入：九格、六次探索或找齐三件，不限时；A选格、B探索、C暂停，结束B/C明确收好。刷新后需手动继续；揭示但未探索的小物不计成绩。沿用共享额度、有限兴趣与首次纪念，schema15旧档仅新增零值兴趣，不倒填历史。导入备份仍按原规则清除未收好的游戏。 小屏选格与探索反馈会在明确三键操作后定位，原机身三键随文档停靠，完整九格仍可滚动；见 [可见性回归](docs/TREASURE_VIEWPORT.md)。 双页面普通同步、终局冲突与只读核对的回归范围见 [同步验收](docs/TREASURE_SYNC.md)。
 
 进度见 [docs/PROGRESS.md](docs/PROGRESS.md)。手机阅读改进、试玩反馈与下一款游戏评估见 [docs/PLAYTEST.md](docs/PLAYTEST.md)。
 

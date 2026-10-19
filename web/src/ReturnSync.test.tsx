@@ -8,7 +8,7 @@ import type { PetState, Result, ReturnRecap } from "./types";
 
 vi.mock("./api", () => ({ request: vi.fn() }));
 const api = vi.mocked(request), token = "a".repeat(32), first = "1".repeat(32);
-const kinds = ["stars", "tiles", "snake", "tetris", "fishing", "walk"] as const;
+const kinds = ["stars", "tiles", "snake", "tetris", "fishing", "walk", "treasure"] as const;
 type Kind = typeof kinds[number];
 let saved: PetState, recap: ReturnRecap, pending: boolean;
 let finish: (r: Result) => void, fail: (e: unknown) => void;
@@ -29,11 +29,12 @@ function game(kind: Kind, id = first): NonNullable<PetState["game"]> {
     case "tetris": return { ...common, kind, tetris: { board: Array<number>(96).fill(0), active: { kind: 3, rotation: 0, x: 2, y: 0 }, next: 1, bag: [4, 5, 6, 7], lines: 0, pieces: 0, step: 0, lastFallAt: Date.now(), paused: true } };
     case "fishing": return { ...common, kind, fishing: { spot: 0, casts: 0, catches: [], phase: "ready", step: 0, waitMs: 0, elapsedMs: 0, candidate: "", lastPulseAt: Date.now(), paused: true } };
     case "walk": return { ...common, kind, walking: { route: Array(12).fill("rock"), souvenirs: [], beat: 0, step: 0, cleared: 0, pose: "", poseUntil: 0, lastPulseAt: Date.now(), lastInputAt: 0, paused: true } };
+    case "treasure": return { ...common, kind, treasure: { layout: [1, 2, 3, 0, 0, 0, 0, 0, 0], opened: [], step: 0, paused: true } };
   }
 }
 beforeEach(() => {
   vi.useFakeTimers(); localStorage.clear(); api.mockReset(); pending = true;
-  saved = { schema: 11, revision: 10, species: 2, name: "回访同步", createdAt: Date.now() - 10000, hatchedAt: Date.now() - 9000,
+  saved = { schema: 16, revision: 10, species: 2, name: "回访同步", createdAt: Date.now() - 10000, hatchedAt: Date.now() - 9000,
     lastTick: Date.now(), sleeping: false, growth: emptyGrowth("baby"), needs: { hunger: 60, mood: 80, clean: 60, energy: 80 }, careCount: 0, logs: [] };
   const snapshot = { needs: saved.needs, stage: "baby" as const, form: "" as const, points: 0, rest: 0, trackedHours: 0 };
   recap = { id: "recap-before-claim", from: Date.now() - 3600000, to: Date.now(), before: snapshot, after: snapshot };
@@ -58,12 +59,13 @@ describe("a recap acknowledgement is also a current state read", () => {
 });
 
 describe("late recap replies retain data without hijacking presentation", () => {
-  it.each(["snake", "tetris", "fishing", "walk"] as const)("routes a new terminal %s without collecting its reward", async kind => {
+  it.each(["snake", "tetris", "fishing", "walk", "treasure"] as const)("routes a new terminal %s without collecting its reward", async kind => {
     await mount(); saved.game = game(kind); saved.revision++;
     if (kind === "snake") saved.game.snake!.end = "wall";
     if (kind === "tetris") { saved.game.tetris!.end = "won"; saved.game.tetris!.lines = 8; saved.game.tetris!.active = undefined; }
     if (kind === "fishing") { saved.game.fishing!.phase = "done"; saved.game.fishing!.casts = 3; }
     if (kind === "walk") saved.game.walking!.beat = 72;
+    if (kind === "treasure") { saved.game.treasure!.opened = [3, 4, 5, 6, 7, 8]; saved.game.treasure!.paused = true; saved.game.treasure!.step++; }
     await complete(); expect(document.querySelector(".content-game")).toBeTruthy();
     expect(document.querySelector(".return-panel")).toBeNull(); await poll(); expect(writes()).toHaveLength(0);
   });

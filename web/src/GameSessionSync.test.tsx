@@ -8,7 +8,7 @@ import type { PetState, Result } from "./types";
 
 vi.mock("./api", () => ({ request: vi.fn() }));
 const api = vi.mocked(request), token = "a".repeat(32), first = "1".repeat(32), second = "2".repeat(32);
-const kinds = ["stars", "tiles", "snake", "tetris", "fishing", "walk"] as const;
+const kinds = ["stars", "tiles", "snake", "tetris", "fishing", "walk", "treasure"] as const;
 type Kind = typeof kinds[number];
 let saved: PetState;
 const result = (): Result => ({ state: structuredClone(saved), saveGeneration: token, message: "", serverTime: Date.now() });
@@ -27,6 +27,7 @@ function game(kind: Kind, id = first): NonNullable<PetState["game"]> {
     case "tetris": return { ...common, kind, tetris: { board: Array<number>(96).fill(0), active: { kind: 3, rotation: 0, x: 2, y: 0 }, next: 1, bag: [4, 5, 6, 7], lines: 0, pieces: 0, step: 0, lastFallAt: Date.now(), paused: true } };
     case "fishing": return { ...common, kind, fishing: { spot: 0, casts: 0, catches: [], phase: "ready", step: 0, waitMs: 0, elapsedMs: 0, candidate: "", lastPulseAt: Date.now(), paused: true } };
     case "walk": return { ...common, kind, walking: { route: Array(12).fill("rock"), souvenirs: [], beat: 0, step: 0, cleared: 0, pose: "", poseUntil: 0, lastPulseAt: Date.now(), lastInputAt: 0, paused: true } };
+    case "treasure": return { ...common, kind, treasure: { layout: [1, 2, 3, 0, 0, 0, 0, 0, 0], opened: [], step: 0, paused: true } };
   }
 }
 async function abandon(kind: Kind) {
@@ -41,6 +42,7 @@ function endGame(kind: Kind) {
   if (kind === "tetris") { g.tetris!.end = "won"; g.tetris!.lines = 8; g.tetris!.active = undefined; }
   if (kind === "fishing") { g.fishing!.phase = "done"; g.fishing!.casts = 3; }
   if (kind === "walk") g.walking!.beat = 72;
+  if (kind === "treasure") { g.treasure!.opened = [3, 4, 5, 6, 7, 8]; g.treasure!.paused = true; g.treasure!.step++; }
   saved.revision++;
 }
 function controls() { expect(document.querySelectorAll(".physical-button")).toHaveLength(3); expect(document.querySelector(".lcd button, .lcd input, .lcd a")).toBeNull(); }
@@ -51,7 +53,7 @@ async function preview() {
 }
 beforeEach(() => {
   vi.useFakeTimers(); localStorage.clear(); api.mockReset();
-  saved = { schema: 11, revision: 10, species: 2, name: "同局同步", createdAt: Date.now() - 10000, hatchedAt: Date.now() - 9000,
+  saved = { schema: 16, revision: 10, species: 2, name: "同局同步", createdAt: Date.now() - 10000, hatchedAt: Date.now() - 9000,
     lastTick: Date.now(), sleeping: false, growth: emptyGrowth("baby"), needs: { hunger: 60, mood: 80, clean: 60, energy: 80 }, careCount: 0, logs: [] };
   api.mockImplementation(async (path, body) => {
     const a = body as { kind?: string; gameId?: string };
@@ -71,6 +73,7 @@ describe("same-save game session synchronization", () => {
     if (saved.game.tetris) saved.game.tetris.paused = false;
     if (saved.game.fishing) { saved.game.fishing.paused = false; saved.game.fishing.phase = "wait"; }
     if (saved.game.walking) saved.game.walking.paused = false;
+    if (saved.game.treasure) saved.game.treasure.paused = false;
     await poll(); expect(document.querySelector(".content-game")).toBeTruthy();
     await clock(1200); expect(actions()).toHaveLength(0); expect(saved.careCount).toBe(0); controls();
   });
@@ -82,7 +85,7 @@ describe("same-save game session synchronization", () => {
     await clock(1200); expect(actions()).toHaveLength(0); expect(saved.game.id).toBe(second); controls();
   });
 
-  it.each(["snake", "tetris", "fishing", "walk"] as const)("a completed same-ID %s invalidates an unfinished-game discard confirmation", async kind => {
+  it.each(["snake", "tetris", "fishing", "walk", "treasure"] as const)("a completed same-ID %s invalidates an unfinished-game discard confirmation", async kind => {
     saved.game = game(kind); await mount(); await abandon(kind); endGame(kind); await poll();
     expect(document.querySelector(".game-abandon")).toBeNull(); expect(actions()).toHaveLength(0); expect(saved.careCount).toBe(0);
     await key("b"); expect(actions()).toHaveLength(1);
@@ -90,7 +93,19 @@ describe("same-save game session synchronization", () => {
     expect(saved.careCount).toBe(1);
   });
 
-  it.each(["tetris", "fishing", "walk"] as const)("a new %s session resets its old pause-menu selection", async kind => {
+  it("finding all three treasures also invalidates an unfinished discard before six digs", async () => {
+    saved.game = game("treasure"); await mount(); await abandon("treasure");
+    saved.game.treasure!.opened = [0, 1, 2]; saved.game.treasure!.step++; saved.revision++;
+    await poll(); expect(document.querySelector(".game-abandon")).toBeNull();
+    expect(document.querySelector('.treasure-game[data-done="true"]')).toBeTruthy();
+    expect(actions()).toHaveLength(0); expect(saved.careCount).toBe(0);
+    await key("a"); expect(actions()).toHaveLength(0);
+    await key("b"); expect(actions()).toHaveLength(1);
+    expect(actions()[0]).toMatchObject({ kind: "treasure-finish", gameId: first, step: 1 });
+    expect(saved.careCount).toBe(1);
+  });
+
+  it.each(["tetris", "fishing", "walk", "treasure"] as const)("a new %s session resets its old pause-menu selection", async kind => {
     saved.game = game(kind); await mount(); await abandon(kind);
     saved.game = game(kind, second); saved.revision++; await poll(); await key("b");
     expect(actions()).toHaveLength(1); expect(actions()[0]).toMatchObject({ kind: `${kind === "fishing" ? "fish" : kind}-resume`, gameId: second });
@@ -109,7 +124,7 @@ describe("same-save game session synchronization", () => {
     expect(document.querySelector("[role=dialog], .import-preview, .tools-menu")).toBeNull(); expect(actions()).toHaveLength(0); controls();
   });
 
-  it.each(["snake", "tetris", "fishing", "walk"] as const)("an already synchronized %s result keeps deliberate help navigation on later reads", async kind => {
+  it.each(["snake", "tetris", "fishing", "walk", "treasure"] as const)("an already synchronized %s result keeps deliberate help navigation on later reads", async kind => {
     saved.game = game(kind); await mount(); endGame(kind); await poll();
     fireEvent.click(screen.getByRole("button", { name: "玩法说明" }));
     expect(document.querySelector("[role=dialog]")).toBeTruthy();
@@ -128,11 +143,12 @@ describe("same-save game session synchronization", () => {
     expect(actions()).toHaveLength(0); controls();
   });
 
-  it.each(["new", "done", "removed"])("a stale %s session read cannot invalidate the current discard decision", async change => {
-    saved.game = game("tetris"); await mount(); await abandon("tetris");
+  it.each((["tetris", "treasure"] as const).flatMap(kind =>
+    (["new", "done", "removed"] as const).map(change => ({ kind, change }))))("a stale $change $kind read cannot invalidate the current discard decision", async ({ kind, change }) => {
+    saved.game = game(kind); await mount(); await abandon(kind);
     const current = result();
-    if (change === "new") saved.game = game("tetris", second);
-    if (change === "done") endGame("tetris");
+    if (change === "new") saved.game = game(kind, second);
+    if (change === "done") endGame(kind);
     if (change === "removed") saved.game = undefined;
     const stale = result(); stale.state.revision = current.state.revision - 1;
     api.mockResolvedValueOnce(stale); await poll();
@@ -151,14 +167,18 @@ describe("same-save game session synchronization", () => {
     expect(document.querySelector(".content-game .snake-game")).toBeTruthy(); expect(actions()).toHaveLength(0);
   });
 
-  it("ordinary same-session progress preserves a deliberate exit confirmation", async () => {
-    saved.game = game("tetris"); await mount(); await abandon("tetris");
-    saved.game.tetris!.step++; saved.revision++; await poll();
+  it.each(["tetris", "treasure"] as const)("ordinary same-session %s progress preserves a deliberate exit confirmation", async kind => {
+    saved.game = game(kind); await mount(); await abandon(kind);
+    if (kind === "tetris") saved.game.tetris!.step++;
+    else { saved.game.treasure!.opened = [3]; saved.game.treasure!.step++; }
+    saved.revision++; await poll();
     expect(document.querySelector(".game-abandon")).toBeTruthy(); expect(actions()).toHaveLength(0);
   });
-  it("ordinary same-session reads preserve the pause-menu selection", async () => {
-    saved.game = game("tetris"); await mount(); await key("a"); const selected = document.querySelector(".tetris-overlay .selected")?.textContent;
-    saved.revision++; await poll(); expect(document.querySelector(".tetris-overlay .selected")?.textContent).toBe(selected); expect(actions()).toHaveLength(0);
+  it.each(["tetris", "treasure"] as const)("ordinary same-session %s reads preserve the pause-menu selection", async kind => {
+    saved.game = game(kind); await mount(); await key("a");
+    const selector = kind === "tetris" ? ".tetris-overlay .selected" : ".treasure-pause [aria-current=true]";
+    const selected = document.querySelector(selector)?.textContent; expect(selected).toBeTruthy();
+    saved.revision++; await poll(); expect(document.querySelector(selector)?.textContent).toBe(selected); expect(actions()).toHaveLength(0);
   });
   it("ordinary care reads do not throw a reader out of their handbook page", async () => {
     await mount(); await menu(6); await key("a"); const content = document.querySelector(".content-growth")?.textContent;
@@ -167,7 +187,7 @@ describe("same-save game session synchronization", () => {
 });
 
 describe("unfinished-only discard intent", () => {
-  it.each((["snake", "tetris", "fishing", "walk"] as const).flatMap(kind =>
+  it.each((["snake", "tetris", "fishing", "walk", "treasure"] as const).flatMap(kind =>
     (["success", "offline", "stale"] as const).map(read => ({ kind, read }))))("a stale $kind discard is refused and recovery is read-only ($read)", async ({ kind, read }) => {
     saved.game = game(kind); await mount(); await abandon(kind); const stale = result(); stale.state.revision--;
     endGame(kind); const terminal = result();
