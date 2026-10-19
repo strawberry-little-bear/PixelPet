@@ -181,6 +181,9 @@ export default function App() {
   const [checking, setChecking] = useState(false);
   const uncertainRef = useRef(false);
   const readInFlight = useRef<number | null>(null);
+  // Returning during a write or an older read must not lose the request for
+  // current state. Coalesce those return events into one subsequent read.
+  const returnReadPending = useRef(false);
   // Invalidate reads that started before a write, even when their response is late.
   const syncEpoch = useRef(0);
   const [message, setMessage] = useState("");
@@ -526,8 +529,9 @@ export default function App() {
     }
     return true;
   }, [apply, stopActivity, discardImport]);
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async function readCurrent() {
     if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
+    returnReadPending.current = false;
     const epoch = syncEpoch.current;
     const recovering = uncertainRef.current;
     const changed = refusedChangeRef.current !== null;
@@ -570,26 +574,42 @@ export default function App() {
         readInFlight.current = null;
         setChecking(false);
       }
+      if (returnReadPending.current) void readCurrent();
     }
   }, [acceptCurrentRead, stopActivity, discardImport, markCorrupt, markClockAhead]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
-    const focus = () => {
+    const returned = () => {
+      if (document.hidden) return;
+      returnReadPending.current = true;
+      void refresh();
+    };
+    const windowFocus = (event: Event) => {
+      // Moving focus between physical keys is not returning to the window.
+      if (event.target === event.currentTarget) returned();
+    };
+    const visibility = () => {
       setForeground(!document.hidden);
       if (document.hidden) {
         audio.current?.cancel();
         recapDisplayEpoch.current++;
         homeEchoEpoch.current++;
         setHomeEcho(null);
-      } else void refresh();
+      } else returned();
     };
-    document.addEventListener("visibilitychange", focus);
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("focus", windowFocus);
     return () => {
+      returnReadPending.current = false;
       clearInterval(timer);
-      document.removeEventListener("visibilitychange", focus);
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("focus", windowFocus);
     };
   }, [refresh]);
+  useEffect(() => {
+    if (!busy && returnReadPending.current) void refresh();
+  }, [busy, refresh]);
   useEffect(() => {
     const timer = setInterval(
       () => setNow(Date.now() + offset.current),
