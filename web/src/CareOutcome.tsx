@@ -30,7 +30,7 @@ function learningSummary(f: CareFeedback): { habit: string; reason: string } | n
       ? { habit: "休息习惯：本次切换不计入", reason: "本次切换不计休息习惯；睡着期间按实际恢复体力记录。" } : null;
   }
   const habit = f.kind === "feed" ? "nutrition" : f.kind === "clean" ? "clean" :
-    ["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish"].includes(f.kind) ? "play" : null;
+    ["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"].includes(f.kind) ? "play" : null;
   if (!habit || f.habit !== habit) return null;
   const label = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" }[habit];
   if (f.reason === "credited" && habitGain === 1)

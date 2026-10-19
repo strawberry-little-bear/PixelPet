@@ -105,6 +105,37 @@ describe("three-key treasure flow",()=>{
   saved.game!.treasure!.opened=[3,4,5,6,7,8];await mount();await key("a");await clock(20000);expect(calls()).toHaveLength(0);
   await key(finishKey);expect(calls()).toEqual([expect.objectContaining({kind:"treasure-finish",gameId:id,step:0})]);expect(document.querySelector(".content-home")).toBeTruthy();
  });
+ it.each([
+  { reason: "credited", points: .25, habitGain: 1 },
+  { reason: "credited", points: 0, habitGain: 1 },
+  { reason: "cooldown", points: 0, habitGain: 0 },
+ ] as const)("keeps confirmed treasure learning after the toast and later reads: $reason/$points", async result => {
+  saved.game!.treasure!.opened=[3,4,5,6,7,8];
+  const original=api.getMockImplementation()!;
+  api.mockImplementation(async(path,body)=>{
+   const r=await original(path,body);
+   if(path==="action"&&(body as {kind:string}).kind==="treasure-finish"){
+    r.careFeedback={kind:"treasure-finish",habit:"play",...result,effect:{at:Date.now(),before:{...saved.needs},after:{...saved.needs,mood:80}}};
+   }
+   return r;
+  });
+  await mount();expect(screen.queryByLabelText("本次成长与习惯")).toBeNull();await key("b");
+  const learning=screen.getByLabelText("本次成长与习惯");
+  expect(learning.textContent).toContain(`本次成长：+${result.points.toFixed(2)} 点`);
+  expect(learning.textContent).toContain(`陪玩习惯：+${result.habitGain}`);
+  expect(learning.textContent).toContain(result.reason==="credited"?"已计入":"记录时同类习惯仍在间隔内");
+  const receipt=screen.getByLabelText("上次操作的即时变化").textContent;
+  await key("c"); // Explicitly skip the play clip before the toast reading interval.
+  saved.growth!.points=60;saved.growth!.care.play=20;saved.needs.mood=30;saved.revision++;
+  await clock(15000);expect(document.querySelector("[data-feedback=idle]")).not.toBeNull();
+  expect(screen.getByLabelText("上次操作的即时变化").textContent).toBe(receipt);
+  // Status page reads the same acknowledged snapshot, not the latest totals.
+  for(const k of ["a","a","a","a","a","b"])await key(k);
+  expect(screen.getByLabelText("上次操作的即时变化").textContent).toBe(receipt);
+  expect(calls()).toHaveLength(1);expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+  expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
+  cleanup();await mount();expect(screen.queryByLabelText("上次操作的即时变化")).toBeNull();
+ });
  it("accepts saved settlement feedback and shows the local companion echo only once",async()=>{
   saved.game!.treasure!.opened=[3,4,5,6,7,8];
   const original=api.getMockImplementation()!;

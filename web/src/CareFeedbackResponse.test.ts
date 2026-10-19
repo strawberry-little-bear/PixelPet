@@ -42,7 +42,7 @@ describe.each(["state", "action"])("care feedback guard on %s", path => {
     { ...credit, reason: "not-needed", points: 0, habitGain: 0 },
     { kind: "sleep", reason: "resting", points: 0, habitGain: 0 },
     { kind: "sleep", reason: "awake", points: 0, habitGain: 0 },
-    ...["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish"].map(kind => ({ ...credit, kind, habit: "play" })),
+    ...["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"].map(kind => ({ ...credit, kind, habit: "play" })),
     { ...credit, futureField: { untouched: true } },
     // Optional before/after metadata has its own receipt guard. It remains optional,
     // and a malformed effect must not invalidate otherwise usable feedback/state.

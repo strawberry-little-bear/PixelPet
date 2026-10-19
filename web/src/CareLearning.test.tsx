@@ -22,10 +22,31 @@ describe("saved care learning receipt", () => {
     expect(learning()?.textContent).toContain("喂食习惯：+1");
     expect(learning()?.textContent).not.toContain("未照顾");
   });
-  it.each(["clean", "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish"] as const)("uses the saved habit for %s without inventing coins", kind => {
+  it.each(["clean", "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"] as const)("uses the saved habit for %s without inventing coins", kind => {
     render(<CareOutcome feedback={{ ...feedback, kind, habit: kind === "clean" ? "clean" : "play" }} />);
     expect(learning()?.textContent).toContain(kind === "clean" ? "清洁习惯：+1" : "陪玩习惯：+1");
     expect(learning()?.textContent).not.toContain("金币");
+  });
+  it.each([0, .1, .004])("shows treasure's actual capped or small credit %s", points => {
+    render(<CareOutcome feedback={{ ...feedback, kind: "treasure-finish", habit: "play", points }} />);
+    expect(learning()?.textContent).toContain(points === 0 ? "本次成长：+0.00 点" : points === .1 ? "+0.10 点" : "+<0.01 点");
+    expect(learning()?.textContent).toContain("陪玩习惯：+1");
+  });
+  it.each(["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"] as const)("keeps %s cooldown separate from immediate need changes", kind => {
+    render(<CareOutcome feedback={{ ...feedback, kind, habit: "play", points: 0, habitGain: 0, reason: "cooldown", retryAt: 1 }} />);
+    expect(learning()?.textContent).toContain("本次成长：+0.00 点");
+    expect(learning()?.textContent).toContain("陪玩习惯：+0");
+    expect(learning()?.textContent).toContain("记录时同类习惯仍在间隔内");
+    expect(screen.getByRole("region").textContent).toContain("+20.00");
+  });
+  it.each([
+    { habit: "nutrition" }, { habit: "clean" }, { reason: "not-needed" },
+    { kind: "treasure-dig" }, { kind: "treasure-resume" }, { kind: "play-treasure" },
+    { points: .25, habitGain: 0, reason: "cooldown" },
+  ])("does not invent treasure learning from inconsistent metadata %j", bad => {
+    render(<CareOutcome feedback={{ ...feedback, kind: "treasure-finish", habit: "play", ...bad } as CareFeedback} />);
+    expect(learning()).toBeNull();
+    expect(screen.getByRole("region").textContent).toContain("+20.00");
   });
   it.each(["feed", "clean"] as const)("explains %s not-needed independently of changed needs", kind => {
     render(<CareOutcome feedback={{ ...feedback, kind, habit: kind === "feed" ? "nutrition" : "clean", points: 0, habitGain: 0, reason: "not-needed" }} />);

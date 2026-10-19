@@ -9,7 +9,7 @@ const before = { hunger: 60, mood: 70, clean: 60, energy: 80 };
 const feedback = (kind: Feedback["kind"], retryAt?: number): Feedback => ({ kind, habit: kind === "feed" ? "nutrition" : kind === "clean" ? "clean" : "play", points: 0, habitGain: 0, reason: "cooldown", retryAt,
   effect: { at, before, after: { ...before, mood: 74 } } });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
-for (const kind of ["feed", "clean", "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish"] as const) {
+for (const kind of ["feed", "clean", "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"] as const) {
   it(`${kind} keeps a historical explanation across clock jumps and stale retry timestamps`, () => {
     vi.useFakeTimers(); vi.setSystemTime(at);
     const f = feedback(kind, at + 60000), saved = structuredClone(f);
