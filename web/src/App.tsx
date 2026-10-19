@@ -344,6 +344,18 @@ export default function App() {
     setCareReadingDestination({ petKey: careReadingKey, page: destination });
   };
 
+  const [arcadeReadingDestination, setArcadeReadingDestination] = useState<{
+    petKey: string | null; page: "arcade" | "game-guide"; choice: number;
+  } | null>(null);
+  useReadingViewport(readingRoot, arcadeReadingDestination,
+    page === "arcade" ? '.arcade-card[aria-current="true"]' : ".game-guide > header",
+    !!careReadingKey && arcadeReadingDestination?.petKey === careReadingKey &&
+    arcadeReadingDestination?.page === page && arcadeReadingDestination?.choice === arcadeChoice &&
+    !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  const navigateArcadeReading = (destination: "arcade" | "game-guide", choice = arcadeChoice) => {
+    setArcadeReadingDestination({ petKey: careReadingKey, page: destination, choice });
+  };
+
   const [collectionReadingDestination, setCollectionReadingDestination] = useState<{
     petKey: string | null; sessionKey: string | null; page: "fish-album" | "park-album"; index: number;
   } | null>(null);
@@ -1243,9 +1255,11 @@ export default function App() {
       return;
     }
     if (page === "arcade") {
-      if (key === "A") setArcadeChoice((v) => (v + 1) % games.length);
-      else if (key === "C") setPage("home");
-      else { setGuidePage(0); setGuideReview(false); setPage("game-guide"); }
+      if (key === "A") {
+        const next = (arcadeChoice + 1) % games.length;
+        setArcadeChoice(next); navigateArcadeReading("arcade", next);
+      } else if (key === "C") setPage("home");
+      else { setGuidePage(0); setGuideReview(false); setPage("game-guide"); navigateArcadeReading("game-guide"); }
       return;
     }
     if (page === "pause-guide") {
@@ -1263,8 +1277,9 @@ export default function App() {
       if (key === "A") {
         if (guideSeen(games[arcadeChoice].id) && !guideReview) { setGuideReview(true); setGuidePage(0); }
         else setGuidePage(v => (v + 1) % 2);
+        navigateArcadeReading("game-guide");
       }
-      else if (key === "C") setPage("arcade");
+      else if (key === "C") { setPage("arcade"); navigateArcadeReading("arcade"); }
       else {
         const game = games[arcadeChoice];
         void act(game.startAction).then(ok => { if (ok) rememberGuide(game.id); });
@@ -1491,7 +1506,7 @@ export default function App() {
       const item = items[selected];
       if (item.kind === "arcade") {
         setArcadeChoice(0);
-        setPage("arcade");
+        setPage("arcade"); navigateArcadeReading("arcade", 0);
       } else if (item.kind === "return") {
         if (returnRecap) {
           setReturnReading({ id: returnRecap.id, page: 0, updated: false });
