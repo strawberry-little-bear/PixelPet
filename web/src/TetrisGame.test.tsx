@@ -140,3 +140,12 @@ describe("three-key Tetris", () => {
     expect(memoryWords({ kind: "tetris", at: Date.now(), source: "shared" }, false)?.title).toBe("一起拼起的积木花园");
   });
 });
+
+it("uses the same 消除 wording for the live header and final result", () => {
+  saved.game = game(); saved.game.tetris!.lines = 3;
+  const view = render(<TetrisGame pet={saved} active={false} choice={0} />);
+  expect(document.querySelector(".tetris-game header")?.textContent).toContain("消除 3/8");
+  saved.game.tetris!.end = "stacked";
+  view.rerender(<TetrisGame pet={saved} active={false} choice={0} />);
+  expect(document.querySelector(".tetris-overlay")?.textContent).toContain("消除 3 行");
+});

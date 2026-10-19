@@ -114,3 +114,10 @@ describe("actual discoveries and anatomical companions", () => {
     expect(document.querySelector(`.pond-scene[data-rig="${companion.rig}"][data-method="${companion.method}"]`)).toBeTruthy(); expect(document.querySelector(`.${companion.rig}-rig[data-rig-stage="${stage}"]`)).toBeTruthy(); expect(document.querySelectorAll(".fishing-companion svg")).toHaveLength(1); expect(document.querySelector(".fishing-companion svg")?.classList.contains("rig-motion-fishing")).toBe(true); expect(document.querySelector(".fishing-companion svg")?.classList.contains("rig-motion-idle")).toBe(false); expect(screen.getByText(companion.waiting)).toBeTruthy();
   });
 });
+
+it.each([1, 2, 3])("explains that an early reel used cast %i, including the last cast", casts => {
+  const pet = fixture(); Object.assign(pet.game!.fishing!, { casts, phase: casts === 3 ? "done" : "result", outcome: "early" });
+  render(<FishingGame pet={pet} active={true} choice={0} />);
+  expect(document.querySelector(".fishing-status")?.textContent).toContain("这一竿已用掉");
+  expect(document.querySelector(".fishing-status")?.textContent).toContain(casts === 3 ? "三竿完成" : "下一竿等咬钩提示");
+});

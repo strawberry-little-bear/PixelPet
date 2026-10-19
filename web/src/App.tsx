@@ -18,7 +18,7 @@ import { TetrisGame } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
 import { TileGame, nextTile } from "./TileGame";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
-import { games, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
+import { games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
 import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { shopItems, shopSections } from "./shop";
@@ -217,6 +217,7 @@ export default function App() {
   const [growthPage, setGrowthPage] = useState(0);
   const [arcadeChoice, setArcadeChoice] = useState(0);
   const [guidePage, setGuidePage] = useState(0);
+  const [guideReview, setGuideReview] = useState(false);
   const [abandonGame, setAbandonGame] = useState<string | null>(null);
   const sessionKey = gameSessionKey(pet?.game);
   const abandoning = page === "game" && abandonGame !== null && abandonGame === sessionKey;
@@ -1107,11 +1108,14 @@ export default function App() {
     if (page === "arcade") {
       if (key === "A") setArcadeChoice((v) => (v + 1) % games.length);
       else if (key === "C") setPage("home");
-      else { setGuidePage(0); setPage("game-guide"); }
+      else { setGuidePage(0); setGuideReview(false); setPage("game-guide"); }
       return;
     }
     if (page === "game-guide") {
-      if (key === "A") setGuidePage(v => (v + 1) % 2);
+      if (key === "A") {
+        if (guideSeen(games[arcadeChoice].id) && !guideReview) { setGuideReview(true); setGuidePage(0); }
+        else setGuidePage(v => (v + 1) % 2);
+      }
       else if (key === "C") setPage("arcade");
       else {
         const game = games[arcadeChoice];
@@ -1520,9 +1524,9 @@ export default function App() {
   const fishing = pet?.game?.fishing;
   const fishingHint = fishing?.phase === "done" ? "B / C 收好发现" : fishing?.paused || (["wait", "bite"].includes(fishing?.phase ?? "") && fishingSession !== pet?.game?.id) ? "A 选择  B 确认  C 继续" : "A 换钓点  B 抛 / 提竿  C 暂停";
   const gameNavHint = page === "arcade"
-    ? "A 换游戏  B 看说明  C 返回"
+    ? "A 换游戏  B 进入  C 返回"
     : page === "game-guide"
-      ? "A 翻页  B 开始  C 返回选择"
+      ? guideSeen(games[arcadeChoice].id) && !guideReview ? "A 重看规则  B 开始  C 返回选择" : "A 翻页  B 开始  C 返回选择"
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A / B 翻页  C 返回" : "";
   const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"
       : uncertain || unavailable ? checking ? "正在读取 · 不重做操作" : "B 读取存档 · 不重做操作"
@@ -1809,7 +1813,7 @@ export default function App() {
                             now={now}
                           />
                         )}
-                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} />}
+                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} />}
                         {abandoning && <AbandonGame stars={!pet.game?.kind} fishing={pet.game?.kind === "fishing"} walk={pet.game?.kind === "walk"} />}
                         {page === "shop" && (
                           <ShopPanel

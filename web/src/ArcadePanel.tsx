@@ -25,12 +25,20 @@ export function ArcadePanel({ choice, economy, shop, now }: {
     <small>{allowance?.walletFull ? "钱包已满，本局不会得币；仍可陪它玩。"
       : allowance?.daily === 0 ? "今日不再得币，仍可陪它玩，没有惩罚。"
         : allowance?.available !== null && allowance?.available !== undefined && allowance.available < allowance.daily ? `钱包还能收 ${allowance.available} 币；所有游戏共用额度。`
-          : "所有游戏共用额度；B 看说明，不立即开局。"}</small>
+          : "所有游戏共用额度；B 进入，不立即开局。"}</small>
   </section>;
 }
 
-export function GameGuide({ game, page }: { game: GameInfo; page: number; }) {
+export function GameGuide({ game, page, review = false }: { game: GameInfo; page: number; review?: boolean; }) {
   const seen = guideSeen(game.id);
+  if (seen && !review) return <section className="game-guide game-quick-start" aria-label={`${game.title}开始准备`} data-guide={game.id}>
+    <header>准备再玩 · {game.title}</header>
+    <strong>{game.summary} · {game.duration}</strong>
+    <p>{game.controls}</p>
+    <p className="guide-reward">{game.reward}</p>
+    <p>{game.id === "stars" || game.id === "tiles" ? "按 B 才开局，不会自动操作。" : game.id === "fishing" ? "开局后按 B 手动抛竿，不会自动开始等待。" : "开局后保持暂停，按画面提示手动继续。"}</p>
+    <small>A 重看规则 · B 开始 · C 返回选游戏</small>
+  </section>;
   return <section className="game-guide" aria-label={`${game.title}玩法说明`} data-guide={game.id}>
     <header>{seen ? "再看玩法" : "第一次一起玩"} · {game.title}<small>{page + 1} / 2</small></header>
     <strong>{page === 0 ? game.controls : "暂停、离开与奖励"}</strong>

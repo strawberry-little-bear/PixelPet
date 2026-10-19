@@ -16,13 +16,13 @@ const id = "0123456789abcdef0123456789abcdef";
 let saved: PetState, failStart: boolean, failCancel: boolean;
 const actions = () => api.mock.calls.filter(c => c[0] === "action").map(c => c[1] as { kind: string; gameId?: string; });
 const response = () => ({ state: structuredClone(saved), message: "", serverTime: Date.now(), shop: rules });
-function session(info: GameInfo) {
+function session(info: GameInfo, fishingPaused = true) {
   const common = { id, startedAt: Date.now(), round: 0, score: 0, lastBeat: -1 };
   if (info.id === "stars") return common;
   if (info.id === "tiles") return { ...common, kind: "tiles" as const, tiles: { board: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8], pick: -1, pairs: 0, shuffles: 0 } };
   if (info.id === "snake") return { ...common, kind: "snake" as const, snake: { body: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }], food: { x: 9, y: 9 }, direction: 0, eaten: 0, step: 0, lastMoveAt: Date.now(), paused: true } };
   if (info.id === "walk") return {...common,kind:"walk" as const,walking:{route:Array<"rock"|"branch">(12).fill("rock"),souvenirs:["leaf","shell","flower"],beat:0,step:0,cleared:0,pose:"" as const,poseUntil:0,lastPulseAt:Date.now(),lastInputAt:0,paused:true}};
-  if (info.id === "fishing") return { ...common, kind: "fishing" as const, fishing: {spot:0, casts:0, catches:[], phase:"ready" as const, step:0, waitMs:0, elapsedMs:0, candidate:"", lastPulseAt:Date.now(), paused:true} };
+  if (info.id === "fishing") return { ...common, kind: "fishing" as const, fishing: {spot:0, casts:0, catches:[], phase:"ready" as const, step:0, waitMs:0, elapsedMs:0, candidate:"", lastPulseAt:Date.now(), paused:fishingPaused} };
   return { ...common, kind: "tetris" as const, tetris: { board: Array<number>(96).fill(0), active: { kind: 3, rotation: 0, x: 2, y: 0 }, next: 1, bag: [4, 5, 6, 7], lines: 0, pieces: 0, step: 0, lastFallAt: Date.now(), paused: true } };
 }
 async function key(key: string) { await act(async () => { fireEvent.keyDown(window, { key }); }); }
@@ -45,7 +45,7 @@ beforeEach(() => {
     if (path === "action") {
       const a = body as { kind: string; };
       const info = games.find(g => g.startAction === a.kind);
-      if (info) { if (failStart) throw new RequestFailure("开局没有保存", "rejected"); saved.game = session(info); }
+      if (info) { if (failStart) throw new RequestFailure("开局没有保存", "rejected"); saved.game = session(info, false); }
       if (a.kind === "cancel-play") { if (failCancel) throw new RequestFailure("放弃没有保存", "rejected"); delete saved.game; }
       const n = saved.game?.snake;
       if (n && a.kind === "snake-resume") { n.paused = false; n.lastMoveAt = Date.now(); }
@@ -96,7 +96,7 @@ describe("game directory and optional three-key guides", () => {
   });
   it("allows replaying an acknowledged guide and doesn't let a UI storage failure prevent play", async () => {
     rememberGuide("stars"); await mount(); await select(0); await key("b");
-    expect(document.querySelector(".game-guide")?.textContent).toContain("再看玩法");
+    expect(document.querySelector(".game-quick-start")?.textContent).toContain("准备再玩");
     expect(actions()).toHaveLength(0);
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
     await key("b"); expect(saved.game).toBeTruthy();
@@ -203,5 +203,48 @@ describe("guide and confirmation edge cases", () => {
     await act(async () => { fireEvent.keyDown(document, { key: "Escape" }); });
     await clock(2000); expect(actions().map(a => a.kind)).toEqual([`${info.id}-resume`]);
     expect(document.querySelector(info.id === "snake" ? ".snake-overlay" : ".tetris-overlay")).toBeTruthy();
+  });
+});
+
+describe("playtest feedback: compact repeat entry", () => {
+  it("gives all six directory entries distinct nonempty symbols", () => {
+    expect(games.every(game => game.icon.trim().length > 0)).toBe(true);
+    expect(new Set(games.map(game => game.icon)).size).toBe(games.length);
+  });
+  it.each(games.map((game, index) => [game, index] as const))("lets a returning $0.id player start or explicitly reread both pages", async (info, index) => {
+    rememberGuide(info.id); await mount(); await select(index); await key("b");
+    expect(document.querySelector(".game-quick-start")?.textContent).toContain(info.title);
+    expect(document.querySelector(".guide-steps")).toBeNull();
+    expect(screen.getByText("A 重看规则 · B 开始 · C 返回选游戏")).toBeTruthy();
+    expect(actions()).toHaveLength(0);
+    if (info.id === "fishing") expect(screen.getByText("开局后按 B 手动抛竿，不会自动开始等待。")).toBeTruthy();
+    await key("a");
+    expect(document.querySelector(".game-quick-start")).toBeNull();
+    expect(document.querySelector(".guide-steps")?.textContent).toBe(info.lesson);
+    await key("a"); expect(document.querySelector(".guide-steps")?.textContent).toBe(info.leaving);
+    await key("c"); expect(document.querySelector(`[data-game="${info.id}"][aria-current="true"]`)).toBeTruthy();
+    await key("b"); expect(document.querySelector(".game-quick-start")).toBeTruthy();
+    await key("b"); expect(actions().map(action => action.kind)).toEqual([info.startAction]);
+    const game = saved.game!;
+    if (info.id === "snake") expect(game.snake!.paused).toBe(true);
+    if (info.id === "tetris") expect(game.tetris!.paused).toBe(true);
+    if (info.id === "fishing") {
+      expect(game.fishing!.phase).toBe("ready"); expect(game.fishing!.casts).toBe(0);
+      expect(game.fishing!.paused).toBe(false);
+    }
+    if (info.id === "walk") expect(game.walking!.paused).toBe(true);
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
+  });
+  it("keeps a rejected repeat start on the compact card for an explicit retry", async () => {
+    rememberGuide("walk"); failStart = true; await mount(); await select(5); await key("b"); await key("b");
+    expect(document.querySelector(".game-quick-start")).toBeTruthy(); expect(saved.game).toBeUndefined();
+    expect(screen.getByText("开局没有保存")).toBeTruthy();
+    failStart = false; await key("b"); expect(saved.game?.kind).toBe("walk");
+    expect(actions().map(action => action.kind)).toEqual(["play-walk", "play-walk"]);
+  });
+  it("warns about early reels and the block operation menu in the shared lessons", () => {
+    expect(games.find(game => game.id === "fishing")!.lesson).toContain("提前提竿也会用掉这一竿");
+    expect(games.find(game => game.id === "tetris")!.lesson).toContain("按 C 打开旋转、落底等操作");
   });
 });

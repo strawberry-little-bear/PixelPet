@@ -40,7 +40,7 @@ export function TetrisGame({ pet, active, choice }: { pet: PetState; active: boo
     while (blockCells({ ...ghost, y: ghost.y + 1 }).every(p => p.y < 12 && !n.board[p.y * 8 + p.x])) ghost.y++;
   }
   return <section className="tetris-game" aria-label="积木俄罗斯方块">
-    <header><strong>积木俄罗斯方块</strong><span>消行 {n.lines}/8</span></header>
+    <header><strong>积木俄罗斯方块</strong><span>消除 {n.lines}/8</span></header>
     <div className="tetris-playfield">
       <div className="tetris-field">
         <svg viewBox="0 0 80 120" role="img" aria-label={`积木棋盘，已消除 ${n.lines} 行，已放 ${n.pieces} 块`} shapeRendering="crispEdges">
