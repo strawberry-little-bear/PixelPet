@@ -771,6 +771,8 @@ export default function App() {
     const previous = modalReturnFocus.current || document.activeElement as HTMLElement | null;
     modalRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const trap = (event: KeyboardEvent) => {
+      // Let IME selection keep Escape/Tab, including legacy browser events.
+      if (event.isComposing || event.keyCode === 229) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -1299,10 +1301,14 @@ export default function App() {
   };
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (
+        e.defaultPrevented || e.isComposing || e.keyCode === 229 ||
+        e.metaKey || e.ctrlKey || e.altKey
+      ) return;
       if (
         e.target instanceof HTMLElement &&
-        (["INPUT", "TEXTAREA", "SELECT", "A"].includes(e.target.tagName) ||
+        (e.target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT", "A"].includes(e.target.tagName) ||
           (e.target.tagName === "BUTTON" &&
             !e.target.classList.contains("physical-button")))
       )
