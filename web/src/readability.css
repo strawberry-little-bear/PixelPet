@@ -116,3 +116,7 @@
 @media (forced-colors: active) {
   .care-preview { border-color: CanvasText; }
 }
+
+/* Keep status values such as 100 intact at readable/root-scaled sizes.
+   The legacy fixed 20px column otherwise wraps digits under overflow-wrap. */
+.reading-mode .screen-status .lcd-meter > b { width: auto; min-width: 3ch; flex: 0 0 auto; white-space: nowrap; }

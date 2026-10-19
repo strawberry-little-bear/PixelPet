@@ -67,22 +67,31 @@ const dogMessages: Record<NeedKind, string> = {
   quiet: "垂耳抱好小爪，想和你安静待一会儿",
 };
 
-// No timer, randomness, network request or reward: a saved state has exactly
-// one expression. Body needs take priority over an invitation to play.
-export function petNeed(pet: PetState | null): NeedSignal | null {
-  if (!pet?.hatchedAt || pet.sleeping || pet.game) return null;
-  const { hunger, energy, clean, mood } = pet.needs;
+// Shared body priority for expressions and read-only care advice. Sleep still
+// suppresses all expressions; its advice considers food/cleanliness, not a
+// contradictory invitation to sleep again or play while resting.
+export function bodyNeed(pet: Pick<PetState, "needs" | "sleeping">) {
+  const { hunger, energy, clean } = pet.needs;
   const body = [
     { kind: "hungry" as const, value: hunger, threshold: 55 },
     { kind: "tired" as const, value: energy, threshold: 40 },
     { kind: "dirty" as const, value: clean, threshold: 45 },
-  ];
-  // Lowest critical value wins. Fixed ordering breaks ties, so polling won't
-  // alternate competing messages. Eating/cleaning immediately recompute this.
+  ].filter(n => !pet.sleeping || n.kind !== "tired");
+  // Lowest critical value wins; fixed ordering breaks ties. Otherwise use
+  // relative need severity. Never mutate the original needs or their order.
   const urgent = body.filter(n => n.value <= 25).sort((a, b) => a.value - b.value)[0];
   const needed = urgent ?? body.filter(n => n.value <= n.threshold)
     .sort((a, b) => a.value / a.threshold - b.value / b.threshold)[0];
+  return needed ? { kind: needed.kind, urgent: !!urgent } : null;
+}
+
+// No timer, randomness, network request or reward: a saved state has exactly
+// one expression. Body needs take priority over an invitation to play.
+export function petNeed(pet: PetState | null): NeedSignal | null {
+  if (!pet?.hatchedAt || pet.sleeping || pet.game) return null;
+  const { energy, mood } = pet.needs;
+  const needed = bodyNeed(pet);
   const kind = needed?.kind ?? (mood <= 60
     ? (energy >= 45 ? "playful" : "quiet") : "content");
-  return { kind, text: (pet.species === 3 ? dolphinMessages : pet.species === 4 ? mushroomMessages : pet.species === 5 ? bearMessages : pet.species === 6 ? frogMessages : pet.species === 8 ? dragonMessages : pet.species === 9 ? dogMessages : messages)[kind], urgent: !!urgent };
+  return { kind, text: (pet.species === 3 ? dolphinMessages : pet.species === 4 ? mushroomMessages : pet.species === 5 ? bearMessages : pet.species === 6 ? frogMessages : pet.species === 8 ? dragonMessages : pet.species === 9 ? dogMessages : messages)[kind], urgent: needed?.urgent ?? false };
 }
