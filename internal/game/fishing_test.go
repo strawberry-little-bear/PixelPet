@@ -178,6 +178,41 @@ func TestFishingTimingAndSessionGuards(t *testing.T) {
 		t.Fatal("repeat step")
 	}
 }
+
+// A stale foreground pulse must not consume waiting/bite time, a cast, or a
+// discovery. The client can synchronize and require an explicit resume safely.
+func TestFishingRejectedStalePulseKeepsOpportunity(t *testing.T) {
+	for _, phase := range []string{"wait", "bite"} {
+		t.Run(phase, func(t *testing.T) {
+			s, now := fishingState(t)
+			if phase == "bite" {
+				bite(t, &s, &now)
+			} else {
+				fishDo(t, &s, now, "fish-cast")
+			}
+			stale := fishAction(&s, "fish-step")
+			// Another foreground window refreshes the manual session boundary.
+			fishDo(t, &s, now, "fish-resume")
+			before := copyState(s)
+			for i := 0; i < 3; i++ {
+				if _, feedback, err := s.ApplyWithFeedback(stale, now.Add(time.Second)); err == nil || feedback != nil {
+					t.Fatal("obsolete pulse accepted or reported care", err, feedback)
+				}
+				if !reflect.DeepEqual(before, s) {
+					t.Fatal("rejected pulse changed opportunity, discoveries or rewards")
+				}
+			}
+			now = now.Add(time.Second)
+			fishDo(t, &s, now, "fish-resume")
+			now = now.Add(time.Second)
+			fishDo(t, &s, now, "fish-step")
+			if s.Game.Fishing.ElapsedMS != before.Game.Fishing.ElapsedMS+1000 || s.Game.Fishing.Casts != before.Game.Fishing.Casts {
+				t.Fatal("manual resume consumed or replayed time")
+			}
+		})
+	}
+}
+
 func TestFishingDiscoveryPersistsWithoutCompletionAndSaturates(t *testing.T) {
 	s, now := fishingState(t)
 	bite(t, &s, &now)

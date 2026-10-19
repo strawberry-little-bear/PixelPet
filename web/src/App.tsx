@@ -943,7 +943,13 @@ export default function App() {
     if (page !== "game" || !n || n.paused || !["wait", "bite"].includes(n.phase) || fishingSession !== pet.game?.id || busy || document.hidden || tools || help || reset || abandoning) return;
     const timer = setTimeout(() => {
       if (document.hidden) { fishingEpoch.current++; setFishingSession(""); return; }
-      void act("fish-step", { step: n.step });
+      void act("fish-step", { step: n.step }).then(ok => {
+        if (!ok) {
+          fishingEpoch.current++;
+          setFishingSession("");
+          void refresh();
+        }
+      });
     }, Math.max(80, 1050 - (Date.now() + offset.current - n.lastPulseAt)));
     return () => clearTimeout(timer);
   }, [pet?.game, fishingSession, page, busy, tools, help, reset, abandoning]);

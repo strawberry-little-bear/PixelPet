@@ -75,6 +75,21 @@ describe("three-key pond and explicit pause", () => {
     await key("c"); await clock(1100); count = calls().length;
     fireEvent.click(screen.getByRole("button", { name: "玩法说明" })); await clock(5000); fireEvent.click(screen.getByRole("button", { name: "关闭" })); await clock(2000); expect(calls()).toHaveLength(count);
   });
+  it("stops after a rejected automatic pulse rather than repeatedly sending the same step", async () => {
+    await mount(); await key("b");
+    const normal = api.getMockImplementation()!;
+    let rejectStep!: (error: unknown) => void;
+    api.mockImplementation((...args) => args[0] === "action" && (args[1] as { kind: string }).kind === "fish-step"
+      ? new Promise((_, reject) => { rejectStep = reject; }) : normal(...args));
+    await clock(1100);
+    await act(async () => { rejectStep(new RequestFailure("本次钓鱼没有保存", "rejected")); });
+    expect(calls().filter(a => a.kind === "fish-step")).toHaveLength(1);
+    await clock(100);
+    expect(calls().filter(a => a.kind === "fish-step")).toHaveLength(1);
+    expect(screen.getByText("池塘已暂停")).toBeTruthy();
+    api.mockImplementation(normal); await key("c"); await clock(1100);
+    expect(calls().filter(a => a.kind === "fish-step")).toHaveLength(2);
+  });
   it("never auto-starts a cast that failed to save and lets B retry", async () => {
     failure = "fish-cast"; await mount(); await key("b"); await clock(5000); expect(calls().map(a => a.kind)).toEqual(["fish-cast"]); expect(screen.getByText("本次钓鱼没有保存")).toBeTruthy(); failure = ""; await key("b"); await clock(1100); expect(calls().at(-1)?.kind).toBe("fish-step");
   });
