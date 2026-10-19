@@ -1,5 +1,5 @@
-// Optional key feedback must never block gameplay, reject into the page, or
-// replay old presses after the browser grants audio permission later.
+// Optional key/bite feedback must never block gameplay, reject into the page,
+// or replay old events after the browser grants audio permission later.
 export class ButtonAudio {
   private context: AudioContext | null = null;
   private resuming: { context: AudioContext; promise: Promise<void> } | null = null;
@@ -40,6 +40,19 @@ export class ButtonAudio {
         finally { if (this.resuming === attempt) this.resuming = null; }
       }
       if (!this.enabled || document.hidden || epoch !== this.epoch || performance.now() - pressedAt > 250 || this.context !== context || context.state !== "running") return;
+      this.tone(context, confirm ? 740 : 520, 0.045, 0.09, 0.1);
+    } catch { /* Missing, blocked or interrupted audio must not affect a key. */ }
+  }
+
+  // Automatic game feedback may use an already-unlocked context only. Never
+  // create/resume one or retain a promise that could announce an old bite.
+  bite() {
+    if (!this.enabled || document.hidden || this.context?.state !== "running") return;
+    this.tone(this.context, 1040, 0.03, 0.12, 0.14);
+  }
+
+  private tone(context: AudioContext, frequency: number, volume: number, fade: number, duration: number) {
+    try {
       const oscillator = context.createOscillator();
       let gain: GainNode;
       try { gain = context.createGain(); }
@@ -52,17 +65,17 @@ export class ButtonAudio {
       oscillator.onended = () => this.release(note);
       try {
         oscillator.type = "sine";
-        oscillator.frequency.value = confirm ? 740 : 520;
-        gain.gain.setValueAtTime(0.045, context.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.09);
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(volume, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + fade);
         oscillator.connect(gain).connect(context.destination);
         oscillator.start();
-        oscillator.stop(context.currentTime + 0.1);
+        oscillator.stop(context.currentTime + duration);
       } catch {
         try { oscillator.stop(); } catch { /* May not have started. */ }
         this.release(note);
       }
-    } catch { /* Missing, blocked or interrupted audio must not affect a key. */ }
+    } catch { /* Optional audio never changes gameplay. */ }
   }
 
   dispose() {

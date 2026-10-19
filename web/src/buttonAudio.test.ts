@@ -111,3 +111,42 @@ it('disconnects a partially created oscillator when gain creation fails', async 
   await audio.play();const context=ctx();context.createGain.mockImplementationOnce(()=>{throw Error('gain');});
   await audio.play();expect(context.notes[1].oscillator.disconnect).toHaveBeenCalledOnce();expect(context.notes[1].oscillator.start).not.toHaveBeenCalled();
 });
+
+
+it('a bite cannot create a context or request permission', () => {
+  audio.bite(); expect(FakeContext.instances).toHaveLength(0);
+});
+it('plays a distinct quiet bite tone only in an already-running context', async () => {
+  await audio.play(); audio.bite();
+  const { oscillator, gain } = ctx().notes[1];
+  expect(oscillator.type).toBe('sine'); expect(oscillator.frequency.value).toBe(1040);
+  expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(.03,12);
+  expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(.001,12.12);
+  expect(oscillator.stop).toHaveBeenCalledWith(12.14); expect(ctx().resume).not.toHaveBeenCalled();
+  oscillator.onended!(); expect(oscillator.disconnect).toHaveBeenCalledOnce(); expect(gain.disconnect).toHaveBeenCalledOnce();
+});
+it.each(['mute','hide','suspended','closed','disposed'])('a bite stays silent when %s without resuming or replaying', async reason => {
+  await audio.play(); const context=ctx();
+  if(reason==='mute') audio.setEnabled(false);
+  if(reason==='hide') hidden=true;
+  if(reason==='suspended'||reason==='closed') context.state=reason;
+  if(reason==='disposed') audio.dispose();
+  audio.bite(); expect(context.notes).toHaveLength(1); expect(context.resume).not.toHaveBeenCalled();
+  hidden=false; audio.setEnabled(true); context.state='running'; await Promise.resolve();
+  expect(context.notes).toHaveLength(1); expect(FakeContext.instances).toHaveLength(1);
+});
+it('a bite does not wait for pending audio permission', async () => {
+  const s=await suspended(), playing=audio.play(); audio.bite(); s.resolve(); await playing;
+  expect(s.context.notes).toHaveLength(2); expect(s.context.notes[1].oscillator.frequency.value).toBe(520);
+});
+it('cancel stops a bite already playing', async () => {
+  await audio.play(); audio.bite(); const note=ctx().notes[1]; audio.cancel();
+  expect(note.oscillator.stop).toHaveBeenCalledWith(); expect(note.oscillator.disconnect).toHaveBeenCalledOnce(); expect(note.gain.disconnect).toHaveBeenCalledOnce();
+});
+it.each(['oscillator','gain','start','stop'])('bite %s failures are optional and isolated', async failure => {
+  await audio.play(); const context=ctx();
+  if(failure==='oscillator') context.createOscillator.mockImplementationOnce(()=>{throw Error('node');});
+  if(failure==='gain') context.createGain.mockImplementationOnce(()=>{throw Error('gain');});
+  if(failure==='start'||failure==='stop') context.createOscillator.mockImplementationOnce(()=>({...context.notes[0].oscillator,[failure]:vi.fn(()=>{throw Error('node');})}));
+  expect(()=>audio.bite()).not.toThrow();
+});

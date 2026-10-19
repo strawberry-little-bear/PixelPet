@@ -362,6 +362,7 @@ export default function App() {
     }
   }, [page, pet?.album, albumCategory]);
   const stopActivity = useCallback(() => {
+    audio.current?.cancel();
     recapDisplayEpoch.current++;
     setQueuedReturn(null);
     setMessage("");
@@ -853,6 +854,7 @@ export default function App() {
     busyRef.current = true;
     setBusy(true);
     const activeEpoch = fishingEpoch.current;
+    const actionStartedAt = performance.now();
     const activeWalkEpoch = walkEpoch.current;
     const activeBoardEpoch = boardEpoch.current;
     const echoEpoch = homeEchoEpoch.current;
@@ -877,6 +879,17 @@ export default function App() {
         markUncertain();
         return false;
       }
+      // Only this live pulse may announce its own wait -> bite transition.
+      // Reads, resumes, restored games, late replies after an interruption and
+      // repeated bite pulses are intentionally silent. Visual cues remain primary.
+      const beforeFish = pet?.game?.fishing, afterFish = r.state.game?.fishing;
+      if (kind === "fish-step" && page === "game" && pet?.game?.kind === "fishing"
+        && fishingSession === pet.game.id && r.state.game?.id === pet.game.id
+        && beforeFish?.phase === "wait" && !beforeFish.paused
+        && afterFish?.phase === "bite" && !afterFish.paused
+        && activeEpoch === fishingEpoch.current && performance.now() - actionStartedAt <= 1500
+        && !document.hidden && gameWindowActive.current)
+        audio.current?.bite();
       const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
       if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
         setHomeEcho({ ...experience, until: Date.now() + 12000 });
@@ -951,6 +964,7 @@ export default function App() {
   }
   useEffect(() => {
     if (tools || help || reset) {
+      audio.current?.cancel();
       boardEpoch.current++;
       walkEpoch.current++;setWalkSession("");
       fishingEpoch.current++;
@@ -1033,6 +1047,7 @@ export default function App() {
   }, [pet?.game, snakeSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
     const stop = () => {
+      audio.current?.cancel();
       boardEpoch.current++;
       walkEpoch.current++; setWalkSession("");
       fishingEpoch.current++; setFishingSession("");
@@ -1081,6 +1096,9 @@ export default function App() {
     }
     setPressed(key);
     setTimeout(() => setPressed(""), 140);
+    // A deliberate fishing input takes over from the optional bite cue,
+    // especially when pausing or reeling; do not let it ring over the next view.
+    if (page === "game" && pet?.game?.kind === "fishing") audio.current?.cancel();
     beep(key === "B");
     if (page === "import-preview") {
       setError("");
@@ -1613,7 +1631,8 @@ export default function App() {
           <button
             className="icon-button"
             aria-label={sound ? "关闭声音" : "打开声音"}
-            title={sound ? "关闭声音" : "打开声音"}
+            title={sound ? "关闭按键与咬钩提示音" : "打开按键与咬钩提示音（非必需）"}
+            aria-describedby="sound-description"
             onClick={() => {
               const v = !sound;
               setSound(v);
@@ -1628,6 +1647,7 @@ export default function App() {
           >
             {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
+          <span className="sr-only" id="sound-description">开启后提供按键与咬钩短提示音；静音不影响文字提示和三键游玩。</span>
           <button
             className="icon-button"
             aria-label="玩法说明"
