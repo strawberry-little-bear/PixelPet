@@ -1359,21 +1359,41 @@ export default function App() {
       if (e.target instanceof HTMLElement && e.target.matches(".return-panel") &&
         (e.key === "ArrowDown" || e.key === " ")) return;
       const key = e.key.toLowerCase();
-      const mapped = ["a", "arrowright", "arrowdown"].includes(key)
+      // Enter/Space activate the focused physical key, just like clicking it.
+      // In particular the import preview deliberately focuses safe C: never
+      // turn that native activation into the global B/confirm shortcut.
+      const button = e.target instanceof HTMLButtonElement &&
+        e.target.classList.contains("physical-button") ? e.target : null;
+      const focusedKey = button && (key === "enter" || key === " ")
+        ? ["A", "B", "C"].find(control => button.classList.contains(`button-${control.toLowerCase()}`))
+        : undefined;
+      const mapped = focusedKey ?? (["a", "arrowright", "arrowdown"].includes(key)
         ? "A"
         : ["b", "enter", " "].includes(key)
           ? "B"
           : ["c", "escape"].includes(key)
             ? "C"
-            : null;
+            : null);
       if (mapped) {
         e.preventDefault();
         // Suppress native Enter/Space repeats on a focused physical button too.
         if (!e.repeat) controls.current(mapped);
       }
     };
+    const up = (e: KeyboardEvent) => {
+      // Chrome can still emit a native button click on Space release after
+      // repeated keydowns. The mapped action already ran on the first down.
+      if (e.key === " " && !e.isComposing && e.keyCode !== 229 &&
+        !e.metaKey && !e.ctrlKey && !e.altKey &&
+        e.target instanceof HTMLButtonElement && e.target.classList.contains("physical-button"))
+        e.preventDefault();
+    };
     window.addEventListener("keydown", down);
-    return () => window.removeEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
   }, []);
   function cancelImport() {
     discardImport();
@@ -2288,6 +2308,7 @@ export default function App() {
                     <span>返回；实时游戏里暂停，放弃本局还需 B 再次确认。</span>
                   </p>
                 </div>
+                <p>也可以用 Tab 聚焦机身按钮，再按 Enter 或空格操作该按钮。</p>
                 <p>游戏选择页显示每款的操作、预计时长与领奖条件；每次都能重看说明。所有游戏共用当日金币额度，按 UTC 日更新，额度用完仍可玩。</p>
                 <PetCareGuide rules={careRules} />
               </>
