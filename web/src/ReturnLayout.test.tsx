@@ -25,17 +25,28 @@ beforeEach(() => {
   api.mockImplementation(async () => result());
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
-it("page changes reset inner scrolling, without replacing the focused section", () => {
+it("page changes replace the native scroll target and transfer reading focus", () => {
   const view = render(<ReturnPanel recap={recap!} page={0} pet={saved} />); const section = panel();
   expect(section.getAttribute("tabindex")).toBe("0"); section.focus(); section.scrollTop = 200;
   view.rerender(<ReturnPanel recap={recap!} page={1} pet={saved} />);
-  expect(panel()).toBe(section); expect(section.scrollTop).toBe(0); expect(document.activeElement).toBe(section);
-  section.scrollTop = 500; view.rerender(<ReturnPanel recap={recap!} page={0} pet={saved} />); expect(section.scrollTop).toBe(0);
+  expect(panel()).not.toBe(section); expect(panel().scrollTop).toBe(0); expect(document.activeElement).toBe(panel());
+  panel().scrollTop = 500; view.rerender(<ReturnPanel recap={recap!} page={0} pet={saved} />); expect(panel().scrollTop).toBe(0); expect(document.activeElement).toBe(panel());
 });
 it("new record IDs reset scrolling, ordinary same-ID snapshots preserve reading", () => {
   const view = render(<ReturnPanel recap={recap!} page={0} pet={saved} />); const section = panel(); section.scrollTop = 200;
-  view.rerender(<ReturnPanel recap={structuredClone(recap!)} page={0} pet={{ ...saved, sleeping: true }} />); expect(section.scrollTop).toBe(200);
-  view.rerender(<ReturnPanel recap={{ ...recap!, id: "two" }} page={0} pet={saved} />); expect(section.scrollTop).toBe(0);
+  view.rerender(<ReturnPanel recap={structuredClone(recap!)} page={0} pet={{ ...saved, sleeping: true }} />); expect(panel()).toBe(section); expect(section.scrollTop).toBe(200);
+  view.rerender(<ReturnPanel recap={{ ...recap!, id: "two" }} page={0} pet={saved} />); expect(panel()).not.toBe(section); expect(panel().scrollTop).toBe(0);
+});
+it("replacement respects physical-key focus and restores reading focus with preventScroll", () => {
+  const view = render(<><button>A</button><ReturnPanel recap={recap!} page={0} pet={saved} /></>);
+  const button = screen.getByRole("button"); button.focus();
+  const focus = vi.spyOn(HTMLElement.prototype, "focus");
+  view.rerender(<><button>A</button><ReturnPanel recap={{ ...recap!, id: "two" }} page={1} pet={saved} /></>);
+  expect(document.activeElement).toBe(button); expect(focus).not.toHaveBeenCalled();
+  panel().focus(); focus.mockClear();
+  view.rerender(<><button>A</button><ReturnPanel recap={recap!} page={0} pet={saved} /></>);
+  expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true }); expect(document.activeElement).toBe(panel());
+  focus.mockRestore();
 });
 it("only an effective return page opts in; A/B/C navigation stays unchanged", async () => {
   await mount(); expect(mode()).toBeNull(); await review(); expect(mode()).not.toBeNull();

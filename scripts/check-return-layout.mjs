@@ -22,7 +22,15 @@ async function size(page) { return page.evaluate(() => Object.fromEntries(['.dev
 async function sync(page) { await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); }
 async function bottom(page) {
   const panel = page.locator('.return-panel'); await panel.focus(); await page.keyboard.press('End');
-  await page.waitForFunction(() => { const e = document.querySelector('.return-panel'); return e.scrollHeight - e.clientHeight - e.scrollTop < 2; });
+  // This helper tests settled reading; mid-animation replacement is covered
+  // separately by check-return-scroll.mjs with strict per-frame zero assertions.
+  await page.evaluate(() => { window.__bottomReading = null; });
+  await page.waitForFunction(() => {
+    const e = document.querySelector('.return-panel'), previous = window.__bottomReading;
+    const top = e.scrollTop, nearBottom = Math.abs(e.scrollHeight - e.clientHeight - top) < 2;
+    const stable = nearBottom && previous?.top === top ? previous.stable + 1 : 0;
+    window.__bottomReading = { top, stable }; return stable >= 3;
+  });
   const reading = await panel.evaluate(el => {
     const box = el.getBoundingClientRect(), header = el.querySelector('header').getBoundingClientRect(), last = el.lastElementChild.lastElementChild.getBoundingClientRect();
     return { top: el.scrollTop, max: el.scrollHeight - el.clientHeight, visible: last.bottom <= box.bottom + 1 && last.top >= header.bottom - 1, headerTop: header.top, panelTop: box.top, sticky: header.top >= box.top - 1 && header.top <= box.top + parseFloat(getComputedStyle(el).paddingTop) + 1 };
