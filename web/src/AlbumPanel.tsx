@@ -60,7 +60,7 @@ export function memoryWords(m: Memory, legacy: boolean) {
   }
 }
 const dateLabel = (at: number) => new Date(at).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
-export function AlbumPanel({ pet, now, page, category = "all" }: { pet: PetState; now: number; page: number; category?: AlbumCategory }) {
+export function AlbumPanel({ pet, now, page, category = "all", missing = false }: { pet: PetState; now: number; page: number; category?: AlbumCategory; missing?: boolean }) {
   const memories = albumMemories(pet, category);
   const categoryLabel = albumCategories.find(c => c.id === category)!.label;
   const currentPage = Math.min(Math.max(0, page), memories.length);
@@ -71,6 +71,7 @@ export function AlbumPanel({ pet, now, page, category = "all" }: { pet: PetState
   const Icon = memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : memory?.kind === "goodnight" ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
   return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage} data-album-category={category} data-album-kind={memory?.kind}>
     <header><strong>{category !== "all" ? categoryLabel : memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
+    {missing && <small role="status" className="album-source">同步时未找到刚才那条回忆，已返回本类封面。</small>}
     <div className={`album-picture ${isPortrait ? "album-portrait" : ""}`} aria-hidden="true">
       {isPortrait ? <PetArt index={pet.species} stage={stage} expression="still" /> : memory?.kind === "wallpaper" || memory?.kind === "floor" ? <RoomSurfaceArt id={memory.item} /> : memory?.kind === "decoration" ? <RoomDecoration id={memory.item} /> : memory?.kind === "outfit" ? <PetArt index={pet.species} stage={pet.growth?.stage || "baby"} accessory={memory.item} /> : <Icon size={30} strokeWidth={1.5} />}
     </div>

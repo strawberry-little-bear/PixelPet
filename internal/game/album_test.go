@@ -96,6 +96,22 @@ func TestAlbumKeepsFirstSharedExperiencesBeyondDiary(t *testing.T) {
 	}
 }
 
+// Millisecond timestamps are not memory identities: distinct successful care
+// operations can legitimately have the same timestamp in a valid saved album.
+func TestAlbumDistinctCareCanShareTimestamp(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	s := babyAt(now)
+	applyAt(t, &s, "feed", now)
+	applyAt(t, &s, "clean", now)
+	meal, bath := memoryOf(t, s, "meal"), memoryOf(t, s, "bath")
+	if meal.At != bath.At || meal.Kind == bath.Kind {
+		t.Fatal("expected distinct care memories at the same millisecond", meal, bath)
+	}
+	if err := s.Validate(now); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestAlbumOnlyCompleteGamesRememberAndKeepFirstScore(t *testing.T) {
 	now := time.Now().Truncate(time.Millisecond)
 	s := babyAt(now)

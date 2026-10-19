@@ -50,7 +50,8 @@ import { GrowthPanel } from "./GrowthPanel";
 import { CareAdvice } from "./CareAdvice";
 import { previewBackup, backupSizeLimit } from "./backup";
 import { ImportPreview, type PendingImport } from "./ImportPreview";
-import { AlbumDirectory, AlbumPanel, albumCategories, albumPageCount, type AlbumCategory } from "./AlbumPanel";
+import { albumView, nextAlbum, reconcileAlbum, startAlbum } from "./album-reading";
+import { AlbumDirectory, AlbumPanel, albumCategories, type AlbumCategory } from "./AlbumPanel";
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import { CareOutcome } from "./CareOutcome";
@@ -255,9 +256,10 @@ export default function App() {
       setShopNotice("刚才预览的物品已不在这个分类中，已更新预览；请重新核对。");
     }
   }, [page, shopCategory, shop, pet, shopItemId, purchaseConfirm, busy]);
-  const [albumPage, setAlbumPage] = useState(0);
+  const [albumCursor, setAlbumCursor] = useState(startAlbum);
   const [albumChoice, setAlbumChoice] = useState(0);
   const [albumCategory, setAlbumCategory] = useState<AlbumCategory | null>(null);
+  const albumReading = pet && albumCategory !== null ? albumView(pet, albumCategory, albumCursor) : null;
   const [returnRecap, setReturnRecap] = useState<ReturnRecap | null>(null);
   const [returnPending, setReturnPending] = useState(false);
   const [returnReading, setReturnReading] = useState<{ id: string; page: number; updated: boolean } | null>(null);
@@ -337,6 +339,11 @@ export default function App() {
   useEffect(() => {
     if (page === "journal") setJournalCursor(cursor => reconcileJournal(pet?.logs ?? [], cursor));
   }, [page, pet?.logs]);
+  useEffect(() => {
+    if (page === "album" && pet && albumCategory !== null) {
+      setAlbumCursor(cursor => reconcileAlbum(pet, albumCategory, cursor));
+    }
+  }, [page, pet?.album, albumCategory]);
   const stopActivity = useCallback(() => {
     recapDisplayEpoch.current++;
     setQueuedReturn(null);
@@ -1027,10 +1034,10 @@ export default function App() {
     if (page === "album") {
       if (albumCategory === null) {
         if (key === "A") setAlbumChoice(v => (v + 1) % albumCategories.length);
-        else if (key === "B") { setAlbumCategory(albumCategories[albumChoice].id); setAlbumPage(0); }
+        else if (key === "B") { setAlbumCategory(albumCategories[albumChoice].id); setAlbumCursor(startAlbum()); }
         else if (key === "C") setPage("home");
       } else if (key === "C") setAlbumCategory(null);
-      else if (key === "A" || key === "B") setAlbumPage(v => (v + 1) % albumPageCount(pet, albumCategory));
+      else if (key === "A" || key === "B") setAlbumCursor(cursor => nextAlbum(pet, albumCategory, cursor));
       return;
     }
     if (page === "park-album") {
@@ -1263,7 +1270,7 @@ export default function App() {
         setPage("album");
         setAlbumCategory(null);
         setAlbumChoice(0);
-        setAlbumPage(0);
+        setAlbumCursor(startAlbum());
       } else if (item.kind === "status") {
         setStatusPage(0);
         setPage("status");
@@ -1732,7 +1739,7 @@ export default function App() {
                         {page === "park-album" && <ParkAlbum pet={pet} page={parkPage} />}
                         {page === "fish-album" && <FishAlbum pet={pet} page={fishPage} />}
                         {page === "album" && (
-                          albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} now={now} page={albumPage} category={albumCategory} />
+                          albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} now={now} page={albumReading?.page ?? 0} missing={albumReading?.cursor.missing} category={albumCategory} />
                         )}
                         {page === "return" && returnRecap && (
                           <ReturnPanel recap={returnRecap} page={returnPage} updated={returnUpdated} />
