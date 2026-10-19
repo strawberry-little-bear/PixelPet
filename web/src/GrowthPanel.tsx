@@ -18,6 +18,14 @@ import { species } from "./types";
 import type { CareRules, Companion, Growth, GrowthStage } from "./types";
 import "./growth.css";
 
+// Keep exact zero and ordinary one-decimal readings unchanged. Fractional
+// rest accumulates immediately; a positive saved total must not look absent.
+const tinyHabit = (value: number) => value > 0 && value.toFixed(1) === "0.0";
+const habitReading = (value: number) => tinyHabit(value) ? "<0.1" : value.toFixed(1);
+function HabitPrecisionNote() {
+  return <small className="habit-precision-note">「&lt;0.1」表示已有少量积累，不是没有记录；其余按一位小数显示，形态判定仍用原始值。</small>;
+}
+
 function StagePreviews({ growth, index }: { growth: Growth; index: number }) {
   const stages: GrowthStage[] = ["baby", "growing", "adult"];
   const current = stages.indexOf(growth.stage);
@@ -68,6 +76,14 @@ export function GrowthPanel({
   const trackedHours = record?.trackedHours ?? g.trackedHours;
   const wellbeing = record?.wellbeing ?? g.wellbeing;
   const checks = formConditions({ trackedHours, wellbeing, care: evidenceCare });
+  const calmScore = (evidenceCare.clean + evidenceCare.rest) / 2;
+  const habits = [
+    { name: "适时喂食", value: g.care.nutrition },
+    { name: "一起玩耍", value: g.care.play },
+    { name: "需要时洗澡", value: g.care.clean },
+    { name: "有效休息", value: g.care.rest },
+  ];
+  const evidenceValues = [evidenceCare.play, calmScore, ...(record ? [record.nutrition, record.clean, record.rest] : [])];
   return (
     <div className="growth-panel" data-growth-page={page}>
       {page === 0 ? (
@@ -115,21 +131,17 @@ export function GrowthPanel({
             <strong>{formNames[form]}</strong>
           </div>
           <div className="habit-rows">
-            {[
-              { name: "适时喂食", value: g.care.nutrition },
-              { name: "一起玩耍", value: g.care.play },
-              { name: "需要时洗澡", value: g.care.clean },
-              { name: "有效休息", value: g.care.rest },
-            ].map((row) => (
+            {habits.map((row) => (
               <div key={row.name}>
                 <span>{row.name}</span>
                 <div>
                   <i style={{ width: `${Math.min(100, row.value * 12.5)}%` }} />
                 </div>
-                <b>{row.value.toFixed(1)}</b>
+                <b>{habitReading(row.value)}</b>
               </div>
             ))}
           </div>
+          {habits.some(row => tinyHabit(row.value)) && <HabitPrecisionNote />}
           <p className="growth-next">
             {g.trackedHours > 0
               ? `平均舒适度 ${Math.round((g.wellbeing / g.trackedHours) * 100)}%`
@@ -190,11 +202,12 @@ export function GrowthPanel({
           </time>}
           {g.form && !record && <small className="form-record-missing">未保存定型时的依据，不倒推过去；下面是当前习惯。</small>}
           <p className="form-guide-record">
-            {record ? "定型时" : "当前"}陪玩 {evidenceCare.play.toFixed(1)} · 恬静分 {((evidenceCare.clean + evidenceCare.rest) / 2).toFixed(1)}
+            {record ? "定型时" : "当前"}陪玩 {habitReading(evidenceCare.play)} · 恬静分 {habitReading(calmScore)}
           </p>
           {record && <small className="form-record-care">
-            当时喂食 {record.nutrition.toFixed(1)} · 清洁 {record.clean.toFixed(1)} · 休息 {record.rest.toFixed(1)}
+            当时喂食 {habitReading(record.nutrition)} · 清洁 {habitReading(record.clean)} · 休息 {habitReading(record.rest)}
           </small>}
+          {evidenceValues.some(tinyHabit) && <HabitPrecisionNote />}
           <small className="form-guide-history">
             记录 {(Math.floor(trackedHours * 10) / 10).toFixed(1)}h · {trackedHours > 0
               ? `平均舒适约 ${Math.round(wellbeing / trackedHours * 100)}%`

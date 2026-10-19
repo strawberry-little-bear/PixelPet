@@ -446,3 +446,10 @@
 .growth-basis { margin: 8px 0 12px; padding-bottom: 8px; border-bottom: 1px dashed currentColor; }
 .growth-basis h4 { margin: 0 0 6px; }
 .growth-basis p { margin: 6px 0; line-height: 1.6; }
+
+.habit-precision-note {
+  display: block;
+  margin: 6px 0;
+  color: #4e653b;
+  line-height: 1.7;
+}
