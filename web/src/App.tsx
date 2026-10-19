@@ -52,6 +52,7 @@ import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
 import { CareAdvice } from "./CareAdvice";
+import { careMenuLabel } from "./careMenu";
 import { previewBackup, backupSizeLimit } from "./backup";
 import { ImportPreview, type PendingImport } from "./ImportPreview";
 import { albumView, nextAlbum, reconcileAlbum, startAlbum } from "./album-reading";
@@ -99,19 +100,19 @@ type Page =
   | "import-preview";
 const items = [
   {
-    label: "吃点东西",
+    label: careMenuLabel("feed"),
     hint: "一份香喷喷的小饭团",
     icon: Utensils,
     kind: "feed",
   },
   {
-    label: "一起玩耍",
+    label: careMenuLabel("arcade"),
     hint: "星星、配对、果园、积木、池塘与公园",
     icon: Sparkles,
     kind: "arcade",
   },
-  { label: "洗个澡澡", hint: "把小烦恼也洗掉", icon: Waves, kind: "clean" },
-  { label: "睡个好觉", hint: "做一个软绵绵的梦", icon: Moon, kind: "sleep" },
+  { label: careMenuLabel("clean"), hint: "把小烦恼也洗掉", icon: Waves, kind: "clean" },
+  { label: careMenuLabel("sleep"), hint: "做一个软绵绵的梦", icon: Moon, kind: "sleep" },
   { label: "看看状态", hint: "了解小伙伴的心情", icon: Heart, kind: "status" },
   {
     label: "成长日记",
@@ -1975,7 +1976,7 @@ export default function App() {
                                       <Icon size={15} />
                                       <span>
                                         {item.kind === "sleep" && pet.sleeping
-                                          ? "起床啦"
+                                          ? careMenuLabel("sleep", true)
                                           : item.label}
                                       </span>
                                       <span className="menu-number">

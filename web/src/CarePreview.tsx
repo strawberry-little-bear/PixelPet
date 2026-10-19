@@ -1,5 +1,6 @@
 import type { CareRules, Needs, PetState } from "./types";
 import { sleepGrowthGuidance } from "./sleepGuidance";
+import { careMenuLabel } from "./careMenu";
 
 type CareKind = "feed" | "clean" | "sleep";
 const interval = 30 * 60000;
@@ -35,12 +36,12 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
     ];
     return [
       pet.needs.energy >= fullEnergy
-        ? "体力已经满了，也可以安静休息；体力不再恢复时，不增加休息习惯。"
+        ? "体力已经满了，也可以安静休息；体力不再恢复时，不增加休息习惯；饱食和清洁仍会下降。"
         : "睡着后体力慢慢恢复，到满为止；饱食和清洁仍会下降。",
       sleepGrowthGuidance(pet.growth, rules),
     ];
   }
-  if (pet.sleeping) return ["正在睡觉；先选「起床啦」叫醒，再喂食或洗澡。"];
+  if (pet.sleeping) return [`正在睡觉；先选「${careMenuLabel("sleep", true)}」叫醒，再选「${careMenuLabel(kind)}」。`];
   const feeding = kind === "feed";
   const config = careNeeds[kind];
   const need = pet.needs[config.key];

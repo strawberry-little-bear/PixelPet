@@ -53,6 +53,30 @@ describe("sleep guidance through the existing three-key flow", () => {
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();
   });
+  describe.each(["baby", "growing", "adult"] as const)("%s menu destinations", stage => {
+    it.each([
+      ["hunger", "吃点东西", 0], ["clean", "洗个澡澡", 2],
+      ["energy", "睡个好觉", 3], ["mood", "一起玩耍", 1],
+    ] as const)("matches low %s advice to the actual selection", async (need, label, index) => {
+      saved.sleeping = false; saved.growth = emptyGrowth(stage);
+      saved.needs = { hunger: 80, clean: 80, energy: 80, mood: 80 };
+      saved.needs[need] = 10;
+      await mount(); await menu(4);
+      expect(advice()).toContain(`从菜单选「${label}」`);
+      await key("c"); await key("a");
+      for (let i = 0; i < index; i++) await key("a");
+      expect(document.querySelector(".care-item.selected")?.textContent).toContain(label);
+      expect(writes()).toHaveLength(0);
+    });
+    it("keeps the full-energy sleep caveat visible before any action", async () => {
+      saved.sleeping = false; saved.growth = emptyGrowth(stage);
+      await mount(); await key("a");
+      for (let i = 0; i < 3; i++) await key("a");
+      expect(document.querySelector(".care-item.selected")?.textContent).toContain("睡个好觉");
+      expect(screen.getByLabelText("所选菜单说明").textContent).toContain("饱食和清洁仍会下降");
+      expect(writes()).toHaveLength(0);
+    });
+  });
   it("ignores an older reading and updates only after an accepted newer snapshot", async () => {
     saved.needs = { hunger: 80, clean: 80, energy: 99.999, mood: 10 };
     await mount(); await menu(4); expect(advice()).toContain("不必急着叫醒");
