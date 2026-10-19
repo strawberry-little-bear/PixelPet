@@ -22,7 +22,7 @@ const port = await new Promise((resolve, reject) => {
 });
 const base = `http://127.0.0.1:${port}`;
 const scope = process.env.PIXELPET_TEST_SCOPE || 'all';
-assert(['all', 'return'].includes(scope), 'PIXELPET_TEST_SCOPE must be all or return.');
+assert(['all', 'return', 'settlement'].includes(scope), 'PIXELPET_TEST_SCOPE must be all, return or settlement.');
 const results = [];
 let server, browser, startupError, log = '';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -102,19 +102,25 @@ async function absent(sleeping = false) {
   if (sleeping) { state.sleeping = true; state = await importState(state); }
   const visit = await fetch(base + '/api/visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   assert(visit.ok);
+  await shiftElapsed(.5);
+  return state;
+}
+// No client/server clock changes: only this run's own fixture epochs move.
+// Used before opening a browser context, never against a player's save.
+async function shiftElapsed(hours) {
+  assert(Number.isFinite(hours) && hours > 0);
   await promisify(execFile)('python3', ['-c', `
 import sqlite3, json, sys
 with sqlite3.connect(sys.argv[1]) as db:
     def shift(value):
         if isinstance(value, dict): return {k: shift(v) for k, v in value.items()}
         if isinstance(value, list): return [shift(v) for v in value]
-        if isinstance(value, (int, float)) and value > 1000000000000: return value - 1800000
+        if isinstance(value, (int, float)) and value > 1000000000000: return value - int(sys.argv[2])
         return value
     body = json.loads(db.execute('SELECT body FROM saves WHERE id=1').fetchone()[0])
     db.execute('UPDATE saves SET body=? WHERE id=1', (json.dumps(shift(body)),))
-    db.execute('UPDATE visits SET last_seen=last_seen-1800000 WHERE id=1')
-`, join(dir, 'test.db')]);
-  return state;
+    db.execute('UPDATE visits SET last_seen=last_seen-? WHERE id=1', (int(sys.argv[2]),))
+`, join(dir, 'test.db'), String(hours * 3600000)]);
 }
 const corruptions = [
   ...['date', 'needs'].map(field => ({ name: 'return-' + field, stage: 'growing', damage: r => {
@@ -272,7 +278,7 @@ try {
       await end(v, { compatibility: 'feedback-' + feedback, layout: await readable(v) }, 1);
     } finally { await v.ctx.close(); }
   }
-  for (const committed of [false, true]) for (const field of ['date', 'needs']) {
+  if (scope !== 'settlement') for (const committed of [false, true]) for (const field of ['date', 'needs']) {
     const seeded = await absent(); const v = await view(modes[committed ? 1 : 0]);
     let badRead = true, seenRecap;
     try {
@@ -324,7 +330,7 @@ try {
       await end(v, { returnClaim: field, committed, layout }, 1, ['/api/recap/read']);
     } finally { await v.ctx.close(); }
   }
-  for (const sleeping of [false, true]) for (const sleepField of ['absent', 'null']) {
+  if (scope !== 'settlement') for (const sleeping of [false, true]) for (const sleepField of ['absent', 'null']) {
     const seeded = await absent(sleeping); const v = await view(modes[sleepField === 'null' ? 1 : 0]);
     try {
       await v.page.route('**/api/**', async route => {
@@ -367,6 +373,65 @@ try {
       assert.deepEqual((await get()).returnRecap, history);
       await end(v, { returnCompatibility: sleepField, sleeping, controlledMinutes: 30, layout }, sleeping ? 2 : 1,
         sleeping ? ['/api/action', '/api/recap/read'] : ['/api/recap/read']);
+    } finally { await v.ctx.close(); }
+  }
+  if (scope !== 'return') for (const sleeping of [false, true]) for (const test of [
+    { stage: 'baby', gaps: [24], absence: 24, settled: 12 },
+    { stage: 'growing', gaps: [8, 8, 8], absence: 24, settled: 24 },
+    { stage: 'adult', gaps: [8, 40], absence: 48, settled: 20 },
+  ]) {
+    let seeded = await seed(test.stage);
+    if (sleeping) { seeded.sleeping = true; seeded = await importState(seeded); }
+    assert((await fetch(base + '/api/visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).ok);
+    for (let i = 0; i < test.gaps.length; i++) {
+      await shiftElapsed(test.gaps[i]);
+      if (i < test.gaps.length - 1) assert.equal((await get()).returnRecap, undefined);
+    }
+    const response = await fetch(base + '/api/visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    assert(response.ok); const authoritative = await response.json(), history = structuredClone(authoritative.returnRecap);
+    assert(authoritative.recapPending);
+    const hours = history.after.trackedHours - history.before.trackedHours;
+    assert(Math.abs(hours - test.settled) < .01, JSON.stringify({ hours, test }));
+    assert(Math.abs((history.to - history.from) / 3600000 - test.absence) < .01);
+    assert.equal(history.before.stage, test.stage);
+    assert.equal(history.before.sleeping, sleeping); assert.equal(history.after.sleeping, sleeping);
+    assert.equal(authoritative.state.careCount, 0); assert.equal(authoritative.state.economy.coins, seeded.economy.coins);
+    if (sleeping) {
+      assert.equal(history.after.needs.energy, 100);
+      assert(Math.abs(history.after.rest - history.before.rest - (100 - seeded.needs.energy) / 28) < .001);
+    } else { assert(history.after.needs.energy < history.before.needs.energy); assert.equal(history.after.rest, history.before.rest); }
+    if (test.stage === 'adult') { assert.equal(history.after.points, 72); assert.equal(history.after.form, seeded.growth.form); }
+    const v = await view(modes[sleeping ? 1 : 0]);
+    try {
+      // Keep the real pending record unclaimed for manual reading. No gameplay
+      // write is necessary to inspect history, even while the pet is asleep.
+      await v.page.route('**/api/**', async route => {
+        const response = await route.fetch(), reply = await response.json();
+        if ('recapPending' in reply) reply.recapPending = false;
+        await route.fulfill({ response, json: reply });
+      });
+      await v.page.goto(base); await v.page.locator('.content-home').waitFor();
+      await key(v, 'a'); for (let i = 0; i < 7; i++) await key(v, 'a'); await key(v, 'b');
+      assert((await v.page.locator('.return-panel').innerText()).includes(`离开了 ${test.absence} 小时`));
+      await key(v, 'b'); assert.equal(await v.page.locator('.return-panel header span').innerText(), '2 / 2');
+      const text = await v.page.locator('.return-panel').innerText();
+      assert(text.includes(`${test.settled.toFixed(2)} 小时`));
+      assert(text.includes('累计结算，不等同于离开时长')); assert(text.includes('可能分多次结算'));
+      assert(text.includes('具体见状态页时间说明')); assert(!text.includes('单次离线最多结算 12 小时'));
+      const layout = await readable(v);
+      if (test.stage === 'growing') await v.page.screenshot({ path: join(artifacts, `return-settlement-${v.mode.label}.png`), fullPage: true });
+      await key(v, 'a'); assert.equal(await v.page.locator('.return-panel header span').innerText(), '1 / 2');
+      await key(v, 'b'); await key(v, 'b'); await v.page.locator('.content-home').waitFor();
+      await key(v, 'a'); for (let i = 0; i < 6; i++) await key(v, 'a'); await key(v, 'b');
+      for (let i = 0; i < 4; i++) await key(v, 'b');
+      const guide = await v.page.getByLabel('离线与成长说明').innerText();
+      assert(guide.includes('每次结算有上限')); assert(guide.includes('多次读取可能累计更多'));
+      await readable(v);
+      if (test.stage === 'growing' && sleeping) await v.page.screenshot({ path: join(artifacts, 'return-settlement-handbook-large.png'), fullPage: true });
+      await key(v, 'c'); await v.page.locator('.content-home').waitFor();
+      const after = await get(); assert.deepEqual(after.returnRecap, history); assert(after.recapPending);
+      assert.equal(after.state.careCount, 0); assert.equal(after.state.economy.coins, seeded.economy.coins);
+      await end(v, { settlement: test.stage, sleeping, gaps: test.gaps, absence: test.absence, actualHours: hours, layout }, 0);
     } finally { await v.ctx.close(); }
   }
   await writeFile(join(artifacts, 'growth-response-results.json'), JSON.stringify({ db: join(dir, 'test.db'), port, scope, results }, null, 2));

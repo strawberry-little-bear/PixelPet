@@ -54,7 +54,8 @@ export function ReturnPanel({ recap, page, updated = false, pet }: { recap: Retu
         <div><dt>有效休息</dt><dd>+{amount(Math.max(0, after.rest - before.rest))} 习惯</dd></div>
         <div><dt>结算时长</dt><dd>{amount(Math.max(0, after.trackedHours - before.trackedHours))} 小时</dd></div>
       </dl>
-      <small>单次离线最多结算 12 小时 · 无额外奖励</small>
+      <small aria-label="结算时长说明">这是记录时段内的累计结算，不等同于离开时长；期间如有读取，可能分多次结算。</small>
+      <small>每次结算有上限，具体见状态页时间说明；无额外奖励。</small>
     </>}
     {smallChange && <small>「&lt;」表示变化小于显示精度，并非没有变化；前后读数仍按原精度四舍五入。</small>}
     {page === returnPageCount - 1 && <div className="return-care" aria-label="现在的照顾建议">
