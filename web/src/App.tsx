@@ -780,13 +780,15 @@ export default function App() {
     reset,
     acceptCurrentRead,
   ]);
-  // Keep the result readable for eight seconds after care/evolution clips.
-  // Polling never replays it, and C skips only the animation, not saved care.
+  // Give the confirmed result a full reading interval on unobscured home.
+  // As with menu navigation, returning from a panel/hidden tab starts eight
+  // seconds afresh; it never replays a clip, action, or acknowledged reward.
   useEffect(() => {
-    if (!careFeedback || clip || evolution || page !== "home") return;
+    if (!careFeedback || clip || evolution || page !== "home" ||
+      !foreground || document.hidden || tools || help || reset) return;
     const timer = setTimeout(() => setCareFeedback(null), 8000);
     return () => clearTimeout(timer);
-  }, [careFeedback, clip, evolution, page]);
+  }, [careFeedback, clip, evolution, page, foreground, tools, help, reset]);
   function finishClip() {
     activeEvolution.current = null;
     clipRef.current = null;
