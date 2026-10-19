@@ -162,6 +162,7 @@ func (s *State) applyWalking(a Action, now time.Time) (string, error) {
 		}
 		if n.Beat%24 == 0 {
 			s.discoverPark(n.Souvenirs[n.Beat/24-1], now)
+			s.rememberOuting(now)
 		}
 	default:
 		return "", errors.New("不认识这个散步操作")

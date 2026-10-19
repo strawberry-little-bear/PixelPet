@@ -1,3 +1,4 @@
+import { outingMemoryWords } from "./outing-memory";
 import type { Memory, Result } from "./types";
 import { careHabitUnits } from "./careHabitUnits";
 import { games } from "./games";
@@ -52,7 +53,8 @@ function validCompanion(value: unknown): boolean {
 // by filter/sort, date formatting and artwork selection; reject unsafe shapes
 // before accepting the response, never replace damaged history with an empty
 // album. Chronology, uniqueness and how memories are earned stay server rules.
-const memoryKinds: Record<Memory["kind"], true> = {
+const memoryKinds: Record<Memory["kind"], unknown> = {
+  ...outingMemoryWords,
   hatch: true, growing: true, adult: true, meal: true, bath: true, goodnight: true,
   stars: true, "perfect-stars": true, days: true, outfit: true, decoration: true,
   wallpaper: true, floor: true, tiles: true, snake: true, tetris: true, fishing: true, walk: true,

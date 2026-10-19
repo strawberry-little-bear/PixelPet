@@ -121,6 +121,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		// of reconstructing it from current care; future evolution records its own.
 		s.Schema = 12
 	}
+	if s.Schema == 12 {
+		// Existing discoveries do not tell us their fictional sky. Start recording
+		// only on future real events; never backfill scenery from old collections.
+		s.Schema = 13
+	}
 	return true
 }
 

@@ -80,7 +80,7 @@ func TestGrowthBasisRemainsResponseOnlyAndAdultCapped(t *testing.T) {
 		t.Fatal("adult growth or form changed, or rest stopped")
 	}
 	b, err := json.Marshal(s)
-	if err != nil || strings.Contains(string(b), "basePerHour") || strings.Contains(string(b), "restEnergyPerHabit") || s.Schema != 12 {
+	if err != nil || strings.Contains(string(b), "basePerHour") || strings.Contains(string(b), "restEnergyPerHabit") || s.Schema != Schema {
 		t.Fatal("rule metadata leaked into save", err)
 	}
 }

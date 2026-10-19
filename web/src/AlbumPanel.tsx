@@ -1,5 +1,6 @@
+import { isOutingMemory, outingMemoryWords } from "./outing-memory";
 import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
-import { Heart, Moon, Sparkles, Utensils, Waves } from "lucide-react";
+import { BookOpen, Heart, Moon, Sparkles, Utensils, Waves } from "lucide-react";
 import type { Memory, PetState } from "./types";
 import { formNames } from "./growth";
 import { PetArt } from "./PetArt";
@@ -12,6 +13,7 @@ export const albumCategories = [
   { id: "play", label: "一起玩过", detail: "收藏已经收好的游戏与散步回忆。" },
   { id: "home", label: "小窝装扮", detail: "穿戴与布置留下的真实纪念。" },
   { id: "days", label: "相识日子", detail: "按相遇日期记录，不代表连续登录。" },
+  { id: "scenery", label: "风景手记", detail: "真实发现时的虚构风景，不对应现实天气。" },
 ] as const;
 export type AlbumCategory = typeof albumCategories[number]["id"];
 const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
@@ -20,6 +22,8 @@ const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
   stars: "play", "perfect-stars": "play", tiles: "play", snake: "play", tetris: "play", fishing: "play", walk: "play",
   outfit: "home", decoration: "home", wallpaper: "home", floor: "home",
   days: "days",
+  "scenery-fishing-clear": "scenery", "scenery-fishing-cloud": "scenery", "scenery-fishing-rain": "scenery",
+  "scenery-walk-clear": "scenery", "scenery-walk-cloud": "scenery", "scenery-walk-rain": "scenery",
 };
 // Filter/sort copies: browsing never edits or reorders the saved event array.
 export const albumMemories = (pet: PetState, category: AlbumCategory = "all") => (pet.album?.entries ?? [])
@@ -38,6 +42,7 @@ export function AlbumDirectory({ pet, choice }: { pet: PetState; choice: number 
   </section>;
 }
 export function memoryWords(m: Memory, legacy: boolean) {
+  if (isOutingMemory(m.kind)) return outingMemoryWords[m.kind];
   switch (m.kind) {
     case "hatch": return { title: "小小的初次相遇", story: "从这一天起，小窝里多了一位等你回来的伙伴。" };
     case "growing": return { title: "一起走进成长期", story: "从小小一团到勇敢迈步，这段长大被好好留了下来。" };
@@ -68,7 +73,7 @@ export function AlbumPanel({ pet, now, page, category = "all", missing = false }
   const words = memory ? memoryWords(memory, pet.album?.legacy ?? false) : undefined;
   const stage = memory?.kind === "hatch" ? "baby" : memory?.kind === "growing" ? "growing" : memory?.kind === "adult" ? "adult" : pet.growth?.stage || "baby";
   const isPortrait = !memory || ["hatch", "growing", "adult"].includes(memory.kind);
-  const Icon = memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : memory?.kind === "goodnight" ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
+  const Icon = memory && isOutingMemory(memory.kind) ? BookOpen : memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : memory?.kind === "goodnight" ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
   return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage} data-album-category={category} data-album-kind={memory?.kind}>
     <header><strong>{category !== "all" ? categoryLabel : memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
     {missing && <small role="status" className="album-source">同步时未找到刚才那条回忆，已返回本类封面。</small>}
@@ -79,15 +84,17 @@ export function AlbumPanel({ pet, now, page, category = "all", missing = false }
       <time dateTime={new Date(memory.at).toISOString()}>{dateLabel(memory.at)}</time>
       <h3>{words.title}</h3>
       <p>{words.story}</p>
-      <small className="album-source">{memory.source === "saved"
+      <small className="album-source">{isOutingMemory(memory.kind) ? "来自真实发现时的虚构风景 · 同类只记录一次" : memory.source === "saved"
         ? memory.kind === "hatch" ? "沿用旧存档的相遇日期，不补写照顾经历。" : "旧存档记录时间，可能来自旧版迁移；不补写当时细节。"
         : memory.source === "elapsed" ? "按相遇日期计算，不代表连续登录。" : "来自已保存的真实经历 · 只记录一次"}</small>
     </> : <>
       <h3>与你相识 {Math.max(0, Math.floor((now - pet.hatchedAt) / 86400000))} 天</h3>
       {memories.length === 0 && pet.album
-        ? <p>这里还没有留下回忆。<br />不必特意完成什么，慢慢相伴就好。</p>
+        ? <p>{category === "scenery" ? <>这里还没有留下风景手记。<br />钓获或走到发现点时自然记录，不必集齐。</> : <>这里还没有留下回忆。<br />不必特意完成什么，慢慢相伴就好。</>}</p>
         : <p>{category === "all" ? <>长大、星光和温柔的小事，<br />不会随最近的日记翻篇。</> : "这里只翻看这一类已保存的回忆，按时间排列。"}</p>}
-      <small className="album-source">{pet.album
+      <small className="album-source">{category === "scenery"
+        ? pet.schema < 13 ? "风景手记尚未开启，请更新服务；不会补写过去的风景。" : "只记下新发生的发现；没有额外奖励，不受现实时间限制。"
+        : pet.album
         ? pet.album.legacy ? "从纪念册开启后，继续记下新的共同经历。" : "只收藏发生过的回忆，不必追赶任何进度。"
         : "纪念册尚未开启，请更新服务后再来看看。"}</small>
     </>}

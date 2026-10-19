@@ -122,3 +122,15 @@ describe("album reading synchronization", () => {
   });
 
 });
+
+it("reaches saved scenery with only A/B/C and never resumes play or writes history", async () => {
+  saved.schema = 13;
+  saved.album!.entries.push({ kind: "scenery-walk-rain", at: Date.now(), source: "shared" });
+  await mount(); await open(6);
+  expect(panel().dataset.albumCategory).toBe("scenery");
+  await key("b"); expect(panel().dataset.albumKind).toBe("scenery-walk-rain");
+  expect(panel().textContent).toContain("来自真实发现时的虚构风景");
+  await refresh(); expect(panel().dataset.albumKind).toBe("scenery-walk-rain");
+  await key("c"); expect(document.querySelector('[data-album-directory="scenery"]')).toBeTruthy();
+  await key("c"); expect(document.querySelector(".content-home")).toBeTruthy();
+});

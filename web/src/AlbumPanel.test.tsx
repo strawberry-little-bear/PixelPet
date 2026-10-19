@@ -69,7 +69,7 @@ describe("permanent album", () => {
 describe("album categories", () => {
  it("partitions every kind once, keeping all cards including repeated elapsed milestones", () => {
   const p=pet();
-  const groups={growth:["hatch","growing","adult"],care:["meal","bath","goodnight"],play:["stars","perfect-stars","tiles","snake","tetris","fishing","walk"],home:["outfit","decoration","wallpaper","floor"],days:["days","days"]} as const;
+  const groups={growth:["hatch","growing","adult"],care:["meal","bath","goodnight"],play:["stars","perfect-stars","tiles","snake","tetris","fishing","walk"],home:["outfit","decoration","wallpaper","floor"],days:["days","days"],scenery:["scenery-fishing-clear","scenery-fishing-cloud","scenery-fishing-rain","scenery-walk-clear","scenery-walk-cloud","scenery-walk-rain"]} as const;
   p.album!.entries=Object.values(groups).flat().map((kind,i)=>({kind,at:now-i*1000,source:kind==="days"?"elapsed":"shared",days:kind==="days"?i:undefined}));
   const before=structuredClone(p);
   for (const category of albumCategories.slice(1)) {
@@ -85,7 +85,7 @@ describe("album categories", () => {
   render(<AlbumDirectory pet={p} choice={2} />);
   expect(screen.getByLabelText("纪念册分类")).toBeTruthy();
   expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("日常照顾");
-  expect(document.querySelectorAll("li")).toHaveLength(6);
+  expect(document.querySelectorAll("li")).toHaveLength(7);
   expect(document.querySelector("button,a,input")).toBeNull();
   expect(screen.getByText(/纪念册尚未开启/)).toBeTruthy();
  });

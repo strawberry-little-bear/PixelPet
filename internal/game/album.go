@@ -73,7 +73,11 @@ func (s State) validAlbum(now time.Time) bool {
 		return s.Album == nil
 	}
 	a := s.Album
-	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > 17+len(albumDays) {
+	limit := 17 + len(albumDays)
+	if s.Schema >= 13 {
+		limit += 6
+	}
+	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > limit {
 		return false
 	}
 	if s.HatchedAt == 0 {
@@ -177,7 +181,9 @@ func (s State) validAlbum(now time.Time) bool {
 			}
 			daysSeen[m.Days] = true
 		default:
-			return false
+			if !s.validOutingMemory(m) {
+				return false
+			}
 		}
 	}
 	return seen["hatch"] && (s.Growth.GrowingAt == 0 || seen["growing"]) && (s.Growth.AdultAt == 0 || seen["adult"]) && (!seen["perfect-stars"] || seen["stars"])

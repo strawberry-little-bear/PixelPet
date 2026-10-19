@@ -108,7 +108,7 @@ try {
       await key(page, 'c'); await page.locator('.home-caption').waitFor();
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       const after = (await (await fetch(base + '/api/state')).json()).state;
-      assert.equal(after.growth.stage, test.stage); assert.equal(after.growth.form, seeded.growth.form); assert.equal(after.careCount, 0); assert.equal(after.schema, 12);
+      assert.equal(after.growth.stage, test.stage); assert.equal(after.growth.form, seeded.growth.form); assert.equal(after.careCount, 0); assert.equal(after.schema, 13);
       assert.deepEqual(after.growth.formRecord, seeded.growth.formRecord);
       if (test.profile === 'natural') {
         assert(seeded.growth.care.rest >= 0 && seeded.growth.care.rest < .05); assert(after.needs.energy > seeded.needs.energy);

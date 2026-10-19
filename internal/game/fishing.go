@@ -169,6 +169,7 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 		}
 		if n.Phase == "bite" {
 			s.discoverFish(n.Candidate, now)
+			s.rememberOuting(now)
 			n.resolve("caught")
 		} else {
 			n.resolve("early")

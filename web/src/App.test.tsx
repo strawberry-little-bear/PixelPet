@@ -711,7 +711,7 @@ describe("three-button permanent album", () => {
     ]};
     const before=structuredClone(saved);
     await mount();await choose(8);
-    for (const category of ["all","growth","care","play","home","days"]) {
+    for (const category of ["all","growth","care","play","home","days","scenery"]) {
       expect(document.querySelector("[data-album-directory]")?.getAttribute("data-album-directory")).toBe(category);
       expect(document.querySelector('.album-directory [aria-current="true"]')).toBeTruthy();
       await key("b");

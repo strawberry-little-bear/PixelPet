@@ -155,7 +155,7 @@ try {
       await key(page, 'c'); await page.locator('.home-caption').waitFor();
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       const state = (await (await fetch(base + '/api/state')).json()).state;
-      assert.equal(state.growth.stage, test.stage); assert.equal(state.sleeping, test.sleeping); assert.equal(state.careCount, 0); assert.equal(state.schema, 12);
+      assert.equal(state.growth.stage, test.stage); assert.equal(state.sleeping, test.sleeping); assert.equal(state.careCount, 0); assert.equal(state.schema, 13);
       const backup = await (await fetch(base + '/api/backup')).text();
       assert(!/basePerHour|restEnergyPerHabit|careRules/.test(backup));
       results.push({ stage: test.stage, sleeping: test.sleeping, metadata: test.metadata, menuLayout, snapshotLayout, layout, writeCount: writes.length });

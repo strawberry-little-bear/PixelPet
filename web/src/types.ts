@@ -1,3 +1,4 @@
+import type { OutingMemoryKind } from "./outing-memory";
 export type Needs = {
   hunger: number;
   mood: number;
@@ -136,6 +137,7 @@ export type ReturnRecap = {
 
 export type Memory = {
   kind:
+    | OutingMemoryKind
     | "hatch"
     | "growing"
     | "adult"
