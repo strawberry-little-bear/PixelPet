@@ -1353,6 +1353,11 @@ export default function App() {
             !e.target.classList.contains("physical-button")))
       )
         return;
+      // A focused recap is a native reading region. Let Down/Space (including
+      // held keys and Shift+Space) scroll instead of turning them into A/B.
+      // Letter controls and shortcuts on the physical buttons stay unchanged.
+      if (e.target instanceof HTMLElement && e.target.matches(".return-panel") &&
+        (e.key === "ArrowDown" || e.key === " ")) return;
       const key = e.key.toLowerCase();
       const mapped = ["a", "arrowright", "arrowdown"].includes(key)
         ? "A"

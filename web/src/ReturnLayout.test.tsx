@@ -69,3 +69,33 @@ it("same-record polling preserves scroll, replacement resets page and scroll, mi
   recap = undefined; await sync(); expect(mode()).toBeNull(); expect(document.querySelector(".return-panel")).toBeNull();
   expect(api.mock.calls.some(([path]) => ["action", "import", "reset", "recap/read"].includes(path))).toBe(false);
 });
+it.each([0, 1].flatMap(page => [false, true].flatMap(repeat => ["ArrowDown", " "].map(key => ({ page, repeat, key })))))(
+  "focused recap keeps native $key scrolling on page $page (repeat=$repeat)", async ({ page, repeat, key: value }) => {
+    await mount(); await review(); if (page === 1) await key("a");
+    const section = panel(); section.focus(); section.scrollTop = 10;
+    const event = new KeyboardEvent("keydown", { key: value, repeat, bubbles: true, cancelable: true });
+    await act(async () => { section.dispatchEvent(event); });
+    expect(event.defaultPrevented).toBe(false); expect(panel()).toBe(section);
+    expect(panel().querySelector("header span")?.textContent).toBe(`${page + 1} / 2`);
+    expect(document.activeElement).toBe(section);
+    expect(api.mock.calls.some(([path]) => path !== "visit")).toBe(false);
+  },
+);
+it("reading focus does not disable A/B/C or other paging aliases", async () => {
+  await mount(); await review(); panel().focus();
+  const press = async (value: string) => { await act(async () => { fireEvent.keyDown(panel(), { key: value }); }); };
+  await press("ArrowRight"); expect(panel().querySelector("header span")?.textContent).toBe("2 / 2");
+  await press("a"); expect(panel().querySelector("header span")?.textContent).toBe("1 / 2");
+  await press("Enter"); expect(panel().querySelector("header span")?.textContent).toBe("2 / 2");
+  await press("b"); expect(mode()).toBeNull();
+  await review(); panel().focus(); await press("c"); expect(mode()).toBeNull();
+  await review(); panel().focus(); await press("Escape"); expect(mode()).toBeNull();
+});
+it("physical keys retain Down and Space shortcuts outside the reading region", async () => {
+  await mount(); await review();
+  const a = screen.getByRole("button", { name: "A 选择" }); a.focus();
+  await act(async () => { fireEvent.keyDown(a, { key: "ArrowDown" }); });
+  expect(panel().querySelector("header span")?.textContent).toBe("2 / 2");
+  const b = screen.getByRole("button", { name: "B 确认" }); b.focus();
+  await act(async () => { fireEvent.keyDown(b, { key: " " }); }); expect(mode()).toBeNull();
+});
