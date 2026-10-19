@@ -1,5 +1,6 @@
 import type { CareFeedback, Needs } from "./types";
 import "./care-outcome.css";
+import { SleepSummary } from "./SleepSummary";
 import { careHabitUnits } from "./careHabitUnits";
 
 const needLabels = [["hunger", "饱食"], ["mood", "心情"], ["clean", "清洁"], ["energy", "体力"]] as const;
@@ -66,6 +67,7 @@ export function CareOutcome({ feedback }: { feedback: CareFeedback | null }) {
       <small>习惯可继续记录；成年形态不会因之后照顾重选。</small>
     </div>}
     {feedback.kind === "sleep" && <p>入睡和起床不立即恢复体力；睡着期间才逐步恢复，到满为止。</p>}
-    <small>仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>
+    <small>以上仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>
+    <SleepSummary feedback={feedback} />
   </section>;
 }

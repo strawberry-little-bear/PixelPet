@@ -142,6 +142,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		s.Companion.Interests = append(s.Companion.Interests, Interest{Kind: "treasure"})
 		s.Schema = 16
 	}
+	if s.Schema == 16 {
+		// An older sleeping flag does not prove when this sleep began.
+		// Track only future explicit bedtimes, never invent a legacy session.
+		s.Schema = 17
+	}
 	return true
 }
 

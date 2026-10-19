@@ -48,6 +48,7 @@ export type PetState = {
   hatchedAt: number;
   lastTick: number;
   sleeping: boolean;
+  sleepSession?: SleepSession;
   needs: Needs;
   careCount: number;
   growth?: Growth;
@@ -69,6 +70,14 @@ export type PetState = {
     lastBeat: number;
   };
 };
+export type SleepSession = {
+  startedAt: number;
+  settledHours: number;
+  energyRecovered: number;
+  restGain: number;
+  growthPoints: number;
+};
+export type SleepSummary = SleepSession & { wokeAt: number };
 export type CareFeedback = {
   kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "tetris-finish" | "fish-finish" | "walk-finish" | "treasure-finish" | "sleep";
   points: number;
@@ -77,6 +86,7 @@ export type CareFeedback = {
   reason: "credited" | "not-needed" | "cooldown" | "resting" | "awake";
   retryAt?: number;
   effect?: { at: number; before: Needs; after: Needs };
+  sleepSummary?: SleepSummary;
 };
 export type CareActionEffects = { feed: Needs; clean: Needs };
 export type GrowthRuleBasis = { basePerHour: number; comfortPerHour: number; restEnergyPerHabit: number; restPointsPerHabit: number };

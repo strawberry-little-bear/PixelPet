@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 16
+const Schema = 17
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -72,6 +72,8 @@ type State struct {
 	Growth    *Growth    `json:"growth,omitempty"`
 	Album     *Album     `json:"album,omitempty"`
 	Economy   *Economy   `json:"economy,omitempty"`
+
+	SleepSession *SleepSession `json:"sleepSession,omitempty"`
 }
 
 // ErrGameFinished is a known refusal: an old unfinished-game discard intent
@@ -143,7 +145,18 @@ func (s *State) Advance(now time.Time) bool {
 	if s.HatchedAt == 0 {
 		return true
 	}
+	beforeEnergy := s.Needs.Energy
+	var beforePoints, beforeRest float64
+	if s.Growth != nil {
+		beforePoints, beforeRest = s.Growth.Points, s.Growth.Care.Rest
+	}
 	s.settle(hours, now)
+	if s.Sleeping && s.SleepSession != nil && s.Growth != nil {
+		s.SleepSession.SettledHours += hours
+		s.SleepSession.EnergyRecovered += math.Max(0, s.Needs.Energy-beforeEnergy)
+		s.SleepSession.RestGain += s.Growth.Care.Rest - beforeRest
+		s.SleepSession.GrowthPoints += s.Growth.Points - beforePoints
+	}
 	s.rememberDays()
 	return true
 }
@@ -225,9 +238,11 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	case "sleep":
 		s.Sleeping = !s.Sleeping
 		if s.Sleeping {
+			s.SleepSession = &SleepSession{StartedAt: now.UnixMilli()}
 			s.sharedMemory("goodnight", now)
 			msg = "晚安，小伙伴。睡着时体力会慢慢恢复。"
 		} else {
+			s.SleepSession = nil
 			msg = "早安！今天也一起慢慢长大吧。"
 		}
 	case "play-tetris":
@@ -380,7 +395,7 @@ func (s State) Validate(now time.Time) error {
 	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
 		return bad
 	}
-	if !s.validTreasureGame() || !s.validPark() || !s.validWalkingGame() || !s.validCompanion() || !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() || !s.validPond() || !s.validFishingGame() {
+	if !s.validSleepSession() || !s.validTreasureGame() || !s.validPark() || !s.validWalkingGame() || !s.validCompanion() || !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() || !s.validPond() || !s.validFishingGame() {
 		return bad
 	}
 	return nil

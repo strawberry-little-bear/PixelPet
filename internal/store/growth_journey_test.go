@@ -184,6 +184,7 @@ func (j *growthJourney) restore() {
 	}
 	expected := backup
 	expected.Revision = r.State.Revision // revisions belong to the destination
+	expected.SleepSession = nil          // importing preserves totals, not live sleep continuity
 	if !reflect.DeepEqual(expected, r.State) || r.SaveGeneration == j.result.SaveGeneration {
 		j.t.Fatal("portable restore lost actual growth/history or reused the installation identity")
 	}

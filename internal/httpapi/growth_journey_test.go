@@ -287,6 +287,7 @@ func (j *httpGrowthJourney) restore() {
 	}
 	restored := j.resultRequest("POST", "/api/import", json.RawMessage(backup), target.SaveGeneration, "")
 	expected.Revision = restored.State.Revision
+	expected.SleepSession = nil // restored totals are not proof of a live sleep
 	if !reflect.DeepEqual(expected, restored.State) || restored.SaveGeneration == sourceGeneration || restored.SaveGeneration == target.SaveGeneration {
 		j.t.Fatal("backup restore changed history or failed to rotate generation")
 	}

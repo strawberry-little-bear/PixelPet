@@ -242,6 +242,9 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 				state.Companion = &companion
 			}
 			state.Logs = append([]game.Log{}, imported.Logs...)
+			// A restored sleeping flag is not continuity with this live sleep.
+			// Keep sleeping, but do not attach a wake receipt to imported history.
+			state.SleepSession = nil
 			state.Game = nil
 			state.Upgrade(now)
 			state.Advance(now)

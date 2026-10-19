@@ -11,21 +11,27 @@ type CareEffect struct {
 }
 
 // CareFeedback describes only the saved action, not passive growth settled
-// before it. It is returned with the response, never added to the pet save.
+// before it. SleepSummary separately describes the complete recorded sleep,
+// never crediting passive growth to the wake action. Feedback is response-only.
 type CareFeedback struct {
-	Kind      string      `json:"kind"`
-	Points    float64     `json:"points"`
-	Habit     string      `json:"habit,omitempty"`
-	HabitGain float64     `json:"habitGain"`
-	Reason    string      `json:"reason"`
-	RetryAt   int64       `json:"retryAt,omitempty"`
-	Effect    *CareEffect `json:"effect,omitempty"`
+	Kind         string        `json:"kind"`
+	Points       float64       `json:"points"`
+	Habit        string        `json:"habit,omitempty"`
+	HabitGain    float64       `json:"habitGain"`
+	Reason       string        `json:"reason"`
+	RetryAt      int64         `json:"retryAt,omitempty"`
+	Effect       *CareEffect   `json:"effect,omitempty"`
+	SleepSummary *SleepSummary `json:"sleepSummary,omitempty"`
 }
 
 // ApplyWithFeedback runs the existing rules first. Comparing settled growth
 // immediately before and after Apply avoids crediting elapsed-time growth to
 // a button press, including when the final bonus is capped at adulthood.
 func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedback, error) {
+	var sleepSummary *SleepSummary
+	if a.Kind == "sleep" && s.Sleeping && s.SleepSession != nil {
+		sleepSummary = &SleepSummary{SleepSession: *s.SleepSession, WokeAt: now.UnixMilli()}
+	}
 	beforeCare := s.CareCount
 	beforeNeeds := s.Needs
 	var before Growth
@@ -66,6 +72,7 @@ func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedbac
 		last = before.Care.LastPlay
 	case "sleep":
 		f.Reason = "awake"
+		f.SleepSummary = sleepSummary
 		if s.Sleeping {
 			f.Reason = "resting"
 		}
