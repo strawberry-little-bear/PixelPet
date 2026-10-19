@@ -355,6 +355,18 @@ export default function App() {
     setCollectionReadingDestination({ petKey: careReadingKey, sessionKey, page: destination, index });
   };
 
+  const [albumReadingDestination, setAlbumReadingDestination] = useState<{
+    petKey: string | null; sessionKey: string | null; category: AlbumCategory | null;
+  } | null>(null);
+  useReadingViewport(readingRoot, albumReadingDestination,
+    albumCategory === null ? '.album-directory [aria-current="true"]' : '.album-panel > header',
+    !!careReadingKey && albumReadingDestination?.petKey === careReadingKey &&
+    albumReadingDestination?.sessionKey === sessionKey && albumReadingDestination?.category === albumCategory && page === "album" &&
+    !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  const navigateAlbumReading = (category: AlbumCategory | null) => {
+    setAlbumReadingDestination({ petKey: careReadingKey, sessionKey, category });
+  };
+
   const [returnReadingDestination, setReturnReadingDestination] = useState<{ petKey: string | null; recapId: string; page: number } | null>(null);
   useReadingViewport(readingRoot, returnReadingDestination, ".return-panel > header",
     !!careReadingKey && returnReadingDestination?.petKey === careReadingKey &&
@@ -1192,16 +1204,21 @@ export default function App() {
     setError("");
     if (page === "album") {
       if (albumCategory === null) {
-        if (key === "A") setAlbumChoice(v => (v + 1) % albumCategories.length);
-        else if (key === "B") { setAlbumCategory(albumCategories[albumChoice].id); setAlbumCursor(startAlbum()); }
+        if (key === "A") { setAlbumChoice(v => (v + 1) % albumCategories.length); navigateAlbumReading(null); }
+        else if (key === "B") {
+          const category = albumCategories[albumChoice].id;
+          setAlbumCategory(category); setAlbumCursor(startAlbum()); navigateAlbumReading(category);
+        }
         else if (key === "C") setPage("home");
       } else if (key === "C") {
         if (returningToPause) {
           setAlbumReturnSession(null);
-          setPage("game");
-        } else setAlbumCategory(null);
+          setPage("game"); setPauseReadingDestination({ sessionKey, target: "pause" });
+        } else { setAlbumCategory(null); navigateAlbumReading(null); }
       }
-      else if (key === "A" || key === "B") setAlbumCursor(cursor => nextAlbum(pet, albumCategory, cursor));
+      else if (key === "A" || key === "B") {
+        setAlbumCursor(cursor => nextAlbum(pet, albumCategory, cursor)); navigateAlbumReading(albumCategory);
+      }
       return;
     }
     if (page === "park-album") {
@@ -1288,7 +1305,7 @@ export default function App() {
         else if (walkChoice === 4) openPauseGuide();
         else if (walkChoice === 3) {
           walkEpoch.current++; setWalkSession("");
-          setAlbumReturnSession(sessionKey); setAlbumCategory("scenery"); setAlbumCursor(startAlbum()); setPage("album");
+          setAlbumReturnSession(sessionKey); setAlbumCategory("scenery"); setAlbumCursor(startAlbum()); setPage("album"); navigateAlbumReading("scenery");
         }
         else {walkEpoch.current++;setWalkSession("");setAbandonGame(sessionKey);}
       } else if(key==="C") {
@@ -1308,7 +1325,7 @@ export default function App() {
         else if (fishingChoice === 4) openPauseGuide();
         else if (fishingChoice === 3) {
           fishingEpoch.current++; setFishingSession("");
-          setAlbumReturnSession(sessionKey); setAlbumCategory("scenery"); setAlbumCursor(startAlbum()); setPage("album");
+          setAlbumReturnSession(sessionKey); setAlbumCategory("scenery"); setAlbumCursor(startAlbum()); setPage("album"); navigateAlbumReading("scenery");
         }
         else { setFishingSession(""); setAbandonGame(sessionKey); }
       } else if (key === "C") {
@@ -1497,7 +1514,7 @@ export default function App() {
         setPage("album");
         setAlbumCategory(null);
         setAlbumChoice(0);
-        setAlbumCursor(startAlbum());
+        setAlbumCursor(startAlbum()); navigateAlbumReading(null);
       } else if (item.kind === "status") {
         setStatusPage(0);
         setPage("status"); navigateCareReading("status");
