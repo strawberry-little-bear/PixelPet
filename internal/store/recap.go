@@ -21,6 +21,8 @@ type ReturnSnapshot struct {
 	Points       float64    `json:"points"`
 	Rest         float64    `json:"rest"`
 	TrackedHours float64    `json:"trackedHours"`
+	// Nil means the historical record predates sleep context, not awake.
+	Sleeping *bool `json:"sleeping,omitempty"`
 }
 type ReturnRecap struct {
 	ID     string         `json:"id"`
@@ -31,7 +33,8 @@ type ReturnRecap struct {
 }
 
 func returnSnapshot(s game.State) ReturnSnapshot {
-	r := ReturnSnapshot{Needs: s.Needs}
+	sleeping := s.Sleeping
+	r := ReturnSnapshot{Needs: s.Needs, Sleeping: &sleeping}
 	if s.Growth != nil {
 		r.Stage, r.Form, r.Points = s.Growth.Stage, s.Growth.Form, s.Growth.Points
 		r.Rest, r.TrackedHours = s.Growth.Care.Rest, s.Growth.TrackedHours

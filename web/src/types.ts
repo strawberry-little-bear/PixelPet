@@ -116,6 +116,7 @@ export const personalities = [
 ];
 
 export type ReturnSnapshot = {
+  sleeping?: boolean; // Missing in legacy history; never infer from the live pet.
   needs: Needs;
   stage: GrowthStage;
   form: AdultForm | "";

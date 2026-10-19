@@ -56,3 +56,20 @@ describe("return summary two-page navigation", () => {
     expect(api.mock.calls.filter(([p]) => p === "recap/read")).toHaveLength(0);
   });
 });
+
+it("keeps historical sleeping endpoints through A/B/C reading and a live poll", async () => {
+  recap.before.sleeping = true; recap.after.sleeping = true;
+  await mount(); await review();
+  const context = () => document.querySelector('[aria-label="历史睡眠状态"]')?.textContent;
+  const history = context();
+  expect(history).toContain("离开时：睡眠结算结束时：睡眠");
+  expect(saved.sleeping).toBe(false);
+  saved.needs.energy = 60; saved.revision++;
+  await act(async () => { await vi.advanceTimersByTimeAsync(31000); });
+  expect(context()).toBe(history);
+  await key("a"); expect(counter()).toBe("2 / 2"); expect(context()).toBe(history);
+  await key("c"); expect(document.querySelector(".content-home")).toBeTruthy();
+  await review(); expect(context()).toBe(history);
+  await key("b"); await key("b"); expect(document.querySelector(".content-home")).toBeTruthy();
+  expect(api.mock.calls.filter(([p]) => ["action", "import", "reset", "recap/read"].includes(p))).toHaveLength(0);
+});

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -277,7 +278,7 @@ func TestReturnRecapPreservesSubDisplaySettlementAcrossReload(t *testing.T) {
 	// the saved precision or the adult form in this historical receipt.
 	for _, at := range []time.Time{now.Add(time.Hour), now.Add(time.Hour + time.Minute)} {
 		poll, err := s.Do(nil, nil, false, at)
-		if err != nil || poll.ReturnRecap == nil || *poll.ReturnRecap != recap {
+		if err != nil || poll.ReturnRecap == nil || !reflect.DeepEqual(*poll.ReturnRecap, recap) {
 			t.Fatal("poll changed saved recap", err)
 		}
 	}
@@ -285,7 +286,7 @@ func TestReturnRecapPreservesSubDisplaySettlementAcrossReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	read, err := s.ReadRecap(recap.ID, now.Add(time.Hour+time.Minute))
-	if err != nil || !read.RecapClaimed || read.ReturnRecap == nil || *read.ReturnRecap != recap {
+	if err != nil || !read.RecapClaimed || read.ReturnRecap == nil || !reflect.DeepEqual(*read.ReturnRecap, recap) {
 		t.Fatal("acknowledgement changed recap", err)
 	}
 }

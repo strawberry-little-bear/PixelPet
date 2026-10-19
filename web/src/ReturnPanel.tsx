@@ -13,6 +13,7 @@ export function absenceLabel(ms: number) {
   const minutes = Math.max(1, Math.floor(ms / 60000));
   return minutes < 60 ? `${minutes} 分钟` : `${Math.floor(minutes / 60)} 小时${minutes % 60 ? ` ${minutes % 60} 分钟` : ""}`;
 }
+const sleepLabel = (sleeping: boolean | undefined) => sleeping === true ? "睡眠" : sleeping === false ? "清醒" : "未记录";
 const recordTime = (at: number) => new Date(at).toLocaleString("zh-CN", {
   year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
 });
@@ -29,6 +30,12 @@ export function ReturnPanel({ recap, page, updated = false }: { recap: ReturnRec
       <small>记录时段（本地时间）</small>
       <span>从 <time dateTime={new Date(recap.from).toISOString()}>{recordTime(recap.from)}</time></span>
       <span>到 <time dateTime={new Date(recap.to).toISOString()}>{recordTime(recap.to)}</time></span>
+    </div>
+    <div className="return-period" aria-label="历史睡眠状态">
+      <span>离开时：{sleepLabel(before.sleeping)}</span>
+      <span>结算结束时：{sleepLabel(after.sleeping)}</span>
+      <small>仅为两个时点的记录，不代表当前状态或整个离开期间。</small>
+      {(typeof before.sleeping !== "boolean" || typeof after.sleeping !== "boolean") && <small>旧记录缺失的信息不作推测。</small>}
     </div>
     {page === 0 ? <>
       <p>离开了 {absenceLabel(recap.to - recap.from)}</p>
