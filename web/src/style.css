@@ -1223,7 +1223,7 @@ footer i {
   gap: 12px;
   color: #718456;
 }
-.screen-journal > small {
+.screen-journal > small, .screen-journal > time {
   font: 8px var(--mono);
   color: #8d9e73;
 }
@@ -1237,6 +1237,8 @@ footer i {
 .screen-journal > span {
   font: 8px var(--mono);
 }
+.screen-journal .journal-note, .screen-journal .journal-trimmed { line-height: 1.6; }
+.screen-journal .journal-trimmed { border-left: 2px solid currentColor; padding-left: 6px; }
 .game-score {
   display: flex;
   justify-content: space-between;

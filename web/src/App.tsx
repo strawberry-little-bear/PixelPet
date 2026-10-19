@@ -1,3 +1,5 @@
+import { JournalPanel } from "./JournalPanel";
+import { nextJournal, reconcileJournal, startJournal } from "./journal";
 import { stageLook } from "./stageLooks";
 import { StatusGuide, statusPageCount, validCareRules } from "./StatusGuide";
 import type { CareRules } from "./types";
@@ -199,7 +201,7 @@ export default function App() {
   const [help, setHelp] = useState(false);
   const [reset, setReset] = useState(false);
   const [pressed, setPressed] = useState("");
-  const [journalIndex, setJournalIndex] = useState(0);
+  const [journalCursor, setJournalCursor] = useState(() => startJournal([]));
   const [growthPage, setGrowthPage] = useState(0);
   const [arcadeChoice, setArcadeChoice] = useState(0);
   const [guidePage, setGuidePage] = useState(0);
@@ -299,6 +301,9 @@ export default function App() {
     if (!silent && r.message) setMessage(r.message);
     return true;
   }, []);
+  useEffect(() => {
+    if (page === "journal") setJournalCursor(cursor => reconcileJournal(pet?.logs ?? [], cursor));
+  }, [page, pet?.logs]);
   const stopActivity = useCallback(() => {
     recapDisplayEpoch.current++;
     setQueuedReturn(null);
@@ -1136,7 +1141,7 @@ export default function App() {
       else if (page === "growth")
         setGrowthPage((v) => (v + 1) % growthPageCount);
       else if (page === "journal")
-        setJournalIndex((v) => (v + 1) % Math.max(1, pet.logs.length));
+        setJournalCursor(cursor => nextJournal(pet.logs, cursor));
       return;
     }
     if (key === "C") {
@@ -1196,7 +1201,7 @@ export default function App() {
         setGrowthPage(0);
       } else if (item.kind === "journal") {
         setPage("journal");
-        setJournalIndex(0);
+        setJournalCursor(startJournal(pet.logs));
       } else void act(item.kind);
     } else if (page === "game") void act("catch", { lane });
     else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
@@ -1395,7 +1400,7 @@ export default function App() {
                       : page === "growth"
                       ? "A / B 换页　 C 返回"
                       : page === "journal"
-                        ? "A 下一条　 C 返回"
+                        ? "A 下一条　 B / C 返回"
                         : "C 返回小窝";
 
   return (
@@ -1810,16 +1815,7 @@ export default function App() {
                           </div>
                         )}
                         {page === "journal" && (
-                          <div className="screen-journal">
-                            <Sprout size={26} />
-                            <small>
-                              {timeLabel(pet.logs[journalIndex]?.at || now)}
-                            </small>
-                            <p>{pet.logs[journalIndex]?.text}</p>
-                            <span>
-                              {journalIndex + 1} / {pet.logs.length}
-                            </span>
-                          </div>
+                          <JournalPanel logs={pet.logs} cursor={journalCursor} />
                         )}
                         {page === "game" && !abandoning && pet.game?.kind === "walk" && <WalkingGame pet={pet} active={walkSession===pet.game.id && !tools && !help && !reset} choice={walkChoice}/>}
                         {page === "game" && !abandoning && pet.game?.kind === "fishing" && <FishingGame pet={pet} active={fishingSession === pet.game.id && !tools && !help && !reset} choice={fishingChoice} />}
