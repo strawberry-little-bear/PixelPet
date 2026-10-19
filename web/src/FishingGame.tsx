@@ -1,6 +1,6 @@
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
-import { fishCatalog, fishInfo, fishingCompanions, fishingMenu, fishingSpots } from "./fishing";
+import { fishCatalog, fishInfo, fishingCompanions, fishingMenu, fishingSpots, fishingWaitNotes } from "./fishing";
 import type { PetState } from "./types";
 import "./fishing-game.css";
 
@@ -24,6 +24,9 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
   const companion = fishingCompanions[pet.species] ?? fishingCompanions[0];
   const caught = n.outcome === "caught", bite = n.phase === "bite" && !paused;
   const state = paused ? "paused" : bite ? "bite" : caught ? "caught" : n.phase === "wait" ? "waiting" : "ready";
+  const waiting = n.phase === "wait" && !paused;
+  const notes = [companion.waiting, ...fishingWaitNotes];
+  const waitingNote = notes[Math.floor(n.elapsedMs / 8000) % notes.length];
   const fish = fishInfo(n.lastFish);
   return <section className="fishing-game" aria-label="池塘钓鱼">
     <header><strong>池塘钓鱼 · {fishingSpots[n.spot]}</strong><span>第 {n.casts} / 3 竿 · {n.catches.length} 鱼</span></header>
@@ -36,6 +39,10 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
         {companion.rig === "dolphin" && <path d="M3 72h60v16H3z" fill="#88ac94" />}
         {companion.method === "rest" && <path d="M64 77l5-17 5 17m-5-17v23" fill="none" stroke="#647653" strokeWidth="2" />}
         <g className="fishing-rod"><path d={companion.method === "rest" ? "M69 66L111 21" : "M53 65L111 21"} stroke="#7d6845" strokeWidth="3" /><path d="M111 21l57 10v40" fill="none" stroke="#4f674d" strokeWidth="1" /></g>
+        {timed && <g className="fishing-ripples" transform="translate(168 82)" fill="none" stroke="#d9e5c2" strokeWidth="1">
+          <path className="fishing-ripple ripple-near" d="M-10-3h20v1h4v4h-4v1h-20v-1h-4v-4h4z" />
+          <path className="fishing-ripple ripple-far" d="M-17-6h34v2h5v8h-5v2h-34V4h-5v-8h5z" />
+        </g>}
         {timed && <g className="fishing-bobber"><path d="M163 69h10v6h-10z" fill="#b27c68" /><path d="M163 75h10v4h-10z" fill="#eee4bf" /><path d="M157 83h22" stroke="#c8ddbd" strokeWidth="2" /></g>}
       </svg>
       <div className="fishing-companion" aria-label={companion.waiting}><PetArt index={pet.species} stage={petGrowth(pet, pet.lastTick).stage} expression={caught ? "content" : "awake"} motion="fishing" accessory={pet.economy?.equipped.accessory} /></div>
@@ -43,8 +50,8 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
       {bite && <strong className="fishing-bite" role="status">咬钩啦！按 B 提竿</strong>}
       {paused && <div className="fishing-pause" role="status"><strong>池塘已暂停</strong><ol>{fishingMenu.map((label, i) => <li key={label} className={choice === i ? "selected" : ""}>{choice === i ? "▸ " : "　"}{label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></div>}
     </div>
-    <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${n.catches.length} 条鱼，B / C 收好${n.outcome === "early" ? "；提前提竿，这一竿已用掉。" : ""}` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "鱼漂轻晃，等咬钩提示再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提前提竿，这一竿已用掉。下一竿等咬钩提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
-    <small className="fishing-comment">{paused ? "没有离线钓鱼，也不补跑漏掉的节拍。" : bite ? companion.bite : caught ? fish?.story : companion.waiting}</small>
+    <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${n.catches.length} 条鱼，B / C 收好${n.outcome === "early" ? "；提前提竿，这一竿已用掉。" : ""}` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "还没咬钩，等「咬钩啦」再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提前提竿，这一竿已用掉。下一竿等咬钩提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
+    <small className={`fishing-comment${waiting ? " fishing-wait-note" : ""}`}>{paused ? "没有离线钓鱼，也不补跑漏掉的节拍。" : bite ? companion.bite : caught ? fish?.story : waiting ? waitingNote : companion.waiting}</small>
     <small className="fishing-rule">{n.phase === "done" ? n.catches.length ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币" : "A 换钓点（收竿后）· B 抛竿 / 提竿 · C 暂停"}</small>
   </section>;
 }

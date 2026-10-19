@@ -121,3 +121,50 @@ it.each([1, 2, 3])("explains that an early reel used cast %i, including the last
   expect(document.querySelector(".fishing-status")?.textContent).toContain("这一竿已用掉");
   expect(document.querySelector(".fishing-status")?.textContent).toContain(casts === 3 ? "三竿完成" : "下一竿等咬钩提示");
 });
+
+// Atmosphere follows confirmed elapsed time, never a local countdown or fish RNG.
+describe("quiet waiting feedback without false bites", () => {
+  it.each([
+    [0, fishingCompanions[3].waiting], [7999, fishingCompanions[3].waiting],
+    [8000, "水纹一圈圈散开，不急着提竿。"], [15999, "水纹一圈圈散开，不急着提竿。"],
+    [16000, "风掠过水面，小伙伴还在陪你等。"], [23999, "风掠过水面，小伙伴还在陪你等。"],
+    [24000, "静静听一会儿水声，等明确的咬钩提示。"], [31999, "静静听一会儿水声，等明确的咬钩提示。"],
+    [32000, fishingCompanions[3].waiting], [40000, "水纹一圈圈散开，不急着提竿。"],
+  ])("shows an unhurried note at %i confirmed milliseconds", (elapsedMs, note) => {
+    const pet = fixture(); Object.assign(pet.game!.fishing!, { phase: "wait", casts: 1, waitMs: 40000, elapsedMs });
+    render(<FishingGame pet={pet} active={true} choice={0} />);
+    expect(document.querySelector('.fishing-wait-note')?.textContent).toBe(note);
+    expect(document.querySelector('.fishing-status')?.textContent).toBe('还没咬钩，等「咬钩啦」再按 B。');
+    expect(document.querySelector('.fishing-bite')).toBeNull();
+    expect(document.querySelectorAll('.fishing-ripple')).toHaveLength(2);
+    expect(document.querySelector('.fishing-ripples')?.closest('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(document.querySelector('.fishing-wait-note')?.closest('[aria-live],[role="status"]')).toBeNull();
+  });
+  it.each([true, false])("keeps saved or local pauses free of active waiting cues (saved pause %s)", paused => {
+    const pet = fixture(); Object.assign(pet.game!.fishing!, { phase: 'wait', paused, elapsedMs: 16000 });
+    render(<FishingGame pet={pet} active={paused} choice={0} />);
+    expect(document.querySelector('.pond-scene')?.getAttribute('data-motion')).toBe('paused');
+    expect(document.querySelector('.fishing-wait-note')).toBeNull();
+    expect(screen.getByText('池塘已暂停')).toBeTruthy();
+  });
+  it.each(['bite', 'result', 'done', 'ready'] as const)("does not mix waiting notes into %s", phase => {
+    const pet = fixture(); Object.assign(pet.game!.fishing!, { phase, elapsedMs: 16000 });
+    render(<FishingGame pet={pet} active={true} choice={0} />);
+    expect(document.querySelector('.fishing-wait-note')).toBeNull();
+    if (phase === 'bite') expect(screen.getByText('咬钩啦！按 B 提竿')).toBeTruthy();
+    if (phase === 'ready' || phase === 'result' || phase === 'done') expect(document.querySelector('.fishing-ripples')).toBeNull();
+  });
+  it("does not advance flavor, save, reveal the candidate or shorten a wait on its own", async () => {
+    const pet = fixture(); Object.assign(pet.game!.fishing!, { phase: 'wait', casts: 1, waitMs: 40000, elapsedMs: 16000, candidate: 'moon-perch' });
+    const before = structuredClone(pet);
+    const { rerender } = render(<FishingGame pet={pet} active={true} choice={0} />);
+    await clock(60000);
+    expect(document.querySelector('.fishing-wait-note')?.textContent).toBe('风掠过水面，小伙伴还在陪你等。');
+    pet.game!.fishing!.candidate = 'sun-carp'; pet.game!.fishing!.waitMs = 32000;
+    rerender(<FishingGame pet={pet} active={true} choice={0} />);
+    expect(document.querySelector('.fishing-wait-note')?.textContent).toBe('风掠过水面，小伙伴还在陪你等。');
+    pet.game!.fishing!.candidate = before.game!.fishing!.candidate; pet.game!.fishing!.waitMs = before.game!.fishing!.waitMs;
+    expect(pet).toEqual(before); expect(api).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('.fishing-game button,.fishing-game a,.fishing-game input')).toHaveLength(0);
+  });
+});

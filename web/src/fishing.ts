@@ -24,3 +24,11 @@ export const fishingCompanions = [
   { rig: "dragon", method: "paw", waiting: "小龙爪扶着竿，翅膀安静收好。", bite: "龙爪握稳，翅膀张开，B 提竿！" },
   { rig: "dog", method: "paw", waiting: "前爪轻扶鱼竿，尾巴轻轻扫岸边。", bite: "耳朵抖一下，B 一起提竿！" },
 ] as const;
+
+// Visual flavor only: cycle on confirmed elapsed time, not waitMs/candidate.
+// No urgency, bite prediction, resource effects or independent timers.
+export const fishingWaitNotes = [
+  "水纹一圈圈散开，不急着提竿。",
+  "风掠过水面，小伙伴还在陪你等。",
+  "静静听一会儿水声，等明确的咬钩提示。",
+] as const;
