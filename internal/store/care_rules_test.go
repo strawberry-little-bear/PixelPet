@@ -64,3 +64,37 @@ func TestCareRulesMetadataIsFreshAndNotPortable(t *testing.T) {
 	check(s.Do(nil, &portable, false, now))
 	check(s.Do(nil, nil, true, now))
 }
+
+// The new optional action metadata also replaces stale/missing values in a
+// cached idempotent reply without rerunning or editing the original action.
+func TestActionRulesReplayUsesCurrentMetadata(t *testing.T) {
+	s, now := generationDB(t)
+	hatch := game.Action{Kind: "hatch", RequestID: "action-rules-hatch"}
+	original, err := s.Do(&hatch, nil, false, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cached string
+	if err = s.db.QueryRow("SELECT body FROM requests WHERE id=?", hatch.RequestID).Scan(&cached); err != nil {
+		t.Fatal(err)
+	}
+	var legacy map[string]json.RawMessage
+	if err = json.Unmarshal([]byte(cached), &legacy); err != nil {
+		t.Fatal(err)
+	}
+	for _, actions := range []string{`null`, `{"feed":{"hunger":999}}`} {
+		legacy["careRules"] = json.RawMessage(`{"awake":{"hunger":-3},"actions":` + actions + `}`)
+		encoded, _ := json.Marshal(legacy)
+		if _, err = s.db.Exec("UPDATE requests SET body=? WHERE id=?", string(encoded), hatch.RequestID); err != nil {
+			t.Fatal(err)
+		}
+		before := generationDump(t, s)
+		got, err := s.Do(&hatch, nil, false, now)
+		if err != nil || got.CareRules.Actions != game.CareRuleBook().Actions || got.State.Revision != original.State.Revision {
+			t.Fatalf("replay %+v, %v", got, err)
+		}
+		if generationDump(t, s) != before {
+			t.Fatal("metadata refresh rewrote save/cache")
+		}
+	}
+}

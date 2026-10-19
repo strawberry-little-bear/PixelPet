@@ -1860,7 +1860,7 @@ export default function App() {
                                   );
                                 })}
                             </div>
-                            <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} />
+                            <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} rules={careRules} />
                           </>
                         )}
                         {page === "growth" && (

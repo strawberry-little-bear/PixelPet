@@ -8,7 +8,7 @@ import (
 )
 
 func TestCareRulesRetainExistingRates(t *testing.T) {
-	want := CareRules{Awake: Needs{Hunger: -3, Mood: -2.5, Clean: -2, Energy: -2}, Sleeping: Needs{Hunger: -3, Mood: 0, Clean: -2, Energy: 14}, MaxOfflineHours: 12}
+	want := CareRules{Awake: Needs{Hunger: -3, Mood: -2.5, Clean: -2, Energy: -2}, Sleeping: Needs{Hunger: -3, Mood: 0, Clean: -2, Energy: 14}, MaxOfflineHours: 12, Actions: CareActionEffects{Feed: Needs{Hunger: 20, Mood: 3, Clean: -3}, Clean: Needs{Clean: 35, Mood: 4}}}
 	if got := CareRuleBook(); got != want {
 		t.Fatalf("passive rules changed: %+v", got)
 	}
@@ -55,5 +55,41 @@ func TestCareRulesDescribeActualSettlement(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestActionRulesDescribeUnchangedCareEffects(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	for _, kind := range []string{"feed", "clean"} {
+		for _, start := range []float64{0, 1, 60, 65, 70, 80, 95.999999, 96, 98.999999, 99, 100} {
+			for _, mood := range []float64{0, 97, 99, 100} {
+				s := babyAt(now)
+				s.Needs = Needs{Hunger: start, Mood: mood, Clean: start, Energy: 50}
+				before := s.Needs
+				_, feedback, err := s.ApplyWithFeedback(Action{Kind: kind}, now)
+				rejected := kind == "feed" && start >= 96 || kind == "clean" && start >= 99
+				if rejected {
+					if err == nil || s.Needs != before || feedback != nil {
+						t.Fatalf("%s/%v accepted or mutated rejected action", kind, start)
+					}
+					continue
+				}
+				want := Needs{Hunger: clamp(start + 20), Mood: clamp(mood + 3), Clean: clamp(start - 3), Energy: 50}
+				delta := CareRuleBook().Actions.Feed
+				if kind == "clean" {
+					want = Needs{Hunger: start, Mood: clamp(mood + 4), Clean: clamp(start + 35), Energy: 50}
+					delta = CareRuleBook().Actions.Clean
+				}
+				fromMetadata := Needs{Hunger: clamp(before.Hunger + delta.Hunger), Mood: clamp(before.Mood + delta.Mood), Clean: clamp(before.Clean + delta.Clean), Energy: clamp(before.Energy + delta.Energy)}
+				if err != nil || feedback == nil || feedback.Effect == nil || s.Needs != want || fromMetadata != want || feedback.Effect.After != want || feedback.Effect.Before != before {
+					t.Fatalf("%s/%v/%v: got %+v, want %+v, metadata %+v, err %v", kind, start, mood, s.Needs, want, fromMetadata, err)
+				}
+			}
+		}
+	}
+	copy := CareRuleBook()
+	copy.Actions.Feed.Hunger = 99
+	if CareRuleBook().Actions.Feed.Hunger != 20 {
+		t.Fatal("action rules shared mutable state")
 	}
 }

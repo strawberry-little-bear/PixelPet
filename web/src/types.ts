@@ -76,7 +76,8 @@ export type CareFeedback = {
   retryAt?: number;
   effect?: { at: number; before: Needs; after: Needs };
 };
-export type CareRules = { awake: Needs; sleeping: Needs; maxOfflineHours: number };
+export type CareActionEffects = { feed: Needs; clean: Needs };
+export type CareRules = { awake: Needs; sleeping: Needs; maxOfflineHours: number; actions?: CareActionEffects };
 export type Result = {
   careRules?: CareRules;
   saveGeneration?: string;

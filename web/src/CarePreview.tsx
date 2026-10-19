@@ -1,4 +1,4 @@
-import type { PetState } from "./types";
+import type { CareRules, Needs, PetState } from "./types";
 
 type CareKind = "feed" | "clean" | "sleep";
 const interval = 30 * 60000;
@@ -48,13 +48,33 @@ export function carePreview(pet: PetState, kind: CareKind): string[] {
     : "符合记录习惯的条件；习惯 +1、成长 +0.25，临近成年时成长封顶。"];
 }
 
-export function CarePreview({ pet, kind, hint }: { pet: PetState; kind: string; hint: string }) {
+const effectLabels = [["hunger", "饱食"], ["mood", "心情"], ["clean", "清洁"], ["energy", "体力"]] as const;
+
+// Optional response-only metadata. Invalid/missing action effects must not
+// suppress legacy text or the independently validated passive rate guide.
+export function careBaseEffect(pet: PetState, kind: string, rules?: CareRules | null): Needs | null {
+  if (!pet.hatchedAt || pet.game || pet.sleeping || (kind !== "feed" && kind !== "clean")) return null;
+  if ((kind === "feed" ? pet.needs.hunger >= 96 : pet.needs.clean >= 99)) return null;
+  const effect = rules?.actions?.[kind];
+  return effect && effectLabels.every(([key]) => typeof effect[key] === "number" && Number.isFinite(effect[key]) && Math.abs(effect[key]) <= 100)
+    ? effect : null;
+}
+
+export function CarePreview({ pet, kind, hint, rules }: { pet: PetState; kind: string; hint: string; rules?: CareRules | null }) {
   const care = kind === "feed" || kind === "clean" || kind === "sleep";
+  const effect = careBaseEffect(pet, kind, rules);
   const lines = care ? carePreview(pet, kind) : [hint];
   return (
     <div className="care-preview" role="note" aria-label="所选菜单说明" data-care-preview={kind}>
       <strong>{care ? "照顾前看看" : "菜单说明"}</strong>
       {lines.map(line => <p key={line}>{line}</p>)}
+      {effect && <section className="care-base-effect" aria-label="本次照顾的基准变化">
+        <strong>操作基准 · 不含时间结算</strong>
+        <dl>{effectLabels.map(([key, label]) => <div key={key} data-need={key}>
+          <dt>{label}</dt><dd>{effect[key] === 0 ? "不变" : `${effect[key] > 0 ? "+" : "−"}${Math.abs(effect[key])}`}</dd>
+        </div>)}</dl>
+        <small>各项到 0 / 100 为止，实际变化可能更少；不是操作后的预测。成长与习惯另按条件记录。</small>
+      </section>}
       {care && <small>按最近读取的状态预览，实际以照顾结果为准；不必为了成长反复照顾。</small>}
     </div>
   );

@@ -127,3 +127,9 @@
 .reading-mode .return-needs > div > span { flex: 0 0 2em; white-space: nowrap; }
 .reading-mode .return-needs strong { flex: 1; white-space: nowrap; }
 .reading-mode .return-needs small { margin-left: auto; white-space: nowrap; }
+
+.care-base-effect { margin-top: 8px; }
+.care-base-effect dl { margin: 6px 0; }
+.care-base-effect dl > div { display: flex; flex-wrap: wrap; gap: 4px 8px; justify-content: space-between; }
+.care-base-effect dt, .care-base-effect dd { white-space: nowrap; }
+.care-base-effect dd { margin: 0 0 0 auto; font-weight: bold; }

@@ -199,9 +199,10 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			return "", errors.New("肚子已经饱饱的啦，等一会儿再吃吧")
 		}
 		before := s.Needs.Hunger
-		s.Needs.Hunger = clamp(s.Needs.Hunger + 20)
-		s.Needs.Clean = clamp(s.Needs.Clean - 3)
-		s.Needs.Mood = clamp(s.Needs.Mood + 3)
+		effect := careActionEffects().Feed
+		s.Needs.Hunger = clamp(s.Needs.Hunger + effect.Hunger)
+		s.Needs.Clean = clamp(s.Needs.Clean + effect.Clean)
+		s.Needs.Mood = clamp(s.Needs.Mood + effect.Mood)
 		s.CareCount++
 		s.recordCare("feed", before, now)
 		s.sharedMemory("meal", now)
@@ -211,8 +212,9 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			return "", errors.New("已经洗得干干净净啦")
 		}
 		before := s.Needs.Clean
-		s.Needs.Clean = clamp(s.Needs.Clean + 35)
-		s.Needs.Mood = clamp(s.Needs.Mood + 4)
+		effect := careActionEffects().Clean
+		s.Needs.Clean = clamp(s.Needs.Clean + effect.Clean)
+		s.Needs.Mood = clamp(s.Needs.Mood + effect.Mood)
 		s.CareCount++
 		s.recordCare("clean", before, now)
 		s.sharedMemory("bath", now)
