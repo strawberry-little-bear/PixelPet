@@ -332,14 +332,14 @@ export default function App() {
   const latestRevision = useRef(-1);
   const acceptedPet = useRef<PetState | null>(null);
   const acceptedGeneration = useRef<string | undefined>(undefined);
-  const [careReadingDestination, setCareReadingDestination] = useState<{ petKey: string | null; page: "growth" | "status" } | null>(null);
+  const [careReadingDestination, setCareReadingDestination] = useState<{ petKey: string | null; page: "growth" | "status" | "journal" } | null>(null);
   // Immutable lifecycle fields keep older services usable; the generation also
   // distinguishes restoring a backup of the same pet. Never key on revision.
   const careReadingKey = pet ? JSON.stringify([acceptedGeneration.current, pet.createdAt, pet.hatchedAt, pet.species]) : null;
   useReadingViewport(readingRoot, careReadingDestination, "[data-care-reading-start]",
     !!careReadingKey && careReadingDestination?.petKey === careReadingKey && careReadingDestination?.page === page &&
     !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
-  const navigateCareReading = (destination: "growth" | "status") => {
+  const navigateCareReading = (destination: "growth" | "status" | "journal") => {
     setCareReadingDestination({ petKey: careReadingKey, page: destination });
   };
 
@@ -1440,8 +1440,9 @@ export default function App() {
       else if (page === "growth") {
         setGrowthPage((v) => (v + 1) % growthPageCount); navigateCareReading("growth");
       }
-      else if (page === "journal")
-        setJournalCursor(cursor => nextJournal(pet.logs, cursor));
+      else if (page === "journal") {
+        setJournalCursor(cursor => nextJournal(pet.logs, cursor)); navigateCareReading("journal");
+      }
       return;
     }
     if (key === "C") {
@@ -1505,7 +1506,7 @@ export default function App() {
         setGrowthPage(0); navigateCareReading("growth");
       } else if (item.kind === "journal") {
         setPage("journal");
-        setJournalCursor(startJournal(pet.logs));
+        setJournalCursor(startJournal(pet.logs)); navigateCareReading("journal");
       } else void act(item.kind);
     } else if (page === "game") void act("catch", { lane });
     else if (page === "growth") {
