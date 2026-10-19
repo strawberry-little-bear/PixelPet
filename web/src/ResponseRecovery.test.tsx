@@ -20,6 +20,8 @@ const corruptions = [
   ["missing needs", (r: Result) => ({ ...r, state: { ...r.state, needs: null } })],
   ["non-array logs", (r: Result) => ({ ...r, state: { ...r.state, logs: {} } })],
   ["object name", (r: Result) => ({ ...r, state: { ...r.state, name: { invalid: true } } })],
+  ["missing growth habits", (r: Result) => ({ ...r, state: { ...r.state, growth: { ...r.state.growth, care: null } } })],
+  ["malformed form record", (r: Result) => ({ ...r, state: { ...r.state, growth: { ...r.state.growth, formRecord: [] } } })],
   ["incomplete core", (r: Result) => ({ ...r, state: { revision: r.state.revision, lastTick: r.state.lastTick } })],
 ] as const;
 
@@ -65,7 +67,7 @@ for (const wasCommitted of [false, true]) {
     await key("a"); await key("b");
     expect(recovery()).toBeTruthy(); expect(scene()).toBeUndefined();
     expect(screen.getByRole("alert").textContent).toContain("可能已经保存");
-    expect(document.querySelector(".care-feedback,.care-outcome,.evolution")).toBeNull();
+    expect(document.querySelector(".growth-feedback.has-feedback,.care-outcome")).toBeNull();
     await key("a"); await key("c"); expect(writes()).toHaveLength(1);
     // A second incomplete reply cannot unlock an unknown action result.
     broken = "state"; await key("b"); expect(recovery()).toBeTruthy();
@@ -73,7 +75,7 @@ for (const wasCommitted of [false, true]) {
     broken = ""; await key("b");
     expect(recovery()).toBeNull(); expect(scene()).toBe("idle");
     expect(saved.careCount).toBe(wasCommitted ? 1 : 0);
-    expect(document.querySelector(".care-feedback,.care-outcome,.evolution")).toBeNull();
+    expect(document.querySelector(".growth-feedback.has-feedback,.care-outcome")).toBeNull();
     expect(screen.getByRole("status").textContent).toContain("没有自动重试");
     expect(writes()).toHaveLength(1);
     await key("a"); await key("b");
