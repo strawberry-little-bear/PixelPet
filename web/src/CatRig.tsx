@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -55,7 +56,7 @@ export function CatRig({ stage, expression = "awake", motion = "idle", need, cla
   const variant = stage === "growing" || stage === "adult" ? stage : "baby";
   const art = catStages[variant];
   return <svg viewBox="0 0 64 68" className={`pet-sprite cat-rig cat-${variant} rig-motion-${motion} expression-${expression} ${need ? `gesture-${need}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`樱花喵，${{baby:"团坐探爪",growing:"侧耳试步",adult:"端坐理毛"}[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(7, variant)} shapeRendering="crispEdges">
     <g stroke="#443432" strokeWidth="2" strokeLinejoin="miter" fill="#fffaf5">
       <path className="cat-tail" d={art.tail} />
       <g className="cat-foot foot-left"><path d={art.footLeft} /><path d="M22 61h4v2h-4z" stroke="none" fill="#f6b1c4" /></g>

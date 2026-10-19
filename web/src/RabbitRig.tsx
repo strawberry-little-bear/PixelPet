@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -49,7 +50,7 @@ export function RabbitRig({ stage, expression = "awake", motion = "idle", need, 
   const variant = stage === "growing" || stage === "adult" ? stage : "baby";
   const art = rabbitStages[variant];
   return <svg viewBox="0 0 64 68" className={`pet-sprite rabbit-rig rabbit-${variant} rig-motion-${motion} expression-${expression} ${need ? `gesture-${need}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`草莓兔，${{baby:"团坐踢脚",growing:"竖耳踏步",adult:"舒展挥手"}[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(2, variant)} shapeRendering="crispEdges">
     <g stroke="#443432" strokeWidth="2" strokeLinejoin="miter" fill="#ffc9d8">
       <path className="rabbit-tail" d={art.tail} fill="#ffe5ec" />
       <path className="rabbit-foot foot-left" d={art.footLeft} />

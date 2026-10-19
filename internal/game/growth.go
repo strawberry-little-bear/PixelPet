@@ -272,7 +272,7 @@ func (s *State) evolve(now time.Time) {
 		g.Stage = "growing"
 		g.GrowingAt = now.UnixMilli()
 		s.sharedMemory("growing", now)
-		s.Log(now, fmt.Sprintf("%s进入成长期，戴上了小围巾！", s.Name))
+		s.Log(now, fmt.Sprintf("%s进入成长期，有了新的模样！", s.Name))
 	}
 	if g.Points >= AdultPoints-1e-9 && g.Stage == "growing" {
 		g.Points = AdultPoints

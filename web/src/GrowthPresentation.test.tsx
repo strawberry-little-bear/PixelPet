@@ -4,6 +4,8 @@ import App from "./App";
 import { request } from "./api";
 import { emptyGrowth } from "./growth";
 import { clipDurations } from "./motion";
+import { species } from "./types";
+import { stageLook } from "./stageLooks";
 import type { PetState, Result, ReturnRecap } from "./types";
 
 vi.mock("./api", () => ({ request: vi.fn() }));
@@ -39,6 +41,16 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("growth and return presentation order", () => {
+  it.each(species.map((name, index) => ({ name, index })))("$name celebrates its own growing pose without inventing equipment", async ({ index }) => {
+    saved.species = index;
+    await mount(); grow("growing"); await complete();
+    expect(celebrating()).toBeTruthy();
+    await tick(clipDurations.evolve);
+    expect(document.querySelector(".toast")?.textContent).toContain(`进入成长期，${stageLook(index, "growing").pose}！`);
+    expect(document.querySelector(".toast")?.textContent).not.toContain("围巾");
+    expect(saved.growth?.stage).toBe("growing");
+    expect(claims()).toHaveLength(1); expect(writes()).toHaveLength(0);
+  });
   it.each(["growing", "adult"] as const)("shows %s before an already accepted recap, then returns without another write", async stage => {
     await mount(); grow(stage); await complete();
     expect(celebrating()).toBeTruthy(); expect(returning()).toBeNull();

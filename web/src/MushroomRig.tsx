@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -60,7 +61,7 @@ export function MushroomRig({ stage, expression = "awake", motion = "idle", need
   const art = mushroomStages[variant];
   const activeNeed = motion === "idle" ? need : undefined;
   return <svg viewBox="0 0 64 68" className={`pet-sprite mushroom-rig mushroom-${variant} rig-motion-${motion} expression-${expression} ${activeNeed ? `gesture-${activeNeed}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`蘑菇菇，${{ baby: "裹盖团坐", growing: "歪盖探步", adult: "展盖轻摇" }[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(4, variant)} shapeRendering="crispEdges">
     <g stroke="#382c2a" strokeWidth="2" strokeLinejoin="miter" fill="#fff1dc">
       <g className="mushroom-foot foot-left"><path d={art.footLeft} /></g>
       <g className="mushroom-foot foot-right"><path d={art.footRight} /></g>

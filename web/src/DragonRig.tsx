@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -68,7 +69,7 @@ export function DragonRig({ stage, expression = "awake", motion = "idle", need, 
   const art = dragonStages[variant];
   const activeNeed = motion === "idle" ? need : undefined;
   return <svg viewBox="0 0 64 68" className={`pet-sprite dragon-rig dragon-${variant} rig-motion-${motion} expression-${expression} ${activeNeed ? `gesture-${activeNeed}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`银河龙，${{ baby: "抱尾拢翼", growing: "探身试翼", adult: "展翼望星" }[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(8, variant)} shapeRendering="crispEdges">
     <g stroke="#382c2a" strokeWidth="2" strokeLinejoin="miter" fill="#b39ddb">
       <g className="dragon-tail" style={{ transformOrigin: art.tailPivot }}><path d={art.tail} /><path className="dragon-tail-spines" d={art.tailSpines} fill="#8e6fc4" stroke="none" /></g>
       <g className="dragon-wing dragon-wing-left" style={{ transformOrigin: art.wingLeftPivot }}><path d={art.wingLeft} /><path className="dragon-membrane" d={art.membraneLeft} fill="#8e6fc4" stroke="none" /></g>

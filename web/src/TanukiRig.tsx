@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -100,7 +101,7 @@ export function TanukiRig({
       className={`pet-sprite tanuki-rig tanuki-${variant} rig-motion-${motion} expression-${expression} ${need ? `gesture-${need}` : ""} ${className}`}
       data-rig-stage={variant}
       role="img"
-      aria-label={`星星狸，${{ baby: "团坐抱尾", growing: "探头踏步", adult: "竖尾望星" }[variant]}`}
+      aria-label={petStageLabel(0, variant)}
       shapeRendering="crispEdges"
     >
       <g stroke="#3d302a" strokeWidth="2" strokeLinejoin="miter" fill="#ffda58">

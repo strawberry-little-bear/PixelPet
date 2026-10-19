@@ -214,6 +214,9 @@ describe("three-button pet animation lifecycle", () => {
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("4");
     expect(document.querySelector(".growth-time-guide")?.textContent).toContain("12 小时");
     await key("a");
+    expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("5");
+    expect(document.querySelector(".growth-look-guide")?.textContent).toContain("草莓兔的三阶段");
+    await key("a");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("0");
     expect(document.querySelectorAll("[data-preview-stage]")).toHaveLength(3);
     for (let i = 0; i < growthPageCount; i++) await key("b");

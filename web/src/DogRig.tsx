@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -80,7 +81,7 @@ export function DogRig({ stage, expression = "awake", motion = "idle", need, cla
   const art = dogStages[variant];
   const activeNeed = motion === "idle" ? need : undefined;
   return <svg viewBox="0 0 64 68" className={`pet-sprite dog-rig dog-${variant} rig-motion-${motion} expression-${expression} ${activeNeed ? `gesture-${activeNeed}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`焦糖犬，${{ baby: "趴团抱爪", growing: "侧耳探步", adult: "坐稳摇尾" }[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(9, variant)} shapeRendering="crispEdges">
     <g stroke="#382c2a" strokeWidth="2" strokeLinejoin="miter" fill="#c68a5a">
       <g className="dog-tail" style={{ transformOrigin: art.tailPivot }}><path d={art.tail} /><path className="dog-tail-tip" d={art.tailTip} fill="#a96f3f" stroke="none" /></g>
       <g className="dog-foot dog-foot-left" style={{ transformOrigin: art.footLeftPivot }}><path d={art.footLeft} /><path className="dog-toes" d={art.toesLeft} stroke="none" fill="#a96f3f" /></g>

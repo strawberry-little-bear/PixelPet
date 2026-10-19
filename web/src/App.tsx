@@ -1,3 +1,4 @@
+import { stageLook } from "./stageLooks";
 import { StatusGuide, statusPageCount, validCareRules } from "./StatusGuide";
 import type { CareRules } from "./types";
 import { CarePreview } from "./CarePreview";
@@ -593,10 +594,10 @@ export default function App() {
     setMessage(
       evolution.stage === "adult"
         ? `长大啦！成为了${formNames[evolution.form || "balanced"]}。`
-        : "进入成长期，戴上了小围巾！",
+        : `进入成长期，${stageLook(pet?.species ?? -1, "growing").pose}！`,
     );
     setEvolution(null);
-  }, [evolution, uncertain, unavailable, corrupt, page, busy, clip, pet?.sleeping, pet?.game, tools, help, reset, foreground]);
+  }, [evolution, uncertain, unavailable, corrupt, page, busy, clip, pet?.sleeping, pet?.game, pet?.species, tools, help, reset, foreground]);
   useEffect(() => { recapDisplayEpoch.current++; }, [page, tools, help, reset]);
   // An acknowledgement can itself cross a growth threshold. Let the saved
   // growth celebration finish before presenting its recap, rather than hiding

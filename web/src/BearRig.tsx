@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -71,7 +72,7 @@ export function BearRig({ stage, expression = "awake", motion = "idle", need, cl
   const art = bearStages[variant];
   const activeNeed = motion === "idle" ? need : undefined;
   return <svg viewBox="0 0 64 68" className={`pet-sprite bear-rig bear-${variant} rig-motion-${motion} expression-${expression} ${activeNeed ? `gesture-${activeNeed}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`蜜桃熊，${{ baby: "桃团抱爪", growing: "探身踏步", adult: "挺身揉颊" }[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(5, variant)} shapeRendering="crispEdges">
     <g stroke="#382c2a" strokeWidth="2" strokeLinejoin="miter" fill="#ffc2a0">
       <g className="bear-foot foot-left"><path d={art.footLeft} /><path d={art.padLeft} fill="#ffb48a" stroke="none" /></g>
       <g className="bear-foot foot-right"><path d={art.footRight} /><path d={art.padRight} fill="#ffb48a" stroke="none" /></g>

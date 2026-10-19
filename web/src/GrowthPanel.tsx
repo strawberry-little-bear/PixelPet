@@ -11,6 +11,8 @@ import {
   growthPageCount,
   formRules,
 } from "./growth";
+import { stageLook } from "./stageLooks";
+import { species } from "./types";
 import type { Companion, Growth, GrowthStage } from "./types";
 import "./growth.css";
 
@@ -146,6 +148,25 @@ export function GrowthPanel({
             <div><dt>{g.stage === "adult" ? "成年以后" : "长大以后"}</dt><dd>成年形态固定，照顾仍记习惯；新发生的纪念经历还能留下，不重复刷形态。</dd></div>
           </dl>
         </div>
+      ) : page === 5 ? (
+        <section className="growth-look-guide" aria-label="三阶段外观说明">
+          <h3>{species[index] ?? "小伙伴"}的三阶段</h3>
+          <p>同一位小伙伴的不同阶段，不是换一只宠物，也不只是放大原图。</p>
+          {g.stage === "egg" && <p>孵化后开始三阶段旅程。</p>}
+          <dl>
+            {(["baby", "growing", "adult"] as const).map(stage => {
+              const look = stageLook(index, stage);
+              return <div key={stage} data-look-stage={stage} aria-current={g.stage === stage ? "step" : undefined}>
+                <dt>{stageNames[stage]} · {look.pose}{g.stage === stage ? " · 现在" : ""}</dt>
+                <dd>{look.detail}</dd>
+              </div>;
+            })}
+          </dl>
+          <p>{g.stage === "adult"
+            ? "成年形态已固定，之后照顾不会重选；装扮是另外穿戴的物品。"
+            : "这是阶段造型说明，成年形态仍以长大时的记录为准；装扮不决定成长。"}</p>
+          <small>舒适度影响成长，实际照顾记录影响成年倾向；前几页可看数值与规则。</small>
+        </section>
       ) : (
         <div className="form-guide">
           <div className="habit-heading">

@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -62,7 +63,7 @@ export function FrogRig({ stage, expression = "awake", motion = "idle", need, cl
   const art = frogStages[variant];
   const activeNeed = motion === "idle" ? need : undefined;
   return <svg viewBox="0 0 64 68" className={`pet-sprite frog-rig frog-${variant} rig-motion-${motion} expression-${expression} ${activeNeed ? `gesture-${activeNeed}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`柠檬蛙，${{ baby: "团蹲拢蹼", growing: "探身试跃", adult: "舒蹼鸣唱" }[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(6, variant)} shapeRendering="crispEdges">
     <g stroke="#382c2a" strokeWidth="2" strokeLinejoin="miter" fill="#9bd65e">
       <g className="frog-thigh frog-thigh-left"><path d={art.thighLeft} /></g>
       <g className="frog-thigh frog-thigh-right"><path d={art.thighRight} /></g>

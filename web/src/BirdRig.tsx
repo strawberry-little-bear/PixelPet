@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -65,7 +66,7 @@ export function BirdRig({ stage, expression = "awake", motion = "idle", need, cl
   const variant = stage === "growing" || stage === "adult" ? stage : "baby";
   const art = birdStages[variant];
   return <svg viewBox="0 0 64 68" className={`pet-sprite bird-rig bird-${variant} rig-motion-${motion} expression-${expression} ${need ? `gesture-${need}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`云朵雀，${{ baby: "绒团收翼", growing: "探脚试翼", adult: "停栖梳羽" }[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(1, variant)} shapeRendering="crispEdges">
     <g stroke="#382c29" strokeWidth="2" strokeLinejoin="miter" fill="#fffef8">
       <g className="bird-tail"><path d={art.tail} /><path className="bird-tail-feathers" d={art.tailFeather} fill="#c0e6f0" stroke="none" /></g>
       <g className="bird-foot foot-left"><path d={art.footLeft} fill="#ffb53c" /></g>

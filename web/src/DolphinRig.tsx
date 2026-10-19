@@ -1,3 +1,4 @@
+import { petStageLabel } from "./stageLooks";
 import { AccessoryMark } from "./EquipmentArt";
 import type { Expression } from "./Sprite";
 import type { SceneMotion } from "./motion";
@@ -67,7 +68,7 @@ export function DolphinRig({ stage, expression = "awake", motion = "idle", need,
   // Direct previews must obey the same action-over-need priority as PetScene.
   const activeNeed = motion === "idle" ? need : undefined;
   return <svg viewBox="0 0 64 68" className={`pet-sprite dolphin-rig dolphin-${variant} rig-motion-${motion} expression-${expression} ${activeNeed ? `gesture-${activeNeed}` : ""} ${className}`}
-    data-rig-stage={variant} role="img" aria-label={`海豚宝，${{ baby: "团身拢鳍", growing: "扬鳍试游", adult: "舒身摆尾" }[variant]}`} shapeRendering="crispEdges">
+    data-rig-stage={variant} role="img" aria-label={petStageLabel(3, variant)} shapeRendering="crispEdges">
     <g stroke="#382c29" strokeWidth="2" strokeLinejoin="miter" fill="#8fd4f0">
       <g className="dolphin-tail" style={{ transformOrigin: art.tailPivot }}><path d={art.tail} /><path className="dolphin-flukes" d={art.flukes} fill="#74c6e5" /></g>
       <g className="dolphin-dorsal"><path d={art.dorsal} fill="#74c6e5" /></g>
