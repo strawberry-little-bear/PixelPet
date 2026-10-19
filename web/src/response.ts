@@ -1,4 +1,4 @@
-import type { Result } from "./types";
+import type { Memory, Result } from "./types";
 import { careHabitUnits } from "./careHabitUnits";
 import { games } from "./games";
 import { interestLimit } from "./companion";
@@ -48,6 +48,26 @@ function validCompanion(value: unknown): boolean {
     validGameExperience(value.recent));
 }
 
+// Permanent memories are optional on old servers. Supplied records are read
+// by filter/sort, date formatting and artwork selection; reject unsafe shapes
+// before accepting the response, never replace damaged history with an empty
+// album. Chronology, uniqueness and how memories are earned stay server rules.
+const memoryKinds: Record<Memory["kind"], true> = {
+  hatch: true, growing: true, adult: true, meal: true, bath: true, goodnight: true,
+  stars: true, "perfect-stars": true, days: true, outfit: true, decoration: true,
+  wallpaper: true, floor: true, tiles: true, snake: true, tetris: true, fishing: true, walk: true,
+};
+function validAlbum(value: unknown): boolean {
+  return value == null || (record(value) && timestamp(value.since) && typeof value.legacy === "boolean" &&
+    // A nil Go slice is a legitimate empty legacy/egg album.
+    (value.entries == null || (Array.isArray(value.entries) && value.entries.every(memory =>
+      record(memory) && typeof memory.kind === "string" && Object.hasOwn(memoryKinds, memory.kind) &&
+      timestamp(memory.at) && ["shared", "saved", "elapsed"].includes(memory.source as string) &&
+      (memory.form === undefined || ["", "balanced", "lively", "gentle", "easygoing"].includes(memory.form as string)) &&
+      (memory.score === undefined || count(memory.score)) && (memory.days === undefined || count(memory.days)) &&
+      (memory.item === undefined || typeof memory.item === "string")))));
+}
+
 // Feedback is optional on old servers. If provided, its base fields are used
 // directly by the short success text. Optional effect receipts retain their own
 // local guard; missing/bad effect metadata does not make safe feedback unusable.
@@ -95,7 +115,7 @@ export function validCoreResponse(value: unknown): value is Result {
     count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
-    count(state.careCount) && validGrowth(state.growth) && validCompanion(state.companion) &&
+    count(state.careCount) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) &&
     validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>

@@ -21,6 +21,9 @@ const returnHistory = (r: Result) => {
   return { id: "return", from: r.serverTime - 1800000, to: r.serverTime, before: snapshot, after: snapshot };
 };
 const corruptions = [
+  ["object album entries", (r: Result) => ({ ...r, state: { ...r.state, album: { since: r.serverTime, legacy: false, entries: {} } } })],
+  ["invalid memory date", (r: Result) => ({ ...r, state: { ...r.state, album: { since: r.serverTime, legacy: false, entries: [{ kind: "meal", at: 8640000000000001, source: "shared" }] } } })],
+  ["null memory", (r: Result) => ({ ...r, state: { ...r.state, album: { since: r.serverTime, legacy: false, entries: [null] } } })],
   ["missing needs", (r: Result) => ({ ...r, state: { ...r.state, needs: null } })],
   ["non-array logs", (r: Result) => ({ ...r, state: { ...r.state, logs: {} } })],
   ["object name", (r: Result) => ({ ...r, state: { ...r.state, name: { invalid: true } } })],
