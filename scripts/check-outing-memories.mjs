@@ -21,6 +21,21 @@ async function api(path,body){const res=await fetch(base+'/api/'+path,body===und
 async function key(page,k){await page.locator(`.button-${k.toLowerCase()}`).tap();await page.waitForFunction(()=>!document.querySelector('.button-b')?.disabled);}
 async function enter(page,index){await page.locator('.home-caption').waitFor();for(const k of ['A','A','B',...Array(index).fill('A'),'B','B'])await key(page,k);}
 async function openNotes(page){for(const k of ['A',...Array(8).fill('A'),'B',...Array(6).fill('A'),'B'])await key(page,k);await page.locator('[data-album-category="scenery"]').waitFor();}
+// Discoveries must also be reachable directly, without exiting the live session.
+async function pauseNotes(page,kind){
+ const selector=kind==='walk'?'.walk-pause':'.fishing-pause';
+ if(!await page.locator(selector).isVisible())await key(page,'C');await page.locator(selector).waitFor();
+ const before=(await api('state')).state;
+ for(const k of ['A','A','A','B'])await key(page,k);
+ await page.locator('[data-album-category="scenery"]').waitFor();assert.match(await page.locator('.lcd-bottom').innerText(),/C 返回暂停/);
+ const seen=[];for(let i=0;i<notes(before).length;i++){await key(page,'B');await readable(page);seen.push(await page.locator('.album-panel').getAttribute('data-album-kind'));}
+ assert.deepEqual([...seen].sort(),notes(before).map(m=>m.kind).sort());
+ await page.screenshot({path:join(dir,'pause-note-'+kind+'.png'),fullPage:true});
+ await key(page,'C');await page.locator(selector).waitFor();await wait(1300);
+ const after=(await api('state')).state;assert.deepEqual(after.game,before.game);assert.deepEqual(notes(after),notes(before));assert.equal(after.careCount,before.careCount);assert.equal(after.economy.coins,before.economy.coins);
+ await page.reload();await page.locator(selector).waitFor();await wait(1300);assert.deepEqual((await api('state')).state.game,before.game);
+ await key(page,'C');
+}
 async function abandon(page,kind){await key(page,'C');await page.locator(kind==='walk'?'.walk-pause':'.fishing-pause').waitFor();for(const k of ['A','A','B','B'])await key(page,k);await page.locator('.home-caption').waitFor();}
 async function readable(page){
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'horizontal page overflow');
@@ -59,13 +74,13 @@ try{
  }
  assert(await page.locator('.fishing-bite').isVisible(),'no natural bite before deadline');assert.deepEqual(notes((await api('state')).state),[]);
  await key(page,'B');const caught=(await api('state')).state;assert.equal(caught.game.fishing.catches.length,1);assert.equal(notes(caught).length,1);
- await abandon(page,'fishing');const afterFish=(await api('state')).state;assert.deepEqual(notes(afterFish),notes(caught));assert.equal(afterFish.economy.coins,0);
+ await pauseNotes(page,'fishing');await abandon(page,'fishing');const afterFish=(await api('state')).state;assert.deepEqual(notes(afterFish),notes(caught));assert.equal(afterFish.economy.coins,0);
  results.push({type:'natural-fishing-catch-and-abandon',notes:notes(afterFish),resumptions:[...resumptions]});
  await enter(page,5);await page.locator('.walk-pause').waitFor();await key(page,'C');
  const deadline=Date.now()+90000;let discovered;
  while(Date.now()<deadline){const s=(await api('state')).state;if(s.game.walking.beat<24)assert.equal(notes(s).length,1);else{discovered=s;break;}if(await page.locator('.walk-pause').isVisible()){resumptions.push({kind:'walk',at:Date.now()});assert(resumptions.length<=8,'host repeatedly suspended');await key(page,'C');}await wait(300);}
  assert(discovered,'walk never reached first real discovery');assert.equal(notes(discovered).length,2);
- await abandon(page,'walk');const both=(await api('state')).state;assert.deepEqual(notes(both),notes(discovered));assert.equal(both.careCount,0);assert.equal(both.economy.coins,0);
+ await pauseNotes(page,'walk');await abandon(page,'walk');const both=(await api('state')).state;assert.deepEqual(notes(both),notes(discovered));assert.equal(both.careCount,0);assert.equal(both.economy.coins,0);
  await page.reload();await page.locator('.home-caption').waitFor();await openNotes(page);await readable(page);
  const seen=[];for(let i=0;i<2;i++){await key(page,'B');await readable(page);seen.push(await page.locator('.album-panel').getAttribute('data-album-kind'));}
  assert.deepEqual(seen,notes(both).map(m=>m.kind).sort((a,b)=>notes(both).find(m=>m.kind===a).at-notes(both).find(m=>m.kind===b).at||a.localeCompare(b)));

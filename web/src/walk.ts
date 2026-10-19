@@ -6,7 +6,7 @@ export const parkCatalog = [
  {id:"shell", name:"水边贝壳", color:"#b4a78c", story:"浅水道边发现的小贝壳。"},
  {id:"pebble", name:"圆石子", color:"#91a18e", story:"公园里一颗圆圆的小石子。"},
 ] as const;
-export const walkMenu = ["继续散步", "沿途发现", "放弃本次"];
+export const walkMenu = ["继续散步", "沿途发现", "放弃本次", "风景手记"];
 export const walkingCompanions = [
  "小爪迈步，跳起时收爪，低头通过树枝。",
  "小脚走路，展翅越石，收翅低头穿过树枝。",

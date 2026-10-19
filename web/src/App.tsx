@@ -266,6 +266,10 @@ export default function App() {
       setShopNotice("刚才预览的物品已不在这个分类中，已更新预览；请重新核对。");
     }
   }, [page, shopCategory, shop, pet, shopItemId, purchaseConfirm, busy]);
+  // A pause-menu shortcut reuses the permanent reader, but C must return to
+  // this exact session without granting permission to run it.
+  const [albumReturnSession, setAlbumReturnSession] = useState<string | null>(null);
+  const returningToPause = albumReturnSession !== null && albumReturnSession === sessionKey;
   const [albumCursor, setAlbumCursor] = useState(startAlbum);
   const [albumChoice, setAlbumChoice] = useState(0);
   const [albumCategory, setAlbumCategory] = useState<AlbumCategory | null>(null);
@@ -497,6 +501,7 @@ export default function App() {
       setReturnReading(null);
     }
     if (recovering || repairing || clockBlocked || replaced || gameChanged) {
+      setAlbumReturnSession(null);
       discardImport();
       uncertainRef.current = false;
       setUncertain(false);
@@ -1093,7 +1098,12 @@ export default function App() {
         if (key === "A") setAlbumChoice(v => (v + 1) % albumCategories.length);
         else if (key === "B") { setAlbumCategory(albumCategories[albumChoice].id); setAlbumCursor(startAlbum()); }
         else if (key === "C") setPage("home");
-      } else if (key === "C") setAlbumCategory(null);
+      } else if (key === "C") {
+        if (returningToPause) {
+          setAlbumReturnSession(null);
+          setPage("game");
+        } else setAlbumCategory(null);
+      }
       else if (key === "A" || key === "B") setAlbumCursor(cursor => nextAlbum(pet, albumCategory, cursor));
       return;
     }
@@ -1137,6 +1147,10 @@ export default function App() {
         if(key==="A")setWalkChoice(v=>(v+1)%walkMenu.length);
         else if(key==="C" || walkChoice===0)void act("walk-resume",{step:n.step});
         else if(walkChoice===1){walkEpoch.current++;setWalkSession("");setParkPage(0);setPage("park-album");}
+        else if (walkChoice === 3) {
+          walkEpoch.current++; setWalkSession("");
+          setAlbumReturnSession(sessionKey); setAlbumCategory("scenery"); setAlbumCursor(startAlbum()); setPage("album");
+        }
         else {walkEpoch.current++;setWalkSession("");setAbandonGame(sessionKey);}
       } else if(key==="C") {
         walkEpoch.current++;setWalkSession("");setWalkChoice(0);void act("walk-pause",{step:n.step});
@@ -1152,6 +1166,10 @@ export default function App() {
         if (key === "A") setFishingChoice(v => (v + 1) % fishingMenu.length);
         else if (key === "C" || fishingChoice === 0) void act("fish-resume", { step: n.step });
         else if (fishingChoice === 1) { setFishingSession(""); setFishPage(0); setPage("fish-album"); }
+        else if (fishingChoice === 3) {
+          fishingEpoch.current++; setFishingSession("");
+          setAlbumReturnSession(sessionKey); setAlbumCategory("scenery"); setAlbumCursor(startAlbum()); setPage("album");
+        }
         else { setFishingSession(""); setAbandonGame(sessionKey); }
       } else if (key === "C") {
         fishingEpoch.current++; setFishingSession(""); setFishingChoice(0);
@@ -1327,6 +1345,7 @@ export default function App() {
       } else if (item.kind === "fish-album") {
         setPage("fish-album"); setFishPage(0);
       } else if (item.kind === "album") {
+        setAlbumReturnSession(null);
         setPage("album");
         setAlbumCategory(null);
         setAlbumChoice(0);
@@ -1444,6 +1463,7 @@ export default function App() {
     try {
       const r = await request("import", pending.backup.data, acceptedGeneration.current);
       initialized.current = true;
+      setAlbumReturnSession(null);
       discardImport();
       latestRevision.current = -1;
       knownStage.current = null;
@@ -1475,6 +1495,7 @@ export default function App() {
     try {
       const r = await request("reset", { confirm: true }, acceptedGeneration.current);
       initialized.current = true;
+      setAlbumReturnSession(null);
       discardImport();
       latestRevision.current = -1;
       knownStage.current = null;
@@ -1567,7 +1588,7 @@ export default function App() {
                     : page === "status"
                       ? "A 换页　 B / C 回小窝"
                       : page === "album"
-                      ? albumCategory === null ? "A 换分类  B 进入  C 返回小窝" : "A / B 换页  C 返回分类"
+                      ? albumCategory === null ? "A 换分类  B 进入  C 返回小窝" : returningToPause ? "A / B 换页  C 返回暂停" : "A / B 换页  C 返回分类"
                       : page === "growth"
                       ? "A / B 换页　 C 返回"
                       : page === "journal"
