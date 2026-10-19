@@ -397,8 +397,8 @@
   line-height: 11px;
 }
 .companion-rows { display: grid; gap: 1px; font-size: 8px; line-height: 10px; }
-.companion-rows > div { display: flex; justify-content: space-between; }
-.companion-rows > div > span:last-child { color: #547149; letter-spacing: 3px; }
+.companion-rows > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: start; }
+.companion-rows > div > span:last-child { color: #547149; letter-spacing: 3px; white-space: nowrap; }
 .companion-rules, .companion-since { display: block; font-size: 7px; line-height: 10px; margin-top: 4px; }
 .companion-since { margin-top: 2px; opacity: .8; }
 
@@ -422,3 +422,9 @@
 .growth-look-guide [aria-current="step"] { border-left: 2px solid currentColor; padding-left: 6px; }
 .growth-panel[data-growth-page="5"] { overflow-y: auto; }
 .growth-panel[data-growth-page="5"] .growth-page-dots { position: static; display: block; text-align: right; margin-top: 8px; }
+
+/* Saved memory is a reading block, never a replay or a new action. */
+.companion-memory { margin-top: 8px; padding: 6px 0; border-top: 1px solid currentColor; }
+.companion-memory > strong { display: block; font-size: 9px; }
+.companion-memory > p { margin: 3px 0; font-size: 8px; line-height: 1.5; }
+.companion-memory > time, .companion-memory > small { display: block; font-size: 8px; line-height: 1.5; }

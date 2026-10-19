@@ -3,6 +3,8 @@ import { interestLimit, interestSummary } from "./companion";
 import type { Companion } from "./types";
 
 export function CompanionPanel({ companion: c }: { companion?: Companion }) {
+  const recent = c?.recent;
+  const recentGame = games.find(game => game.id === recent?.kind);
   return (
     <section className="companion-panel" aria-label="共同游戏与兴趣">
       <div className="habit-heading">
@@ -24,6 +26,18 @@ export function CompanionPanel({ companion: c }: { companion?: Companion }) {
           );
         })}
       </div>
+      {c && <section className="companion-memory" aria-label="最近一次共同游戏">
+        <strong>最近一起玩过</strong>
+        {recent && recentGame ? <>
+          <p>{recentGame.title} · 已完成并收好</p>
+          <time dateTime={new Date(recent.at).toISOString()}>
+            {new Date(recent.at).toLocaleString("zh-CN", {
+              year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+            })}
+          </time>
+          <small>只保留最近一次完成；不代表本次兴趣增加。</small>
+        </> : <p>还没有保存的共同游戏。玩喜欢的就好，不必补做。</p>}
+      </section>}
       <small className="companion-rules">
         只记达成陪伴条件并收好的游戏。<br />
         同一游戏间隔 30 分钟，每种最多记 5 次。<br />
