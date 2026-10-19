@@ -1,3 +1,4 @@
+import { GrowthSnapshot } from "./GrowthSnapshot";
 import { GrowthBasis } from "./GrowthBasis";
 import { CompanionPanel } from "./CompanionPanel";
 import { PetArt, petRigClass } from "./PetArt";
@@ -15,7 +16,7 @@ import {
 } from "./growth";
 import { stageLook } from "./stageLooks";
 import { species } from "./types";
-import type { CareRules, Companion, Growth, GrowthStage } from "./types";
+import type { CareRules, Companion, Growth, GrowthStage, PetState } from "./types";
 import "./growth.css";
 
 // Keep exact zero and ordinary one-decimal readings unchanged. Fractional
@@ -57,12 +58,14 @@ function StagePreviews({ growth, index }: { growth: Growth; index: number }) {
 
 export function GrowthPanel({
   growth: g,
+  pet,
   companion,
   index,
   page,
   rules,
 }: {
   growth: Growth;
+  pet?: PetState;
   companion?: Companion;
   index: number;
   page: number;
@@ -123,6 +126,7 @@ export function GrowthPanel({
               ? "形态已确定，还能在纪念册留下新的经历。"
               : "状态越舒适，成长越快；不用着急。"}
           </small>
+          {pet && <GrowthSnapshot pet={pet} rules={rules} />}
         </>
       ) : page === 1 ? (
         <>

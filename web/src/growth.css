@@ -453,3 +453,11 @@
   color: #4e653b;
   line-height: 1.7;
 }
+
+.growth-current { margin-top: 10px; border-top: 1px dashed currentColor; padding-top: 8px; font-size: 10px; line-height: 1.6; }
+.growth-current h4 { margin: 0 0 6px; font-size: inherit; }
+.growth-current dl { margin: 0; display: grid; gap: 4px; }
+.growth-current dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 8px; }
+.growth-current dd { margin: 0; }
+.growth-current p { margin: 6px 0 0; }
+.reading-mode .growth-current { font-size: inherit; }

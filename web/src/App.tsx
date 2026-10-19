@@ -1912,6 +1912,7 @@ export default function App() {
                         )}
                         {page === "growth" && (
                           <GrowthPanel
+                            pet={pet}
                             growth={growth}
                             rules={careRules}
                             companion={pet.companion}
