@@ -1,3 +1,4 @@
+import { useTreasureViewport, type TreasureDestination } from "./useTreasureViewport";
 import { useReadingViewport } from "./useReadingViewport";
 import { usePauseReadingViewport, type PauseReadingDestination } from "./usePauseReadingViewport";
 import { GrowthTrack } from "./GrowthTrack";
@@ -243,6 +244,7 @@ export default function App() {
   const [fishPage, setFishPage] = useState(0);
   const fishingEpoch = useRef(0);
   const [treasureSession, setTreasureSession] = useState("");
+  const [treasureDestination, setTreasureDestination] = useState<TreasureDestination | null>(null);
   const [treasureCursor, setTreasureCursor] = useState(0);
   const [treasureChoice, setTreasureChoice] = useState(0);
   const [walkSession,setWalkSession] = useState("");
@@ -952,6 +954,12 @@ export default function App() {
         && !document.hidden && gameWindowActive.current)
         audio.current?.bite();
       if (kind === "treasure-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current) setTreasureSession(r.state.game?.id ?? "");
+      if (["treasure-resume", "treasure-dig"].includes(kind) && page === "game"
+        && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current
+        && pet?.game?.id && r.state.game?.id === pet.game.id && r.state.game.treasure) {
+        setTreasureDestination({ sessionKey: pet.game.id, target: treasureDone(r.state.game.treasure)
+          ? "done" : kind === "treasure-dig" ? "result" : "selection" });
+      }
       if (["treasure-pause", "treasure-finish", "cancel-play"].includes(kind)) { setTreasureSession(""); setTreasureChoice(0); }
       const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
       if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
@@ -1263,7 +1271,10 @@ export default function App() {
         boardEpoch.current++; setTreasureSession(""); setTreasureChoice(0);
         setPauseReadingDestination({ sessionKey, target: "pause" });
         void act("treasure-pause", { step: n.step });
-      } else if (key === "A") setTreasureCursor(nextTreasure(n, treasureCursor));
+      } else if (key === "A") {
+        setTreasureCursor(nextTreasure(n, treasureCursor));
+        setTreasureDestination({ sessionKey: pet.game.id!, target: "selection" });
+      }
       else void act("treasure-dig", { step: n.step, tile: treasureCursor });
       return;
     }
@@ -1681,6 +1692,9 @@ export default function App() {
       ? "A / C 继续  B 放弃确认"
       : "A 左转  B 右转  C 暂停";
   const treasure = pet?.game?.treasure;
+  const treasureView = page === "game" && pet?.game?.kind === "treasure" && !!treasure && !abandoning
+    && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset;
+  useTreasureViewport(readingRoot, treasureDestination, sessionKey, treasureView && foreground);
   const treasureHint = treasure && treasureDone(treasure) ? "B / C 收好发现" : treasure?.paused || treasureSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 选格  B 探索  C 暂停";
   const walking=pet?.game?.walking;
   const walkHint=walking?.beat===72?"B / C 收好发现":walking?.paused || walkSession!==pet?.game?.id?"A 选择  B 确认  C 继续":"A 跳跃  B 蹲下  C 暂停";
@@ -1736,7 +1750,7 @@ export default function App() {
                         : "C 返回小窝";
 
   return (
-    <div className="app">
+    <div className={`app ${treasureView ? "treasure-view" : ""}`}>
       <header className="topbar">
         <a href="/" className="wordmark" aria-label="PixelPet 首页">
           <span className="brand-icon">
@@ -1887,7 +1901,7 @@ export default function App() {
             || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
             || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
             || (fishing && (fishing.paused || fishing.phase === "done" || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)))
-            ? "reading-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""}`}>
+            ? "reading-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""}`}>
             <span className="device-orbit orbit-one">✧</span>
             <span className="device-orbit orbit-two">+</span>
             <div className="device-shadow" />

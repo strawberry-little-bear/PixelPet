@@ -20,3 +20,23 @@
 .treasure-game > small { display: block; font-size: .714286rem; }
 .treasure-status { margin: 6px 0; }
 @media (forced-colors: active) { .treasure-grid [aria-selected=true] { outline: 2px solid Highlight; } }
+
+/* Keep the same three physical keys available while reading the tall grid. */
+.treasure-mode .device-buttons {
+  position: sticky;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 3;
+  padding: 8px;
+  border: 1px solid #718660;
+  border-radius: 16px;
+  background: #d6e5b4;
+}
+.treasure-result { margin: 6px 0; }
+/* Game feedback already lives in the LCD; a transient toast must not cover keys. */
+.treasure-view > .toast { animation: none; }
+.treasure-view > .toast:not(.error) { position: static; transform: none; margin: 16px auto; }
+/* Rejections must remain immediately visible, without sitting on the key dock. */
+.treasure-view > .toast.error { top: 12px; bottom: auto; max-height: min(200px, calc(100dvh - 140px)); overflow-y: auto; }
+@media (forced-colors: active) {
+  .treasure-mode .device-buttons { background: Canvas; border-color: ButtonText; }
+}

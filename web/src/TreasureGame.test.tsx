@@ -10,7 +10,7 @@ import { request } from "./api";
 import type { PetState, Result, TreasureHunt } from "./types";
 vi.mock("./api",()=>({request:vi.fn()}));
 const api=vi.mocked(request), id="0123456789abcdef0123456789abcdef";
-let saved:PetState, failure:string, delayResume:boolean, release:()=>void;
+let saved:PetState, failure:string, delayResume:boolean, delayDig:boolean, release:()=>void;
 const model=():TreasureHunt=>({layout:[1,2,3,0,0,0,0,0,0],opened:[],step:0,paused:true});
 const fixture=():PetState=>({schema:16,revision:1,species:2,name:"草莓兔",createdAt:Date.now()-10000,hatchedAt:Date.now()-9000,lastTick:Date.now(),sleeping:false,needs:{hunger:70,mood:70,energy:80,clean:80},careCount:0,growth:emptyGrowth("baby"),logs:[],game:{id,kind:"treasure",treasure:model(),startedAt:Date.now(),round:0,score:0,lastBeat:-1}});
 const calls=()=>api.mock.calls.filter(c=>c[0]==="action").map(c=>c[1] as {kind:string;step?:number;tile?:number;gameId?:string});
@@ -20,7 +20,7 @@ async function clock(ms:number){await act(async()=>{await vi.advanceTimersByTime
 async function mount(){await act(async()=>{render(<App/>);})}
 async function hidden(value:boolean){Object.defineProperty(document,"hidden",{configurable:true,value});await act(async()=>{fireEvent(document,new Event("visibilitychange"));})}
 beforeEach(()=>{
- vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-20T10:00:00Z"));localStorage.clear();api.mockReset();saved=fixture();failure="";delayResume=false;
+ vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-20T10:00:00Z"));localStorage.clear();api.mockReset();saved=fixture();failure="";delayResume=false;delayDig=false;
  api.mockImplementation(async(path,body)=>{
   if(path!=="action")return response();
   const a=body as {kind:string;step:number;tile:number};
@@ -31,7 +31,7 @@ beforeEach(()=>{
   }
   if(a.kind==="treasure-finish"||a.kind==="cancel-play")delete saved.game;
   saved.revision++;
-  const r=response();if(a.kind==="treasure-resume"&&delayResume)await new Promise<void>(resolve=>{release=resolve});return r;
+  const r=response();if((a.kind==="treasure-resume"&&delayResume)||(a.kind==="treasure-dig"&&delayDig))await new Promise<void>(resolve=>{release=resolve});return r;
  });
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.useRealTimers();Object.defineProperty(document,"hidden",{configurable:true,value:false});});
@@ -126,4 +126,48 @@ describe("three-key treasure flow",()=>{
   expect(calls()).toHaveLength(1);
  });
 
+});
+
+describe("explicit treasure viewport feedback", () => {
+ beforeEach(() => {
+  vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+   const top = this.matches(".device-buttons") ? 600 : -400;
+   return { top, bottom: top + 100, height: 100, width: 200, left: 0, right: 200, x: 0, y: top, toJSON: () => ({}) };
+  });
+ });
+ it("only explicit resume, selection and accepted dig reveal their feedback; reads never replay", async () => {
+  await mount(); expect(window.scrollBy).not.toHaveBeenCalled();
+  await key("c"); expect(window.scrollBy).toHaveBeenCalledTimes(1);
+  await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(2);
+  await key("b"); expect(window.scrollBy).toHaveBeenCalledTimes(3);
+  expect(document.querySelector(".treasure-result")?.textContent).toContain("2号格");
+  expect(document.querySelector(".treasure-result")?.textContent).toContain("轻羽毛");
+  expect(document.querySelector(".treasure-grid [aria-selected=true]")?.getAttribute("aria-label")).toMatch(/^3号格/);
+  await clock(60000); expect(window.scrollBy).toHaveBeenCalledTimes(3);
+ });
+ it("does not replay a late accepted resume after backgrounding", async () => {
+  await mount(); delayResume = true; await key("c"); await hidden(true);
+  await act(async () => release()); await hidden(false);
+  expect(window.scrollBy).not.toHaveBeenCalled();
+  expect(document.querySelector(".treasure-pause")).toBeTruthy();
+ });
+ it.each(["blur", "help", "hidden"])("an accepted dig interrupted by %s saves the result without jumping on return", async reason => {
+  await mount(); await key("c"); vi.mocked(window.scrollBy).mockClear(); delayDig=true; await key("b");
+  if(reason==="hidden")await hidden(true);
+  else if(reason==="blur")await act(async()=>fireEvent.blur(window));
+  else await act(async()=>fireEvent.click(screen.getByRole("button",{name:"玩法说明"})));
+  await act(async()=>release());
+  if(reason==="hidden")await hidden(false);
+  else if(reason==="blur")await act(async()=>fireEvent.focus(window));
+  else await act(async()=>fireEvent.click(screen.getByRole("button",{name:"关闭"})));
+  expect(window.scrollBy).not.toHaveBeenCalled();
+  expect(document.querySelector(".treasure-result")?.textContent).toContain("1号格");
+  expect(document.querySelector(".treasure-pause")).toBeTruthy();
+ });
+ it("a rejected dig neither invents a result nor scrolls it", async () => {
+  await mount(); await key("c"); vi.mocked(window.scrollBy).mockClear(); failure = "treasure-dig";
+  await key("b"); expect(window.scrollBy).not.toHaveBeenCalled();
+  expect(document.querySelector(".treasure-result")).toBeNull();
+ });
 });

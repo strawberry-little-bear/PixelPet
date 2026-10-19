@@ -16,6 +16,7 @@ export function TreasureGame({ pet, active, cursor, choice }: { pet: PetState; a
     <header data-treasure-reading-start><strong>森林寻宝</strong><span>探索 {n.opened.length} / 6 · 找到 {treasureFound(n)} / 3</span></header>
     <div className="treasure-companion"><PetArt index={pet.species} stage={petGrowth(pet, pet.lastTick).stage} expression="content" accessory={pet.economy?.equipped.accessory}/><p>{done ? "不必找齐，每次陪伴都值得收好。" : "没有倒计时，一起慢慢找。"}</p></div>
     {paused && <div className="treasure-pause"><strong>慢慢找，不计时</strong><ul>{treasureMenu.map((name, i) => <li key={name} aria-current={choice === i}>{choice === i ? "▸" : "　"} {name}</li>)}</ul><small>A 选择 · B 确认 · C 继续</small></div>}
+    {n.opened.length > 0 && <p className="treasure-result" aria-live="polite">上次探索：{label(n.opened[n.opened.length - 1])}</p>}
     <div className="treasure-grid" role="grid" aria-label="林地九格，只用 A / B / C 操作">
       {[0, 1, 2].map(row => <div key={row} role="row">{[0, 1, 2].map(col => {
         const index = row * 3 + col, view = treasureCell(n, index);
