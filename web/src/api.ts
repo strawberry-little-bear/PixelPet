@@ -1,5 +1,6 @@
 import type { Result } from "./types";
 import { RequestFailure, validSaveGeneration } from "./requestFailure";
+import { validCoreResponse } from "./response";
 
 export async function request(path: string, body?: unknown, saveGeneration?: string, expectedSleeping?: boolean): Promise<Result> {
   const writing = body !== undefined;
@@ -36,12 +37,9 @@ export async function request(path: string, body?: unknown, saveGeneration?: str
       throw new RequestFailure(message, writing ? (rejected ? "rejected" : "unknown") : "unavailable", code, generation);
     }
     const result = await response.json();
-    // Do not announce a saved game after an HTML/proxy/invalid JSON response.
-    if (!result?.state || !Number.isSafeInteger(result.state.revision) || result.state.revision < 0 ||
-        !Number.isFinite(result.state.lastTick) || !Number.isFinite(result.serverTime) ||
-        (result.saveGeneration !== undefined && !validSaveGeneration(result.saveGeneration))) {
-      throw new Error("Invalid save response");
-    }
+    // A partial JSON response must not reach rendering or announce success.
+    // Preserve the existing unknown-write/read-unavailable recovery path.
+    if (!validCoreResponse(result)) throw new Error("Invalid save response");
     return result;
   } catch (error) {
     if (error instanceof RequestFailure) throw error;

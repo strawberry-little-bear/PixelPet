@@ -2,7 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { request } from "./api";
 import { RequestFailure } from "./requestFailure";
 
-const result = { state: { revision: 2, lastTick: 123 }, serverTime: 123, message: "" };
+const result = {
+  state: {
+    schema: 1, revision: 2, species: 2, name: "草莓兔", createdAt: 100,
+    hatchedAt: 110, lastTick: 123, sleeping: false,
+    needs: { hunger: 60, mood: 70, clean: 80, energy: 90 }, careCount: 0,
+    logs: [{ at: 110, text: "初次见面" }],
+  },
+  serverTime: 123, message: "",
+};
 afterEach(() => vi.unstubAllGlobals());
 const respond = (response: Response) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
 
@@ -165,4 +173,48 @@ describe("sleep-state transport precondition", () => {
   respond(new Response(JSON.stringify({code:"sleep_changed",error:"changed"}),{status}));
   await expect(request("action",{kind:"sleep"},undefined,false)).rejects.toMatchObject({code:undefined,outcome:status===400?"rejected":"unknown"});
  });
+});
+
+// A plausible revision/time envelope alone does not make a pet safe to render.
+describe("required pet response fields", () => {
+  const invalidFields: [string, unknown][] = [
+    ["needs", undefined], ["needs", null], ["needs", []],
+    ["needs", { hunger: 60, mood: 70, clean: 80 }],
+    ...["hunger", "mood", "clean", "energy"].flatMap(key =>
+      [null, "60", -1, 101].map(value => ["needs", { ...result.state.needs, [key]: value }] as [string, unknown])),
+    ["logs", {}],
+    ["logs", [null]], ["logs", [{ at: 123 }]],
+    ["logs", [{ at: "123", text: "hello" }]], ["logs", [{ at: 123, text: {} }]],
+    ["name", null], ["name", {}], ["species", "2"], ["species", -1], ["species", 0.5],
+    ["sleeping", "false"], ["sleeping", null], ["careCount", -1], ["careCount", "0"],
+    ["schema", 0], ["schema", "1"], ["createdAt", -1], ["hatchedAt", null],
+    ["lastTick", -1], ["lastTick", 0.5], ["lastTick", 8640000000000001],
+  ];
+  it.each(invalidFields)("rejects malformed %s=%j on writes without retry", async (field, value) => {
+    respond(new Response(JSON.stringify({ ...result, state: { ...result.state, [field]: value } })));
+    await expect(request("action", { kind: "feed" })).rejects.toMatchObject({ outcome: "unknown" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it.each(["state", "visit"])("keeps an incomplete %s response out of the renderer", async path => {
+    respond(new Response(JSON.stringify({ state: { revision: 2, lastTick: 123 }, serverTime: 123, message: "" })));
+    await expect(request(path, path === "visit" ? {} : undefined)).rejects.toMatchObject({ outcome: path === "visit" ? "unknown" : "unavailable" });
+  });
+  it.each([null, {}, 42])("rejects a non-text success message %j", async message => {
+    respond(new Response(JSON.stringify({ ...result, message })));
+    await expect(request("action", { kind: "feed" })).rejects.toMatchObject({ outcome: "unknown" });
+  });
+  it("accepts core legacy data without optional modern fields or rewriting it", async () => {
+    respond(new Response(JSON.stringify(result)));
+    expect(await request("state")).toEqual(result);
+  });
+  it.each([null, undefined])("preserves a legacy empty log slice %j without inventing entries", async logs => {
+    const legacy = { ...result, state: { ...result.state, logs } };
+    respond(new Response(JSON.stringify(legacy)));
+    expect(await request("state")).toEqual(JSON.parse(JSON.stringify(legacy)));
+  });
+  it("preserves future fields and zero-valued egg data", async () => {
+    const egg = { ...result, futureMetadata: { retained: true }, state: { ...result.state, hatchedAt: 0, needs: { hunger: 0, mood: 100, clean: 0, energy: 100 }, logs: [], futurePetData: "keep" } };
+    respond(new Response(JSON.stringify(egg)));
+    expect(await request("state")).toEqual(egg);
+  });
 });
