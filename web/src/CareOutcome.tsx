@@ -18,9 +18,32 @@ function validEffect(effect: CareFeedback["effect"]): effect is NonNullable<Care
 }
 const change = (n: number) => n === 0 ? "不变" : `${n > 0 ? "+" : "−"}${Math.abs(n) < .005 ? "<0.01" : Math.abs(n).toFixed(2)}`;
 
+// This is the acknowledged action's snapshot, not a recalculation from the
+// current pet or a live cooldown. A later poll must not rewrite its explanation.
+function learningSummary(f: CareFeedback): { habit: string; reason: string } | null {
+  if (!Number.isFinite(f.points) || f.points < 0 || f.points > 72 ||
+      !Number.isInteger(f.habitGain) || f.habitGain < 0 || f.habitGain > 1) return null;
+  if (f.kind === "sleep") {
+    return ["resting", "awake"].includes(f.reason) && !f.habit && f.points === 0 && f.habitGain === 0
+      ? { habit: "休息习惯：本次切换不计入", reason: "本次切换不计休息习惯；睡着期间按实际恢复体力记录。" } : null;
+  }
+  const habit = f.kind === "feed" ? "nutrition" : f.kind === "clean" ? "clean" :
+    ["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish"].includes(f.kind) ? "play" : null;
+  if (!habit || f.habit !== habit) return null;
+  const label = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" }[habit];
+  if (f.reason === "credited" && f.habitGain === 1)
+    return { habit: `${label}：+1`, reason: "本次习惯已计入；成长点按实际增加量显示。" };
+  if (f.habitGain !== 0 || f.points !== 0) return null;
+  if (f.reason === "not-needed" && (f.kind === "feed" || f.kind === "clean"))
+    return { habit: `${label}：+0`, reason: `记录时${f.kind === "feed" ? "饱食" : "清洁"}已满足，本次不计习惯。` };
+  return f.reason === "cooldown"
+    ? { habit: `${label}：+0`, reason: "记录时同类习惯仍在间隔内；本次不计入，不代表状态没有改善。" } : null;
+}
+
 export function CareOutcome({ feedback }: { feedback: CareFeedback | null }) {
   if (!feedback || !validEffect(feedback.effect)) return null;
   const { before, after, at } = feedback.effect;
+  const learning = learningSummary(feedback);
   const action = feedback.kind === "feed" ? "喂食" : feedback.kind === "clean" ? "洗澡" :
     feedback.kind === "sleep" ? feedback.reason === "awake" ? "起床" : "入睡" : "陪玩";
   return <section className="care-outcome" aria-label="上次操作的即时变化">
@@ -34,6 +57,12 @@ export function CareOutcome({ feedback }: { feedback: CareFeedback | null }) {
         <dd><span>{before[key].toFixed(2)} → {after[key].toFixed(2)}</span><strong>{change(after[key] - before[key])}</strong></dd>
       </div>)}
     </dl>
+    {learning && <div className="care-learning" role="group" aria-label="本次成长与习惯">
+      <strong>本次成长：+{feedback.points > 0 && feedback.points < .005 ? "<0.01" : feedback.points.toFixed(2)} 点</strong>
+      <span>{learning.habit}</span>
+      <p>{learning.reason}</p>
+      <small>习惯可继续记录；成年形态不会因之后照顾重选。</small>
+    </div>}
     {feedback.kind === "sleep" && <p>入睡和起床不立即恢复体力；睡着期间才逐步恢复，到满为止。</p>}
     <small>仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>
   </section>;

@@ -33,6 +33,26 @@ beforeEach(() => {
 afterEach(() => {cleanup();vi.useRealTimers();});
 
 describe("three-key care outcome lifetime", () => {
+ it.each(["baby", "growing", "adult"] as const)("keeps the acknowledged %s growth gain after the toast and later state changes", async stage => {
+  saved.growth=emptyGrowth(stage);saved.growth.points=stage==="adult"?72:stage==="growing"?30:4;
+  if(stage==="adult")saved.growth.form="balanced";
+  const points=stage==="adult"?0:stage==="growing"?.1:.25;
+  actionFeedback={...receipt,points};
+  await mount();await feed();
+  expect(screen.getByLabelText("本次成长与习惯").textContent).toContain(`本次成长：+${points.toFixed(2)} 点`);
+  expect(screen.getByLabelText("本次成长与习惯").textContent).toContain("喂食习惯：+1");
+  const original=outcome()?.textContent;
+  saved.growth.points+=stage==="adult"?0:2;saved.growth.care.nutrition+=3;saved.revision++;
+  await poll();expect(document.querySelector("[data-feedback=idle]")).not.toBeNull();
+  await menu(4);expect(outcome()?.textContent).toBe(original);expect(writes()).toHaveLength(1);
+ });
+ it("a rejected action or a recovery read cannot invent learning credit", async () => {
+  await mount();api.mockRejectedValueOnce(new RequestFailure("not saved","rejected"));
+  await menu(0);expect(outcome()).toBeNull();expect(screen.queryByLabelText("本次成长与习惯")).toBeNull();
+  await poll();expect(screen.queryByLabelText("本次成长与习惯")).toBeNull();
+  expect(saved.careCount).toBe(0);expect(writes()).toHaveLength(1);
+ });
+
  it("starts empty, displays only the confirmed response, survives C skip, and has no new gameplay controls", async () => {
   await mount();expect(outcome()).toBeNull();await feed();
   expect(outcome()?.textContent).toContain("60.00 → 80.00+20.00");
