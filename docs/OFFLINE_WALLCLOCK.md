@@ -32,3 +32,7 @@ PIXELPET_TEST_BINARY=/tmp/pixelpet-wallclock node scripts/check-offline-wallcloc
 这是**服务停止后的真实短时 API 验收**，不是实际关闭浏览器标签的人工测试，也不是自然多日成长、跨阶段或 12 小时上限的墙钟认证。后者仍由既有受控测试覆盖，真实长期体验继续待反馈。不改养成数值、后端、schema 或 A/B/C 操作。
 
 玩家库 SHA256 保持 `a8b712d5419fe6227b255f4d63869612e451da7abddffd60124de8ee65c23eee`，没有操作玩家页面或重启其服务。
+
+## 浏览器链路补充
+
+同日另完成 [真实关闭 Chrome 16 分钟再打开](BROWSER_ABSENCE.md) 的六组验收：测试服务全程运行，实际页面完成显示、睡眠后叫醒认领、刷新不重复及手动重看。两份证据互补，不能将停服 API 测试本身描述为浏览器验收。
