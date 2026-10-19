@@ -1762,7 +1762,7 @@ export default function App() {
                           albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} now={now} page={albumReading?.page ?? 0} missing={albumReading?.cursor.missing} category={albumCategory} />
                         )}
                         {page === "return" && returnRecap && (
-                          <ReturnPanel recap={returnRecap} page={returnPage} updated={returnUpdated} />
+                          <ReturnPanel pet={pet} recap={returnRecap} page={returnPage} updated={returnUpdated} />
                         )}
                         {page === "choose" && (
                           <>

@@ -1,4 +1,5 @@
-import type { ReturnRecap } from "./types";
+import { CareAdvice } from "./CareAdvice";
+import type { PetState, ReturnRecap } from "./types";
 import { formNames, stageNames } from "./growth";
 import "./return.css";
 
@@ -17,7 +18,7 @@ const sleepLabel = (sleeping: boolean | undefined) => sleeping === true ? "睡�
 const recordTime = (at: number) => new Date(at).toLocaleString("zh-CN", {
   year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
 });
-export function ReturnPanel({ recap, page, updated = false }: { recap: ReturnRecap; page: number; updated?: boolean }) {
+export function ReturnPanel({ recap, page, updated = false, pet }: { recap: ReturnRecap; page: number; updated?: boolean; pet?: PetState }) {
   const { before, after } = recap;
   const changed = before.stage !== after.stage;
   const smallChange = page === 0
@@ -56,5 +57,14 @@ export function ReturnPanel({ recap, page, updated = false }: { recap: ReturnRec
       <small>单次离线最多结算 12 小时 · 无额外奖励</small>
     </>}
     {smallChange && <small>「&lt;」表示变化小于显示精度，并非没有变化；前后读数仍按原精度四舍五入。</small>}
+    {page === returnPageCount - 1 && <div className="return-care" aria-label="现在的照顾建议">
+      <h3>现在怎么照顾</h3>
+      {pet ? <>
+        <p>最近读取：{pet.sleeping ? "正在睡觉" : "清醒中"}</p>
+        <CareAdvice pet={pet} />
+        <small>建议按最近读取的当前状态，不是上方的历史记录。</small>
+      </> : <p>当前状态尚未读到，回小窝后再查看。</p>}
+      <small>B / C 回小窝，再从菜单选择；这里不会自动照顾。</small>
+    </div>}
   </section>;
 }

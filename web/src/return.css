@@ -9,10 +9,15 @@
 .return-needs strong { font-size:11px; text-align:center; }
 .return-needs small { text-align:right; font-size:10px; }
 .return-panel dl { margin:8px 0; }
-.return-panel dl > div { display:flex; justify-content:space-between; margin:6px 0; }
-.return-panel dd { margin:0; font-weight:bold; }
+.return-panel dl > div { display:flex; flex-wrap:wrap; justify-content:space-between; column-gap:8px; margin:6px 0; }
+.return-panel dl :is(dt, dd) { white-space:nowrap; flex-shrink:0; }
+.return-panel dd { margin:0 0 0 auto; font-weight:bold; }
 .return-panel .return-stage { font-size:13px; font-weight:bold; }
 
 .return-period { margin: 7px 0; font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
 .return-period > :is(small, span) { display: block; font-size: inherit; }
 .return-panel .return-sync-note { border-left: 2px solid currentColor; padding-left: 6px; line-height: 1.6; }
+
+.return-care { border-top: 1px dashed currentColor; margin-top: 12px; padding-top: 10px; line-height: 1.6; }
+.return-care h3 { font-size: inherit; margin: 0 0 6px; }
+.return-care small { display: block; font-size: inherit; margin-top: 6px; }
