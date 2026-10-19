@@ -9,6 +9,9 @@ import (
 const GrowingPoints = 24.0
 const AdultPoints = 72.0
 
+const growthPointTolerance = 1e-9
+const formHistoryHours = 12.0
+
 type CareHistory struct {
 	Nutrition float64 `json:"nutrition"`
 	Play      float64 `json:"play"`
@@ -184,7 +187,7 @@ func (s *State) settle(hours float64, now time.Time) {
 				target = AdultPoints
 			}
 		}
-		crosses := target > 0 && s.Growth.Points+s.growthGain(step) >= target
+		crosses := target > 0 && s.Growth.Points+s.growthGain(step) >= target-growthPointTolerance
 		if crosses {
 			lo, hi := 0.0, step
 			for i := 0; i < 60; i++ {
@@ -237,7 +240,7 @@ func (s *State) settleSegment(hours float64) {
 		return
 	}
 	quality := (hunger + mood + clean + energy) / 400
-	s.Growth.TrackedHours += hours
+	s.Growth.TrackedHours = normalizedTrackedHours(s.Growth.TrackedHours + hours)
 	s.Growth.Wellbeing += quality * hours
 	s.Growth.Points = math.Min(AdultPoints, s.Growth.Points+hours*(growthBasePerHour+growthComfortPerHour*quality))
 	if s.Sleeping {
@@ -280,6 +283,17 @@ func (s *State) recordCare(kind string, before float64, now time.Time) {
 	s.Growth.Points = math.Min(AdultPoints, s.Growth.Points+0.25)
 	s.evolve(now)
 }
+
+// Elapsed inputs have millisecond resolution. Remove only a few microseconds of
+// arithmetic residue around the 12h history boundary before freezing a new form.
+// Do not relax Tendency's predicates: existing frozen records must remain valid.
+func normalizedTrackedHours(hours float64) float64 {
+	if math.Abs(hours-formHistoryHours) < 1e-9 {
+		return formHistoryHours
+	}
+	return hours
+}
+
 func (g Growth) AverageQuality() float64 {
 	if g.TrackedHours == 0 {
 		return 1
@@ -287,7 +301,7 @@ func (g Growth) AverageQuality() float64 {
 	return g.Wellbeing / g.TrackedHours
 }
 func (g Growth) Tendency() string {
-	if g.TrackedHours >= 12 && g.AverageQuality() < 0.45-1e-9 {
+	if g.TrackedHours >= formHistoryHours && g.AverageQuality() < 0.45-1e-9 {
 		return "easygoing"
 	}
 	gentle := (g.Care.Clean + g.Care.Rest) / 2
@@ -316,17 +330,20 @@ func (s *State) evolve(now time.Time) {
 	if g == nil || s.HatchedAt == 0 {
 		return
 	}
-	if g.Points >= GrowingPoints-1e-9 && g.Stage == "baby" {
+	if g.Points >= GrowingPoints-growthPointTolerance && g.Stage == "baby" {
 		g.Points = math.Max(g.Points, GrowingPoints)
 		g.Stage = "growing"
 		g.GrowingAt = now.UnixMilli()
 		s.sharedMemory("growing", now)
 		s.Log(now, fmt.Sprintf("%s进入成长期，有了新的模样！", s.Name))
 	}
-	if g.Points >= AdultPoints-1e-9 && g.Stage == "growing" {
+	if g.Points >= AdultPoints-growthPointTolerance && g.Stage == "growing" {
 		g.Points = AdultPoints
 		g.Stage = "adult"
 		g.AdultAt = now.UnixMilli()
+		// A saved pre-fix growing state may reach adulthood by care at the
+		// same millisecond, without a new elapsed-time settlement first.
+		g.TrackedHours = normalizedTrackedHours(g.TrackedHours)
 		g.Form = g.Tendency()
 		if s.Schema >= 12 {
 			g.FormRecord = &FormRecord{TrackedHours: g.TrackedHours, Wellbeing: g.Wellbeing,
