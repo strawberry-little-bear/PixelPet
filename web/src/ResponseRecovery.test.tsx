@@ -16,6 +16,10 @@ const recovery = () => document.querySelector(".save-recovery");
 const scene = () => document.querySelector(".pet-scene")?.getAttribute("data-motion");
 async function key(key: string) { await act(async () => { fireEvent.keyDown(window, { key }); }); }
 async function mount() { await act(async () => { render(<App />); }); }
+const returnHistory = (r: Result) => {
+  const snapshot = { needs: r.state.needs, stage: "baby", form: "", points: 1, rest: 0, trackedHours: 1 };
+  return { id: "return", from: r.serverTime - 1800000, to: r.serverTime, before: snapshot, after: snapshot };
+};
 const corruptions = [
   ["missing needs", (r: Result) => ({ ...r, state: { ...r.state, needs: null } })],
   ["non-array logs", (r: Result) => ({ ...r, state: { ...r.state, logs: {} } })],
@@ -24,6 +28,8 @@ const corruptions = [
   ["malformed form record", (r: Result) => ({ ...r, state: { ...r.state, growth: { ...r.state.growth, formRecord: [] } } })],
   ["non-numeric care reward", (r: Result) => ({ ...r, careFeedback: { kind: "feed", reason: "credited", points: "1", habitGain: 1, habit: "nutrition" } })],
   ["object care reason", (r: Result) => ({ ...r, careFeedback: { kind: "feed", reason: {}, points: .25, habitGain: 1, habit: "nutrition" } })],
+  ["invalid return date", (r: Result) => ({ ...r, returnRecap: { ...returnHistory(r), from: 8640000000000001 }, recapPending: true })],
+  ["invalid return needs", (r: Result) => ({ ...r, returnRecap: { ...returnHistory(r), before: { ...returnHistory(r).before, needs: null } }, recapPending: true })],
   ["incomplete core", (r: Result) => ({ ...r, state: { revision: r.state.revision, lastTick: r.state.lastTick } })],
 ] as const;
 

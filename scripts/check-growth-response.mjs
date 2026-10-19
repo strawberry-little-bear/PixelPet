@@ -1,6 +1,7 @@
-// Growth and care-response real-Chrome acceptance. Always creates its own save/server; never a player's URL.
+// Growth, care and return-response real-Chrome acceptance. Always creates its own save/server; never a player's URL.
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
@@ -20,6 +21,8 @@ const port = await new Promise((resolve, reject) => {
   socket.listen(0, '127.0.0.1', () => { const port = socket.address().port; socket.close(error => error ? reject(error) : resolve(port)); });
 });
 const base = `http://127.0.0.1:${port}`;
+const scope = process.env.PIXELPET_TEST_SCOPE || 'all';
+assert(['all', 'return'].includes(scope), 'PIXELPET_TEST_SCOPE must be all or return.');
 const results = [];
 let server, browser, startupError, log = '';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -76,15 +79,49 @@ async function readable(v) {
   }
   return { overflow: layout.overflow, textRanges: layout.ranges.length };
 }
-async function end(v, result, expectedWrites) {
+async function end(v, result, expectedWrites, allowedWrites = ['/api/action']) {
   assert.deepEqual(v.errors, []); assert.equal(v.writes.length, expectedWrites);
-  assert(v.writes.every(path => path === '/api/action'));
+  assert(v.writes.every(path => allowedWrites.includes(path)));
   assert.equal(await v.page.locator('.physical-button').count(), 3);
   assert.equal(await v.page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
   results.push({ ...result, mode: v.mode.label, writes: v.writes.length, reads: v.reads.length });
   console.log('PASS', results.length, JSON.stringify(results.at(-1)));
 }
+function returnHistory(r) {
+  const g = r.state.growth;
+  const snapshot = { needs: structuredClone(r.state.needs), stage: g.stage, form: g.form,
+    points: g.points, rest: g.care.rest, trackedHours: g.trackedHours, sleeping: r.state.sleeping };
+  return { id: 'synthetic-response-history', from: r.serverTime - 1800000, to: r.serverTime,
+    before: structuredClone(snapshot), after: structuredClone(snapshot) };
+}
+// Controlled elapsed-time fixture: modify ONLY this run's mkdtemp database,
+// with no browser context open. Shift all saved epochs together so migrated
+// growth timestamps retain their ordering. This is not a natural 30-minute wait.
+async function absent(sleeping = false) {
+  let state = await seed(sleeping ? 'growing' : 'baby');
+  if (sleeping) { state.sleeping = true; state = await importState(state); }
+  const visit = await fetch(base + '/api/visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  assert(visit.ok);
+  await promisify(execFile)('python3', ['-c', `
+import sqlite3, json, sys
+with sqlite3.connect(sys.argv[1]) as db:
+    def shift(value):
+        if isinstance(value, dict): return {k: shift(v) for k, v in value.items()}
+        if isinstance(value, list): return [shift(v) for v in value]
+        if isinstance(value, (int, float)) and value > 1000000000000: return value - 1800000
+        return value
+    body = json.loads(db.execute('SELECT body FROM saves WHERE id=1').fetchone()[0])
+    db.execute('UPDATE saves SET body=? WHERE id=1', (json.dumps(shift(body)),))
+    db.execute('UPDATE visits SET last_seen=last_seen-1800000 WHERE id=1')
+`, join(dir, 'test.db')]);
+  return state;
+}
 const corruptions = [
+  ...['date', 'needs'].map(field => ({ name: 'return-' + field, stage: 'growing', damage: r => {
+    r.returnRecap = returnHistory(r); r.recapPending = true;
+    if (field === 'date') r.returnRecap.from = 8640000000000001;
+    else r.returnRecap.before.needs = null;
+  } })),
   { name: 'habits', stage: 'baby', damage: r => { r.state.growth.care = null; } },
   { name: 'record', stage: 'adult', damage: r => { r.state.growth.formRecord = []; } },
   { name: 'date', stage: 'adult', damage: r => { r.state.growth.adultAt = 8640000000000001; } },
@@ -104,13 +141,13 @@ try {
   }
   assert(ready, 'Own test server did not start: ' + log);
   browser = await chromium.launch({ channel: 'chrome', headless: true });
-  for (const test of corruptions) for (const scenario of ['initial', 'poll', 'committed', 'uncommitted']) {
+  if (scope === 'all') for (const test of corruptions) for (const scenario of ['initial', 'poll', 'committed', 'uncommitted']) {
     const seeded = await seed(test.stage, test.stage === 'adult');
     const v = await view(modes[['initial', 'committed'].includes(scenario) ? 1 : 0]);
     try {
       const writing = ['committed', 'uncommitted'].includes(scenario);
       let badVisit = scenario === 'initial', badState = false, badWrite = writing;
-      await v.page.route('**/api/*', async route => {
+      await v.page.route('**/api/**', async route => {
         const path = new URL(route.request().url()).pathname;
         let response, reply;
         if (path === '/api/action' && scenario === 'uncommitted' && badWrite) reply = await get();
@@ -157,7 +194,7 @@ try {
       await end(v, { corruption: test.name, scenario, stage: test.stage, layout }, writing ? 2 : 0);
     } finally { await v.ctx.close(); }
   }
-  for (const growth of ['absent', 'null', 'null-record', 'valid-record']) {
+  if (scope === 'all') for (const growth of ['absent', 'null', 'null-record', 'valid-record']) {
     const seeded = await seed('adult', growth === 'valid-record');
     const v = await view(modes[growth.includes('record') ? 1 : 0]);
     try {
@@ -180,7 +217,7 @@ try {
   }
   // Valid legacy fractional totals really go through the server. Never rewrite
   // the reply to synthesize these deltas, and never round the saved habit totals.
-  for (const stage of ['baby', 'growing', 'adult']) for (const kind of ['feed', 'clean']) for (const initial of [.4, 1.2]) {
+  if (scope === 'all') for (const stage of ['baby', 'growing', 'adult']) for (const kind of ['feed', 'clean']) for (const initial of [.4, 1.2]) {
     let seeded = await seed(stage, stage === 'adult');
     const habit = kind === 'feed' ? 'nutrition' : 'clean';
     seeded.growth.care[habit] = initial;
@@ -219,7 +256,7 @@ try {
       await end(v, { credit: kind, stage, initial, rawGain: acknowledged.careFeedback.habitGain, layout }, 1);
     } finally { await v.ctx.close(); }
   }
-  for (const feedback of ['absent', 'null']) {
+  if (scope === 'all') for (const feedback of ['absent', 'null']) {
     await seed(); const v = await view(modes[feedback === 'null' ? 1 : 0]);
     try {
       await v.page.route('**/api/action', async route => {
@@ -235,7 +272,104 @@ try {
       await end(v, { compatibility: 'feedback-' + feedback, layout: await readable(v) }, 1);
     } finally { await v.ctx.close(); }
   }
-  await writeFile(join(artifacts, 'growth-response-results.json'), JSON.stringify({ db: join(dir, 'test.db'), port, results }, null, 2));
+  for (const committed of [false, true]) for (const field of ['date', 'needs']) {
+    const seeded = await absent(); const v = await view(modes[committed ? 1 : 0]);
+    let badRead = true, seenRecap;
+    try {
+      await v.page.route('**/api/**', async route => {
+        const path = new URL(route.request().url()).pathname;
+        let response, reply;
+        if (path === '/api/recap/read' && !committed) reply = await get();
+        else { response = await route.fetch(); reply = await response.json(); }
+        if (reply.returnRecap) seenRecap = structuredClone(reply.returnRecap);
+        if (path === '/api/recap/read' || (path === '/api/state' && badRead)) {
+          assert(reply.returnRecap);
+          if (field === 'date') reply.returnRecap.to = 8640000000000001;
+          else reply.returnRecap.after.needs = null;
+        }
+        await route.fulfill({ response, json: reply });
+      });
+      await v.page.goto(base); await v.page.locator('.save-recovery').waitFor(); await settled(v);
+      assert((await v.page.getByRole('alert').innerText()).includes('可能已经保存'));
+      assert.equal(await v.page.locator('.return-panel').count(), 0);
+      assert.equal(await v.page.locator('.button-a').isDisabled(), true);
+      assert.equal(await v.page.locator('.button-c').isDisabled(), true);
+      if (field === 'needs') await v.page.screenshot({ path: join(artifacts, 'return-recovery-' + v.mode.label + '.png'), fullPage: true });
+      const authoritative = await get();
+      assert.equal(authoritative.recapPending, !committed);
+      assert.equal(authoritative.returnRecap.id, seenRecap.id);
+      assert.equal(authoritative.state.careCount, 0);
+      assert.equal(authoritative.state.economy.coins, seeded.economy.coins);
+      await key(v, 'b'); await settled(v);
+      assert.equal(v.reads.at(-1), '/api/state');
+      assert.equal(await v.page.locator('.save-recovery').count(), 1);
+      badRead = false; await key(v, 'b'); await v.page.locator('.save-recovery').waitFor({ state: 'detached' });
+      await v.page.locator('.content-home').waitFor();
+      assert.equal(await v.page.locator('.return-panel,.save-recovery').count(), 0);
+      assert.equal(await v.page.locator('.pet-scene').getAttribute('data-motion'), 'idle');
+      // B reconciliation and manual reading do not repeat the claim. Later
+      // ordinary heartbeats retain the existing pending-record handling.
+      // The saved history stays reachable from the three-key menu, both pages.
+      await key(v, 'a'); for (let i = 0; i < 7; i++) await key(v, 'a'); await key(v, 'b');
+      await v.page.locator('.return-panel').waitFor();
+      assert.equal(await v.page.locator('.return-panel header span').innerText(), '1 / 2');
+      await key(v, 'a'); assert.equal(await v.page.locator('.return-panel header span').innerText(), '2 / 2');
+      const layout = await readable(v);
+      if (field === 'needs') await v.page.screenshot({ path: join(artifacts, 'return-response-' + v.mode.label + '.png'), fullPage: true });
+      await key(v, 'c'); await v.page.locator('.content-home').waitFor();
+      const after = await get();
+      assert.deepEqual(after.returnRecap, authoritative.returnRecap);
+      assert.equal(after.recapPending, !committed);
+      assert.equal(after.state.careCount, 0);
+      await end(v, { returnClaim: field, committed, layout }, 1, ['/api/recap/read']);
+    } finally { await v.ctx.close(); }
+  }
+  for (const sleeping of [false, true]) for (const sleepField of ['absent', 'null']) {
+    const seeded = await absent(sleeping); const v = await view(modes[sleepField === 'null' ? 1 : 0]);
+    try {
+      await v.page.route('**/api/**', async route => {
+        const response = await route.fetch(), reply = await response.json();
+        if (reply.returnRecap) for (const endpoint of ['before', 'after']) {
+          if (sleepField === 'absent') delete reply.returnRecap[endpoint].sleeping;
+          else reply.returnRecap[endpoint].sleeping = null;
+        }
+        await route.fulfill({ response, json: reply });
+      });
+      await v.page.goto(base);
+      if (sleeping) {
+        await v.page.locator('.content-home').waitFor(); await settled(v);
+        assert.deepEqual(v.writes, []); assert.equal((await get()).recapPending, true);
+        await key(v, 'a'); for (let i = 0; i < 3; i++) await key(v, 'a'); await key(v, 'b');
+        await v.page.waitForFunction(() => document.querySelector('.pet-scene')?.getAttribute('data-motion') === 'waking');
+        await key(v, 'c');
+      }
+      await v.page.locator('.return-panel').waitFor();
+      const authoritative = await get(), history = structuredClone(authoritative.returnRecap);
+      assert.equal(authoritative.recapPending, false);
+      assert.equal(history.before.sleeping, sleeping); assert.equal(history.after.sleeping, sleeping);
+      assert.equal(history.to - history.from >= 1800000, true);
+      assert.equal(authoritative.state.economy.coins, seeded.economy.coins);
+      assert.equal((await v.page.locator('.return-panel').innerText()).includes('离开时：未记录'), true);
+      assert.equal((await v.page.locator('.return-panel').innerText()).includes('旧记录缺失的信息不作推测'), true);
+      assert(history.after.needs.hunger < history.before.needs.hunger);
+      assert(history.after.points > history.before.points);
+      assert(history.after.trackedHours - history.before.trackedHours >= .5);
+      assert(history.after.trackedHours - history.before.trackedHours < .51);
+      if (sleeping) assert(history.after.rest > history.before.rest);
+      else assert.equal(history.after.rest, history.before.rest);
+      if (sleeping) assert(history.after.needs.energy > history.before.needs.energy);
+      else assert(history.after.needs.energy < history.before.needs.energy);
+      await readable(v); await key(v, 'a');
+      assert.equal(await v.page.locator('.return-panel header span').innerText(), '2 / 2');
+      assert((await v.page.locator('.return-care').innerText()).includes('清醒'));
+      const layout = await readable(v);
+      await key(v, 'c'); await v.page.locator('.content-home').waitFor();
+      assert.deepEqual((await get()).returnRecap, history);
+      await end(v, { returnCompatibility: sleepField, sleeping, controlledMinutes: 30, layout }, sleeping ? 2 : 1,
+        sleeping ? ['/api/action', '/api/recap/read'] : ['/api/recap/read']);
+    } finally { await v.ctx.close(); }
+  }
+  await writeFile(join(artifacts, 'growth-response-results.json'), JSON.stringify({ db: join(dir, 'test.db'), port, scope, results }, null, 2));
   console.log('PASS total', results.length, 'db', join(dir, 'test.db'), 'artifacts', artifacts);
 } finally {
   await browser?.close();

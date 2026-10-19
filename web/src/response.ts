@@ -44,6 +44,28 @@ function validCareFeedback(value: unknown): boolean {
     (value.retryAt === undefined || timestamp(value.retryAt));
 }
 
+// Historical snapshots are optional metadata, never reconstructed from the
+// current pet. Validate before presentation/claim: date formatting and needs
+// read both endpoints directly. Missing sleep context remains unknown.
+function validReturnSnapshot(value: unknown): boolean {
+  return record(value) && validNeeds(value.needs) &&
+    ["egg", "baby", "growing", "adult"].includes(value.stage as string) &&
+    ["", "balanced", "lively", "gentle", "easygoing"].includes(value.form as string) &&
+    ["points", "rest", "trackedHours"].every(key => growthQuantity(value[key])) &&
+    (value.sleeping == null || typeof value.sleeping === "boolean");
+}
+function validReturnRecap(value: unknown): boolean {
+  return value == null || (record(value) && typeof value.id === "string" && value.id.trim().length > 0 &&
+    timestamp(value.from) && timestamp(value.to) &&
+    validReturnSnapshot(value.before) && validReturnSnapshot(value.after));
+}
+function validNeeds(value: unknown): boolean {
+  return record(value) && ["hunger", "mood", "clean", "energy"].every(key => {
+    const n = value[key];
+    return typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 100;
+  });
+}
+
 // Guard the required, render-critical core before applying a successful reply.
 // This is not a second save/schema validator: migrations and gameplay rules
 // remain the server's responsibility. Never repair a reply
@@ -51,19 +73,18 @@ function validCareFeedback(value: unknown): boolean {
 export function validCoreResponse(value: unknown): value is Result {
   if (!record(value) || !record(value.state)) return false;
   const state = value.state;
-  const needs = state.needs;
-  if (!record(needs)) return false;
   return count(state.schema) && state.schema > 0 &&
     count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
     count(state.careCount) && validGrowth(state.growth) &&
-    ["hunger", "mood", "clean", "energy"].every(key => {
-      return typeof needs[key] === "number" && Number.isFinite(needs[key]) && needs[key] >= 0 && needs[key] <= 100;
-    }) &&
+    validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>
       record(log) && timestamp(log.at) && typeof log.text === "string"))) &&
     timestamp(value.serverTime) && typeof value.message === "string" && validCareFeedback(value.careFeedback) &&
+    validReturnRecap(value.returnRecap) &&
+    (value.recapPending === undefined || typeof value.recapPending === "boolean") &&
+    (value.recapClaimed === undefined || typeof value.recapClaimed === "boolean") &&
     (value.saveGeneration === undefined || validSaveGeneration(value.saveGeneration));
 }
