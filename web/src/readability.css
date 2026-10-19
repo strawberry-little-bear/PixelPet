@@ -74,6 +74,8 @@
 .reading-mode .tetris-playfield:has(.tetris-overlay) { height: auto; flex-wrap: wrap; }
 .reading-mode .tetris-overlay { width: 100%; }
 .reading-mode .tetris-overlay ol { width: auto; }
+/* Give enlarged pause labels the available width, not the live overlay's 120px. */
+.reading-mode .fishing-pause ol { width: 100%; }
 /* Paused board headings and side notes must grow with root-scaled text. */
 .reading-mode :is(.snake-game, .tetris-game) header { height: auto; min-height: 20px; flex-wrap: wrap; gap: 4px; }
 .reading-mode .tetris-side { width: 100%; }

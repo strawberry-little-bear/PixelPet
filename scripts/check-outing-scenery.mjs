@@ -84,6 +84,18 @@ async function check(page, kind) {
   assert((await page.locator('.outing-label').innerText()).includes('虚构风景'));
   assert.equal(await page.locator('.outing-sky').evaluate(el => el.getAnimations({ subtree: true }).length), 0);
   assert.equal(await page.locator('.outing-caption').evaluate(el => !!el.closest('[role=status],[aria-live]')), false);
+  if (kind === 'fishing' && await page.locator('.fishing-pause').isVisible()) {
+    const items = await page.locator('.fishing-pause li').evaluateAll(items => items.map(el => {
+      const css = getComputedStyle(el);
+      return { text: el.textContent, height: el.getBoundingClientRect().height,
+        singleLine: parseFloat(css.lineHeight) + parseFloat(css.paddingTop) + parseFloat(css.paddingBottom) };
+    }));
+    assert.equal(items.length, 4);
+    assert(items.every(item => item.height <= item.singleLine + 1), `Pause menu wraps despite available screen width: ${JSON.stringify(items)}`);
+  } else if (kind === 'fishing' && await page.locator('.outing-compact').count()) {
+    const height = await page.locator('.pond-scene').evaluate(el => parseFloat(getComputedStyle(el).height));
+    assert.equal(height, 102, 'Running pond must retain its fixed height');
+  }
 }
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`,
