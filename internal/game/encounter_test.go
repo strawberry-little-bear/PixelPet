@@ -103,12 +103,14 @@ func TestEncountersUpgradeDoesNotBackfill(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			s, now := encounterState(t, kind)
 			s.Schema = 13
+			s.Companion.Interests = s.Companion.Interests[:6]
 			discoverEncounter(t, &s, &now)
 			if len(encounterMemories(s)) != 0 {
 				t.Fatal("legacy session recorded encounter")
 			}
 			before := copyState(s)
 			before.Schema = Schema
+			before.Companion.Interests = append(before.Companion.Interests, Interest{Kind: "treasure"})
 			if !s.Upgrade(now) || !reflect.DeepEqual(before, s) || s.Upgrade(now) {
 				t.Fatal("upgrade changed history")
 			}
@@ -171,7 +173,7 @@ func TestEncounterValidationRejectsCorruptProvenance(t *testing.T) {
 		discoverEncounter(t, &s, &now)
 		index := len(s.Album.Entries) - 1
 		tests := map[string]func(*State){
-			"old schema":         func(v *State) { v.Schema = 13 },
+			"old schema":         func(v *State) { v.Schema = 13; v.Companion.Interests = v.Companion.Interests[:6] },
 			"missing ID":         func(v *State) { v.Album.Entries[index].OutingID = "" },
 			"invalid ID":         func(v *State) { v.Album.Entries[index].OutingID = strings.Repeat("g", 32) },
 			"wrong light":        func(v *State) { v.Album.Entries[index].OutingID = "00000000000000000000000000000001" },
@@ -219,6 +221,7 @@ func TestEncounterDoesNotAlterDiscoveryOrSettlement(t *testing.T) {
 			rare, now := encounterState(t, kind)
 			ordinary := copyState(rare)
 			ordinary.Schema = 13
+			ordinary.Companion.Interests = ordinary.Companion.Interests[:6]
 			// Equal cast fixtures compare the same fish/wait draw, not independent RNG.
 			if kind == "fishing" {
 				for i := 0; i < 3; i++ {
@@ -245,6 +248,7 @@ func TestEncounterDoesNotAlterDiscoveryOrSettlement(t *testing.T) {
 				walkDo(t, &rare, now, "walk-finish")
 				walkDo(t, &ordinary, now, "walk-finish")
 			}
+			ordinary.Companion.Interests = append(ordinary.Companion.Interests, Interest{Kind: "treasure"})
 			if rare.CareCount != ordinary.CareCount || !reflect.DeepEqual(rare.Companion, ordinary.Companion) {
 				t.Fatal("encounter changed care/companion settlement")
 			}

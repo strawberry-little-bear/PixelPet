@@ -12,6 +12,8 @@ import { stageLook } from "./stageLooks";
 import { StatusGuide, statusPageCount, validCareRules } from "./StatusGuide";
 import type { CareRules } from "./types";
 import { CarePreview } from "./CarePreview";
+import { TreasureGame } from "./TreasureGame";
+import { nextTreasure, treasureDone, treasureMenu } from "./treasure";
 import { WalkingGame, ParkAlbum } from "./WalkingGame";
 import { parkCatalog, walkMenu } from "./walk";
 import { completedExperience, experienceWords } from "./companion";
@@ -240,6 +242,9 @@ export default function App() {
   const [fishingChoice, setFishingChoice] = useState(0);
   const [fishPage, setFishPage] = useState(0);
   const fishingEpoch = useRef(0);
+  const [treasureSession, setTreasureSession] = useState("");
+  const [treasureCursor, setTreasureCursor] = useState(0);
+  const [treasureChoice, setTreasureChoice] = useState(0);
   const [walkSession,setWalkSession] = useState("");
   const [walkChoice,setWalkChoice] = useState(0);
   const [parkPage,setParkPage] = useState(0);
@@ -421,7 +426,7 @@ export default function App() {
     fishingEpoch.current++;
     boardEpoch.current++;
     homeEchoEpoch.current++;
-    setWalkSession("");
+    setWalkSession(""); setTreasureSession("");
     setFishingSession("");
     setTetrisSession("");
     setSnakeSession("");
@@ -682,6 +687,16 @@ export default function App() {
     const board = pet?.game?.tiles?.board;
     if (board && !board[tileCursor]) setTileCursor(nextTile(board, tileCursor));
   }, [pet?.game?.id, pet?.game?.tiles?.board, tileCursor]);
+  useEffect(() => {
+    const hunt = pet?.game?.treasure;
+    if (hunt) setTreasureCursor(nextTreasure(hunt, -1));
+    setTreasureChoice(0);
+  }, [pet?.game?.id]);
+  useEffect(() => {
+    const hunt = pet?.game?.treasure;
+    if (hunt && hunt.opened.includes(treasureCursor) && !treasureDone(hunt))
+      setTreasureCursor(nextTreasure(hunt, treasureCursor));
+  }, [pet?.game?.treasure, treasureCursor]);
   // A different tab can finish or cancel the persisted game. Do not leave a
   // blank game screen or replay its reward/celebration on this tab.
   useEffect(() => {
@@ -911,7 +926,7 @@ export default function App() {
           kind === "cancel-play" ||
           kind === "tile-pick" ||
           kind === "tile-clear" ||
-          kind.startsWith("snake-") || kind.startsWith("tetris-") || kind.startsWith("fish-") || kind.startsWith("walk-")) &&
+          kind.startsWith("snake-") || kind.startsWith("tetris-") || kind.startsWith("fish-") || kind.startsWith("walk-") || kind.startsWith("treasure-")) &&
           pet?.game?.id
           ? { gameId: pet.game.id }
           : {}),
@@ -936,6 +951,8 @@ export default function App() {
         && activeEpoch === fishingEpoch.current && performance.now() - actionStartedAt <= 1500
         && !document.hidden && gameWindowActive.current)
         audio.current?.bite();
+      if (kind === "treasure-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current) setTreasureSession(r.state.game?.id ?? "");
+      if (["treasure-pause", "treasure-finish", "cancel-play"].includes(kind)) { setTreasureSession(""); setTreasureChoice(0); }
       const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
       if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
         setHomeEcho({ ...experience, until: Date.now() + 12000 });
@@ -981,13 +998,13 @@ export default function App() {
         setTileLink(null);
       } else if (
         (kind === "catch" || kind === "tile-pick" ||
-          (["snake-finish", "tetris-finish", "fish-finish", "walk-finish"].includes(kind) && r.careFeedback)) && !r.state.game
+          (["snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"].includes(kind) && r.careFeedback)) && !r.state.game
       ) {
         setPage("home");
         const next = { kind: "play" as const, id: ++clipSequence.current };
         clipRef.current = next;
         setClip(next);
-      } else if (kind === "cancel-play" || kind === "snake-finish" || kind === "tetris-finish" || kind === "fish-finish" || kind === "walk-finish") {
+      } else if (kind === "cancel-play" || kind === "snake-finish" || kind === "tetris-finish" || kind === "fish-finish" || kind === "walk-finish" || kind === "treasure-finish") {
         setTileLink(null);
         setPage("home");
       } else if (kind === "feed" || kind === "clean" || kind === "sleep") {
@@ -1012,7 +1029,7 @@ export default function App() {
     if (tools || help || reset) {
       audio.current?.cancel();
       boardEpoch.current++;
-      walkEpoch.current++;setWalkSession("");
+      walkEpoch.current++;setWalkSession(""); setTreasureSession("");
       fishingEpoch.current++;
       setFishingSession("");
       setTetrisSession("");
@@ -1095,7 +1112,7 @@ export default function App() {
     const stop = () => {
       audio.current?.cancel();
       boardEpoch.current++;
-      walkEpoch.current++; setWalkSession("");
+      walkEpoch.current++; setWalkSession(""); setTreasureSession("");
       fishingEpoch.current++; setFishingSession("");
       setSnakeSession("");
       setTetrisSession("");
@@ -1128,7 +1145,7 @@ export default function App() {
     // Invalidate local run permission and any late automatic callback. Merely
     // reading does not persist a pause, step, reward or tutorial preference.
     boardEpoch.current++; fishingEpoch.current++; walkEpoch.current++;
-    setTetrisSession(""); setFishingSession(""); setWalkSession("");
+    setTetrisSession(""); setFishingSession(""); setWalkSession(""); setTreasureSession("");
     setPauseGuideSession(sessionKey); setGuidePage(0); setPage("pause-guide");
     setPauseReadingDestination({ sessionKey, target: "guide" });
   };
@@ -1230,7 +1247,24 @@ export default function App() {
     }
     if (abandoning) {
       if (key === "B") void act("cancel-play").then(ok => { if (ok) setAbandonGame(null); });
-      else { setAbandonGame(null); setTetrisChoice(0); setFishingChoice(0); setWalkChoice(0); }
+      else { setAbandonGame(null); setTetrisChoice(0); setFishingChoice(0); setWalkChoice(0); setTreasureChoice(0); }
+      return;
+    }
+    if (page === "game" && !abandoning && pet.game?.kind === "treasure" && pet.game.treasure) {
+      const n = pet.game.treasure;
+      if (treasureDone(n)) {
+        if (key !== "A") void act("treasure-finish", { step: n.step });
+      } else if (n.paused || treasureSession !== pet.game.id) {
+        if (key === "A") setTreasureChoice(v => (v + 1) % treasureMenu.length);
+        else if (key === "C" || treasureChoice === 0) void act("treasure-resume", { step: n.step });
+        else if (treasureChoice === 1) openPauseGuide();
+        else { boardEpoch.current++; setTreasureSession(""); setAbandonGame(sessionKey); }
+      } else if (key === "C") {
+        boardEpoch.current++; setTreasureSession(""); setTreasureChoice(0);
+        setPauseReadingDestination({ sessionKey, target: "pause" });
+        void act("treasure-pause", { step: n.step });
+      } else if (key === "A") setTreasureCursor(nextTreasure(n, treasureCursor));
+      else void act("treasure-dig", { step: n.step, tile: treasureCursor });
       return;
     }
     if(page==="game" && !abandoning && pet.game?.kind==="walk" && pet.game.walking) {
@@ -1646,6 +1680,8 @@ export default function App() {
     : snake?.paused || snakeSession !== pet?.game?.id
       ? "A / C 继续  B 放弃确认"
       : "A 左转  B 右转  C 暂停";
+  const treasure = pet?.game?.treasure;
+  const treasureHint = treasure && treasureDone(treasure) ? "B / C 收好发现" : treasure?.paused || treasureSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 选格  B 探索  C 暂停";
   const walking=pet?.game?.walking;
   const walkHint=walking?.beat===72?"B / C 收好发现":walking?.paused || walkSession!==pet?.game?.id?"A 选择  B 确认  C 继续":"A 跳跃  B 蹲下  C 暂停";
   const fishing = pet?.game?.fishing;
@@ -1680,7 +1716,7 @@ export default function App() {
                 : page === "menu"
                   ? "A 选择　 B 确认　 C 返回"
                   : page === "game"
-                    ? pet.game?.kind === "walk" ? walkHint : pet.game?.kind === "fishing"
+                    ? pet.game?.kind === "treasure" ? treasureHint : pet.game?.kind === "walk" ? walkHint : pet.game?.kind === "fishing"
                       ? fishingHint
                       : pet.game?.kind === "tetris"
                       ? tetrisHint
@@ -1846,6 +1882,7 @@ export default function App() {
             </div>
           </div>
           <div className={`device-stage ${page !== "game" || abandoning || uncertain || unavailable || corrupt
+            || treasure
             || (snake && (snake.paused || snake.end || snakeSession !== pet?.game?.id))
             || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
             || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
@@ -1890,7 +1927,7 @@ export default function App() {
                                       : page === "journal"
                                         ? "LITTLE DIARY"
                                         : page === "game"
-                                          ? pet?.game?.kind === "walk" ? "PARK TOGETHER" : pet?.game?.kind === "fishing"
+                                          ? pet?.game?.kind === "treasure" ? "FOREST TOGETHER" : pet?.game?.kind === "walk" ? "PARK TOGETHER" : pet?.game?.kind === "fishing"
                                             ? "POND TOGETHER"
                                             : pet?.game?.kind === "tetris"
                                             ? "BLOCK GARDEN"
@@ -2125,6 +2162,7 @@ export default function App() {
                         {page === "journal" && (
                           <JournalPanel logs={pet.logs} cursor={journalCursor} />
                         )}
+                        {page === "game" && !abandoning && pet.game?.kind === "treasure" && <TreasureGame pet={pet} active={treasureSession === pet.game.id && !tools && !help && !reset} cursor={treasureCursor} choice={treasureChoice}/>}
                         {page === "game" && !abandoning && pet.game?.kind === "walk" && <WalkingGame pet={pet} active={walkSession===pet.game.id && !tools && !help && !reset} choice={walkChoice}/>}
                         {page === "game" && !abandoning && pet.game?.kind === "fishing" && <FishingGame pet={pet} active={fishingSession === pet.game.id && !tools && !help && !reset} choice={fishingChoice} />}
                         {page === "game" && !abandoning && pet.game?.kind === "tetris" && (

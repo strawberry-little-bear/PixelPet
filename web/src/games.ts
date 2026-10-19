@@ -49,6 +49,13 @@ export const games = [
  lesson:"每六步一处障碍，提前提示。A 越石，B 低头过树枝，姿势保持三步。绊到继续走，不扣状态。海豚走浅水道，A 跃水、B 下潜。",
  leaving:"C 暂停可看沿途发现或放弃确认。刷新、离开后手动继续，不离线赶路。每24步的真实发现会保留；到终点 B / C 收好才计陪伴。",
  },
+ { id: "treasure", title: "森林寻宝", icon: "◆", startAction: "play-treasure",
+ summary: "九格林地 · 六次探索", duration: "不限时 · 随时暂停",
+ controls: "A 选格 · B 探索 · C 暂停",
+ reward: "六次探索或找齐三件，收好后：3–6 金币，不要求找齐。",
+ lesson: "A 循环选未探索的格子，B 探索。空格数字表示周围八格有几件小物，不只算上下左右。最多探索六格，找齐三件可提前结束。没有倒计时，不必连按。",
+ leaving: "开局、刷新或离开后手动继续。C 暂停，可重看规则或确认放弃。结束后 B / C 收好才计陪伴与共享金币；揭示但未探索的小物不计成绩。导入备份沿用原规则，不恢复未收好的游戏。",
+ },
 ] as const;
 export type GameInfo = (typeof games)[number];
 const guideKey = (id: GameInfo["id"]) => `pixelpet-guide-v1-${id}`;
@@ -75,13 +82,14 @@ export function gameAllowance(economy: Economy | undefined, shop: Shop | null, n
 export const gameSessionKey = (game: PetState["game"]) =>
   game ? (game.id ?? `legacy-${game.startedAt}`) : null;
 
-// These four games retain a terminal board until the player explicitly collects
+// These five games retain a terminal board until the player explicitly collects
 // it. Stars/tiles settle in their final action and remove the session instead.
 export function gameAwaitingFinish(game: PetState["game"]): boolean {
   switch (game?.kind) {
     case "snake": return !!game.snake?.end;
     case "tetris": return !!game.tetris?.end;
     case "fishing": return game.fishing?.phase === "done";
+    case "treasure": return !!game.treasure && (game.treasure.opened.length >= 6 || game.treasure.opened.filter(i => game.treasure!.layout[i] > 0).length === 3);
     case "walk": return game.walking?.beat === 72;
     default: return false;
   }

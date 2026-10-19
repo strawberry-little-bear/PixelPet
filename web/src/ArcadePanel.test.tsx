@@ -18,6 +18,7 @@ const actions = () => api.mock.calls.filter(c => c[0] === "action").map(c => c[1
 const response = () => ({ state: structuredClone(saved), message: "", serverTime: Date.now(), shop: rules });
 function session(info: GameInfo, fishingPaused = true) {
   const common = { id, startedAt: Date.now(), round: 0, score: 0, lastBeat: -1 };
+  if (info.id === "treasure") return {...common,kind:"treasure" as const,treasure:{layout:[1,2,3,0,0,0,0,0,0],opened:[],step:0,paused:true}};
   if (info.id === "stars") return common;
   if (info.id === "tiles") return { ...common, kind: "tiles" as const, tiles: { board: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8], pick: -1, pairs: 0, shuffles: 0 } };
   if (info.id === "snake") return { ...common, kind: "snake" as const, snake: { body: [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }], food: { x: 9, y: 9 }, direction: 0, eaten: 0, step: 0, lastMoveAt: Date.now(), paused: true } };
@@ -33,7 +34,7 @@ async function select(index: number) {
   for (let i = 0;i < index;i++) await key("a");
 }
 async function openConfirmation(info: GameInfo) {
-  if (info.id === "fishing" || info.id === "walk") { await key("a"); await key("a"); await key("b"); }
+  if (info.id === "fishing" || info.id === "walk" || info.id === "treasure") { await key("a"); await key("a"); await key("b"); }
   else if (info.id === "snake") await key("b"); // Already paused on reload.
   else if (info.id === "tetris") { for (let i = 0;i < 3;i++) await key("a"); await key("b"); }
   else await key("c");
@@ -207,7 +208,7 @@ describe("guide and confirmation edge cases", () => {
 });
 
 describe("playtest feedback: compact repeat entry", () => {
-  it("gives all six directory entries distinct nonempty symbols", () => {
+  it("gives all seven directory entries distinct nonempty symbols", () => {
     expect(games.every(game => game.icon.trim().length > 0)).toBe(true);
     expect(new Set(games.map(game => game.icon)).size).toBe(games.length);
   });

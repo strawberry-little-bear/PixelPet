@@ -179,7 +179,7 @@ export function PetScene({
 }) {
   const rig = petRigKind(index, stage);
   const sharedEcho = motion === "idle" && stage !== "egg" && !["hungry", "tired", "dirty"].includes(need || "") ? echo : undefined;
-  const echoNeed = sharedEcho ? ({ stars: "content", tiles: "quiet", snake: "content", tetris: "content", fishing: "quiet", walk: "quiet" } as const)[sharedEcho] : undefined;
+  const echoNeed = sharedEcho ? ({ stars: "content", tiles: "quiet", snake: "content", tetris: "content", fishing: "quiet", walk: "quiet", treasure: "quiet" } as const)[sharedEcho] : undefined;
   const activeNeed = motion === "idle" && stage !== "egg" ? echoNeed || need : undefined;
   const expression: Expression =
     motion === "sleeping"
@@ -219,7 +219,7 @@ export function PetScene({
         style={{ "--clip-duration": `${duration}ms` } as CSSProperties}
       >
         <span className="pet-ground-shadow" />
-        {sharedEcho && <div className="home-game-token" data-game={sharedEcho}><span>{({ stars: "★", tiles: "▧ ▧", snake: "●", tetris: "▥", fishing: "<><", walk: "♧" })[sharedEcho]}</span><small>刚才 · {({ stars: "接星星", tiles: "连连看", snake: "贪吃蛇", tetris: "俄罗斯方块", fishing: "池塘钓鱼", walk: "公园散步" })[sharedEcho]}</small></div>}
+        {sharedEcho && <div className="home-game-token" data-game={sharedEcho}><span>{({ stars: "★", tiles: "▧ ▧", snake: "●", tetris: "▥", fishing: "<><", walk: "♧", treasure: "◆" })[sharedEcho]}</span><small>刚才 · {({ stars: "接星星", tiles: "连连看", snake: "贪吃蛇", tetris: "俄罗斯方块", fishing: "池塘钓鱼", walk: "公园散步", treasure: "森林寻宝" })[sharedEcho]}</small></div>}
         {motion === "sleeping" && (
           <>
             <span className="sleep-pillow" />

@@ -17,8 +17,8 @@ const port = await new Promise((resolve, reject) => {
   s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(e => e ? reject(e) : resolve(p)); });
 });
 const base = `http://127.0.0.1:${port}`;
-const games = ['stars', 'tiles', 'snake', 'tetris', 'fishing', 'walk'];
-const actions = ['play', 'play-tiles', 'play-snake', 'play-tetris', 'play-fishing', 'play-walk'];
+const games = ['stars', 'tiles', 'snake', 'tetris', 'fishing', 'walk', 'treasure'];
+const actions = ['play', 'play-tiles', 'play-snake', 'play-tetris', 'play-fishing', 'play-walk', 'play-treasure'];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 let server, browser, startupError, log = '';
 async function api(path, body) {
@@ -99,7 +99,8 @@ try {
       });
       await page.goto(base); await enter(page, index); await readable(page, '.arcade-panel');
       const icons = await page.locator('.arcade-card > span').allTextContents();
-      assert.equal(new Set(icons).size, 6);
+      assert.equal(icons.length, games.length);
+      assert.equal(new Set(icons).size, games.length);
       if (id === 'fishing') await page.screenshot({ path: join(dir, `icons-${width}-${font}.png`), fullPage: true });
       await key(page, 'B'); await page.locator('.game-guide:not(.game-quick-start)').waitFor();
       assert((await page.locator('.game-guide header').innerText()).includes('1 / 2'));
@@ -117,7 +118,7 @@ try {
       assert.deepEqual(writes.map(a => a.kind), [actions[index]]);
       const first = (await api('state')).state;
       if (index >= 2) {
-        const n = first.game.snake ?? first.game.tetris ?? first.game.fishing ?? first.game.walking;
+        const n = first.game.snake ?? first.game.tetris ?? first.game.fishing ?? first.game.walking ?? first.game.treasure;
         if (id === 'fishing') { assert.equal(n.phase, 'ready'); assert.equal(n.casts, 0); }
         else assert.equal(n.paused, true);
         await wait(1200);

@@ -90,11 +90,13 @@ func TestOutingUpgradeDoesNotBackfill(t *testing.T) {
 	}
 	s.Album.Entries = entries
 	s.Schema = 12
+	s.Companion.Interests = s.Companion.Interests[:6]
 	before := copyState(s)
 	if !s.Upgrade(now) || s.Schema != Schema {
 		t.Fatal("missing schema upgrade")
 	}
 	before.Schema = Schema
+	before.Companion.Interests = append(before.Companion.Interests, Interest{Kind: "treasure"})
 	if !reflect.DeepEqual(before, s) || len(outingMemories(s)) != 0 || s.Upgrade(now) {
 		t.Fatal("migration fabricated or changed history")
 	}
@@ -156,7 +158,7 @@ func TestOutingValidationRejectsCorruption(t *testing.T) {
 		}
 		index := len(s.Album.Entries) - 1
 		tests := map[string]func(*State){
-			"old schema":         func(v *State) { v.Schema = 12 },
+			"old schema":         func(v *State) { v.Schema = 12; v.Companion.Interests = v.Companion.Interests[:6] },
 			"duplicate":          func(v *State) { v.Album.Entries = append(v.Album.Entries, v.Album.Entries[index]) },
 			"invented sky":       func(v *State) { v.Album.Entries[index].Kind = "scenery-" + kind + "-snow" },
 			"saved provenance":   func(v *State) { v.Album.Entries[index].Source = "saved" },

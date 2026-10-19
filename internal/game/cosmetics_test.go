@@ -138,6 +138,7 @@ func TestSchemaEightCosmeticUpgradePreservesRealFishAndActiveSession(t *testing.
 	s, now := fishingState(t)
 	// The old engine did not record scenery during its real catch.
 	s.Schema = 12
+	s.Companion.Interests = s.Companion.Interests[:6]
 	bite(t, &s, &now)
 	fishDo(t, &s, now, "fish-reel")
 	s.Economy.Coins = 50

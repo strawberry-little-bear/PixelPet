@@ -17,7 +17,7 @@ export const albumCategories = [
 ] as const;
 export type AlbumCategory = typeof albumCategories[number]["id"];
 const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
-  hatch: "growth", growing: "growth", adult: "growth",
+  treasure: "play", hatch: "growth", growing: "growth", adult: "growth",
   meal: "care", bath: "care", goodnight: "care",
   stars: "play", "perfect-stars": "play", tiles: "play", snake: "play", tetris: "play", fishing: "play", walk: "play",
   outfit: "home", decoration: "home", wallpaper: "home", floor: "home",
@@ -45,6 +45,7 @@ export function AlbumDirectory({ pet, choice }: { pet: PetState; choice: number 
 export function memoryWords(m: Memory, legacy: boolean) {
   if (isOutingMemory(m.kind)) return outingMemoryWords[m.kind];
   switch (m.kind) {
+    case "treasure": return { title: "林间的小小发现", story: "第一次一起收好森林探索的经历。不必找齐，陪伴本身就值得纪念。" };
     case "hatch": return { title: "小小的初次相遇", story: "从这一天起，小窝里多了一位等你回来的伙伴。" };
     case "growing": return { title: "一起走进成长期", story: "从小小一团到勇敢迈步，这段长大被好好留了下来。" };
     case "adult": return { title: "长大了，也陪着你", story: `成为了${formNames[m.form || "balanced"]}。模样已经定下，往后的日子仍能一起慢慢过。` };

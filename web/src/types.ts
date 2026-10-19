@@ -34,7 +34,7 @@ export type Growth = {
     lastClean: number;
   };
 };
-export type GameExperience = { kind: "stars" | "tiles" | "snake" | "tetris" | "fishing" | "walk"; id: string; at: number };
+export type GameExperience = { kind: "stars" | "tiles" | "snake" | "tetris" | "fishing" | "walk" | "treasure"; id: string; at: number };
 export type Companion = { since: number; interests: {kind: GameExperience["kind"]; points: number; lastAt: number}[]; recent?: GameExperience };
 export type PetState = {
  companion?: Companion;
@@ -55,7 +55,8 @@ export type PetState = {
   economy?: Economy;
   logs: { at: number; text: string }[];
   game?: {
-    kind?: "tiles" | "snake" | "tetris" | "fishing" | "walk";
+    kind?: "tiles" | "snake" | "tetris" | "fishing" | "walk" | "treasure";
+ treasure?: TreasureHunt;
  walking?: Walking;
  fishing?: Fishing;
     tetris?: Tetris;
@@ -69,7 +70,7 @@ export type PetState = {
   };
 };
 export type CareFeedback = {
-  kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "tetris-finish" | "fish-finish" | "walk-finish" | "sleep";
+  kind: "feed" | "clean" | "catch" | "tile-pick" | "snake-finish" | "tetris-finish" | "fish-finish" | "walk-finish" | "treasure-finish" | "sleep";
   points: number;
   habit?: "nutrition" | "clean" | "play";
   habitGain: number;
@@ -155,7 +156,8 @@ export type Memory = {
     | "snake"
     | "tetris"
     | "fishing"
-    | "walk";
+    | "walk"
+    | "treasure";
   at: number;
   source: "shared" | "saved" | "elapsed";
   form?: AdultForm;
@@ -210,3 +212,5 @@ export type FishDiscovery = {id:string;firstAt:number;lastAt:number;count:number
 export type Fishing = {spot:number;casts:number;catches:string[];phase:"ready"|"wait"|"bite"|"result"|"done";step:number;waitMs:number;elapsedMs:number;candidate:string;lastPulseAt:number;paused:boolean;outcome?:"caught"|"early"|"missed";lastFish?:string};
 
 export type Walking = {route:("rock"|"branch")[];souvenirs:string[];beat:number;step:number;cleared:number;pose:""|"jump"|"duck";poseUntil:number;lastPulseAt:number;lastInputAt:number;paused:boolean};
+
+export type TreasureHunt = { layout: number[]; opened: number[]; step: number; paused: boolean };

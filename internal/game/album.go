@@ -81,6 +81,9 @@ func (s State) validAlbum(now time.Time) bool {
 	if s.Schema >= 14 {
 		limit += 2
 	}
+	if s.Schema >= 16 {
+		limit++
+	}
 	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > limit {
 		return false
 	}
@@ -148,6 +151,10 @@ func (s State) validAlbum(now time.Time) bool {
 				slot = m.Kind
 			}
 			if s.Schema < 4 || m.Source != "shared" || !ok || item.Slot != slot || s.Economy == nil || !s.Economy.owns(m.Item) {
+				return false
+			}
+		case "treasure":
+			if s.Schema < 16 || m.Source != "shared" {
 				return false
 			}
 		case "walk":

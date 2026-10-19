@@ -5,7 +5,7 @@ import "time"
 const InterestLimit = 5
 const InterestInterval = 30 * time.Minute
 
-var companionGames = [...]string{"stars", "tiles", "snake", "tetris", "fishing", "walk"}
+var companionGames = [...]string{"stars", "tiles", "snake", "tetris", "fishing", "walk", "treasure"}
 
 type Interest struct {
 	Kind   string `json:"kind"`
@@ -58,7 +58,9 @@ func (s State) validCompanion() bool {
 	c := s.Companion
 	count := len(companionGames)
 	if s.Schema == 10 {
-		count--
+		count = 5
+	} else if s.Schema < 16 {
+		count = 6
 	}
 	if c == nil || c.Since < s.CreatedAt || c.Since > s.LastTick || len(c.Interests) != count {
 		return false

@@ -122,10 +122,10 @@ func TestCareEffectOnlyAppearsOnSuccessfulCompletedCare(t *testing.T) {
 }
 
 func TestEveryGameCareEffectMatchesOnlyItsSettlement(t *testing.T) {
-	for _, kind := range []string{"tiles", "snake", "tetris", "fishing", "walk"} {
+	for _, kind := range []string{"tiles", "snake", "tetris", "fishing", "walk", "treasure"} {
 		t.Run(kind, func(t *testing.T) {
 			s, now := economyPet(t)
-			starts := map[string]string{"tiles": "play-tiles", "snake": "play-snake", "tetris": "play-tetris", "fishing": "play-fishing", "walk": "play-walk"}
+			starts := map[string]string{"tiles": "play-tiles", "snake": "play-snake", "tetris": "play-tetris", "fishing": "play-fishing", "walk": "play-walk", "treasure": "play-treasure"}
 			if _, f, err := s.ApplyWithFeedback(Action{Kind: starts[kind]}, now); err != nil || f != nil {
 				t.Fatalf("start invented receipt: %+v %v", f, err)
 			}
@@ -161,6 +161,18 @@ func TestEveryGameCareEffectMatchesOnlyItsSettlement(t *testing.T) {
 					fishDo(t, &s, now, "fish-reel")
 				}
 				a = fishAction(&s, "fish-finish")
+			case "treasure":
+				// Traverse real map cells; no care effect until explicit collection.
+				for !s.Game.AwaitingFinish() {
+					kind, tile := "treasure-resume", 0
+					if !s.Game.Treasure.Paused {
+						kind, tile = "treasure-dig", len(s.Game.Treasure.Opened)
+					}
+					if _, f, err := s.ApplyWithFeedback(Action{Kind: kind, GameID: id, Step: s.Game.Treasure.Step, Tile: tile}, now); err != nil || f != nil {
+						t.Fatalf("unfinished treasure: %+v %v", f, err)
+					}
+				}
+				a = Action{Kind: "treasure-finish", GameID: id, Step: s.Game.Treasure.Step}
 			case "walk":
 				walkDo(t, &s, now, "walk-resume")
 				walkBeats(t, &s, &now, 72, true)

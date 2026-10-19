@@ -9,7 +9,7 @@ import (
 
 func finishExperience(t *testing.T, s *State, now *time.Time, kind string, qualifies bool) string {
 	t.Helper()
-	start := map[string]string{"stars": "play", "tiles": "play-tiles", "snake": "play-snake", "tetris": "play-tetris", "fishing": "play-fishing", "walk": "play-walk"}[kind]
+	start := map[string]string{"stars": "play", "tiles": "play-tiles", "snake": "play-snake", "tetris": "play-tetris", "fishing": "play-fishing", "walk": "play-walk", "treasure": "play-treasure"}[kind]
 	s.Needs.Energy = 90
 	s.Advance(*now)
 	if _, err := s.Apply(Action{Kind: start}, *now); err != nil {
@@ -52,6 +52,12 @@ func finishExperience(t *testing.T, s *State, now *time.Time, kind string, quali
 			walkDo(t, s, *now, "walk-step")
 		}
 		walkDo(t, s, *now, "walk-finish")
+	case "treasure":
+		treasureCommand(t, s, *now, "treasure-resume", 0)
+		for i := 0; !s.Game.Treasure.done(); i++ {
+			treasureCommand(t, s, *now, "treasure-dig", i)
+		}
+		treasureCommand(t, s, *now, "treasure-finish", 0)
 	case "fishing":
 		for i := 0; i < 3; i++ {
 			if qualifies {

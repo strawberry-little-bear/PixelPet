@@ -156,7 +156,7 @@ func TestWalkSchemaTenUpgradePreservesFiveInterestsAndActiveSession(t *testing.T
 	if s.Validate(now) != nil || !s.Upgrade(now) || s.Upgrade(now) || s.Validate(now) != nil {
 		t.Fatal("migration")
 	}
-	if s.Park.Walks != 0 || len(s.Park.Finds) != 0 || s.Park.Since != now.UnixMilli() || len(s.Companion.Interests) != 6 || s.Companion.Interests[5] != (Interest{Kind: "walk"}) {
+	if s.Park.Walks != 0 || len(s.Park.Finds) != 0 || s.Park.Since != now.UnixMilli() || len(s.Companion.Interests) != 7 || s.Companion.Interests[5] != (Interest{Kind: "walk"}) || s.Companion.Interests[6] != (Interest{Kind: "treasure"}) {
 		t.Fatal("invented past")
 	}
 	if !reflect.DeepEqual(s.Game, before.Game) {

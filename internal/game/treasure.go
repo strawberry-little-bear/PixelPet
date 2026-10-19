@@ -3,12 +3,13 @@ package game
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
+	"time"
 )
 
-// This rules prototype is not yet wired to State, routes, rewards or the UI.
-// A separate integration will add a versioned save and explicit collection.
+// A relaxed turn-based round: searches happen only on explicit saved commands.
 const (
 	TreasureCells     = 9
 	TreasureSearches  = 6
@@ -33,7 +34,7 @@ type treasureCell struct {
 type treasureOutcome struct {
 	Searches  int
 	Found     int
-	BaseCoins int // Nominal only; never awards currency or changes a pet.
+	BaseCoins int // Applied only by the explicit, transactional finish action.
 }
 
 func newTreasure() (*TreasureHunt, error) { return newTreasureWithEntropy(rand.Reader) }
@@ -192,4 +193,50 @@ func (n *TreasureHunt) outcome() (treasureOutcome, error) {
 		return treasureOutcome{}, errors.New("完成六次探索或找到三件小物后再收好")
 	}
 	return treasureOutcome{Searches: len(n.Opened), Found: n.found(), BaseCoins: 3 + n.found()}, nil
+}
+
+// validTreasureGame rejects cross-game payloads, including old-schema imports.
+func (s State) validTreasureGame() bool {
+	g := s.Game
+	if g == nil {
+		return true
+	}
+	if g.Kind != "treasure" {
+		return g.Treasure == nil
+	}
+	return s.Schema >= 16 && !s.Sleeping && g.Treasure.valid() &&
+		g.Walking == nil && g.Fishing == nil && g.Tetris == nil && g.Snake == nil && g.Tiles == nil &&
+		g.Round == 0 && g.Score == 0 && g.LastBeat == -1
+}
+
+func (s *State) applyTreasure(a Action, now time.Time) (string, error) {
+	if s.Game == nil || s.Game.Kind != "treasure" || s.Game.Treasure == nil {
+		return "", errors.New("先一起到森林看看吧")
+	}
+	n := s.Game.Treasure
+	if !n.valid() || a.Step != n.Step {
+		return "", errors.New("探索进度已变化，请先同步后再试")
+	}
+	if a.Kind != "treasure-finish" {
+		if err := n.apply(a.Kind, a.Tile, a.Step); err != nil {
+			return "", err
+		}
+		return "", nil
+	}
+	result, err := n.outcome()
+	if err != nil {
+		return "", err
+	}
+	s.recordGameExperience("treasure", now)
+	s.sharedMemory("treasure", now)
+	s.Game = nil
+	s.Needs.Mood = clamp(s.Needs.Mood + 10)
+	s.Needs.Energy = clamp(s.Needs.Energy - 3)
+	s.Needs.Hunger = clamp(s.Needs.Hunger - 2)
+	s.CareCount++
+	s.recordCare("play", 0, now)
+	coins := s.rewardGame(result.BaseCoins, now)
+	msg := fmt.Sprintf("一起探索了 %d 格，找到 %d 件森林小物。不必找齐，慢慢陪伴就好。", result.Searches, result.Found) + coinMessage(coins)
+	s.Log(now, msg)
+	return msg, nil
 }

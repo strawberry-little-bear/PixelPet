@@ -136,6 +136,12 @@ func (s *State) Upgrade(now time.Time) bool {
 		// fabricating past discoveries, scenery, care or reward history.
 		s.Schema = 15
 	}
+	if s.Schema == 15 {
+		// A new interest starts empty; past six-game sessions and history are
+		// unchanged. Never infer treasure play from care or other games.
+		s.Companion.Interests = append(s.Companion.Interests, Interest{Kind: "treasure"})
+		s.Schema = 16
+	}
 	return true
 }
 

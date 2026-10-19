@@ -1,0 +1,129 @@
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import App from "./App";
+import { TreasureGame } from "./TreasureGame";
+import { nextTreasure, treasureCell, treasureDone, treasureFound } from "./treasure";
+import { validCoreResponse } from "./response";
+import { emptyGrowth } from "./growth";
+import { RequestFailure } from "./requestFailure";
+import { request } from "./api";
+import type { PetState, Result, TreasureHunt } from "./types";
+vi.mock("./api",()=>({request:vi.fn()}));
+const api=vi.mocked(request), id="0123456789abcdef0123456789abcdef";
+let saved:PetState, failure:string, delayResume:boolean, release:()=>void;
+const model=():TreasureHunt=>({layout:[1,2,3,0,0,0,0,0,0],opened:[],step:0,paused:true});
+const fixture=():PetState=>({schema:16,revision:1,species:2,name:"草莓兔",createdAt:Date.now()-10000,hatchedAt:Date.now()-9000,lastTick:Date.now(),sleeping:false,needs:{hunger:70,mood:70,energy:80,clean:80},careCount:0,growth:emptyGrowth("baby"),logs:[],game:{id,kind:"treasure",treasure:model(),startedAt:Date.now(),round:0,score:0,lastBeat:-1}});
+const calls=()=>api.mock.calls.filter(c=>c[0]==="action").map(c=>c[1] as {kind:string;step?:number;tile?:number;gameId?:string});
+const response=():Result=>({state:structuredClone(saved),message:"",serverTime:Date.now()});
+async function key(key:string){await act(async()=>{fireEvent.keyDown(window,{key})})}
+async function clock(ms:number){await act(async()=>{await vi.advanceTimersByTimeAsync(ms)})}
+async function mount(){await act(async()=>{render(<App/>);})}
+async function hidden(value:boolean){Object.defineProperty(document,"hidden",{configurable:true,value});await act(async()=>{fireEvent(document,new Event("visibilitychange"));})}
+beforeEach(()=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-20T10:00:00Z"));localStorage.clear();api.mockReset();saved=fixture();failure="";delayResume=false;
+ api.mockImplementation(async(path,body)=>{
+  if(path!=="action")return response();
+  const a=body as {kind:string;step:number;tile:number};
+  if(a.kind===failure)throw new RequestFailure("没有保存本次操作","rejected");
+  const n=saved.game?.treasure;
+  if(n){if(a.kind==="treasure-resume")n.paused=false;if(a.kind==="treasure-pause")n.paused=true;
+   if(a.kind==="treasure-dig"){n.opened.push(a.tile);if(treasureDone(n))n.paused=true;}n.step++;
+  }
+  if(a.kind==="treasure-finish"||a.kind==="cancel-play")delete saved.game;
+  saved.revision++;
+  const r=response();if(a.kind==="treasure-resume"&&delayResume)await new Promise<void>(resolve=>{release=resolve});return r;
+ });
+});
+afterEach(()=>{cleanup();vi.restoreAllMocks();vi.useRealTimers();Object.defineProperty(document,"hidden",{configurable:true,value:false});});
+
+describe("untimed treasure presentation",()=>{
+ it("hides every unsearched item and clue, skips searched cells and wraps",()=>{
+  const n=model();expect(treasureCell(n,0)).toEqual({opened:false,item:0,nearby:null});
+  n.opened=[3];expect(treasureCell(n,3)).toEqual({opened:true,item:0,nearby:2});expect(nextTreasure(n,2)).toBe(4);expect(nextTreasure(n,8)).toBe(0);
+  expect(treasureCell(n,1)).toEqual({opened:false,item:0,nearby:null});
+ });
+ it("counts eight neighbors, not only four, across every legal placement",()=>{
+  for(let a=0;a<9;a++)for(let b=a+1;b<9;b++)for(let c=b+1;c<9;c++)for(let cell=0;cell<9;cell++){
+   if([a,b,c].includes(cell))continue;
+   const n=model();n.layout=Array<number>(9).fill(0);[a,b,c].forEach((i,k)=>n.layout[i]=k+1);n.opened=[cell];
+   const expected=[a,b,c].filter(i=>Math.abs((i%3)-(cell%3))<=1 && Math.abs(Math.floor(i/3)-Math.floor(cell/3))<=1).length;
+   expect(treasureCell(n,cell).nearby).toBe(expected);
+  }
+ });
+ it("terminal reveal never fabricates found items; grid has no clickable controls",()=>{
+  saved.game!.treasure!.opened=[3,4,5,6,7,8];saved.game!.treasure!.paused=true;
+  render(<TreasureGame pet={saved} active cursor={0} choice={0}/>);
+  expect(treasureDone(saved.game!.treasure!)).toBe(true);expect(treasureFound(saved.game!.treasure!)).toBe(0);
+  expect(screen.getByText(/实际找到 0 件/)).toBeTruthy();expect(screen.getAllByText("留在林间")).toHaveLength(3);
+  expect(screen.getAllByRole("gridcell")).toHaveLength(9);expect(document.querySelectorAll("button,a,input,[role=button]")).toHaveLength(0);
+ });
+ it.each([
+  (n:TreasureHunt)=>{n.layout=[]},(n:TreasureHunt)=>{n.layout[0]=4},(n:TreasureHunt)=>{n.opened=[0,0]},
+  (n:TreasureHunt)=>{n.opened=[9]},(n:TreasureHunt)=>{n.step=NaN},(n:TreasureHunt)=>{n.step=1000001},
+  (n:TreasureHunt)=>{n.paused=undefined as unknown as boolean},
+ ])("rejects malformed render-critical models",mutate=>{mutate(saved.game!.treasure!);expect(validCoreResponse(response())).toBe(false)});
+});
+
+describe("three-key treasure flow",()=>{
+ it("never runs from a read or elapsed time; explicit resume then A selects and B digs",async()=>{
+  saved.game!.treasure!.paused=false;await mount();await clock(60000);
+  expect(calls()).toHaveLength(0);expect(document.querySelector(".treasure-pause")).toBeTruthy();
+  await key("c");await key("a");expect(calls().map(a=>a.kind)).toEqual(["treasure-resume"]);
+  await key("b");expect(calls().at(-1)).toEqual(expect.objectContaining({kind:"treasure-dig",tile:1,step:1,gameId:id}));
+  expect(screen.getByRole("gridcell",{name:/3号格/}).getAttribute("aria-selected")).toBe("true");
+  await clock(60000);expect(calls()).toHaveLength(2);
+  await key("c");expect(calls().at(-1)?.kind).toBe("treasure-pause");
+  expect(document.querySelectorAll(".physical-button")).toHaveLength(3);expect(document.querySelectorAll(".lcd button,.lcd a,.lcd [role=button]")).toHaveLength(0);
+ });
+ it("rules are read-only and return to pause, including a locally paused server session",async()=>{
+  saved.game!.treasure!.paused=false;await mount();await key("a");await key("b");
+  expect(document.querySelector(".game-guide")).toBeTruthy();await key("b");await key("c");await clock(20000);
+  expect(calls()).toHaveLength(0);expect(document.querySelector(".treasure-pause")).toBeTruthy();await key("c");expect(calls().at(-1)?.kind).toBe("treasure-resume");
+ });
+ it("requires abandon confirmation; A/C cancel without writing and B confirms original session",async()=>{
+  await mount();for(const k of ["a","a","b"])await key(k);expect(document.querySelector(".game-abandon")).toBeTruthy();
+  await key("c");expect(calls()).toHaveLength(0);for(const k of ["a","a","b"])await key(k);await key("b");
+  expect(calls()).toEqual([expect.objectContaining({kind:"cancel-play",gameId:id})]);expect(document.querySelector(".content-home")).toBeTruthy();
+ });
+ it.each(["hidden","blur","help","tools"])("%s clears local permission without spending an exploration",async reason=>{
+  await mount();await key("c");
+  if(reason==="hidden"){await hidden(true);await hidden(false)}
+  else if(reason==="blur"){await act(async()=>{fireEvent.blur(window);fireEvent.focus(window)})}
+  else if(reason==="help"){await act(async()=>fireEvent.click(screen.getByRole("button",{name:"玩法说明"})));await act(async()=>fireEvent.click(screen.getByRole("button",{name:"关闭"})))}
+  else {await act(async()=>fireEvent.click(screen.getByRole("button",{name:"存档盒"})));await act(async()=>fireEvent.click(screen.getByRole("button",{name:"存档盒"})))}
+  await clock(5000);expect(calls()).toHaveLength(1);expect(document.querySelector(".treasure-pause")).toBeTruthy();
+ });
+ it("a late resume acknowledgement cannot reactivate after backgrounding",async()=>{
+  delayResume=true;await mount();await key("c");await hidden(true);await hidden(false);await act(async()=>release());await clock(5000);
+  expect(calls()).toHaveLength(1);expect(document.querySelector(".treasure-pause")).toBeTruthy();
+ });
+ it.each(["treasure-resume","treasure-dig"])("rejected %s neither retries nor invents progress",async kind=>{
+  failure=kind;await mount();await key("c");if(kind==="treasure-dig")await key("b");
+  const count=calls().length;await clock(20000);expect(calls()).toHaveLength(count);expect(saved.game!.treasure!.opened).toHaveLength(0);
+ });
+ it.each(["b","c"])("only explicit %s collects completed explorations, A and time never settle",async finishKey=>{
+  saved.game!.treasure!.opened=[3,4,5,6,7,8];await mount();await key("a");await clock(20000);expect(calls()).toHaveLength(0);
+  await key(finishKey);expect(calls()).toEqual([expect.objectContaining({kind:"treasure-finish",gameId:id,step:0})]);expect(document.querySelector(".content-home")).toBeTruthy();
+ });
+ it("accepts saved settlement feedback and shows the local companion echo only once",async()=>{
+  saved.game!.treasure!.opened=[3,4,5,6,7,8];
+  const original=api.getMockImplementation()!;
+  api.mockImplementation(async(path,body)=>{
+   const r=await original(path,body);
+   if(path==="action"&&(body as {kind:string}).kind==="treasure-finish"){
+    saved.companion={since:saved.createdAt,interests:[{kind:"treasure",points:1,lastAt:Date.now()}],recent:{kind:"treasure",id,at:Date.now()}};
+    saved.careCount=1;saved.needs={hunger:68,mood:80,energy:77,clean:80};
+    r.state=structuredClone(saved);
+    r.careFeedback={kind:"treasure-finish",points:2,habit:"play",habitGain:1,reason:"credited",effect:{at:Date.now(),before:{hunger:70,mood:70,energy:80,clean:80},after:{hunger:68,mood:80,energy:77,clean:80}}};
+   }
+   return r;
+  });
+  await mount();await key("b");expect(document.querySelector(".content-home")).toBeTruthy();
+  expect(document.querySelector(".save-recovery")).toBeNull();await clock(4000);
+  expect(document.querySelector('[data-echo="treasure"]')).toBeTruthy();
+  await clock(13000);expect(document.querySelector('[data-echo="treasure"]')).toBeNull();
+  await hidden(true);await hidden(false);expect(document.querySelector('[data-echo="treasure"]')).toBeNull();
+  expect(calls()).toHaveLength(1);
+ });
+
+});

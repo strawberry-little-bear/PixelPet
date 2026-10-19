@@ -4,6 +4,7 @@ import type { Companion, GameExperience } from "./types";
 export type SharedGameKind = (typeof games)[number]["id"];
 export const interestLimit = 5;
 export const experienceWords: Record<SharedGameKind, string> = {
+  treasure: "想起一起探索的林地，把小小发现又看了看。",
   stars: "还记得刚才的星光，轻轻挥了挥。",
   tiles: "把刚才配好的小图案，又认真看了看。",
   snake: "想起一起收的果子，开心地轻轻摇晃。",

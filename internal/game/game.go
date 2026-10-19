@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 15
+const Schema = 16
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -40,17 +40,18 @@ func validGameID(id string) bool {
 }
 
 type MiniGame struct {
-	Walking   *Walking   `json:"walking,omitempty"`
-	Fishing   *Fishing   `json:"fishing,omitempty"`
-	Tetris    *Tetris    `json:"tetris,omitempty"`
-	Snake     *Snake     `json:"snake,omitempty"`
-	Kind      string     `json:"kind,omitempty"`
-	Tiles     *TileMatch `json:"tiles,omitempty"`
-	ID        string     `json:"id,omitempty"`
-	StartedAt int64      `json:"startedAt"`
-	Round     int        `json:"round"`
-	Score     int        `json:"score"`
-	LastBeat  int64      `json:"lastBeat"`
+	Treasure  *TreasureHunt `json:"treasure,omitempty"`
+	Walking   *Walking      `json:"walking,omitempty"`
+	Fishing   *Fishing      `json:"fishing,omitempty"`
+	Tetris    *Tetris       `json:"tetris,omitempty"`
+	Snake     *Snake        `json:"snake,omitempty"`
+	Kind      string        `json:"kind,omitempty"`
+	Tiles     *TileMatch    `json:"tiles,omitempty"`
+	ID        string        `json:"id,omitempty"`
+	StartedAt int64         `json:"startedAt"`
+	Round     int           `json:"round"`
+	Score     int           `json:"score"`
+	LastBeat  int64         `json:"lastBeat"`
 }
 type State struct {
 	Park      *Park      `json:"park,omitempty"`
@@ -81,7 +82,7 @@ var ErrGameFinished = errors.New("本局已经结束，放弃未执行。请先�
 var ErrSleepChanged = errors.New("睡眠状态已变化，本次入睡或起床未执行。请先读取当前状态")
 
 // AwaitingFinish excludes stars/tiles, which settle and remove their session in
-// the last action. The other four games keep a result for explicit collection.
+// the last action. The other five games keep a result for explicit collection.
 func (g *MiniGame) AwaitingFinish() bool {
 	if g == nil {
 		return false
@@ -93,6 +94,8 @@ func (g *MiniGame) AwaitingFinish() bool {
 		return g.Tetris != nil && g.Tetris.End != ""
 	case "fishing":
 		return g.Fishing != nil && g.Fishing.Phase == "done"
+	case "treasure":
+		return g.Treasure != nil && g.Treasure.done()
 	case "walk":
 		return g.Walking != nil && g.Walking.Beat == WalkLength
 	default:
@@ -170,7 +173,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	if s.HatchedAt == 0 {
 		return "", errors.New("先迎接你的第一只小伙伴吧")
 	}
-	if ((strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-") || strings.HasPrefix(a.Kind, "fish-") || strings.HasPrefix(a.Kind, "walk-")) || a.Kind == "catch" || a.Kind == "cancel-play" || a.Kind == "tile-pick" || a.Kind == "tile-clear") && s.Game != nil && a.GameID != s.Game.ID {
+	if (strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-") || strings.HasPrefix(a.Kind, "fish-") || strings.HasPrefix(a.Kind, "walk-") || strings.HasPrefix(a.Kind, "treasure-") || a.Kind == "catch" || a.Kind == "cancel-play" || a.Kind == "tile-pick" || a.Kind == "tile-clear") && s.Game != nil && a.GameID != s.Game.ID {
 		return "", errors.New("这不是当前的一局，请刷新后再试")
 	}
 	if a.Kind == "cancel-play" {
@@ -180,7 +183,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		s.Game = nil
 		return "下次再一起玩吧", nil
 	}
-	if s.Game != nil && !(strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-") || strings.HasPrefix(a.Kind, "fish-") || strings.HasPrefix(a.Kind, "walk-")) && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
+	if s.Game != nil && !(strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-") || strings.HasPrefix(a.Kind, "fish-") || strings.HasPrefix(a.Kind, "walk-") || strings.HasPrefix(a.Kind, "treasure-")) && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
 		return "", errors.New("请先完成小游戏，或通过放弃确认返回")
 	}
 	if s.Sleeping && a.Kind != "sleep" && a.Kind != "rename" {
@@ -237,6 +240,18 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		}
 		s.Game = &MiniGame{ID: newGameID(), Kind: "tetris", Tetris: blocks, StartedAt: now.UnixMilli(), LastBeat: -1}
 		return "A 选择 · B 确认 · C 继续；消除 2 行后完成才计入陪伴。", nil
+	case "play-treasure":
+		if s.Needs.Energy < 10 {
+			return "", errors.New("有点累了，先睡一觉吧")
+		}
+		hunt, err := newTreasure()
+		if err != nil {
+			return "", err
+		}
+		s.Game = &MiniGame{ID: newGameID(), Kind: "treasure", Treasure: hunt, StartedAt: now.UnixMilli(), LastBeat: -1}
+		return "A 选格 · B 探索 · C 暂停；不计时，准备好再继续。", nil
+	case "treasure-dig", "treasure-pause", "treasure-resume", "treasure-finish":
+		return s.applyTreasure(a, now)
 	case "play-walk":
 		if s.Needs.Energy < 10 {
 			return "", errors.New("有点累了，先睡一觉吧")
@@ -365,7 +380,7 @@ func (s State) Validate(now time.Time) error {
 	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
 		return bad
 	}
-	if !s.validPark() || !s.validWalkingGame() || !s.validCompanion() || !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() || !s.validPond() || !s.validFishingGame() {
+	if !s.validTreasureGame() || !s.validPark() || !s.validWalkingGame() || !s.validCompanion() || !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() || !s.validPond() || !s.validFishingGame() {
 		return bad
 	}
 	return nil

@@ -94,6 +94,7 @@ func TestSchemaElevenFormRecordMigrationKeepsOneRawSnapshotWithoutBackfilling(t 
 	s, now := recapStore(t)
 	old := formRecordFixture(now)
 	old.Schema = 11
+	old.Companion.Interests = old.Companion.Interests[:6]
 	old.Apply(game.Action{Kind: "feed"}, now)
 	if old.Growth.FormRecord != nil {
 		t.Fatal("legacy fixture has a record")
@@ -119,6 +120,7 @@ func TestSchemaElevenFutureOfflineAdulthoodGetsARealRecordAfterUpgrade(t *testin
 	s, now := recapStore(t)
 	old := formRecordFixture(now)
 	old.Schema = 11
+	old.Companion.Interests = old.Companion.Interests[:6]
 	raw, _ := json.Marshal(old)
 	if _, err := s.db.Exec("UPDATE saves SET body=? WHERE id=1", string(raw)); err != nil {
 		t.Fatal(err)

@@ -57,7 +57,7 @@ const memoryKinds: Record<Memory["kind"], unknown> = {
   ...outingMemoryWords,
   hatch: true, growing: true, adult: true, meal: true, bath: true, goodnight: true,
   stars: true, "perfect-stars": true, days: true, outfit: true, decoration: true,
-  wallpaper: true, floor: true, tiles: true, snake: true, tetris: true, fishing: true, walk: true,
+  wallpaper: true, floor: true, tiles: true, snake: true, tetris: true, fishing: true, walk: true, treasure: true,
 };
 function validAlbum(value: unknown): boolean {
   return value == null || (record(value) && timestamp(value.since) && typeof value.legacy === "boolean" &&
@@ -77,7 +77,7 @@ function validAlbum(value: unknown): boolean {
 function validCareFeedback(value: unknown): boolean {
   if (value == null) return true;
   return record(value) &&
-    ["feed", "clean", "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "sleep"].includes(value.kind as string) &&
+    ["feed", "clean", "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish", "sleep"].includes(value.kind as string) &&
     ["credited", "not-needed", "cooldown", "resting", "awake"].includes(value.reason as string) &&
     typeof value.points === "number" && Number.isFinite(value.points) && value.points >= 0 && value.points <= 72 &&
     careHabitUnits(value.habitGain) !== null &&
@@ -118,7 +118,7 @@ export function validCoreResponse(value: unknown): value is Result {
     count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
-    count(state.careCount) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) &&
+    count(state.careCount) && validTreasureResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) &&
     validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>
@@ -128,4 +128,15 @@ export function validCoreResponse(value: unknown): value is Result {
     (value.recapPending === undefined || typeof value.recapPending === "boolean") &&
     (value.recapClaimed === undefined || typeof value.recapClaimed === "boolean") &&
     (value.saveGeneration === undefined || validSaveGeneration(value.saveGeneration));
+}
+
+// Only the new render-critical model; other existing game guards stay unchanged.
+function validTreasureResponse(value: unknown): boolean {
+  if (!record(value) || value.kind !== "treasure") return true;
+  const n = value.treasure;
+  return record(n) && Array.isArray(n.layout) && n.layout.length === 9 &&
+    n.layout.every(item => count(item) && item <= 3) &&
+    Array.isArray(n.opened) && n.opened.length <= 6 &&
+    n.opened.every(index => count(index) && index < 9) && new Set(n.opened).size === n.opened.length &&
+    count(n.step) && n.step <= 1_000_000 && typeof n.paused === "boolean";
 }
