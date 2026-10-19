@@ -22,6 +22,12 @@ const needLabels: Record<NeedKind, string> = {
   quiet: "安静地靠近",
 };
 
+const birdNeedLabels: Record<NeedKind, string> = {
+  hungry: "小翅贴肚子等吃饭", tired: "小翅揉眼想休息",
+  dirty: "翅尖理羽等洗澡", playful: "扬翅推球邀请玩耍",
+  content: "微笑轻动翅膀", quiet: "收翅安静相伴",
+};
+
 const dolphinNeedLabels: Record<NeedKind, string> = {
   hungry: "小鳍贴肚子等吃饭", tired: "垂鳍低头想休息",
   dirty: "小鳍蹭身侧等洗澡", playful: "扬鳍邀请玩耍",
@@ -195,7 +201,7 @@ export function PetScene({
       data-stage={stage}
       data-form={form}
       role="img"
-      aria-label={(sharedEcho ? experienceWords[sharedEcho] : labels[motion]) + (activeNeed ? `，${(rig === "dolphin" ? dolphinNeedLabels : rig === "mushroom" ? mushroomNeedLabels : rig === "bear" ? bearNeedLabels : rig === "frog" ? frogNeedLabels : rig === "dragon" ? dragonNeedLabels : rig === "dog" ? dogNeedLabels : needLabels)[activeNeed]}` : "")}
+      aria-label={(sharedEcho ? experienceWords[sharedEcho] : labels[motion]) + (activeNeed ? `，${(rig === "bird" ? birdNeedLabels : rig === "dolphin" ? dolphinNeedLabels : rig === "mushroom" ? mushroomNeedLabels : rig === "bear" ? bearNeedLabels : rig === "frog" ? frogNeedLabels : rig === "dragon" ? dragonNeedLabels : rig === "dog" ? dogNeedLabels : needLabels)[activeNeed]}` : "")}
     >
       <div className="scene-environment" aria-hidden="true">
         <RoomSurfaceArt id={equipped?.wallpaper} />

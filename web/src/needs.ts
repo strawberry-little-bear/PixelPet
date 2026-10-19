@@ -11,6 +11,16 @@ const messages: Record<NeedKind, string> = {
   quiet: "靠近一点，想和你安静待一会儿",
 };
 
+// Bird cues describe the existing wing poses, not generic human hands.
+const birdMessages: Record<NeedKind, string> = {
+  hungry: "小翅贴贴肚子，想吃点东西",
+  tired: "小翅揉揉眼睛，想收翅休息",
+  dirty: "翅尖理理羽毛，想洗个泡泡澡",
+  playful: "扬起小翅，一起推推球？",
+  content: "眯眯眼、轻轻动动翅膀，有你在真好",
+  quiet: "收拢小翅，想和你安静待一会儿",
+};
+
 // Anatomical wording follows the dolphin's actual fin poses, without changing
 // shared priority, thresholds or rewards.
 const dolphinMessages: Record<NeedKind, string> = {
@@ -93,5 +103,5 @@ export function petNeed(pet: PetState | null): NeedSignal | null {
   const needed = bodyNeed(pet);
   const kind = needed?.kind ?? (mood <= 60
     ? (energy >= 45 ? "playful" : "quiet") : "content");
-  return { kind, text: (pet.species === 3 ? dolphinMessages : pet.species === 4 ? mushroomMessages : pet.species === 5 ? bearMessages : pet.species === 6 ? frogMessages : pet.species === 8 ? dragonMessages : pet.species === 9 ? dogMessages : messages)[kind], urgent: needed?.urgent ?? false };
+  return { kind, text: (pet.species === 1 ? birdMessages : pet.species === 3 ? dolphinMessages : pet.species === 4 ? mushroomMessages : pet.species === 5 ? bearMessages : pet.species === 6 ? frogMessages : pet.species === 8 ? dragonMessages : pet.species === 9 ? dogMessages : messages)[kind], urgent: needed?.urgent ?? false };
 }
