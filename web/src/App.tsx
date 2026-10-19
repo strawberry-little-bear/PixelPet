@@ -181,6 +181,7 @@ export default function App() {
   const [homeEcho, setHomeEcho] = useState<(GameExperience & { until: number }) | null>(null);
   const seenExperiences = useRef(new Set<string>());
   const homeEchoEpoch = useRef(0);
+  const recapDisplayEpoch = useRef(0);
   const [clip, setClip] = useState<MotionClip | null>(null);
   const clipRef = useRef<MotionClip | null>(null);
   const clipSequence = useRef(0);
@@ -389,6 +390,83 @@ export default function App() {
       ? "存档已在其他页面替换，本次操作未执行。按 B 读取当前存档，不会自动重试。"
       : "本局已在其他页面结束，本次放弃未执行。按 B 读取最新结果，不会自动收好。");
   }, [markUncertain]);
+  // Both heartbeat and recap acknowledgement replies contain a fresh current
+  // state, unlike cached gameplay acknowledgements. Keep their routing and
+  // replacement handling together so a claim cannot hide a newly started game.
+  const acceptCurrentRead = useCallback((r: Result, context: {
+    recovering?: boolean; changed?: boolean; repairing?: boolean; clockBlocked?: boolean;
+  } = {}) => {
+    const { recovering = false, changed = false, repairing = false, clockBlocked = false } = context;
+    // The installation token also identifies a same-pet backup restore.
+    // Immutable lifecycle fields retain hatch routing/older-server support.
+    // Reject stale responses before invalidating any local intent.
+    const previous = acceptedPet.current;
+    const generationChanged = acceptedGeneration.current !== undefined && r.saveGeneration !== undefined && acceptedGeneration.current !== r.saveGeneration;
+    const replaced = previous !== null && (generationChanged || (r.state.revision >= latestRevision.current && (
+      previous.createdAt !== r.state.createdAt ||
+      previous.hatchedAt !== r.state.hatchedAt ||
+      (r.state.hatchedAt > 0 && previous.species !== r.state.species)
+    )));
+    // A session can change without replacing the pet/save generation. Route
+    // newly started games into reach and discard confirmation/menu intent
+    // from the old board. A terminal same-ID result is also a new decision:
+    // an old "discard unfinished game" confirmation must not throw it away.
+    const sessionChanged = previous !== null && gameSessionKey(previous.game) !== gameSessionKey(r.state.game);
+    const resultReady = previous !== null && !sessionChanged && !gameAwaitingFinish(previous.game) && gameAwaitingFinish(r.state.game);
+    const gameChanged = sessionChanged || resultReady;
+    if (!apply(r, recovering || repairing || clockBlocked || replaced || gameChanged, true)) {
+      if (recovering || clockBlocked) setError(changed ? "读到较旧的存档，上次操作未执行。按 B 再次读取当前存档。" : "读到较旧的存档，结果仍未确认。按 B 再次核对。");
+      return false;
+    }
+    // Unlike cached action replies, this is an authoritative current read:
+    // an absent recap means it was cleared (including same-pet imports).
+    setReturnRecap(r.returnRecap ?? null);
+    setReturnPending(!!r.recapPending);
+    if (!r.returnRecap) setPage(value => value === "return" ? (r.state.hatchedAt ? "home" : "choose") : value);
+    if (replaced || gameChanged) {
+      stopActivity();
+      setHelp(false);
+      setAbandonGame(null);
+      setReturnPage(0);
+    }
+    if (recovering || repairing || clockBlocked || replaced || gameChanged) {
+      discardImport();
+      uncertainRef.current = false;
+      setUncertain(false);
+      setRefusedChange(null);
+      refusedChangeRef.current = null;
+      setChosen(r.state.species);
+      setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
+      setReset(false);
+      setTools(false);
+      setPurchaseConfirm(false);
+      setLane(1);
+      setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
+      setTetrisChoice(0);
+      setFishingChoice(0);
+      setWalkChoice(0);
+      returnAttempt.current = r.returnRecap?.id ?? "";
+      initialized.current = true;
+      const gameMessage = resultReady
+        ? "已同步本局结果，请查看后按 B / C 收好。没有自动结算。"
+        : r.state.game
+          ? "已同步其他页面的新一局，请从当前画面继续。实时游戏不会自动启动。"
+          : "另一页面已结束这一局，已回到小窝。没有重复结算。";
+      setMessage(clockBlocked
+        ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。"
+        : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。"
+        : changed ? "已读取当前存档。上次操作未执行，没有自动重试。"
+        : recovering ? "已核对当前存档，请查看状态。上次操作没有自动重试。"
+        : gameChanged ? gameMessage
+        : "已同步其他页面更新的伙伴，请从当前画面继续。");
+    } else if (r.recapPending) returnAttempt.current = "";
+    if (!initialized.current) {
+      setChosen(r.state.species);
+      setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
+      initialized.current = true;
+    }
+    return true;
+  }, [apply, stopActivity, discardImport]);
   const refresh = useCallback(async () => {
     if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
     const epoch = syncEpoch.current;
@@ -403,74 +481,7 @@ export default function App() {
       // or claim a recap as a substitute for finding out what was saved.
       const r = recovering || repairing || clockBlocked ? await request("state") : await request("visit", {});
       if (epoch !== syncEpoch.current) return;
-      // The installation token also identifies a same-pet backup restore.
-      // Immutable lifecycle fields retain hatch routing/older-server support.
-      // Reject stale responses before invalidating any local intent.
-      const previous = acceptedPet.current;
-      const generationChanged = acceptedGeneration.current !== undefined && r.saveGeneration !== undefined && acceptedGeneration.current !== r.saveGeneration;
-      const replaced = previous !== null && (generationChanged || (r.state.revision >= latestRevision.current && (
-        previous.createdAt !== r.state.createdAt ||
-        previous.hatchedAt !== r.state.hatchedAt ||
-        (r.state.hatchedAt > 0 && previous.species !== r.state.species)
-      )));
-      // A session can change without replacing the pet/save generation. Route
-      // newly started games into reach and discard confirmation/menu intent
-      // from the old board. A terminal same-ID result is also a new decision:
-      // an old "discard unfinished game" confirmation must not throw it away.
-      const sessionChanged = previous !== null && gameSessionKey(previous.game) !== gameSessionKey(r.state.game);
-      const resultReady = previous !== null && !sessionChanged && !gameAwaitingFinish(previous.game) && gameAwaitingFinish(r.state.game);
-      const gameChanged = sessionChanged || resultReady;
-      if (!apply(r, recovering || repairing || clockBlocked || replaced || gameChanged, true)) {
-        if (recovering || clockBlocked) setError(changed ? "读到较旧的存档，上次操作未执行。按 B 再次读取当前存档。" : "读到较旧的存档，结果仍未确认。按 B 再次核对。");
-        return;
-      }
-      // Unlike cached action replies, this is an authoritative current read:
-      // an absent recap means it was cleared (including same-pet imports).
-      setReturnRecap(r.returnRecap ?? null);
-      setReturnPending(!!r.recapPending);
-      if (!r.returnRecap) setPage(value => value === "return" ? (r.state.hatchedAt ? "home" : "choose") : value);
-      if (replaced || gameChanged) {
-        stopActivity();
-        setHelp(false);
-        setAbandonGame(null);
-        setReturnPage(0);
-      }
-      if (recovering || repairing || clockBlocked || replaced || gameChanged) {
-        discardImport();
-        uncertainRef.current = false;
-        setUncertain(false);
-        setRefusedChange(null);
-        refusedChangeRef.current = null;
-        setChosen(r.state.species);
-        setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
-        setReset(false);
-        setTools(false);
-        setPurchaseConfirm(false);
-        setLane(1);
-        setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
-        setTetrisChoice(0);
-        setFishingChoice(0);
-        setWalkChoice(0);
-        returnAttempt.current = r.returnRecap?.id ?? "";
-        initialized.current = true;
-        const gameMessage = resultReady
-          ? "已同步本局结果，请查看后按 B / C 收好。没有自动结算。"
-          : r.state.game
-            ? "已同步其他页面的新一局，请从当前画面继续。实时游戏不会自动启动。"
-            : "另一页面已结束这一局，已回到小窝。没有重复结算。";
-        setMessage(clockBlocked
-          ? "时间已恢复，已重新读取存档。游戏不会自动继续，上次操作没有重试。"
-          : repairing ? "已重新读到有效存档，请查看状态。没有自动导入或重新开始。"
-          : changed ? "已读取当前存档。上次操作未执行，没有自动重试。"
-          : recovering ? "已核对当前存档，请查看状态。上次操作没有自动重试。"
-          : gameChanged ? gameMessage
-          : "已同步其他页面更新的伙伴，请从当前画面继续。");
-      } else if (r.recapPending) returnAttempt.current = "";
-      if (!initialized.current) {
-        setChosen(r.state.species);
-        setPage(r.state.hatchedAt ? (r.state.game ? "game" : "home") : "choose");
-        initialized.current = true;
-      }
+      acceptCurrentRead(r, { recovering, changed, repairing, clockBlocked });
     } catch (error) {
       if (epoch !== syncEpoch.current) return;
       if (isClockAhead(error)) { markClockAhead(); return; }
@@ -501,12 +512,13 @@ export default function App() {
         setChecking(false);
       }
     }
-  }, [apply, stopActivity, discardImport, markCorrupt, markClockAhead]);
+  }, [acceptCurrentRead, stopActivity, discardImport, markCorrupt, markClockAhead]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
     const focus = () => {
       if (document.hidden) {
+        recapDisplayEpoch.current++;
         homeEchoEpoch.current++;
         setHomeEcho(null);
       } else void refresh();
@@ -576,6 +588,7 @@ export default function App() {
     );
     setEvolution(null);
   }, [evolution, uncertain, unavailable, page, busy, clip, pet?.sleeping]);
+  useEffect(() => { recapDisplayEpoch.current++; }, [page, tools, help, reset]);
   useEffect(() => {
     if (
       uncertain || unavailable || corrupt ||
@@ -595,14 +608,16 @@ export default function App() {
     )
       return;
     returnAttempt.current = returnRecap.id;
+    const displayEpoch = recapDisplayEpoch.current;
     syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
     void request("recap/read", { id: returnRecap.id }, acceptedGeneration.current)
       .then((r) => {
-        apply(r);
+        if (!acceptCurrentRead(r)) { markUncertain(); return; }
         if (
-          r.recapClaimed &&
+          displayEpoch === recapDisplayEpoch.current && !document.hidden &&
+          r.state.hatchedAt > 0 && r.recapClaimed &&
           r.returnRecap?.id === returnRecap.id &&
           !r.state.sleeping &&
           !r.state.game
@@ -643,7 +658,7 @@ export default function App() {
     tools,
     help,
     reset,
-    apply,
+    acceptCurrentRead,
   ]);
   // Keep the result readable for eight seconds after care/evolution clips.
   // Polling never replays it, and C skips only the animation, not saved care.
