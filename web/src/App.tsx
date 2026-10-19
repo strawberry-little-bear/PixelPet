@@ -336,6 +336,18 @@ export default function App() {
     setCareReadingDestination({ petKey: careReadingKey, page: destination });
   };
 
+  const [collectionReadingDestination, setCollectionReadingDestination] = useState<{
+    petKey: string | null; sessionKey: string | null; page: "fish-album" | "park-album"; index: number;
+  } | null>(null);
+  useReadingViewport(readingRoot, collectionReadingDestination, "[data-collection-reading-start]",
+    !!careReadingKey && collectionReadingDestination?.petKey === careReadingKey &&
+    collectionReadingDestination?.sessionKey === sessionKey && collectionReadingDestination?.page === page &&
+    collectionReadingDestination?.index === (page === "fish-album" ? fishPage : parkPage) &&
+    !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  const navigateCollectionReading = (destination: "fish-album" | "park-album", index: number) => {
+    setCollectionReadingDestination({ petKey: careReadingKey, sessionKey, page: destination, index });
+  };
+
   const [returnReadingDestination, setReturnReadingDestination] = useState<{ petKey: string | null; recapId: string; page: number } | null>(null);
   useReadingViewport(readingRoot, returnReadingDestination, ".return-panel > header",
     !!careReadingKey && returnReadingDestination?.petKey === careReadingKey &&
@@ -1168,13 +1180,23 @@ export default function App() {
       return;
     }
     if (page === "park-album") {
-      if(key==="C"){setPage(pet.game?.kind==="walk"?"game":"home");setWalkChoice(0);}
-      else setParkPage(v=>(v+1)%parkCatalog.length);
+      if (key === "C") {
+        setPage(pet.game?.kind === "walk" ? "game" : "home"); setWalkChoice(0);
+        if (pet.game?.kind === "walk") setPauseReadingDestination({ sessionKey, target: "pause" });
+      } else {
+        const next = (parkPage + 1) % parkCatalog.length;
+        setParkPage(next); navigateCollectionReading("park-album", next);
+      }
       return;
     }
     if (page === "fish-album") {
-      if (key === "C") { setPage(pet.game?.kind === "fishing" ? "game" : "home"); setFishingChoice(0); }
-      else setFishPage(v => (v + 1) % fishCatalogFor(pet).length);
+      if (key === "C") {
+        setPage(pet.game?.kind === "fishing" ? "game" : "home"); setFishingChoice(0);
+        if (pet.game?.kind === "fishing") setPauseReadingDestination({ sessionKey, target: "pause" });
+      } else {
+        const next = (fishPage + 1) % fishCatalogFor(pet).length;
+        setFishPage(next); navigateCollectionReading("fish-album", next);
+      }
       return;
     }
     if (page === "arcade") {
@@ -1217,7 +1239,7 @@ export default function App() {
       else if(n.paused || walkSession!==pet.game.id) {
         if(key==="A")setWalkChoice(v=>(v+1)%walkMenu.length);
         else if(key==="C" || walkChoice===0)void act("walk-resume",{step:n.step});
-        else if(walkChoice===1){walkEpoch.current++;setWalkSession("");setParkPage(0);setPage("park-album");}
+        else if(walkChoice===1){walkEpoch.current++;setWalkSession("");setParkPage(0);setPage("park-album");navigateCollectionReading("park-album", 0);}
         else if (walkChoice === 4) openPauseGuide();
         else if (walkChoice === 3) {
           walkEpoch.current++; setWalkSession("");
@@ -1237,7 +1259,7 @@ export default function App() {
       } else if (paused) {
         if (key === "A") setFishingChoice(v => (v + 1) % fishingMenu.length);
         else if (key === "C" || fishingChoice === 0) void act("fish-resume", { step: n.step });
-        else if (fishingChoice === 1) { setFishingSession(""); setFishPage(0); setPage("fish-album"); }
+        else if (fishingChoice === 1) { setFishingSession(""); setFishPage(0); setPage("fish-album"); navigateCollectionReading("fish-album", 0); }
         else if (fishingChoice === 4) openPauseGuide();
         else if (fishingChoice === 3) {
           fishingEpoch.current++; setFishingSession("");
@@ -1421,9 +1443,9 @@ export default function App() {
         setPurchaseConfirm(null);
         setPage("shop");
       } else if (item.kind === "park-album") {
-        setPage("park-album");setParkPage(0);
+        setPage("park-album");setParkPage(0);navigateCollectionReading("park-album", 0);
       } else if (item.kind === "fish-album") {
-        setPage("fish-album"); setFishPage(0);
+        setPage("fish-album"); setFishPage(0); navigateCollectionReading("fish-album", 0);
       } else if (item.kind === "album") {
         setAlbumReturnSession(null);
         setPage("album");

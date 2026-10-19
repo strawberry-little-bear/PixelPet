@@ -22,9 +22,11 @@ func TestRainFishMigrationSnapshotPersistenceRetryAndImport(t *testing.T) {
 	s.Apply(game.Action{Kind: "hatch", Species: 2}, now)
 	s.Apply(game.Action{Kind: "play-fishing"}, now)
 	s.Game.ID = "00000200000000000000000000000000"
+	// Model an actual old-schema cast. Downgrading after a schema-15 cast
+	// randomly made 1/8 of fixtures invalid by retaining a rare candidate.
+	s.Schema = 14
 	s.Apply(game.Action{Kind: "fish-cast", GameID: s.Game.ID}, now)
 	s.Game.Fishing.Paused = true
-	s.Schema = 14
 	raw, _ := json.Marshal(s)
 	if err = s.Validate(now); err != nil {
 		t.Fatal(err)

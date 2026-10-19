@@ -41,3 +41,6 @@
 @keyframes park-step{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
 @keyframes park-fin{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
 @media(prefers-reduced-motion:reduce){.park-scene *{animation:none!important;transition:none!important}}
+
+/* Reader text must grow independently of the running game header. */
+.park-album header{height:auto;min-height:22px;flex-wrap:wrap;gap:4px}
