@@ -1,4 +1,4 @@
-// Real three-key pause-guide journeys + explicitly intercepted layout fixtures.
+// Real three-key pause-guide journeys + visible-viewport and layout fixtures.
 // Only an isolated binary/build and a disposable DB; never uses player data.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -36,11 +36,16 @@ async function key(page, key) {
   await page.locator(`.button-${key.toLowerCase()}`).tap();
   await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
 }
+async function visibleAnchor(page, selector) {
+  const box = await page.locator(selector).boundingBox(), height = await page.evaluate(() => innerHeight);
+  assert(box && box.y >= -1 && box.y + box.height <= height + 1, `${selector} outside visible viewport: ${JSON.stringify(box)}`);
+}
 async function open(page) {
   for (const k of ['A', 'A', 'A', 'A', 'B']) await key(page, k);
   await page.locator('.game-guide').waitFor();
   assert.match(await page.locator('.game-guide').innerText(), /本局玩法[\s\S]*1 \/ 2/);
   assert.match(await page.locator('.lcd-bottom').innerText(), /A \/ B 翻页.*C 返回暂停/);
+  await visibleAnchor(page, '.game-guide > header');
 }
 async function readable(page, selector) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'page horizontal overflow');
@@ -112,7 +117,9 @@ try {
       await key(page, 'B'); assert.match(await page.locator('.game-guide').innerText(), /2 \/ 2/); await readable(page, '.game-guide');
       await key(page, 'A'); assert.match(await page.locator('.game-guide').innerText(), /1 \/ 2/);
       await key(page, 'A'); assert.match(await page.locator('.game-guide').innerText(), /2 \/ 2/);
+      await visibleAnchor(page, '.game-guide > header');
       await wait(localOnly ? 3800 : 1300); await key(page, 'C'); await page.locator(pause(kind)).waitFor();
+      await visibleAnchor(page, `${pause(kind)} > strong`);
       // Returning retains menu selection; B reopens first page, not a new game.
       await key(page, 'B'); await page.locator('.game-guide').waitFor();
       assert.match(await page.locator('.game-guide').innerText(), /1 \/ 2/);
@@ -139,9 +146,10 @@ try {
     } finally { await context.close(); }
   }
   // Response fixtures isolate layout; these are not natural long-play results.
-  for (const kind of kinds) for (const width of [1200, 320]) for (const scale of [1, 2]) {
-    const context = await browser.newContext({ viewport: { width, height: 700 }, isMobile: width === 320, hasTouch: true, reducedMotion: 'reduce', forcedColors: scale === 2 ? 'active' : 'none' });
+  for (const kind of kinds) for (const width of [1200, 320]) for (const scale of [1, 2]) for (const height of [700, 380]) {
+    const context = await browser.newContext({ viewport: { width, height }, isMobile: width === 320, hasTouch: true, reducedMotion: 'reduce', forcedColors: scale === 2 ? 'active' : 'none' });
     const page = await context.newPage(), errors = [];
+    let reads = 0;
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(scale => document.addEventListener('DOMContentLoaded', () => {
       const style = document.createElement('style');
@@ -151,25 +159,48 @@ try {
     const fixture = structuredClone(fixtures[kind]);
     await page.route('**/api/**', async route => {
       assert(['/api/state', '/api/visit'].includes(new URL(route.request().url()).pathname), 'read-only layout fixture attempted write');
-      fixture.serverTime = Date.now();
+      reads++; fixture.serverTime = Date.now();
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) });
     });
     try {
       await page.goto(base); await page.locator(pause(kind)).waitFor(); await readable(page, pause(kind));
       assert.match(await page.locator(pause(kind)).innerText(), /玩法说明/);
-      await page.screenshot({ path: join(dir, `pause-${kind}-${width}-${scale}.png`), fullPage: true });
+      await page.screenshot({ path: join(dir, `pause-${kind}-${width}-${height}-${scale}.png`), fullPage: true });
       await open(page);
       for (let n = 1; n <= 2; n++) {
         await readable(page, '.game-guide');
         assert.equal(await page.locator('.game-guide > strong').evaluate(el => parseFloat(getComputedStyle(el).fontSize)), 12 * scale);
         assert.match(await page.locator('.game-guide').innerText(), /只读本局规则/);
-        await page.screenshot({ path: join(dir, `guide-${kind}-${width}-${scale}-${n}.png`), fullPage: true });
-        await key(page, 'B');
+        await wait(150); // Observe the settled native viewport, not a capture-time resize.
+        await visibleAnchor(page, '.game-guide > header');
+        await page.screenshot({ path: join(dir, `visible-guide-${kind}-${width}-${height}-${scale}-${n}.png`) });
+        await visibleAnchor(page, ".game-guide > header");
+        // Manual reading position must survive a same-session authoritative read.
+        await page.evaluate(() => window.scrollBy({ top: 90, behavior: 'instant' }));
+        const position = await page.evaluate(() => scrollY), beforeReads = reads;
+        await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+        for (let i = 0; reads === beforeReads && i < 100; i++) await wait(20);
+        assert(reads > beforeReads, 'same-session read not exercised');
+        await wait(100); assert.equal(await page.evaluate(() => scrollY), position, 'heartbeat jumped the reader');
+        // Chrome full-page capture can alter scrollY while restoring a mobile
+        // viewport (observed +41px). Keep that diagnostic capture AFTER the
+        // native viewport/poll assertions and BEFORE the next explicit key.
+        await page.screenshot({ path: join(dir, `guide-${kind}-${width}-${height}-${scale}-${n}.png`), fullPage: true });
+        await key(page, 'B'); await visibleAnchor(page, '.game-guide > header');
       }
+      // Native activation remains on B despite viewport movement (no focus steal).
+      assert(await page.locator('.button-b').evaluate(el => el === document.activeElement));
+      await page.keyboard.press('Enter'); assert.match(await page.locator('.game-guide').innerText(), /2 \/ 2/);
+      await visibleAnchor(page, '.game-guide > header');
+      await page.keyboard.press('Space'); assert.match(await page.locator('.game-guide').innerText(), /1 \/ 2/);
+      await visibleAnchor(page, '.game-guide > header');
+      assert(await page.locator('.button-b').evaluate(el => el === document.activeElement));
       await key(page, 'C'); await page.locator(pause(kind)).waitFor(); await readable(page, pause(kind));
-      assert.deepEqual(errors, []); results.push({ type: 'read-only-layout-fixture', kind, width, scale });
+      await visibleAnchor(page, `${pause(kind)} > strong`);
+      await page.screenshot({ path: join(dir, `visible-return-${kind}-${width}-${height}-${scale}.png`) });
+      assert.deepEqual(errors, []); results.push({ type: 'read-only-visible-viewport-layout-fixture', kind, width, height, scale });
     } catch (error) {
-      await page.screenshot({ path: join(dir, `failure-layout-${kind}-${width}-${scale}.png`), fullPage: true }); throw error;
+      await page.screenshot({ path: join(dir, `failure-layout-${kind}-${width}-${height}-${scale}.png`), fullPage: true }); throw error;
     } finally { await context.close(); }
   }
   await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2));

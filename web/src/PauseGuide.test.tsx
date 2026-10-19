@@ -32,7 +32,7 @@ beforeEach(() => {
   Object.defineProperty(document, "hidden", { configurable: true, value: false });
   generation = "a".repeat(32); api.mockReset(); api.mockImplementation(async () => response());
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 it.each(kinds)("%s pause offers a read-only two-page guide and returns without starting or resuming", async kind => {
   await mount(kind); const before = structuredClone(saved);
@@ -95,3 +95,26 @@ it.each(kinds)("%s failed read recovers its read-only page and B cannot start a 
   expect(document.querySelector(".save-recovery")).toBeTruthy(); await key("b");
   expect(guide().dataset.guide).toBe(kind); await key("c"); expect(pause(kind)).toBeTruthy(); await clock(15000); expect(writes()).toHaveLength(0);
 });
+
+it.each(kinds.flatMap(kind => [true, false].map(offscreen => ({ kind, offscreen }))))(
+  "$kind explicit guide navigation anchors only offscreen content ($offscreen)", async ({ kind, offscreen }) => {
+    const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+      const menu = this.matches(".fishing-pause,.walk-pause,.tetris-overlay"), header = this.matches(".game-guide > header");
+      const top = menu || header ? offscreen ? -500 : 40 : 0, height = menu ? 400 : header ? 100 : 0;
+      return { top, bottom: top + height, left: 0, right: 200, width: 200, height, x: 0, y: top, toJSON: () => ({}) };
+    });
+    await mount(kind); expect(scroll).not.toHaveBeenCalled();
+    const focus = document.querySelector<HTMLButtonElement>(".button-b")!; focus.focus();
+    await open(); expect(scroll).toHaveBeenCalledTimes(offscreen ? 1 : 0); expect(document.activeElement).toBe(focus);
+    await key("b"); expect(scroll).toHaveBeenCalledTimes(offscreen ? 2 : 0);
+    await key("a"); expect(scroll).toHaveBeenCalledTimes(offscreen ? 3 : 0);
+    await clock(17000); await refresh(); expect(scroll).toHaveBeenCalledTimes(offscreen ? 3 : 0);
+    fireEvent.click(screen.getByRole("button", { name: "玩法说明" }));
+    fireEvent.click(screen.getByRole("button", { name: "关闭" })); await clock(5000);
+    expect(scroll).toHaveBeenCalledTimes(offscreen ? 3 : 0);
+    await key("c"); expect(pause(kind)).toBeTruthy(); expect(scroll).toHaveBeenCalledTimes(offscreen ? 4 : 0);
+    await clock(17000); expect(scroll).toHaveBeenCalledTimes(offscreen ? 4 : 0);
+    expect(writes()).toHaveLength(0);
+  },
+);

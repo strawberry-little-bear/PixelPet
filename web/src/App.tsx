@@ -1,3 +1,4 @@
+import { usePauseReadingViewport, type PauseReadingDestination } from "./usePauseReadingViewport";
 import { GrowthTrack } from "./GrowthTrack";
 import { useBackupExport } from "./useBackupExport";
 import { needMeterAttributes, needMeterDescriptionId } from "./needMeter";
@@ -225,9 +226,13 @@ export default function App() {
   const [guideReview, setGuideReview] = useState(false);
   // A current-session reader, never a start card. Its B only turns a page.
   const [pauseGuideSession, setPauseGuideSession] = useState<string | null>(null);
+  const pauseReadingRoot = useRef<HTMLDivElement>(null);
+  const [pauseReadingDestination, setPauseReadingDestination] = useState<PauseReadingDestination | null>(null);
   const [abandonGame, setAbandonGame] = useState<string | null>(null);
   const sessionKey = gameSessionKey(pet?.game);
   const pauseGuide = pauseGuideSession === sessionKey ? games.find(game => game.id === pet?.game?.kind) : undefined;
+  usePauseReadingViewport(pauseReadingRoot, pauseReadingDestination, sessionKey, page,
+    uncertain || unavailable || corrupt || clockAhead || tools || help || reset || !foreground);
   const abandoning = page === "game" && abandonGame !== null && abandonGame === sessionKey;
   useEffect(() => { setAbandonGame(null); }, [sessionKey]);
   const [fishingSession, setFishingSession] = useState("");
@@ -1091,6 +1096,7 @@ export default function App() {
     boardEpoch.current++; fishingEpoch.current++; walkEpoch.current++;
     setTetrisSession(""); setFishingSession(""); setWalkSession("");
     setPauseGuideSession(sessionKey); setGuidePage(0); setPage("pause-guide");
+    setPauseReadingDestination({ sessionKey, target: "guide" });
   };
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
@@ -1159,7 +1165,11 @@ export default function App() {
       if (key === "C" || !pauseGuide) {
         setPauseGuideSession(null);
         setPage(pet.game ? "game" : "home");
-      } else setGuidePage(v => (v + 1) % 2);
+        if (pauseGuide) setPauseReadingDestination({ sessionKey, target: "pause" });
+      } else {
+        setGuidePage(v => (v + 1) % 2);
+        setPauseReadingDestination({ sessionKey, target: "guide" });
+      }
       return;
     }
     if (page === "game-guide") {
@@ -1845,7 +1855,7 @@ export default function App() {
                       <i />
                     </span>
                   </div>
-                  <div className={`lcd-content content-${page}`}>
+                  <div ref={pauseReadingRoot} className={`lcd-content content-${page}`}>
                     {uncertain || unavailable ? (
                       <div className={`save-recovery ${clockAhead ? "clock-recovery" : ""}`} role="status" aria-live="polite">
                         <Cloud size={28} />
