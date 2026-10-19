@@ -1,3 +1,4 @@
+import { PetCareGuide } from "./PetCareGuide";
 import { ButtonAudio } from "./buttonAudio";
 import { purchaseMatches, selectedShopIndex, type PurchaseQuote } from "./shopBrowsing";
 import { JournalPanel } from "./JournalPanel";
@@ -2274,7 +2275,7 @@ export default function App() {
                   </p>
                   <p>
                     <kbd>B</kbd>
-                    <span>确认选择；说明页可翻页重看，也可按 B 跳过并开始。</span>
+                    <span>确认选择；小游戏说明中，A 翻页重看，B 跳过并开始。</span>
                   </p>
                   <p>
                     <kbd>C</kbd>
@@ -2282,11 +2283,7 @@ export default function App() {
                   </p>
                 </div>
                 <p>游戏选择页显示每款的操作、预计时长与领奖条件；每次都能重看说明。所有游戏共用当日金币额度，按 UTC 日更新，额度用完仍可玩。</p>
-                <p className="help-save">
-                  照顾成功后自动存档在这台电脑里。离线时也会慢慢成长，最多结算
-                  12
-                  小时的状态变化；没有永久死亡。睡着时会恢复体力。存档盒可以导出、导入备份。
-                </p>
+                <PetCareGuide rules={careRules} />
               </>
             )}
           </section>

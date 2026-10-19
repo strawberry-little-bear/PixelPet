@@ -1484,8 +1484,13 @@ footer i {
   border-radius: 7px;
   flex-shrink: 0;
 }
+.help-care h3 {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 20px 0 6px;
+}
 .modal p.help-save {
-  font-size: 10px;
+  font-size: .857143rem;
   color: #9da58f;
 }
 .modal-export {
