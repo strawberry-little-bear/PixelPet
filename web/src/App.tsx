@@ -1866,6 +1866,8 @@ export default function App() {
                               dirty={pet.needs.clean < 35}
                             />
                             <CareFeedback
+                              rules={careRules}
+                              growthRecorded={!!pet.growth}
                               feedback={careFeedback}
                               growth={growth}
                               mood={echo ? experienceWords[echo] : message || mood}

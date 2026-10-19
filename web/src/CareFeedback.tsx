@@ -1,10 +1,11 @@
-import type { CareFeedback as Feedback, Growth } from "./types";
+import type { CareFeedback as Feedback, CareRules, Growth } from "./types";
 import { nextGrowthGoal } from "./growth";
+import { sleepGrowthGuidance } from "./sleepGuidance";
 import { careHabitUnits } from "./careHabitUnits";
 
 const habitNames = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" };
 
-export function feedbackText(feedback: Feedback, growth: Growth, now: number) {
+export function feedbackText(feedback: Feedback, growth: Growth, now: number, context?: { rules?: CareRules | null; growthRecorded?: boolean }) {
   if (feedback.reason === "credited") {
     const habitGain = careHabitUnits(feedback.habitGain) ?? feedback.habitGain;
     const habit = feedback.habit ? `${habitNames[feedback.habit]} +${habitGain}` : "习惯已记住";
@@ -14,9 +15,8 @@ export function feedbackText(feedback: Feedback, growth: Growth, now: number) {
     return { title: gain + habit, detail: nextGrowthGoal(growth) };
   }
   if (feedback.reason === "resting") {
-    return { title: "晚安，需要时会慢慢恢复体力", detail: growth.stage === "adult"
-      ? "恢复体力会记录休息习惯，成年形态不变"
-      : "每恢复 28 体力，休息 +1 · 成长 +0.25" };
+    return { title: "晚安，需要时会慢慢恢复体力",
+      detail: sleepGrowthGuidance(context?.growthRecorded === false ? null : growth, context?.rules) };
   }
   if (feedback.reason === "awake") {
     return { title: "早安，只按实际恢复的体力记休息习惯", detail: nextGrowthGoal(growth) };
@@ -34,13 +34,15 @@ export function feedbackText(feedback: Feedback, growth: Growth, now: number) {
     : "奖励间隔已结束，下次需要时再来吧" };
 }
 
-export function CareFeedback({ feedback, growth, mood, now }: {
+export function CareFeedback({ feedback, growth, mood, now, rules, growthRecorded = true }: {
   feedback: Feedback | null;
   growth: Growth;
   mood: string;
   now: number;
+  rules?: CareRules | null;
+  growthRecorded?: boolean;
 }) {
-  const text = feedback ? feedbackText(feedback, growth, now)
+  const text = feedback ? feedbackText(feedback, growth, now, { rules, growthRecorded })
     : { title: mood, detail: nextGrowthGoal(growth) };
   return (
     <div className={`growth-feedback ${feedback ? "has-feedback" : ""}`}

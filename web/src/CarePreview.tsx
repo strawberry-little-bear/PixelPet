@@ -1,5 +1,5 @@
 import type { CareRules, Needs, PetState } from "./types";
-import { validGrowthBasis } from "./growth";
+import { sleepGrowthGuidance } from "./sleepGuidance";
 
 type CareKind = "feed" | "clean" | "sleep";
 const interval = 30 * 60000;
@@ -29,7 +29,6 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
   if (!pet.hatchedAt) return ["先迎接小伙伴，再慢慢照顾它。"];
   if (pet.game) return ["先收好或结束本局，再照顾小伙伴。"];
   if (kind === "sleep") {
-    const basis = rules?.growth;
     if (pet.sleeping) return [
       "按 B 轻轻叫醒，停止睡眠恢复。",
       "只按实际恢复的体力记休息习惯，不因反复睡下或叫醒多记。",
@@ -38,13 +37,7 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
       pet.needs.energy >= fullEnergy
         ? "体力已经满了，也可以安静休息；体力不再恢复时，不增加休息习惯。"
         : "睡着后体力慢慢恢复，到满为止；饱食和清洁仍会下降。",
-      !pet.growth
-        ? "成长记录尚未读到；只按实际恢复量记录休息，结果以服务端为准。"
-        : !validGrowthBasis(basis)
-        ? `成长基准尚未读到；休息习惯按实际恢复量记录，数字以服务端为准。${pet.growth.stage === "adult" ? "成年形态不变。" : ""}`
-        : pet.growth.stage === "adult"
-        ? `每恢复 ${basis.restEnergyPerHabit} 体力，休息习惯 +1；成年形态不变。`
-        : `每恢复 ${basis.restEnergyPerHabit} 体力，休息习惯 +1、成长 +${basis.restPointsPerHabit}；按实际恢复比例记录。`,
+      sleepGrowthGuidance(pet.growth, rules),
     ];
   }
   if (pet.sleeping) return ["正在睡觉；先选「起床啦」叫醒，再喂食或洗澡。"];

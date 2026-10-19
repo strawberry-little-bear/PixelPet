@@ -34,7 +34,7 @@ describe("honest growth feedback", () => {
   });
   it("does not promise more growth points when an adult goes to sleep", () => {
     const f = { ...credit, kind: "sleep" as const, reason: "resting" as const, points: 0, habitGain: 0 };
-    expect(feedbackText(f, emptyGrowth(), 0).detail).toContain("每恢复 28");
+    expect(feedbackText(f, emptyGrowth(), 0).detail).toContain("成长基准尚未读到");
     expect(feedbackText(f, emptyGrowth("adult"), 0).detail).toContain("形态不变");
     expect(feedbackText(f, emptyGrowth("adult"), 0).detail).not.toContain("+0.25");
   });
