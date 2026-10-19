@@ -15,13 +15,33 @@ func careActionEffects() CareActionEffects {
 	return CareActionEffects{Feed: Needs{Hunger: 20, Mood: 3, Clean: -3}, Clean: Needs{Clean: 35, Mood: 4}}
 }
 
-// CareRules describes passive rates and immediate base effects, not a forecast.
-// It is response metadata and never part of the portable pet save.
+// Existing integration coefficients; changing the handbook must not tune growth.
+const (
+	growthBasePerHour    = 0.5
+	growthComfortPerHour = 0.75
+	restEnergyPerHabit   = 28.0
+	restPointsPerHabit   = 0.25
+)
+
+// GrowthRuleBasis describes integration, not the time until the next stage.
+type GrowthRuleBasis struct {
+	BasePerHour        float64 `json:"basePerHour"`
+	ComfortPerHour     float64 `json:"comfortPerHour"`
+	RestEnergyPerHabit float64 `json:"restEnergyPerHabit"`
+	RestPointsPerHabit float64 `json:"restPointsPerHabit"`
+}
+
+func growthRuleBasis() GrowthRuleBasis {
+	return GrowthRuleBasis{BasePerHour: growthBasePerHour, ComfortPerHour: growthComfortPerHour, RestEnergyPerHabit: restEnergyPerHabit, RestPointsPerHabit: restPointsPerHabit}
+}
+
+// CareRules is response metadata, never part of the portable pet save.
 type CareRules struct {
 	Awake           Needs             `json:"awake"`
 	Sleeping        Needs             `json:"sleeping"`
 	MaxOfflineHours float64           `json:"maxOfflineHours"`
 	Actions         CareActionEffects `json:"actions"`
+	Growth          GrowthRuleBasis   `json:"growth"`
 }
 
 func needRates(sleeping bool) Needs {
@@ -33,5 +53,5 @@ func needRates(sleeping bool) Needs {
 }
 
 func CareRuleBook() CareRules {
-	return CareRules{Awake: needRates(false), Sleeping: needRates(true), MaxOfflineHours: MaxOfflineHours, Actions: careActionEffects()}
+	return CareRules{Awake: needRates(false), Sleeping: needRates(true), MaxOfflineHours: MaxOfflineHours, Actions: careActionEffects(), Growth: growthRuleBasis()}
 }

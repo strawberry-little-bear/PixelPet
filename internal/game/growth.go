@@ -192,9 +192,9 @@ func (s *State) growthGain(hours float64) float64 {
 	_, clean := linearNeed(s.Needs.Clean, rates.Clean, hours)
 	endEnergy, energy := linearNeed(s.Needs.Energy, rates.Energy, hours)
 	_, mood := linearNeed(s.Needs.Mood, rates.Mood, hours)
-	gain := hours * (0.5 + 0.75*(hunger+mood+clean+energy)/400)
+	gain := hours * (growthBasePerHour + growthComfortPerHour*(hunger+mood+clean+energy)/400)
 	if s.Sleeping {
-		gain += math.Max(0, endEnergy-s.Needs.Energy) / 28 * 0.25
+		gain += math.Max(0, endEnergy-s.Needs.Energy) / restEnergyPerHabit * restPointsPerHabit
 	}
 	return gain
 }
@@ -213,11 +213,11 @@ func (s *State) settleSegment(hours float64) {
 	quality := (hunger + mood + clean + energy) / 400
 	s.Growth.TrackedHours += hours
 	s.Growth.Wellbeing += quality * hours
-	s.Growth.Points = math.Min(AdultPoints, s.Growth.Points+hours*(0.5+0.75*quality))
+	s.Growth.Points = math.Min(AdultPoints, s.Growth.Points+hours*(growthBasePerHour+growthComfortPerHour*quality))
 	if s.Sleeping {
-		rest := math.Max(0, s.Needs.Energy-beforeEnergy) / 28
+		rest := math.Max(0, s.Needs.Energy-beforeEnergy) / restEnergyPerHabit
 		s.Growth.Care.Rest += rest
-		s.Growth.Points = math.Min(AdultPoints, s.Growth.Points+rest*0.25)
+		s.Growth.Points = math.Min(AdultPoints, s.Growth.Points+rest*restPointsPerHabit)
 	}
 }
 func (s *State) recordCare(kind string, before float64, now time.Time) {

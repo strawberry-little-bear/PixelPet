@@ -1,3 +1,4 @@
+import { GrowthBasis } from "./GrowthBasis";
 import { CompanionPanel } from "./CompanionPanel";
 import { PetArt, petRigClass } from "./PetArt";
 import { FormEmblem, GrowthOutfit } from "./GrowthOutfit";
@@ -14,7 +15,7 @@ import {
 } from "./growth";
 import { stageLook } from "./stageLooks";
 import { species } from "./types";
-import type { Companion, Growth, GrowthStage } from "./types";
+import type { CareRules, Companion, Growth, GrowthStage } from "./types";
 import "./growth.css";
 
 function StagePreviews({ growth, index }: { growth: Growth; index: number }) {
@@ -51,11 +52,13 @@ export function GrowthPanel({
   companion,
   index,
   page,
+  rules,
 }: {
   growth: Growth;
   companion?: Companion;
   index: number;
   page: number;
+  rules?: CareRules | null;
 }) {
   const form = tendency(g),
     target = g.stage === "growing" ? 72 : 24;
@@ -147,6 +150,7 @@ export function GrowthPanel({
       ) : page === 3 ? <CompanionPanel companion={companion} /> : page === 4 ? (
         <div className="growth-time-guide" aria-label="离线与成长说明">
           <h3>不在的时候，也慢慢长大</h3>
+          <GrowthBasis stage={g.stage} rules={rules} />
           <dl>
             <div><dt>离线结算</dt><dd>从上次保存到回来，状态与成长最多结算 12 小时；多出的时间不补扣、不补长。</dd></div>
             <div><dt>睡着以后</dt><dd>体力恢复到满为止；只按实际恢复量记休息习惯，不按睡了多久计次。</dd></div>
