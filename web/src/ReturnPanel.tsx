@@ -4,7 +4,11 @@ import "./return.css";
 
 export const returnPageCount = 2;
 
-const signed = (n: number, digits = 1) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(digits)}`;
+// A real nonzero settlement must not become a signed zero after rounding.
+// Preserve ordinary precision and exact zero; only mark sub-display changes.
+const tiny = (n: number, digits: number) => n !== 0 && Number(Math.abs(n).toFixed(digits)) === 0;
+const amount = (n: number, digits = 2) => tiny(n, digits) ? `<${(10 ** -digits).toFixed(digits)}` : Math.abs(n).toFixed(digits);
+const signed = (n: number, digits = 1) => `${n >= 0 ? "+" : "−"}${amount(n, digits)}`;
 export function absenceLabel(ms: number) {
   const minutes = Math.max(1, Math.floor(ms / 60000));
   return minutes < 60 ? `${minutes} 分钟` : `${Math.floor(minutes / 60)} 小时${minutes % 60 ? ` ${minutes % 60} 分钟` : ""}`;
@@ -15,6 +19,9 @@ const recordTime = (at: number) => new Date(at).toLocaleString("zh-CN", {
 export function ReturnPanel({ recap, page, updated = false }: { recap: ReturnRecap; page: number; updated?: boolean }) {
   const { before, after } = recap;
   const changed = before.stage !== after.stage;
+  const smallChange = page === 0
+    ? (["hunger", "mood", "clean", "energy"] as const).some(key => tiny(after.needs[key] - before.needs[key], 1))
+    : [after.points - before.points, Math.max(0, after.rest - before.rest), Math.max(0, after.trackedHours - before.trackedHours)].some(n => tiny(n, 2));
   return <section className="return-panel" aria-label="回访小结">
     <header><strong>你回来啦</strong><span>{page + 1} / {returnPageCount}</span></header>
     {updated && <p className="return-sync-note" role="status">已更新为最新回访记录，本次从第一页开始。</p>}
@@ -36,10 +43,11 @@ export function ReturnPanel({ recap, page, updated = false }: { recap: ReturnRec
       {after.stage === "adult" && <small>{formNames[after.form || "balanced"]}已定型，不会改写</small>}
       <dl>
         <div><dt>成长</dt><dd>{signed(after.points - before.points, 2)} 点</dd></div>
-        <div><dt>有效休息</dt><dd>+{Math.max(0, after.rest - before.rest).toFixed(2)} 习惯</dd></div>
-        <div><dt>结算时长</dt><dd>{Math.max(0, after.trackedHours - before.trackedHours).toFixed(2)} 小时</dd></div>
+        <div><dt>有效休息</dt><dd>+{amount(Math.max(0, after.rest - before.rest))} 习惯</dd></div>
+        <div><dt>结算时长</dt><dd>{amount(Math.max(0, after.trackedHours - before.trackedHours))} 小时</dd></div>
       </dl>
       <small>单次离线最多结算 12 小时 · 无额外奖励</small>
     </>}
+    {smallChange && <small>「&lt;」表示变化小于显示精度，并非没有变化；前后读数仍按原精度四舍五入。</small>}
   </section>;
 }

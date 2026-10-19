@@ -228,3 +228,64 @@ func TestPendingReturnSurvivesStoreReopen(t *testing.T) {
 	}
 	s.Close()
 }
+
+func TestReturnRecapPreservesSubDisplaySettlementAcrossReload(t *testing.T) {
+	s, now := recapStore(t)
+	// A legitimate legacy save one millisecond short of adulthood, with
+	// nearly exhausted needs and nearly full sleeping energy. Only a temp DB.
+	legacy := game.State{
+		Schema: 1, Revision: 1, Species: 2, Name: "精度回归",
+		CreatedAt: now.Add(-72 * time.Hour).UnixMilli(),
+		HatchedAt: now.Add(-72*time.Hour + time.Millisecond).UnixMilli(),
+		LastTick:  now.UnixMilli(), Sleeping: true,
+		Needs: game.Needs{Hunger: .001, Mood: 40, Clean: .02, Energy: 99.999},
+		Logs:  []game.Log{},
+	}
+	if _, err := s.Do(nil, &legacy, false, now); err != nil {
+		t.Fatal(err)
+	}
+	baseline, err := s.Visit(now)
+	if err != nil || baseline.ReturnRecap != nil {
+		t.Fatal("legacy import invented history", err)
+	}
+	r, err := s.Visit(now.Add(time.Hour))
+	if err != nil || r.ReturnRecap == nil || !r.RecapPending {
+		t.Fatal("missing settled recap", err)
+	}
+	if err := r.State.Validate(now.Add(time.Hour)); err != nil {
+		t.Fatal("settlement produced invalid save", err)
+	}
+	recap := *r.ReturnRecap
+	if recap.Before.Stage != "growing" || recap.After.Stage != "adult" {
+		t.Fatal("missing actual adult crossing", recap)
+	}
+	for label, change := range map[string]float64{
+		"growth": recap.After.Points - recap.Before.Points,
+		"rest":   recap.After.Rest - recap.Before.Rest,
+		"hunger": recap.Before.Needs.Hunger - recap.After.Needs.Hunger,
+		"clean":  recap.Before.Needs.Clean - recap.After.Needs.Clean,
+		"energy": recap.After.Needs.Energy - recap.Before.Needs.Energy,
+	} {
+		if change <= 0 || change >= .05 {
+			t.Fatalf("%s must retain a tiny positive actual change: %.15g", label, change)
+		}
+	}
+	closeTo(t, recap.After.Points, 72)
+	closeTo(t, recap.After.Rest-recap.Before.Rest, .001/28)
+	closeTo(t, recap.After.TrackedHours-recap.Before.TrackedHours, 1)
+	// Subsequent settlement and JSON/SQLite round trips must not rewrite
+	// the saved precision or the adult form in this historical receipt.
+	for _, at := range []time.Time{now.Add(time.Hour), now.Add(time.Hour + time.Minute)} {
+		poll, err := s.Do(nil, nil, false, at)
+		if err != nil || poll.ReturnRecap == nil || *poll.ReturnRecap != recap {
+			t.Fatal("poll changed saved recap", err)
+		}
+	}
+	if _, err := s.Do(&game.Action{Kind: "sleep"}, nil, false, now.Add(time.Hour+time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	read, err := s.ReadRecap(recap.ID, now.Add(time.Hour+time.Minute))
+	if err != nil || !read.RecapClaimed || read.ReturnRecap == nil || *read.ReturnRecap != recap {
+		t.Fatal("acknowledgement changed recap", err)
+	}
+}
