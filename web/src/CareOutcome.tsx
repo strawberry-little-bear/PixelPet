@@ -1,5 +1,6 @@
 import type { CareFeedback, Needs } from "./types";
 import "./care-outcome.css";
+import { careHabitUnits } from "./careHabitUnits";
 
 const needLabels = [["hunger", "饱食"], ["mood", "心情"], ["clean", "清洁"], ["energy", "体力"]] as const;
 
@@ -21,19 +22,20 @@ const change = (n: number) => n === 0 ? "不变" : `${n > 0 ? "+" : "−"}${Math
 // This is the acknowledged action's snapshot, not a recalculation from the
 // current pet or a live cooldown. A later poll must not rewrite its explanation.
 function learningSummary(f: CareFeedback): { habit: string; reason: string } | null {
+  const habitGain = careHabitUnits(f.habitGain);
   if (!Number.isFinite(f.points) || f.points < 0 || f.points > 72 ||
-      !Number.isInteger(f.habitGain) || f.habitGain < 0 || f.habitGain > 1) return null;
+      habitGain === null) return null;
   if (f.kind === "sleep") {
-    return ["resting", "awake"].includes(f.reason) && !f.habit && f.points === 0 && f.habitGain === 0
+    return ["resting", "awake"].includes(f.reason) && !f.habit && f.points === 0 && habitGain === 0
       ? { habit: "休息习惯：本次切换不计入", reason: "本次切换不计休息习惯；睡着期间按实际恢复体力记录。" } : null;
   }
   const habit = f.kind === "feed" ? "nutrition" : f.kind === "clean" ? "clean" :
     ["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish"].includes(f.kind) ? "play" : null;
   if (!habit || f.habit !== habit) return null;
   const label = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" }[habit];
-  if (f.reason === "credited" && f.habitGain === 1)
+  if (f.reason === "credited" && habitGain === 1)
     return { habit: `${label}：+1`, reason: "本次习惯已计入；成长点按实际增加量显示。" };
-  if (f.habitGain !== 0 || f.points !== 0) return null;
+  if (habitGain !== 0 || f.points !== 0) return null;
   if (f.reason === "not-needed" && (f.kind === "feed" || f.kind === "clean"))
     return { habit: `${label}：+0`, reason: `记录时${f.kind === "feed" ? "饱食" : "清洁"}已满足，本次不计习惯。` };
   return f.reason === "cooldown"

@@ -22,6 +22,8 @@ const corruptions = [
   ["object name", (r: Result) => ({ ...r, state: { ...r.state, name: { invalid: true } } })],
   ["missing growth habits", (r: Result) => ({ ...r, state: { ...r.state, growth: { ...r.state.growth, care: null } } })],
   ["malformed form record", (r: Result) => ({ ...r, state: { ...r.state, growth: { ...r.state.growth, formRecord: [] } } })],
+  ["non-numeric care reward", (r: Result) => ({ ...r, careFeedback: { kind: "feed", reason: "credited", points: "1", habitGain: 1, habit: "nutrition" } })],
+  ["object care reason", (r: Result) => ({ ...r, careFeedback: { kind: "feed", reason: {}, points: .25, habitGain: 1, habit: "nutrition" } })],
   ["incomplete core", (r: Result) => ({ ...r, state: { revision: r.state.revision, lastTick: r.state.lastTick } })],
 ] as const;
 

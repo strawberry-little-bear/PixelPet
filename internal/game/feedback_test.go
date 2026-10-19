@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -107,5 +108,49 @@ func TestSleepAndFailedCareFeedbackNeverInventCredit(t *testing.T) {
 	_, f, err := s.ApplyWithFeedback(Action{Kind: "feed"}, now)
 	if err == nil || f != nil {
 		t.Fatal("failed action returned success feedback")
+	}
+}
+
+// Legacy habits may be fractional. The reply intentionally reports the raw
+// subtraction; consumers must display a whole credited action without changing
+// stored totals or rejecting harmless IEEE-754 subtraction noise.
+func TestCareFeedbackPreservesFractionalLegacyHabitCredit(t *testing.T) {
+	now := time.Now()
+	for _, kind := range []string{"feed", "clean", "catch"} {
+		for _, initial := range []float64{.4, 1.2, .2} {
+			t.Run(fmt.Sprintf("%s/%g", kind, initial), func(t *testing.T) {
+				s := babyAt(now)
+				s.Needs.Hunger, s.Needs.Clean = 50, 60
+				s.Growth.Care.Nutrition, s.Growth.Care.Clean, s.Growth.Care.Play = initial, initial, initial
+				var f *CareFeedback
+				var err error
+				if kind == "catch" {
+					if _, _, err = s.ApplyWithFeedback(Action{Kind: "play"}, now); err != nil {
+						t.Fatal(err)
+					}
+					for i := 0; i < 5; i++ {
+						_, f, err = s.ApplyWithFeedback(Action{Kind: kind, GameID: s.Game.ID, Lane: i % 3}, now.Add(time.Duration(i)*900*time.Millisecond))
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+				} else {
+					_, f, err = s.ApplyWithFeedback(Action{Kind: kind}, now)
+				}
+				if err != nil || f == nil || f.Reason != "credited" || f.Points != .25 {
+					t.Fatalf("missing actual credit: %+v, %v", f, err)
+				}
+				stored := s.Growth.Care.Nutrition
+				if kind == "clean" {
+					stored = s.Growth.Care.Clean
+				}
+				if kind == "catch" {
+					stored = s.Growth.Care.Play
+				}
+				if stored != initial+1 || f.HabitGain != stored-initial || math.Abs(f.HabitGain-1) > 1e-8 {
+					t.Fatalf("changed legacy total or raw credit: before=%v stored=%v feedback=%+v", initial, stored, f)
+				}
+			})
+		}
 	}
 }

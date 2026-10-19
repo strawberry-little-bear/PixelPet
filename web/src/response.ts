@@ -1,4 +1,5 @@
 import type { Result } from "./types";
+import { careHabitUnits } from "./careHabitUnits";
 import { validSaveGeneration } from "./requestFailure";
 
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -29,6 +30,20 @@ function validGrowth(value: unknown): boolean {
       ["nutrition", "play", "clean", "rest", "trackedHours", "wellbeing"].every(key => growthQuantity(evidence[key]))));
 }
 
+// Feedback is optional on old servers. If provided, its base fields are used
+// directly by the short success text. Optional effect receipts retain their own
+// local guard; missing/bad effect metadata does not make safe feedback unusable.
+function validCareFeedback(value: unknown): boolean {
+  if (value == null) return true;
+  return record(value) &&
+    ["feed", "clean", "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "sleep"].includes(value.kind as string) &&
+    ["credited", "not-needed", "cooldown", "resting", "awake"].includes(value.reason as string) &&
+    typeof value.points === "number" && Number.isFinite(value.points) && value.points >= 0 && value.points <= 72 &&
+    careHabitUnits(value.habitGain) !== null &&
+    (value.habit === undefined || ["nutrition", "clean", "play"].includes(value.habit as string)) &&
+    (value.retryAt === undefined || timestamp(value.retryAt));
+}
+
 // Guard the required, render-critical core before applying a successful reply.
 // This is not a second save/schema validator: migrations and gameplay rules
 // remain the server's responsibility. Never repair a reply
@@ -49,6 +64,6 @@ export function validCoreResponse(value: unknown): value is Result {
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>
       record(log) && timestamp(log.at) && typeof log.text === "string"))) &&
-    timestamp(value.serverTime) && typeof value.message === "string" &&
+    timestamp(value.serverTime) && typeof value.message === "string" && validCareFeedback(value.careFeedback) &&
     (value.saveGeneration === undefined || validSaveGeneration(value.saveGeneration));
 }

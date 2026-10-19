@@ -1,4 +1,4 @@
-// Optional real-Chrome acceptance. Always creates its own save/server; never a player's URL.
+// Growth and care-response real-Chrome acceptance. Always creates its own save/server; never a player's URL.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
@@ -89,6 +89,8 @@ const corruptions = [
   { name: 'record', stage: 'adult', damage: r => { r.state.growth.formRecord = []; } },
   { name: 'date', stage: 'adult', damage: r => { r.state.growth.adultAt = 8640000000000001; } },
   { name: 'points', stage: 'growing', damage: r => { r.state.growth.points = '25'; } },
+  { name: 'feedback-points', stage: 'baby', damage: r => { r.careFeedback = { kind: 'feed', reason: 'credited', points: '1', habitGain: 1, habit: 'nutrition' }; } },
+  { name: 'feedback-reason', stage: 'adult', damage: r => { r.careFeedback = { kind: 'feed', reason: {}, points: 0, habitGain: 1, habit: 'nutrition' }; } },
 ];
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: join(root, 'web/dist') }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -174,6 +176,63 @@ try {
       const layout = await readable(v); await key(v, 'c'); await v.page.locator('.content-home').waitFor();
       const after = (await get()).state; assert.equal(after.careCount, 0); assert.deepEqual(after.growth.formRecord, seeded.growth.formRecord);
       await end(v, { compatibility: growth, layout }, 0);
+    } finally { await v.ctx.close(); }
+  }
+  // Valid legacy fractional totals really go through the server. Never rewrite
+  // the reply to synthesize these deltas, and never round the saved habit totals.
+  for (const stage of ['baby', 'growing', 'adult']) for (const kind of ['feed', 'clean']) for (const initial of [.4, 1.2]) {
+    let seeded = await seed(stage, stage === 'adult');
+    const habit = kind === 'feed' ? 'nutrition' : 'clean';
+    seeded.growth.care[habit] = initial;
+    seeded = await importState(seeded);
+    const v = await view(modes[initial === .4 ? 0 : 1]);
+    let acknowledged;
+    try {
+      await v.page.route('**/api/action', async route => {
+        const response = await route.fetch(); acknowledged = await response.json();
+        await route.fulfill({ response, json: acknowledged });
+      });
+      await v.page.goto(base); await v.page.locator('.content-home').waitFor();
+      await key(v, 'a');
+      if (kind === 'clean') { await key(v, 'a'); await key(v, 'a'); }
+      await key(v, 'b'); await v.page.locator('.care-learning').waitFor();
+      const expectedGain = (initial + 1) - initial;
+      assert.equal(acknowledged.careFeedback.habitGain, expectedGain);
+      assert.equal(acknowledged.careFeedback.reason, 'credited');
+      const label = kind === 'feed' ? '喂食习惯' : '清洁习惯';
+      assert((await v.page.locator('.growth-feedback.has-feedback strong').innerText()).endsWith(label + ' +1'));
+      assert((await v.page.locator('.care-learning').innerText()).includes(label + '：+1'));
+      assert.equal(await v.page.locator('.save-recovery').count(), 0);
+      const after = (await get()).state;
+      assert.equal(after.growth.care[habit], initial + 1); assert.equal(after.careCount, 1);
+      assert.equal(after.growth.stage, stage); assert.equal(after.growth.form, seeded.growth.form);
+      assert.deepEqual(after.growth.formRecord, seeded.growth.formRecord);
+      assert.equal(after.economy.coins, seeded.economy.coins);
+      if (stage === 'adult') {
+        assert.equal(after.growth.points, 72); assert.equal(acknowledged.careFeedback.points, 0);
+      } else assert.equal(acknowledged.careFeedback.points, .25);
+      const layout = await readable(v);
+      if (stage === 'adult' && kind === 'clean' && initial === 1.2)
+        await v.page.screenshot({ path: join(artifacts, 'care-credit-large.png'), fullPage: true });
+      if (stage === 'baby' && kind === 'feed' && initial === .4)
+        await v.page.screenshot({ path: join(artifacts, 'care-credit-normal.png'), fullPage: true });
+      await end(v, { credit: kind, stage, initial, rawGain: acknowledged.careFeedback.habitGain, layout }, 1);
+    } finally { await v.ctx.close(); }
+  }
+  for (const feedback of ['absent', 'null']) {
+    await seed(); const v = await view(modes[feedback === 'null' ? 1 : 0]);
+    try {
+      await v.page.route('**/api/action', async route => {
+        const response = await route.fetch(), reply = await response.json();
+        if (feedback === 'absent') delete reply.careFeedback;
+        else reply.careFeedback = null;
+        await route.fulfill({ response, json: reply });
+      });
+      await v.page.goto(base); await v.page.locator('.content-home').waitFor();
+      await key(v, 'a'); await key(v, 'b'); await settled(v);
+      assert.equal((await get()).state.careCount, 1);
+      assert.equal(await v.page.locator('.save-recovery,.growth-feedback.has-feedback,.care-outcome').count(), 0);
+      await end(v, { compatibility: 'feedback-' + feedback, layout: await readable(v) }, 1);
     } finally { await v.ctx.close(); }
   }
   await writeFile(join(artifacts, 'growth-response-results.json'), JSON.stringify({ db: join(dir, 'test.db'), port, results }, null, 2));
