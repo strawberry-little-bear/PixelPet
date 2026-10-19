@@ -1690,7 +1690,7 @@ export default function App() {
             || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
             || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
             || (fishing && (fishing.paused || fishing.phase === "done" || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)))
-            ? "reading-mode" : ""}`}>
+            ? "reading-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""}`}>
             <span className="device-orbit orbit-one">✧</span>
             <span className="device-orbit orbit-two">+</span>
             <div className="device-shadow" />

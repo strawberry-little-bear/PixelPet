@@ -68,12 +68,33 @@ async function readable(v) {
     while (walker.nextNode()) {
       if (!walker.currentNode.textContent.trim()) continue;
       const range = document.createRange(); range.selectNodeContents(walker.currentNode);
-      for (const r of range.getClientRects()) if (r.width && r.height) ranges.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+      const panel = walker.currentNode.parentElement.closest('.return-mode .return-panel');
+      const scroll = panel ? { left: panel.getBoundingClientRect().left, right: panel.getBoundingClientRect().right,
+        top: panel.getBoundingClientRect().top - panel.scrollTop, bottom: panel.getBoundingClientRect().top - panel.scrollTop + panel.scrollHeight } : null;
+      for (const r of range.getClientRects()) if (r.width && r.height) ranges.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom, scroll });
     }
     return { box: { left: box.left, right: box.right, top: box.top, bottom: box.bottom }, ranges, overflow: document.documentElement.scrollWidth > innerWidth + 1 };
   });
   assert.equal(layout.overflow, false, JSON.stringify(layout));
-  for (const r of layout.ranges) assert(r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1 && r.top >= layout.box.top - 1 && r.bottom <= layout.box.bottom + 1, JSON.stringify({ layout, r }));
+  for (const r of layout.ranges) {
+    // Return content intentionally scrolls inside the fixed LCD. All other
+    // reading pages must still fit normal flow; never ignore horizontal clipping.
+    const bounds = r.scroll ?? layout.box;
+    assert(r.left >= bounds.left - 1 && r.right <= bounds.right + 1 && r.top >= bounds.top - 1 && r.bottom <= bounds.bottom + 1, JSON.stringify({ layout, r }));
+    assert(r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1);
+  }
+  const recap = v.page.locator('.return-mode .return-panel');
+  if (await recap.count()) {
+    const reach = await recap.evaluate(el => {
+      const previous = el.scrollTop; el.scrollTop = el.scrollHeight;
+      const box = el.getBoundingClientRect();
+      const r = [...el.querySelectorAll('small')].at(-1).getBoundingClientRect();
+      const result = { overflow: getComputedStyle(el).overflowY, widthFits: el.scrollWidth <= el.clientWidth + 1,
+        bottomVisible: r.bottom <= box.bottom + 1 && r.top >= el.querySelector('header').getBoundingClientRect().bottom - 1 };
+      el.scrollTop = previous; return result;
+    });
+    assert.equal(reach.overflow, 'auto'); assert(reach.widthFits && reach.bottomVisible, JSON.stringify(reach));
+  }
   for (const b of await v.page.locator('.physical-button').all()) {
     await b.scrollIntoViewIfNeeded(); const r = await b.boundingBox(); assert(r.width >= 44 && r.height >= 44);
   }

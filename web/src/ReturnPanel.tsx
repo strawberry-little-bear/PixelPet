@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { CareAdvice } from "./CareAdvice";
 import type { PetState, ReturnRecap } from "./types";
 import { formNames, stageNames } from "./growth";
@@ -19,13 +20,17 @@ const recordTime = (at: number) => new Date(at).toLocaleString("zh-CN", {
   year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
 });
 export function ReturnPanel({ recap, page, updated = false, pet }: { recap: ReturnRecap; page: number; updated?: boolean; pet?: PetState }) {
+  const panel = useRef<HTMLElement>(null);
+  // Reset only for new reading content, not a same-record heartbeat/care update.
+  useLayoutEffect(() => { if (panel.current) panel.current.scrollTop = 0; }, [recap.id, page]);
   const { before, after } = recap;
   const changed = before.stage !== after.stage;
   const smallChange = page === 0
     ? (["hunger", "mood", "clean", "energy"] as const).some(key => tiny(after.needs[key] - before.needs[key], 1))
     : [after.points - before.points, Math.max(0, after.rest - before.rest), Math.max(0, after.trackedHours - before.trackedHours)].some(n => tiny(n, 2));
-  return <section className="return-panel" aria-label="回访小结">
+  return <section ref={panel} className="return-panel" aria-label="回访小结" tabIndex={0}>
     <header><strong>你回来啦</strong><span>{page + 1} / {returnPageCount}</span></header>
+    <small className="return-scroll-hint">可上下滚动阅读</small>
     {updated && <p className="return-sync-note" role="status">已更新为最新回访记录，本次从第一页开始。</p>}
     <div className="return-period" aria-label="记录时段（本地时间）">
       <small>记录时段（本地时间）</small>
