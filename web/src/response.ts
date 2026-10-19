@@ -1,5 +1,7 @@
 import type { Result } from "./types";
 import { careHabitUnits } from "./careHabitUnits";
+import { games } from "./games";
+import { interestLimit } from "./companion";
 import { validSaveGeneration } from "./requestFailure";
 
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -28,6 +30,22 @@ function validGrowth(value: unknown): boolean {
     ["lastFeed", "lastPlay", "lastClean"].every(key => timestamp(care[key])) &&
     (evidence == null || (record(evidence) &&
       ["nutrition", "play", "clean", "rest", "trackedHours", "wellbeing"].every(key => growthQuantity(evidence[key]))));
+}
+
+// Optional legacy shared history is still render-critical when supplied:
+// the handbook maps interests, repeats bounded integer dots, and formats dates.
+// Check safe shapes only; chronology/credit/order remain server rules. Never
+// turn malformed history into an empty record or invent a completed game.
+const sharedGame = (value: unknown) => games.some(game => game.id === value);
+function validGameExperience(value: unknown): boolean {
+  return value == null || (record(value) && sharedGame(value.kind) &&
+    typeof value.id === "string" && value.id.trim().length > 0 && timestamp(value.at));
+}
+function validCompanion(value: unknown): boolean {
+  return value == null || (record(value) && timestamp(value.since) &&
+    Array.isArray(value.interests) && value.interests.every(interest => record(interest) &&
+      sharedGame(interest.kind) && count(interest.points) && interest.points <= interestLimit && timestamp(interest.lastAt)) &&
+    validGameExperience(value.recent));
 }
 
 // Feedback is optional on old servers. If provided, its base fields are used
@@ -77,7 +95,7 @@ export function validCoreResponse(value: unknown): value is Result {
     count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
-    count(state.careCount) && validGrowth(state.growth) &&
+    count(state.careCount) && validGrowth(state.growth) && validCompanion(state.companion) &&
     validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>
