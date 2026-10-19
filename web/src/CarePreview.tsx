@@ -1,6 +1,7 @@
 import type { CareRules, Needs, PetState } from "./types";
 import { sleepGrowthGuidance } from "./sleepGuidance";
 import { careMenuLabel } from "./careMenu";
+import { SleepProgress } from "./SleepProgress";
 
 type CareKind = "feed" | "clean" | "sleep";
 const interval = 30 * 60000;
@@ -98,6 +99,7 @@ export function CarePreview({ pet, kind, hint, rules }: { pet: PetState; kind: s
         </div>)}</dl>
         <small>各项到 0 / 100 为止，实际变化可能更少；不是操作后的预测。成长与习惯另按条件记录。</small>
       </section>}
+      {kind === "sleep" && <SleepProgress pet={pet} />}
       {care && <small>按最近读取的状态预览，实际以照顾结果为准；不必为了成长反复照顾。</small>}
     </div>
   );

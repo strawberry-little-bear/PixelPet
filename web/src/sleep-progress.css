@@ -1,0 +1,5 @@
+.sleep-progress { margin-top: 8px; padding-top: 8px; border-top: 1px dotted currentColor; overflow-wrap: anywhere; }
+.sleep-progress > span { display: block; }
+.sleep-progress dl { margin: 6px 0; }
+.sleep-progress dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 8px; margin: 4px 0; }
+.sleep-progress dd { margin: 0; }
