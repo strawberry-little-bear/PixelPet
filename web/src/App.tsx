@@ -1,3 +1,4 @@
+import { ButtonAudio } from "./buttonAudio";
 import { purchaseMatches, selectedShopIndex, type PurchaseQuote } from "./shopBrowsing";
 import { JournalPanel } from "./JournalPanel";
 import { nextJournal, reconcileJournal, startJournal } from "./journal";
@@ -291,7 +292,10 @@ export default function App() {
     setPendingImport(null);
   }, []);
   useEffect(() => () => { importSequence.current++; }, []);
-  const audio = useRef<AudioContext | null>(null);
+  const audio = useRef<ButtonAudio | null>(null);
+  if (!audio.current) audio.current = new ButtonAudio();
+  useEffect(() => { audio.current?.setEnabled(sound); }, [sound]);
+  useEffect(() => () => { audio.current?.dispose(); }, []);
   const initialized = useRef(false);
   const latestRevision = useRef(-1);
   const acceptedPet = useRef<PetState | null>(null);
@@ -573,6 +577,7 @@ export default function App() {
     const focus = () => {
       setForeground(!document.hidden);
       if (document.hidden) {
+        audio.current?.cancel();
         recapDisplayEpoch.current++;
         homeEchoEpoch.current++;
         setHomeEcho(null);
@@ -803,23 +808,9 @@ export default function App() {
   }, [help, reset]);
 
   function beep(confirm = false) {
-    if (!sound) return;
-    try {
-      const ctx = audio.current || (audio.current = new AudioContext());
-      void ctx.resume();
-      const oscillator = ctx.createOscillator(),
-        gain = ctx.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.value = confirm ? 740 : 520;
-      gain.gain.setValueAtTime(0.045, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
-      oscillator.connect(gain).connect(ctx.destination);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.1);
-    } catch {
-      /* Audio is optional. */
-    }
+    void audio.current?.play(confirm);
   }
+
   async function act(kind: string, extra: Record<string, unknown> = {}) {
     if (busyRef.current || uncertainRef.current || unavailableRef.current || corruptRef.current) return false;
     syncEpoch.current++;
