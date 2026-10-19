@@ -180,10 +180,16 @@ func TestEveryGameCareEffectMatchesOnlyItsSettlement(t *testing.T) {
 			}
 			// Passive settlement is explicitly outside the receipt's before snapshot.
 			s.Advance(now)
+			// Explicit near-threshold fixture: only the final real game action
+			// crosses it, not the preceding passive settlement.
+			s.Growth.Points = 23.9
 			before := s.Needs
 			_, f, err := s.ApplyWithFeedback(a, now)
 			if err != nil || f == nil || f.Effect == nil || s.Game != nil || f.Effect.Before != before || f.Effect.After != s.Needs || f.Effect.At != now.UnixMilli() {
 				t.Fatalf("wrong %s effect: %+v %v", kind, f, err)
+			}
+			if f.Milestone == nil || f.Milestone.Stage != "growing" || f.Milestone.At != now.UnixMilli() || f.Milestone.Form != "" {
+				t.Fatalf("missing completed-game milestone: %+v", f)
 			}
 			if _, f, err = s.ApplyWithFeedback(a, now); err == nil || f != nil {
 				t.Fatal("duplicate finish produced receipt")

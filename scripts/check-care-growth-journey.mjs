@@ -106,6 +106,7 @@ try {
       const count = writes.filter(write => write.path === '/api/action').length;
       await page.reload(); await scene(page, stage, motion, stage === 'adult' ? form : undefined);
       await threeKeys(page);
+      assert.equal(await page.locator('.care-milestone').count(), 0, 'reload must not reconstruct the action milestone');
       assert.equal(writes.filter(write => write.path === '/api/action').length, count, 'reload replayed care');
       assert.equal(await page.locator('[data-motion="celebrating"]').count(), 0, 'reload replayed evolution');
     }
@@ -124,13 +125,16 @@ try {
       assert.deepEqual(awakeEnd.growth.care, awakeStart.growth.care);
       assert.equal(awakeEnd.careCount, awakeStart.careCount);
       const feed = await care(0, 'feed'), grown = feed.result.state;
+      assert.deepEqual(feed.result.careFeedback.milestone, { stage: 'growing', at: feed.result.careFeedback.effect.at });
       assert.equal(feed.result.careFeedback.reason, 'credited'); near(feed.result.careFeedback.points, .25, 'feed bonus');
       assert.equal(grown.growth.stage, 'growing'); assert(grown.growth.growingAt > grown.hatchedAt);
       assert.equal(grown.growth.care.nutrition, 1); assert.equal(milestoneCount(grown, 'growing'), 1);
       near(feed.result.careFeedback.effect.after.hunger - feed.result.careFeedback.effect.before.hunger, 20, 'actual meal');
       await scene(page, 'growing', 'eating'); // Saved stage changes before its deferred presentation.
       await scene(page, 'growing', 'celebrating'); await key(page, 'c'); await scene(page, 'growing', 'idle');
-      await reload('growing');
+      await page.locator('.care-milestone').scrollIntoViewIfNeeded();
+      assert((await page.locator('.care-milestone').innerText()).includes('这次照顾推动进入成长期'));
+      await threeKeys(page); await reload('growing');
       // Skip the untested multi-day interval explicitly, preserving this very
       // pet's real just-earned milestone/meal. No backdating of the server clock.
       const approaching = await api('backup'); approaching.growth.points = 71.95;
@@ -139,6 +143,7 @@ try {
       await reload('growing');
       const bath = await care(2, 'clean'), adult = bath.result.state;
       assert.equal(bath.result.careFeedback.reason, 'credited');
+      assert.deepEqual(bath.result.careFeedback.milestone, { stage: 'adult', at: bath.result.careFeedback.effect.at, form });
       assert(bath.result.careFeedback.points > 0 && bath.result.careFeedback.points < .06, 'adult bonus must cap');
       assert.equal(adult.growth.stage, 'adult'); assert.equal(adult.growth.points, 72); assert.equal(adult.growth.form, form);
       assert(adult.growth.adultAt >= adult.growth.growingAt); assert(adult.growth.formRecord);
@@ -147,7 +152,11 @@ try {
       near(adult.growth.formRecord.wellbeing, adult.growth.wellbeing, 'threshold wellbeing');
       assert.equal(milestoneCount(adult, 'adult'), 1); assert.equal(milestoneCount(adult, 'growing'), 1);
       await scene(page, 'adult', 'bathing', form); await scene(page, 'adult', 'celebrating', form);
-      await key(page, 'c'); await scene(page, 'adult', 'idle', form); await reload('adult');
+      await key(page, 'c'); await scene(page, 'adult', 'idle', form);
+      await page.locator('.care-milestone').scrollIntoViewIfNeeded();
+      assert((await page.locator('.care-milestone').innerText()).includes(`这次照顾推动进入成年期 · ${forms[form]}已定型`));
+      if (form === 'gentle') await page.screenshot({ path: join(dir, `${label}-milestone.png`), fullPage: true });
+      await threeKeys(page); await reload('adult');
       const locked = immutableAdult(adult), careCount = adult.careCount;
       // Replay the exact real HTTP request, with its generation guard and id.
       const replay = await api('action', bath.body, { 'X-PixelPet-Generation': bath.headers['x-pixelpet-generation'] });
@@ -156,13 +165,15 @@ try {
       assert.equal(afterReplay.careCount, careCount); assert.deepEqual(immutableAdult(afterReplay), locked);
       // Body care still works during its habit cooldown, without a second bonus.
       const secondMeal = await care(0, 'feed');
+      assert.equal(secondMeal.result.careFeedback.milestone, undefined);
       assert.equal(secondMeal.result.careFeedback.reason, 'cooldown'); assert.equal(secondMeal.result.careFeedback.points, 0);
       assert.equal(secondMeal.result.state.growth.care.nutrition, 1);
       assert.equal(secondMeal.result.state.careCount, careCount + 1);
       near(secondMeal.result.careFeedback.effect.after.hunger - secondMeal.result.careFeedback.effect.before.hunger, 20, 'cooldown meal');
       assert.deepEqual(immutableAdult(secondMeal.result.state), locked);
       await scene(page, 'adult', 'eating', form); await key(page, 'c'); await scene(page, 'adult', 'idle', form);
-      const sleep = await care(3, 'sleep'); assert(sleep.result.state.sleeping); await scene(page, 'adult', 'sleeping', form);
+      const sleep = await care(3, 'sleep'); assert(sleep.result.state.sleeping);
+      assert.equal(sleep.result.careFeedback.milestone, undefined); await scene(page, 'adult', 'sleeping', form);
       await wait(300); await reload('adult', 'sleeping');
       const sleeping = (await api('visit', {})).state, before = sleep.result.state;
       const hours = (sleeping.lastTick - before.lastTick) / 3600000;
@@ -174,6 +185,7 @@ try {
       near(sleeping.growth.care.rest - before.growth.care.rest, 14 * hours / 28, 'proportional rest habit');
       assert.deepEqual(immutableAdult(sleeping), locked);
       const wake = await care(3, 'sleep'); assert.equal(wake.result.state.sleeping, false);
+      assert.equal(wake.result.careFeedback.milestone, undefined);
       await scene(page, 'adult', 'waking', form); await key(page, 'c'); await scene(page, 'adult', 'idle', form);
       // The portable backup is restored unchanged into the same isolated server.
       const backup = await api('backup'), restored = await api('import', backup);

@@ -2,6 +2,7 @@ import type { CareFeedback, Needs } from "./types";
 import "./care-outcome.css";
 import { SleepSummary } from "./SleepSummary";
 import { careHabitUnits } from "./careHabitUnits";
+import { formNames } from "./growth";
 
 const needLabels = [["hunger", "饱食"], ["mood", "心情"], ["clean", "清洁"], ["energy", "体力"]] as const;
 
@@ -43,10 +44,22 @@ function learningSummary(f: CareFeedback): { habit: string; reason: string } | n
     ? { habit: `${label}：+0`, reason: "记录时同类习惯仍在间隔内；本次不计入，不代表状态没有改善。" } : null;
 }
 
+// Never infer a historical transition from the current pet, points, or a local
+// clock. Old receipts simply omit it; malformed optional data stays quiet.
+function milestoneText(f: CareFeedback): string | null {
+  const m = f.milestone;
+  if (!m || f.reason !== "credited" || !(f.points > 0) || careHabitUnits(f.habitGain) !== 1 || m.at !== f.effect?.at) return null;
+  if (m.stage === "growing" && (m.form === undefined || m.form === "")) return "这次照顾推动进入成长期";
+  if (m.stage === "adult" && m.form && ["balanced", "lively", "gentle", "easygoing"].includes(m.form))
+    return `这次照顾推动进入成年期 · ${formNames[m.form]}已定型`;
+  return null;
+}
+
 export function CareOutcome({ feedback }: { feedback: CareFeedback | null }) {
   if (!feedback || !validEffect(feedback.effect)) return null;
   const { before, after, at } = feedback.effect;
   const learning = learningSummary(feedback);
+  const milestone = learning ? milestoneText(feedback) : null;
   const action = feedback.kind === "feed" ? "喂食" : feedback.kind === "clean" ? "洗澡" :
     feedback.kind === "sleep" ? feedback.reason === "awake" ? "起床" : "入睡" : "陪玩";
   return <section className="care-outcome" aria-label="上次操作的即时变化">
@@ -65,6 +78,10 @@ export function CareOutcome({ feedback }: { feedback: CareFeedback | null }) {
       <span>{learning.habit}</span>
       <p>{learning.reason}</p>
       <small>习惯可继续记录；成年形态不会因之后照顾重选。</small>
+    </div>}
+    {milestone && <div className="care-learning care-milestone" role="group" aria-label="本次照顾的成长阶段">
+      <strong>{milestone}</strong>
+      <small>这是本次已确认的阶段变化，不含操作前的自然成长；之后读取不会改写这条回执。</small>
     </div>}
     {feedback.kind === "sleep" && <p>入睡和起床不立即恢复体力；睡着期间才逐步恢复，到满为止。</p>}
     <small>以上仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>

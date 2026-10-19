@@ -131,3 +131,55 @@ it("does not persist unread feedback across a reload or replay the saved care", 
   expect(reason()).toBe("idle"); expect(scene()).toBe("idle"); expect(document.querySelector(".care-outcome")).toBeNull();
   expect(writes()).toHaveLength(1); expect(saved.careCount).toBe(1);
 });
+
+it.each(["growing", "adult"] as const)("keeps an acknowledged %s milestone through animation and polls, but not reload", async stage => {
+  await mount(stage === "growing" ? "baby" : "growing");
+  api.mockImplementation(async (path, body) => {
+    if (path !== "action") return result();
+    const r = acknowledged((body as { kind: "feed" }).kind);
+    const at = r.careFeedback!.effect!.at;
+    saved.growth = { ...saved.growth!, stage, points: stage === "growing" ? 24 : 72,
+      growingAt: stage === "growing" ? at : at - 500, adultAt: stage === "adult" ? at : 0,
+      form: stage === "adult" ? "gentle" : "" };
+    return { ...result(), careFeedback: { ...r.careFeedback!, milestone: { stage, at, ...(stage === "adult" ? { form: "gentle" as const } : {}) } } };
+  });
+  await care("feed", false); expect(scene()).toBe("eating");
+  await tick(clipDurations.feed); expect(scene()).toBe("celebrating");
+  await key("c"); expect(scene()).toBe("idle");
+  const receipt = screen.getByLabelText("本次照顾的成长阶段").textContent;
+  expect(receipt).toContain(stage === "growing" ? "进入成长期" : "进入成年期 · 恬静型已定型");
+  // Polls expose a different present state, not a rewritten action history.
+  saved.needs.hunger = 55; saved.revision++;
+  await focus(); await tick(15000);
+  expect(screen.getByLabelText("本次照顾的成长阶段").textContent).toBe(receipt);
+  expect(reason()).toBe("idle");
+  await panel("help", true); await panel("help", false);
+  expect(screen.getByLabelText("本次照顾的成长阶段").textContent).toBe(receipt);
+  cleanup(); await act(async () => { render(<App />); });
+  expect(screen.queryByLabelText("本次照顾的成长阶段")).toBeNull();
+  expect(scene()).toBe("idle"); expect(writes()).toHaveLength(1);
+});
+
+it("does not infer a care milestone when a state poll reveals natural growth", async () => {
+  await mount(); saved.growth = { ...emptyGrowth("growing"), points: 24, growingAt: Date.now() }; saved.revision++;
+  await focus(); expect(scene()).toBe("celebrating"); await key("c");
+  expect(screen.queryByLabelText("本次照顾的成长阶段")).toBeNull();
+  expect(document.querySelector(".care-outcome")).toBeNull(); expect(writes()).toHaveLength(0);
+});
+
+it("clears the acknowledged care milestone when a different save replaces the pet", async () => {
+  await mount("adult");
+  api.mockImplementation(async (path, body) => {
+    if (path !== "action") return result();
+    const r = acknowledged((body as { kind: "feed" }).kind);
+    // Response-only fixture: verifies the existing generation replacement path,
+    // not actual numeric evolution (covered by real HTTP and browser tests).
+    r.careFeedback!.points = .1;
+    r.careFeedback!.milestone = { stage: "adult", at: r.careFeedback!.effect!.at, form: "gentle" };
+    return r;
+  });
+  await care(); expect(screen.getByLabelText("本次照顾的成长阶段")).toBeTruthy();
+  generation = "b".repeat(32); saved.revision = 1; saved.growth = emptyGrowth(); saved.careCount = 0;
+  await focus(); expect(screen.queryByLabelText("本次照顾的成长阶段")).toBeNull();
+  expect(document.querySelector(".care-outcome")).toBeNull(); expect(writes()).toHaveLength(1);
+});
