@@ -227,6 +227,7 @@ export default function App() {
   // A late accepted response may update the board, but cannot restore local
   // permission to run after backgrounding or opening a non-game panel.
   const boardEpoch = useRef(0);
+  const gameWindowActive = useRef(true);
   const [tetrisSession, setTetrisSession] = useState("");
   const [tetrisChoice, setTetrisChoice] = useState(0);
   const [snakeSession, setSnakeSession] = useState("");
@@ -847,13 +848,13 @@ export default function App() {
       const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
       if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
         setHomeEcho({ ...experience, until: Date.now() + 12000 });
-      if (kind === "walk-resume" && activeWalkEpoch === walkEpoch.current && !document.hidden) setWalkSession(r.state.game?.id ?? "");
+      if (kind === "walk-resume" && activeWalkEpoch === walkEpoch.current && !document.hidden && gameWindowActive.current) setWalkSession(r.state.game?.id ?? "");
       if (["walk-pause","walk-finish","cancel-play"].includes(kind)) {setWalkSession("");setWalkChoice(0);}
-      if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden) setFishingSession(r.state.game?.id ?? "");
+      if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden && gameWindowActive.current) setFishingSession(r.state.game?.id ?? "");
       if (["fish-pause", "fish-finish", "cancel-play"].includes(kind)) { setFishingSession(""); setFishingChoice(0); }
-      if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind) && activeBoardEpoch === boardEpoch.current && !document.hidden) setTetrisSession(r.state.game?.id ?? "");
+      if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind) && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current) setTetrisSession(r.state.game?.id ?? "");
       if (["tetris-pause", "tetris-finish", "cancel-play"].includes(kind)) { setTetrisSession(""); setTetrisChoice(0); }
-      if (kind === "snake-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden) setSnakeSession(r.state.game?.id ?? "");
+      if (kind === "snake-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current) setSnakeSession(r.state.game?.id ?? "");
       if (
         kind === "snake-pause" ||
         kind === "snake-finish" ||
@@ -930,18 +931,22 @@ export default function App() {
   }, [tools, help, reset]);
   useEffect(() => {
     const n = pet?.game?.walking;
-    if(page!=="game" || !n || n.paused || n.beat===72 || walkSession!==pet.game?.id || busy || document.hidden || tools || help || reset || abandoning)return;
+    if(page!=="game" || !n || n.paused || n.beat===72 || walkSession!==pet.game?.id || busy || (document.hidden || !gameWindowActive.current) || tools || help || reset || abandoning)return;
+    const epoch = walkEpoch.current;
     const timer=setTimeout(()=>{
-      if(document.hidden){walkEpoch.current++;setWalkSession("");return;}
+      if (epoch !== walkEpoch.current) return;
+      if(document.hidden || !gameWindowActive.current){walkEpoch.current++;setWalkSession("");return;}
       void act("walk-step",{step:n.step}).then(ok=>{if(!ok){walkEpoch.current++;setWalkSession("");void refresh();}});
     },Math.max(80,1050-(Date.now()+offset.current-n.lastPulseAt)));
     return ()=>clearTimeout(timer);
   },[pet?.game,walkSession,page,busy,tools,help,reset,abandoning]);
   useEffect(() => {
     const n = pet?.game?.fishing;
-    if (page !== "game" || !n || n.paused || !["wait", "bite"].includes(n.phase) || fishingSession !== pet.game?.id || busy || document.hidden || tools || help || reset || abandoning) return;
+    if (page !== "game" || !n || n.paused || !["wait", "bite"].includes(n.phase) || fishingSession !== pet.game?.id || busy || (document.hidden || !gameWindowActive.current) || tools || help || reset || abandoning) return;
+    const epoch = fishingEpoch.current;
     const timer = setTimeout(() => {
-      if (document.hidden) { fishingEpoch.current++; setFishingSession(""); return; }
+      if (epoch !== fishingEpoch.current) return;
+      if (document.hidden || !gameWindowActive.current) { fishingEpoch.current++; setFishingSession(""); return; }
       void act("fish-step", { step: n.step }).then(ok => {
         if (!ok) {
           fishingEpoch.current++;
@@ -954,9 +959,11 @@ export default function App() {
   }, [pet?.game, fishingSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
     const n = pet?.game?.tetris;
-    if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || document.hidden || tools || help || reset || abandoning) return;
+    if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || (document.hidden || !gameWindowActive.current) || tools || help || reset || abandoning) return;
+    const epoch = boardEpoch.current;
     const timer = setTimeout(() => {
-      if (document.hidden) { boardEpoch.current++; setTetrisSession(""); return; }
+      if (epoch !== boardEpoch.current) return;
+      if (document.hidden || !gameWindowActive.current) { boardEpoch.current++; setTetrisSession(""); return; }
       void act("tetris-step", { step: n.step }).then(ok => {
         if (!ok) { setTetrisSession(""); void refresh(); }
       });
@@ -967,13 +974,15 @@ export default function App() {
     const n = pet?.game?.snake;
     if (
       page !== "game" || !n || n.paused || n.end ||
-      snakeSession !== pet.game?.id || busy || document.hidden ||
+      snakeSession !== pet.game?.id || busy || (document.hidden || !gameWindowActive.current) ||
       tools || help || reset || abandoning
     ) return;
     // The server applies at most one cell and verifies the expected step.
     // Never synthesize missed beats after backgrounding or a slow request.
+    const epoch = boardEpoch.current;
     const timer = setTimeout(() => {
-      if (document.hidden) {
+      if (epoch !== boardEpoch.current) return;
+      if (document.hidden || !gameWindowActive.current) {
         boardEpoch.current++;
         setSnakeSession("");
         return;
@@ -992,18 +1001,34 @@ export default function App() {
   }, [pet?.game, snakeSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
     const stop = () => {
-      if (document.hidden) {
-        boardEpoch.current++;
-        walkEpoch.current++;setWalkSession("");
-        fishingEpoch.current++;setFishingSession("");
-        setSnakeSession("");
-        setTetrisSession("");
-        snakeTurn.current = 0;
-        setQueuedTurn(0);
-      }
+      boardEpoch.current++;
+      walkEpoch.current++; setWalkSession("");
+      fishingEpoch.current++; setFishingSession("");
+      setSnakeSession("");
+      setTetrisSession("");
+      snakeTurn.current = 0;
+      setQueuedTurn(0);
     };
-    document.addEventListener("visibilitychange", stop);
-    return () => document.removeEventListener("visibilitychange", stop);
+    const visibility = () => { if (document.hidden) stop(); };
+    const blur = (event: Event) => {
+      // Element focus changes can bubble in synthetic/embedded environments.
+      // Invalidate synchronously, before an already-due game callback can run.
+      if (event.target !== event.currentTarget) return;
+      gameWindowActive.current = false;
+      stop();
+    };
+    const focus = (event: Event) => {
+      if (event.target === event.currentTarget) gameWindowActive.current = true;
+      // Returning never grants permission to resume an old local session.
+    };
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("blur", blur);
+    window.addEventListener("focus", focus);
+    return () => {
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("blur", blur);
+      window.removeEventListener("focus", focus);
+    };
   }, []);
 
   const controls = useRef<(key: string) => void>(() => {});
@@ -1120,7 +1145,7 @@ export default function App() {
           else if (!n.paused && (kind === "tetris-rotate" || kind === "tetris-drop")) {
             const epoch = boardEpoch.current;
             void act("tetris-pause", { step: n.step }).then(ok => {
-              if (ok && epoch === boardEpoch.current && !document.hidden) void act(kind, { step: n.step + 1 });
+              if (ok && epoch === boardEpoch.current && !document.hidden && gameWindowActive.current) void act(kind, { step: n.step + 1 });
             });
           } else void act(kind, { step: n.step });
         }

@@ -73,6 +73,9 @@
 .reading-mode .tetris-playfield:has(.tetris-overlay) { height: auto; flex-wrap: wrap; }
 .reading-mode .tetris-overlay { width: 100%; }
 .reading-mode .tetris-overlay ol { width: auto; }
+/* Paused board headings and side notes must grow with root-scaled text. */
+.reading-mode :is(.snake-game, .tetris-game) header { height: auto; min-height: 20px; flex-wrap: wrap; gap: 4px; }
+.reading-mode .tetris-side { width: 100%; }
 .reading-mode .park-scene:has(.walk-pause), .reading-mode .pond-scene:has(.fishing-pause) { height: auto; min-height: 102px; }
 .reading-mode :is(.walking-game, .fishing-game) header { height: auto; min-height: 22px; }
 .reading-mode .walk-pause > div { flex-direction: column; }

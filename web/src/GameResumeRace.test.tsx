@@ -40,8 +40,12 @@ function delayAction(kind: string) {
   });
   return async () => { expect(deliver).toBeTypeOf("function"); await act(async () => { deliver(); }); };
 }
-type Interruption = "background" | "help" | "tools";
+type Interruption = "background" | "help" | "tools" | "window-blur";
 async function interrupt(kind: Interruption) {
+  if (kind === "window-blur") {
+    await act(async () => { window.dispatchEvent(new Event("blur")); });
+    return async () => { await act(async () => { window.dispatchEvent(new Event("focus")); }); };
+  }
   if (kind === "background") {
     const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
     await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
@@ -65,7 +69,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
-const interruptions: Interruption[] = ["background", "help", "tools"];
+const interruptions: Interruption[] = ["background", "help", "tools", "window-blur"];
 const resumptions = ["snake-resume", "tetris-resume", "tetris-rotate", "tetris-drop"];
 describe.each(resumptions)("late %s response", kind => {
   it.each(interruptions.flatMap(interruption => [false, true].map(returnFirst => ({ interruption, returnFirst }))))("does not resume after $interruption (return first=$returnFirst)", async ({ interruption, returnFirst }) => {
