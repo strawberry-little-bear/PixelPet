@@ -39,8 +39,9 @@ async function sleep(page) {
   await key(page, 'B'); const r = await reply; assert(r.ok());
   const result = await r.json(); await key(page, 'C'); return result;
 }
-async function readable(page) {
-  const issues = await page.locator('.sleep-summary').evaluate(el => {
+async function readable(page, selector = '.sleep-summary') {
+  const panel = page.locator(selector);
+  const issues = await panel.evaluate(el => {
     const issues = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       const node = walker.currentNode; if (!node.textContent.trim()) continue;
@@ -60,8 +61,10 @@ async function readable(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
-  await page.locator('.sleep-summary > small').scrollIntoViewIfNeeded();
-  assert(await page.locator('.sleep-summary > small').evaluate(el => {
+  const tail = panel.locator(':scope > small');
+  const end = await tail.count() ? tail.last() : panel;
+  await end.scrollIntoViewIfNeeded();
+  assert(await end.evaluate(el => {
     const r = el.getBoundingClientRect(); return r.top >= -1 && r.bottom <= innerHeight + 1;
   }), 'End of sleep summary cannot be reached');
 }
@@ -154,6 +157,51 @@ try {
         await page.screenshot({ path: join(dir, `duration-${width}-${settledHours}-viewport.png`) });
         assert.deepEqual(errors, []);
         results.push({ kind: 'duration-response-fixture', width, font, elapsedHours: 24, settledHours, passed: true });
+      } finally { await context.close(); }
+    }
+  }
+  // Actual legacy migration/current backup imports, not response fixtures.
+  // Import retains sleeping but intentionally drops active session provenance.
+  for (const { width, font } of [{ width: 1200, font: 14 }, { width: 320, font: 28 }]) {
+    for (const source of ['schema16', 'current-backup']) {
+      const initial = await seed('baby', false);
+      let backup;
+      if (source === 'schema16') backup = { ...initial.state, schema: 16, sleeping: true };
+      else {
+        const bed = await api('action', { kind: 'sleep', requestId: `import-bed-${width}` });
+        assert(bed.state.sleepSession); backup = bed.state;
+      }
+      const imported = await api('import', backup);
+      assert(imported.state.sleeping); assert(!imported.state.sleepSession);
+      const context = await browser.newContext({ viewport: { width, height: 700 }, hasTouch: true,
+        isMobile: width < 700, reducedMotion: 'reduce', forcedColors: font === 28 ? 'active' : 'none' });
+      const page = await context.newPage(), errors = [], writes = [];
+      page.on('pageerror', e => errors.push(e.message));
+      page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/action') writes.push(r.postDataJSON()); });
+      await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = font + 'px'; }), font);
+      try {
+        await page.goto(base); await page.locator('.home-caption').waitFor();
+        for (const k of ['A', 'A', 'A', 'A']) await key(page, k);
+        assert((await page.locator('.care-preview').textContent()).includes('没有完整入睡记录'));
+        await readable(page, '.care-preview'); assert.equal(writes.length, 0);
+        await page.locator('.care-preview').screenshot({ path: join(dir, `untracked-${width}-${source}-preview.png`) });
+        const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/action' && r.request().postDataJSON()?.kind === 'sleep');
+        await key(page, 'B'); const wake = await (await response).json(); await key(page, 'C');
+        assert(!wake.state.sleeping); assert(!wake.careFeedback.sleepSummary);
+        assert.deepEqual(wake.careFeedback.effect.before, wake.careFeedback.effect.after);
+        await page.locator('.sleep-summary-unavailable').waitFor();
+        assert((await page.locator('.sleep-summary-unavailable').textContent()).includes('不代表睡着期间没有恢复'));
+        assert.equal(await page.locator('.sleep-summary').count(), 0);
+        await readable(page, '.sleep-summary-unavailable'); await wait(3200);
+        await page.locator('.sleep-summary-unavailable').screenshot({ path: join(dir, `untracked-${width}-${source}-wake.png`) });
+        await page.reload(); await page.locator('.home-caption').waitFor();
+        assert.equal(await page.locator('.sleep-summary-unavailable').count(), 0);
+        const nextBed = await sleep(page); assert(nextBed.state.sleepSession);
+        const nextWake = await sleep(page); assert(nextWake.careFeedback.sleepSummary);
+        await page.locator('.sleep-summary').waitFor();
+        assert.equal(await page.locator('.sleep-summary-unavailable').count(), 0);
+        assert.equal(writes.length, 3); assert.deepEqual(errors, []);
+        results.push({ kind: 'untracked-sleep-real-import', width, font, source, passed: true });
       } finally { await context.close(); }
     }
   }

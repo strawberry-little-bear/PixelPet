@@ -8,10 +8,11 @@ const localTime = (n: number) => new Date(n).toLocaleString("zh-CN", {
 
 // A wake receipt is server history, not a difference between later pet totals
 // or a front-end bedtime. Invalid/old optional metadata must degrade quietly.
+const isUncreditedWake = (f: CareFeedback) => f.kind === "sleep" && f.reason === "awake" &&
+  f.points === 0 && f.habitGain === 0 && !f.habit;
 function recordedSleep(f: CareFeedback): Summary | null {
   const s = f.sleepSummary;
-  if (f.kind !== "sleep" || f.reason !== "awake" || f.points !== 0 || f.habitGain !== 0 || f.habit ||
-    !s || !positiveDate(s.startedAt) || !positiveDate(s.wokeAt) || s.startedAt > s.wokeAt || s.wokeAt !== f.effect?.at) return null;
+  if (!isUncreditedWake(f) || !s || !positiveDate(s.startedAt) || !positiveDate(s.wokeAt) || s.startedAt > s.wokeAt || s.wokeAt !== f.effect?.at) return null;
   if (![s.settledHours, s.energyRecovered, s.restGain, s.growthPoints].every(n =>
     typeof n === "number" && Number.isFinite(n) && n >= 0)) return null;
   if (s.settledHours > (s.wokeAt - s.startedAt) / 3600000 + 1e-7 || s.energyRecovered > 100 ||
@@ -23,7 +24,12 @@ function recordedSleep(f: CareFeedback): Summary | null {
 
 export function SleepSummary({ feedback }: { feedback: CareFeedback }) {
   const summary = recordedSleep(feedback);
-  if (!summary) return null;
+  // CareOutcome has already validated the acknowledged immediate effect.
+  // An absent legacy/imported history is unknown, not a zero-length sleep.
+  // Keep malformed optional metadata quiet, rather than diagnosing save damage.
+  if (!summary) return feedback.sleepSummary == null && isUncreditedWake(feedback)
+    ? <p className="sleep-summary-unavailable" role="note" aria-label="整段睡眠记录说明">本次没有可展示的完整睡眠记录，不倒推入睡时间或整段恢复；上面是起床即时变化，不代表睡着期间没有恢复。</p>
+    : null;
   // Compare only the acknowledged server endpoints and accumulated settlement.
   // Reads can split a long sleep into several capped settlements; do not cap
   // the whole sleep again or use the current browser clock to extend it.

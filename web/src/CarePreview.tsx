@@ -33,6 +33,9 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
     if (pet.sleeping) return [
       "按 B 轻轻叫醒，停止睡眠恢复。",
       "只按实际恢复的体力记休息习惯，不因反复睡下或叫醒多记。",
+      ...(pet.sleepSession == null ? [
+        `本段没有完整入睡记录，仍照常恢复体力；起床不倒推整段小结。${pet.schema >= 17 ? "下次明确入睡后开始记录。" : "当前服务未提供整段睡眠记录。"}`,
+      ] : []),
     ];
     return [
       pet.needs.energy >= fullEnergy

@@ -26,7 +26,7 @@ beforeEach(()=>{
   if(path!=="action")return result();
   const session=saved.sleepSession!;saved.sleeping=false;saved.sleepSession=undefined;saved.revision++;
   const feedback:CareFeedback={kind:"sleep",reason:"awake",points:0,habitGain:0,
-   effect:{at,before:structuredClone(saved.needs),after:structuredClone(saved.needs)},sleepSummary:{...session,wokeAt:at}};
+   effect:{at,before:structuredClone(saved.needs),after:structuredClone(saved.needs)},sleepSummary:session?{...session,wokeAt:at}:undefined};
   return {...result(),careFeedback:feedback};
  });
 });
@@ -67,4 +67,18 @@ it.each([12,24])("keeps the %s-hour settlement comparison fixed after the browse
  const original=summary()?.textContent;
  vi.setSystemTime(at+72*3600000);saved.revision++;saved.needs.energy=100;await poll();
  expect(summary()?.textContent).toBe(original);expect(writes()).toHaveLength(1);
+});
+
+it.each([16,17])("explains an untracked schema %s sleep before and after an acknowledged wake",async schema=>{
+ saved.schema=schema;saved.sleepSession=undefined;
+ await mount();await key("a");for(let i=0;i<3;i++)await key("a");
+ expect(screen.getByRole("note",{name:"所选菜单说明"}).textContent).toContain("没有完整入睡记录");
+ expect(writes()).toHaveLength(0);
+ await key("b");await key("c");
+ expect(summary()).toBeNull();
+ const notice=screen.getByRole("note",{name:"整段睡眠记录说明"});
+ expect(notice.textContent).toContain("不代表睡着期间没有恢复");
+ saved.revision++;saved.needs.energy=100;await poll();expect(notice.textContent).toContain("不代表睡着期间没有恢复");
+ expect(writes()).toHaveLength(1);
+ cleanup();await mount();expect(screen.queryByRole("note",{name:"整段睡眠记录说明"})).toBeNull();
 });
