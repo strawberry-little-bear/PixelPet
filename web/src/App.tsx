@@ -264,6 +264,7 @@ export default function App() {
     stage: GrowthStage;
     form: AdultForm | "";
   } | null>(null);
+  const activeEvolution = useRef<typeof evolution>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const pendingImportRef = useRef<PendingImport | null>(null);
@@ -330,6 +331,7 @@ export default function App() {
     setCareFeedback(null);
     setHomeEcho(null);
     setEvolution(null);
+    activeEvolution.current = null;
     clipRef.current = null;
     setClip(null);
     walkEpoch.current++;
@@ -600,12 +602,28 @@ export default function App() {
     if (!clip) return;
     const timer = setTimeout(() => {
       if (clipRef.current?.id === clip.id) {
+        activeEvolution.current = null;
         clipRef.current = null;
         setClip(null);
       }
     }, clipDurations[clip.kind]);
     return () => clearTimeout(timer);
   }, [clip]);
+  // A celebration is only consumed when it finishes visibly (or C skips it).
+  // Restart the short clip after an interruption rather than claiming to freeze
+  // CSS animation frames. A newer queued stage wins; save/game/recovery changes
+  // still discard both presentations through stopActivity.
+  useEffect(() => {
+    if (clip?.kind !== "evolve" || !activeEvolution.current) return;
+    if (foreground && !document.hidden && page === "home" &&
+      !tools && !help && !reset && !pet?.sleeping && !pet?.game) return;
+    const interrupted = activeEvolution.current;
+    activeEvolution.current = null;
+    clipRef.current = null;
+    setClip(null);
+    setEvolution(queued => queued ?? interrupted);
+    setMessage("");
+  }, [clip, foreground, page, tools, help, reset, pet?.sleeping, pet?.game]);
   useEffect(() => {
     if (
       !evolution || uncertain || unavailable || corrupt || page !== "home" ||
@@ -613,6 +631,7 @@ export default function App() {
       !foreground || document.hidden
     ) return;
     const next = { kind: "evolve" as const, id: ++clipSequence.current };
+    activeEvolution.current = evolution;
     clipRef.current = next;
     setClip(next);
     setMessage(
@@ -720,6 +739,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [careFeedback, clip, evolution, page]);
   function finishClip() {
+    activeEvolution.current = null;
     clipRef.current = null;
     setClip(null);
   }

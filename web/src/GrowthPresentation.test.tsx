@@ -96,7 +96,9 @@ describe("growth and return presentation order", () => {
     await tick(5000); expect(returning()).toBeNull();
     if (hidden) { hidden.mockReturnValue(false); await act(async () => { document.dispatchEvent(new Event("visibilitychange")); }); }
     else fireEvent.click(screen.getByRole("button", { name: panel === "help" ? /^关闭$/ : /存档盒/ }));
-    expect(returning()).toBeNull(); await review(); expect(returning()).toBeTruthy();
+    expect(returning()).toBeNull(); expect(celebrating()).toBeTruthy();
+    await key("c"); expect(returning()).toBeNull();
+    await review(); expect(returning()).toBeTruthy();
     expect(claims()).toHaveLength(1); expect(writes()).toHaveLength(0);
   });
   it("a replacement while presentation is queued clears the old growth and recap", async () => {
