@@ -6,7 +6,16 @@ export type Needs = {
 };
 export type GrowthStage = "egg" | "baby" | "growing" | "adult";
 export type AdultForm = "balanced" | "lively" | "gentle" | "easygoing";
+export type FormRecord = {
+  trackedHours: number;
+  wellbeing: number;
+  nutrition: number;
+  play: number;
+  clean: number;
+  rest: number;
+};
 export type Growth = {
+  formRecord?: FormRecord;
   stage: GrowthStage;
   points: number;
   form: AdultForm | "";

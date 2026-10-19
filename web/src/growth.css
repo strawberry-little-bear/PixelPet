@@ -428,3 +428,7 @@
 .companion-memory > strong { display: block; font-size: 9px; }
 .companion-memory > p { margin: 3px 0; font-size: 8px; line-height: 1.5; }
 .companion-memory > time, .companion-memory > small { display: block; font-size: 8px; line-height: 1.5; }
+
+.form-record-time, .form-record-missing, .form-record-care {
+  display: block; font-size: 8px; line-height: 1.5; margin: 4px 0;
+}

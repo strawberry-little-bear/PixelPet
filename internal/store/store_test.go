@@ -207,7 +207,7 @@ func TestAdultGrowthSurvivesReopenAndRejectedImport(t *testing.T) {
 		t.Fatal("future evolution timestamp was accepted")
 	}
 	r, err := s.Do(nil, nil, false, now)
-	if err != nil || *r.State.Growth != *grown.State.Growth || r.State.Revision != grown.State.Revision {
+	if err != nil || !reflect.DeepEqual(r.State.Growth, grown.State.Growth) || r.State.Revision != grown.State.Revision {
 		t.Fatal("adult history was lost after reopen or rejected import", err)
 	}
 	var snapshots int

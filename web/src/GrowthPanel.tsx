@@ -59,6 +59,10 @@ export function GrowthPanel({
   const form = tendency(g),
     target = g.stage === "growing" ? 72 : 24;
   const current = stagePoints(g);
+  const record = g.stage === "adult" ? g.formRecord : undefined;
+  const evidenceCare = record ?? g.care;
+  const trackedHours = record?.trackedHours ?? g.trackedHours;
+  const wellbeing = record?.wellbeing ?? g.wellbeing;
   return (
     <div className="growth-panel" data-growth-page={page}>
       {page === 0 ? (
@@ -170,15 +174,24 @@ export function GrowthPanel({
       ) : (
         <div className="form-guide">
           <div className="habit-heading">
-            <span>{g.form ? "已定型 · 形态依据" : "当前倾向 · 形态依据"}</span>
+            <span>{record ? "定型时 · 形态依据" : g.form ? "已定型 · 形态依据" : "当前倾向 · 形态依据"}</span>
             <strong>{formNames[form]}</strong>
           </div>
+          {record && <time className="form-record-time" dateTime={new Date(g.adultAt).toISOString()}>
+            成年定型 · {new Date(g.adultAt).toLocaleString("zh-CN", {
+              year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+            })}
+          </time>}
+          {g.form && !record && <small className="form-record-missing">未保存定型时的依据，不倒推过去；下面是当前习惯。</small>}
           <p className="form-guide-record">
-            当前陪玩 {g.care.play.toFixed(1)} · 恬静分 {((g.care.clean + g.care.rest) / 2).toFixed(1)}
+            {record ? "定型时" : "当前"}陪玩 {evidenceCare.play.toFixed(1)} · 恬静分 {((evidenceCare.clean + evidenceCare.rest) / 2).toFixed(1)}
           </p>
+          {record && <small className="form-record-care">
+            当时喂食 {record.nutrition.toFixed(1)} · 清洁 {record.clean.toFixed(1)} · 休息 {record.rest.toFixed(1)}
+          </small>}
           <small className="form-guide-history">
-            记录 {(Math.floor(g.trackedHours * 10) / 10).toFixed(1)}h · {g.trackedHours > 0
-              ? `平均舒适约 ${Math.round(g.wellbeing / g.trackedHours * 100)}%`
+            记录 {(Math.floor(trackedHours * 10) / 10).toFixed(1)}h · {trackedHours > 0
+              ? `平均舒适约 ${Math.round(wellbeing / trackedHours * 100)}%`
               : "尚无舒适度记录"}
           </small>
           <small className="form-guide-formula">恬静分 =（清洁习惯 + 休息习惯）÷ 2</small>
@@ -193,7 +206,7 @@ export function GrowthPanel({
           <small className="form-guide-note">
             {g.form ? "高亮为已定形态，当前习惯不改写它。" : "成年时按上方顺序确定，现在仍会变化。"}
             <br />
-            {g.form ? "判定规则供参考，不代表成年时的记录。" : "保持舒适、适时照顾，不必刻意追求形态。"}
+            {record ? "定型时保存的记录，不按当前习惯重算；当前习惯见上一页。" : g.form ? "判定规则供参考，不代表成年时的记录。" : "保持舒适、适时照顾，不必刻意追求形态。"}
           </small>
         </div>
       )}

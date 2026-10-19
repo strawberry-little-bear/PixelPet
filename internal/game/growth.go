@@ -18,6 +18,23 @@ type CareHistory struct {
 	LastPlay  int64   `json:"lastPlay"`
 	LastClean int64   `json:"lastClean"`
 }
+
+// FormRecord freezes the actual totals used at the adult threshold. A missing
+// record means legacy history is unknown, never that its totals were zero.
+type FormRecord struct {
+	TrackedHours float64 `json:"trackedHours"`
+	Wellbeing    float64 `json:"wellbeing"`
+	Nutrition    float64 `json:"nutrition"`
+	Play         float64 `json:"play"`
+	Clean        float64 `json:"clean"`
+	Rest         float64 `json:"rest"`
+}
+
+func (r FormRecord) growth() Growth {
+	return Growth{TrackedHours: r.TrackedHours, Wellbeing: r.Wellbeing,
+		Care: CareHistory{Nutrition: r.Nutrition, Play: r.Play, Clean: r.Clean, Rest: r.Rest}}
+}
+
 type Growth struct {
 	Stage        string      `json:"stage"`
 	Points       float64     `json:"points"`
@@ -27,6 +44,7 @@ type Growth struct {
 	GrowingAt    int64       `json:"growingAt"`
 	AdultAt      int64       `json:"adultAt"`
 	Care         CareHistory `json:"care"`
+	FormRecord   *FormRecord `json:"formRecord,omitempty"`
 }
 
 // Upgrade settles old intervals before opening an album: we cannot claim that
@@ -97,6 +115,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		s.Park = newPark(now)
 		s.Companion.Interests = append(s.Companion.Interests, Interest{Kind: "walk"})
 		s.Schema = 11
+	}
+	if s.Schema == 11 {
+		// Existing adults have no threshold snapshot. Preserve that absence instead
+		// of reconstructing it from current care; future evolution records its own.
+		s.Schema = 12
 	}
 	return true
 }
@@ -279,6 +302,10 @@ func (s *State) evolve(now time.Time) {
 		g.Stage = "adult"
 		g.AdultAt = now.UnixMilli()
 		g.Form = g.Tendency()
+		if s.Schema >= 12 {
+			g.FormRecord = &FormRecord{TrackedHours: g.TrackedHours, Wellbeing: g.Wellbeing,
+				Nutrition: g.Care.Nutrition, Play: g.Care.Play, Clean: g.Care.Clean, Rest: g.Care.Rest}
+		}
 		s.remember(Memory{Kind: "adult", At: now.UnixMilli(), Source: "shared", Form: g.Form})
 		s.Log(now, fmt.Sprintf("%s长大啦！照顾习惯让它成为了%s。", s.Name, FormName(g.Form)))
 	}
@@ -304,6 +331,9 @@ func (s State) validGrowth(now time.Time) bool {
 			return false
 		}
 	}
+	if !s.validFormRecord() {
+		return false
+	}
 	if s.HatchedAt == 0 {
 		return g.Stage == "egg" && g.Points == 0 && g.Form == "" && g.TrackedHours == 0 && g.GrowingAt == 0 && g.AdultAt == 0 && g.Care == (CareHistory{})
 	}
@@ -319,4 +349,28 @@ func (s State) validGrowth(now time.Time) bool {
 		return g.Points == AdultPoints && g.GrowingAt > 0 && g.AdultAt >= g.GrowingAt && (g.Form == "balanced" || g.Form == "lively" || g.Form == "gentle" || g.Form == "easygoing")
 	}
 	return false
+}
+
+// A portable record must agree with the locked form and cannot exceed the
+// totals accumulated so far. Optional for migrated adults whose past is lost.
+func (s State) validFormRecord() bool {
+	g := s.Growth
+	r := g.FormRecord
+	if r == nil {
+		return true
+	}
+	if s.Schema < 12 || g.Stage != "adult" || s.HatchedAt == 0 {
+		return false
+	}
+	pairs := [][2]float64{{r.TrackedHours, g.TrackedHours}, {r.Wellbeing, g.Wellbeing},
+		{r.Nutrition, g.Care.Nutrition}, {r.Play, g.Care.Play}, {r.Clean, g.Care.Clean}, {r.Rest, g.Care.Rest}}
+	for _, p := range pairs {
+		if math.IsNaN(p[0]) || math.IsInf(p[0], 0) || p[0] < 0 || p[0] > 1_000_000 || p[0] > p[1]+1e-8 {
+			return false
+		}
+	}
+	if r.Wellbeing > r.TrackedHours+1e-8 || r.TrackedHours > float64(g.AdultAt-s.HatchedAt)/3600000+1e-8 {
+		return false
+	}
+	return r.growth().Tendency() == g.Form
 }

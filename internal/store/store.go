@@ -206,6 +206,10 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			state = *imported
 			if imported.Growth != nil {
 				growth := *imported.Growth
+				if growth.FormRecord != nil {
+					record := *growth.FormRecord
+					growth.FormRecord = &record
+				}
 				state.Growth = &growth
 			}
 			if imported.Album != nil {

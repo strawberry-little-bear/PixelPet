@@ -51,7 +51,7 @@ func TestCareEffectExcludesElapsedTimeAndSurvivesIdempotentReplay(t *testing.T) 
 	if err = s.db.QueryRow("SELECT body FROM saves WHERE id=1").Scan(&saved); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(saved, "\"effect\"") || read.State.Schema != 11 {
+	if strings.Contains(saved, "\"effect\"") || read.State.Schema != game.Schema {
 		t.Fatal("response receipt leaked into portable save/schema")
 	}
 }
