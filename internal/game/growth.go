@@ -126,6 +126,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		// only on future real events; never backfill scenery from old collections.
 		s.Schema = 13
 	}
+	if s.Schema == 13 {
+		// Past discoveries do not prove an encounter. Keep history unchanged;
+		// only future successful catches/discovery points can record one.
+		s.Schema = 14
+	}
 	return true
 }
 

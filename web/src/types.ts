@@ -162,6 +162,7 @@ export type Memory = {
   score?: number;
   days?: number;
   item?: string;
+  outingId?: string;
 };
 export type Album = { since: number; legacy: boolean; entries: Memory[] };
 

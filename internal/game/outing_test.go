@@ -91,10 +91,10 @@ func TestOutingUpgradeDoesNotBackfill(t *testing.T) {
 	s.Album.Entries = entries
 	s.Schema = 12
 	before := copyState(s)
-	if !s.Upgrade(now) || s.Schema != 13 {
+	if !s.Upgrade(now) || s.Schema != Schema {
 		t.Fatal("missing schema upgrade")
 	}
-	before.Schema = 13
+	before.Schema = Schema
 	if !reflect.DeepEqual(before, s) || len(outingMemories(s)) != 0 || s.Upgrade(now) {
 		t.Fatal("migration fabricated or changed history")
 	}

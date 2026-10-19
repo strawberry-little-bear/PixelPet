@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 13
+const Schema = 14
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 

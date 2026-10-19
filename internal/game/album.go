@@ -11,13 +11,14 @@ type Album struct {
 }
 
 type Memory struct {
-	Kind   string `json:"kind"`
-	At     int64  `json:"at"`
-	Source string `json:"source"` // shared, saved, or elapsed
-	Form   string `json:"form,omitempty"`
-	Score  int    `json:"score,omitempty"`
-	Days   int    `json:"days,omitempty"`
-	Item   string `json:"item,omitempty"`
+	Kind     string `json:"kind"`
+	At       int64  `json:"at"`
+	Source   string `json:"source"` // shared, saved, or elapsed
+	Form     string `json:"form,omitempty"`
+	Score    int    `json:"score,omitempty"`
+	Days     int    `json:"days,omitempty"`
+	Item     string `json:"item,omitempty"`
+	OutingID string `json:"outingId,omitempty"` // encounter provenance only, never a client weather claim
 }
 
 var albumDays = [...]int{1, 7, 30, 100, 365, 1000}
@@ -77,6 +78,9 @@ func (s State) validAlbum(now time.Time) bool {
 	if s.Schema >= 13 {
 		limit += 6
 	}
+	if s.Schema >= 14 {
+		limit += 2
+	}
 	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > limit {
 		return false
 	}
@@ -101,6 +105,9 @@ func (s State) validAlbum(now time.Time) bool {
 				return false
 			}
 		} else if m.Source != "elapsed" || m.Kind != "days" {
+			return false
+		}
+		if m.OutingID != "" && m.Kind != "encounter-fishing-stars" && m.Kind != "encounter-walk-kite" {
 			return false
 		}
 		if m.Kind != "outfit" && m.Kind != "decoration" && m.Kind != "wallpaper" && m.Kind != "floor" && m.Item != "" {

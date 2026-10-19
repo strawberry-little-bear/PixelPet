@@ -67,7 +67,8 @@ function validAlbum(value: unknown): boolean {
       timestamp(memory.at) && ["shared", "saved", "elapsed"].includes(memory.source as string) &&
       (memory.form === undefined || ["", "balanced", "lively", "gentle", "easygoing"].includes(memory.form as string)) &&
       (memory.score === undefined || count(memory.score)) && (memory.days === undefined || count(memory.days)) &&
-      (memory.item === undefined || typeof memory.item === "string")))));
+      (memory.item === undefined || typeof memory.item === "string") &&
+      (memory.outingId === undefined || typeof memory.outingId === "string")))));
 }
 
 // Feedback is optional on old servers. If provided, its base fields are used

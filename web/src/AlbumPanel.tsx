@@ -23,6 +23,7 @@ const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
   outfit: "home", decoration: "home", wallpaper: "home", floor: "home",
   days: "days",
   "scenery-fishing-clear": "scenery", "scenery-fishing-cloud": "scenery", "scenery-fishing-rain": "scenery",
+  "encounter-fishing-stars": "scenery", "encounter-walk-kite": "scenery",
   "scenery-walk-clear": "scenery", "scenery-walk-cloud": "scenery", "scenery-walk-rain": "scenery",
 };
 // Filter/sort copies: browsing never edits or reorders the saved event array.

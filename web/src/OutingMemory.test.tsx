@@ -8,7 +8,7 @@ import type { Memory, PetState } from './types';
 import { emptyGrowth } from './growth';
 afterEach(cleanup);
 const at = Date.UTC(2026, 9, 19);
-const pet = (): PetState => ({ schema: 13, revision: 1, species: 2, name: '手记伙伴', createdAt: at-1000, hatchedAt: at-1000,
+const pet = (): PetState => ({ schema: 14, revision: 1, species: 2, name: '手记伙伴', createdAt: at-1000, hatchedAt: at-1000,
   lastTick: at, sleeping: false, needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [], growth: emptyGrowth('baby'),
   album: { since: at-1000, legacy: false, entries: [] } });
 it.each(Object.keys(outingMemoryWords) as (keyof typeof outingMemoryWords)[])('reads saved %s without inventing another card or write control', kind => {

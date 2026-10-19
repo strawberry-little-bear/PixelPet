@@ -118,3 +118,18 @@ it.each(kinds)("%s shortcut can explain a server without album data and return s
   expect(panel().textContent).toContain("请更新服务"); await key("c");
   expect(pause(kind)).toBeTruthy(); expect(saved.album).toBeUndefined(); expect(writes()).toHaveLength(0);
 });
+it.each(kinds)("reads a saved %s encounter from pause without starting or rewarding play", async kind => {
+  await mount(kind); saved.schema = 14;
+  const entry = kind === "fishing"
+    ? { kind: "encounter-fishing-stars" as const, outingId: "00002400000000000000000000000001" }
+    : { kind: "encounter-walk-kite" as const, outingId: "00001800000000000000000000000001" };
+  saved.album!.entries.push({ ...entry, at: Date.now() - 1000, source: "shared" });
+  await refresh(); const before = structuredClone(saved);
+  await open(); for (let i = 0; i < 3; i++) await key("b");
+  expect(panel().dataset.albumKind).toBe(entry.kind); expect(panel().textContent).toContain("偶遇");
+  await refresh(); expect(panel().dataset.albumKind).toBe(entry.kind);
+  await key("c"); expect(pause(kind)).toBeTruthy(); await clock(17000);
+  before.revision = saved.revision; expect(saved).toEqual(before); expect(writes()).toHaveLength(0);
+  expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+  expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();
+});
