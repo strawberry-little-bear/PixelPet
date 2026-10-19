@@ -1,3 +1,4 @@
+import { needMeterAttributes, needMeterDescriptionId } from "./needMeter";
 import { PetCareGuide } from "./PetCareGuide";
 import { ButtonAudio } from "./buttonAudio";
 import { purchaseMatches, selectedShopIndex, type PurchaseQuote } from "./shopBrowsing";
@@ -1632,6 +1633,7 @@ export default function App() {
         onChange={(e) => void importFile(e.target.files?.[0])}
       />
       <main>
+        <p className="sr-only" id={needMeterDescriptionId}>最近读取的需求，范围 0–100，越高越舒适；显示的整数可能经过四舍五入，不是随本地时钟变化的预测。</p>
         <section className="intro">
           <div className="eyebrow">
             <span className="tiny-star">✳</span> SMALL PIXELS, BIG FEELINGS
@@ -1940,7 +1942,7 @@ export default function App() {
                               </div>
                             </div>
                             {needs.map((n) => (
-                              <div className="lcd-meter" key={n.key}>
+                              <div className="lcd-meter" key={n.key} {...needMeterAttributes(n.label, pet.needs[n.key])}>
                                 <span>{n.label}</span>
                                 <div>
                                   <i
@@ -2106,7 +2108,7 @@ export default function App() {
                 {needs.map((n) => {
                   const Icon = n.icon;
                   return (
-                    <div className={`outside-meter ${n.color}`} key={n.key}>
+                    <div className={`outside-meter ${n.color}`} key={n.key} {...needMeterAttributes(n.label, pet.needs[n.key])}>
                       <div>
                         <Icon size={13} />
                         <span>{n.label}</span>
