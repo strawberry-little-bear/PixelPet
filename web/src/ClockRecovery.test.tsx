@@ -50,6 +50,7 @@ describe("service clock recovery", () => {
     await click(/存档盒/);
     for (const name of ["导入备份", "重新开始"]) expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByRole("link", { name: "导出存档" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "导出存档" })).toBeNull();
     await file(); await key("b");
     expect(writes()).toHaveLength(0);
     expect(document.querySelector(".import-preview")).toBeNull();

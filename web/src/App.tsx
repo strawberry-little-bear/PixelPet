@@ -1,3 +1,4 @@
+import { useBackupExport } from "./useBackupExport";
 import { needMeterAttributes, needMeterDescriptionId } from "./needMeter";
 import { PetCareGuide } from "./PetCareGuide";
 import { ButtonAudio } from "./buttonAudio";
@@ -178,6 +179,7 @@ export default function App() {
   const [corrupt, setCorrupt] = useState(false);
   const corruptRef = useRef(false);
   const [uncertain, setUncertain] = useState(false);
+  const backupExport = useBackupExport(!!pet && !busy && !uncertain && !unavailable && !clockAhead && !corrupt);
   const [refusedChange, setRefusedChange] = useState<"save" | "game" | "sleep" | null>(null);
   const refusedChangeRef = useRef<"save" | "game" | "sleep" | null>(null);
   const [checking, setChecking] = useState(false);
@@ -1408,7 +1410,7 @@ export default function App() {
   async function importFile(file?: File) {
     // Clearing the input immediately also permits selecting the same file again.
     if (fileRef.current) fileRef.current.value = "";
-    if (!file || busyRef.current || uncertainRef.current || unavailableRef.current || (!pet && !corruptRef.current)) return;
+    if (!file || backupExport.pending || busyRef.current || uncertainRef.current || unavailableRef.current || (!pet && !corruptRef.current)) return;
     if (page !== "import-preview") importReturn.current = { page, gameId: sessionKey };
     const sequence = ++importSequence.current;
     const pending: PendingImport = { fileName: file.name };
@@ -1435,7 +1437,7 @@ export default function App() {
   }
   async function confirmImport() {
     const pending = pendingImportRef.current;
-    if (!pending?.backup || busyRef.current || uncertainRef.current || unavailableRef.current) return;
+    if (!pending?.backup || backupExport.pending || busyRef.current || uncertainRef.current || unavailableRef.current) return;
     syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
@@ -1466,7 +1468,7 @@ export default function App() {
     }
   }
   async function restart() {
-    if (busyRef.current || uncertainRef.current || unavailableRef.current) return;
+    if (backupExport.pending || busyRef.current || uncertainRef.current || unavailableRef.current) return;
     syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
@@ -1625,19 +1627,21 @@ export default function App() {
             {tools && (
               <div className="tools-menu">
                 <p>装好每一次小小的成长</p>
-                {clockAhead ? <p>先校准运行 Go 服务的电脑时间，再按 B 检查；暂不导出或替换存档。</p> : corrupt ? <p>当前存档无法正常导出；修复前会保留原始内容快照。</p> : <a href="/api/backup" download onClick={() => setTools(false)}>
+                {clockAhead ? <p>先校准运行 Go 服务的电脑时间，再按 B 检查；暂不导出或替换存档。</p> : corrupt ? <p>当前存档无法正常导出；修复前会保留原始内容快照。</p> : <button disabled={backupExport.pending || busy || uncertain || unavailable || !pet} onClick={() => void backupExport.download()} aria-busy={backupExport.pending}>
                   <ArrowDownToLine size={16} />
                   导出存档
-                </a>}
+                </button>}
+                {backupExport.feedback && <p className="export-feedback" role={backupExport.feedback.error ? "alert" : "status"}>{backupExport.feedback.text}</p>}
+                {backupExport.pending && <p role="status">正在读取备份，请稍候…</p>}
                 <button
-                  disabled={busy || uncertain || unavailable || (!pet && !corrupt)}
+                  disabled={backupExport.pending || busy || uncertain || unavailable || (!pet && !corrupt)}
                   onClick={() => fileRef.current?.click()}
                 >
                   <ArrowUpFromLine size={16} />
                   导入备份
                 </button>
                 <button
-                  disabled={busy || uncertain || unavailable || (!pet && !corrupt)}
+                  disabled={backupExport.pending || busy || uncertain || unavailable || (!pet && !corrupt)}
                   className="reset-link"
                   onClick={(event) => {
                     modalReturnFocus.current = event.currentTarget.closest(".tools-wrap")?.querySelector<HTMLButtonElement>(".backup-button") || null;
@@ -2281,12 +2285,16 @@ export default function App() {
                 <p>
                   {corrupt ? "重新开始会用一颗新蛋替换无法读取的存档。也可以取消并导入已有备份；原始内容会保留为恢复快照。" : "重新开始会替换当前宠物。建议先导出备份，留住这段小小的陪伴。"}
                 </p>
-                {!corrupt && <a className="modal-export" href="/api/backup" download>
-                  <ArrowDownToLine size={16} />
-                  先导出当前存档
-                </a>}
+                {!corrupt && !clockAhead && <>
+                  <button className="modal-export" disabled={backupExport.pending || busy || uncertain || unavailable || !pet} onClick={() => void backupExport.download()} aria-busy={backupExport.pending}>
+                    <ArrowDownToLine size={16} />
+                    先导出当前存档
+                  </button>
+                  {backupExport.pending && <p role="status">正在读取备份，请稍候…</p>}
+                  {backupExport.feedback && <p className="export-feedback" role={backupExport.feedback.error ? "alert" : "status"}>{backupExport.feedback.text}</p>}
+                </>}
                 <button
-                  disabled={busy || uncertain || unavailable || (!pet && !corrupt)}
+                  disabled={backupExport.pending || busy || uncertain || unavailable || (!pet && !corrupt)}
                   className="confirm-reset"
                   onClick={() => void restart()}
                 >

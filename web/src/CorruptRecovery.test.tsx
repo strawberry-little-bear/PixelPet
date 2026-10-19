@@ -57,6 +57,7 @@ describe("explicit repair of a diagnosed corrupt saved state", () => {
     expect((screen.getByRole("button", { name: "导入备份" }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole("button", { name: "重新开始" }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByRole("link", { name: "导出存档" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "导出存档" })).toBeNull();
     expect(screen.getByText(/当前存档无法正常导出/)).toBeTruthy();
     await advance();
     expect(document.querySelector(".tools-menu")).toBeTruthy();

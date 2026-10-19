@@ -1983,3 +1983,8 @@ footer i {
     transition: none !important;
   }
 }
+
+.modal-export { width:100%; background:transparent; }
+.export-feedback { overflow-wrap:anywhere; }
+.tools-menu .export-feedback[role="alert"], .modal .export-feedback[role="alert"] { color:#8b3b2e; }
+@media (forced-colors:active) { .tools-menu .export-feedback, .modal .export-feedback { color:CanvasText; } }
