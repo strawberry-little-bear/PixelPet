@@ -9,7 +9,7 @@ export const fishCatalog = [
   { id: "pebble-goby", name: "石斑虾虎", spots: [2], color: "#9b8d68", shape: "spotted", story: "在圆圆的石头旁，发现了圆圆的小邻居。" },
 ] as const;
 export const fishInfo = (id?: string) => fishCatalog.find(f => f.id === id);
-export const fishingMenu = ["继续钓鱼", "看看鱼图鉴", "放弃本局", "风景手记"];
+export const fishingMenu = ["继续钓鱼", "看看鱼图鉴", "放弃本局", "风景手记", "玩法说明"];
 // Different real limb groups take part; birds/fins use a rod rest rather than
 // inventing hands. The matching CSS animates their own anatomy, not an overlay arm.
 export const fishingCompanions = [

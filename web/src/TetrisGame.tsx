@@ -10,7 +10,7 @@ const shapes = [
   [[1, 0], [0, 1], [1, 1], [2, 1]], [[1, 0], [2, 0], [0, 1], [1, 1]],
   [[0, 0], [1, 0], [1, 1], [2, 1]], [[0, 0], [0, 1], [1, 1], [2, 1]], [[2, 0], [0, 1], [1, 1], [2, 1]],
 ];
-export const tetrisOptions = ["继续拼搭", "顺时针旋转", "落到底", "放弃本局"];
+export const tetrisOptions = ["继续拼搭", "顺时针旋转", "落到底", "放弃本局", "玩法说明"];
 export function blockCells(p: Falling) {
   let cells = shapes[p.kind - 1].map(([x, y]) => [x, y]);
   for (let r = 0;r < (p.kind === 2 ? 0 : p.rotation);r++) {

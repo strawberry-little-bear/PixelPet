@@ -29,9 +29,9 @@ export function ArcadePanel({ choice, economy, shop, now }: {
   </section>;
 }
 
-export function GameGuide({ game, page, review = false }: { game: GameInfo; page: number; review?: boolean; }) {
+export function GameGuide({ game, page, review = false, paused = false }: { game: GameInfo; page: number; review?: boolean; paused?: boolean; }) {
   const seen = guideSeen(game.id);
-  if (seen && !review) return <section className="game-guide game-quick-start" aria-label={`${game.title}开始准备`} data-guide={game.id}>
+  if (seen && !review && !paused) return <section className="game-guide game-quick-start" aria-label={`${game.title}开始准备`} data-guide={game.id}>
     <header>准备再玩 · {game.title}</header>
     <strong>{game.summary} · {game.duration}</strong>
     <p>{game.controls}</p>
@@ -40,7 +40,7 @@ export function GameGuide({ game, page, review = false }: { game: GameInfo; page
     <small>A 重看规则 · B 开始 · C 返回选游戏</small>
   </section>;
   return <section className="game-guide" aria-label={`${game.title}玩法说明`} data-guide={game.id}>
-    <header>{seen ? "再看玩法" : "第一次一起玩"} · {game.title}<small>{page + 1} / 2</small></header>
+    <header>{paused ? "本局玩法" : seen ? "再看玩法" : "第一次一起玩"} · {game.title}<small>{page + 1} / 2</small></header>
     <strong>{page === 0 ? game.controls : "暂停、离开与奖励"}</strong>
     <ul className="guide-steps">
       {(page === 0 ? game.lesson : game.leaving).split("。").filter(Boolean).map(step =>
@@ -48,7 +48,8 @@ export function GameGuide({ game, page, review = false }: { game: GameInfo; page
       )}
     </ul>
     <p className="guide-reward">{page === 0 ? game.duration : game.reward}</p>
-    <small>A 翻页 · B {seen ? "开始" : "跳过说明，开始"} · C 返回选游戏</small>
+    {paused && <p className="guide-paused-note">只读本局规则；返回仍保持暂停，按暂停画面提示手动继续。</p>}
+    <small>{paused ? "A / B 翻页 · C 返回暂停" : `A 翻页 · B ${seen ? "开始" : "跳过说明，开始"} · C 返回选游戏`}</small>
   </section>;
 }
 

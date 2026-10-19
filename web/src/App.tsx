@@ -16,7 +16,7 @@ import { completedExperience, experienceWords } from "./companion";
 import type { GameExperience } from "./types";
 import { FishingGame, FishAlbum } from "./FishingGame";
 import { fishCatalog, fishingMenu } from "./fishing";
-import { TetrisGame } from "./TetrisGame";
+import { TetrisGame, tetrisOptions } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
 import { TileGame, nextTile } from "./TileGame";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
@@ -92,6 +92,7 @@ type Page =
   | "game"
   | "arcade"
   | "game-guide"
+  | "pause-guide"
   | "growth"
   | "return"
   | "album"
@@ -222,8 +223,11 @@ export default function App() {
   const [arcadeChoice, setArcadeChoice] = useState(0);
   const [guidePage, setGuidePage] = useState(0);
   const [guideReview, setGuideReview] = useState(false);
+  // A current-session reader, never a start card. Its B only turns a page.
+  const [pauseGuideSession, setPauseGuideSession] = useState<string | null>(null);
   const [abandonGame, setAbandonGame] = useState<string | null>(null);
   const sessionKey = gameSessionKey(pet?.game);
+  const pauseGuide = pauseGuideSession === sessionKey ? games.find(game => game.id === pet?.game?.kind) : undefined;
   const abandoning = page === "game" && abandonGame !== null && abandonGame === sessionKey;
   useEffect(() => { setAbandonGame(null); }, [sessionKey]);
   const [fishingSession, setFishingSession] = useState("");
@@ -505,6 +509,7 @@ export default function App() {
     }
     if (recovering || repairing || clockBlocked || replaced || gameChanged) {
       setAlbumReturnSession(null);
+      setPauseGuideSession(null);
       discardImport();
       uncertainRef.current = false;
       setUncertain(false);
@@ -1080,6 +1085,13 @@ export default function App() {
     };
   }, []);
 
+  const openPauseGuide = () => {
+    // Invalidate local run permission and any late automatic callback. Merely
+    // reading does not persist a pause, step, reward or tutorial preference.
+    boardEpoch.current++; fishingEpoch.current++; walkEpoch.current++;
+    setTetrisSession(""); setFishingSession(""); setWalkSession("");
+    setPauseGuideSession(sessionKey); setGuidePage(0); setPage("pause-guide");
+  };
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
     if (busyRef.current) return;
@@ -1143,6 +1155,13 @@ export default function App() {
       else { setGuidePage(0); setGuideReview(false); setPage("game-guide"); }
       return;
     }
+    if (page === "pause-guide") {
+      if (key === "C" || !pauseGuide) {
+        setPauseGuideSession(null);
+        setPage(pet.game ? "game" : "home");
+      } else setGuidePage(v => (v + 1) % 2);
+      return;
+    }
     if (page === "game-guide") {
       if (key === "A") {
         if (guideSeen(games[arcadeChoice].id) && !guideReview) { setGuideReview(true); setGuidePage(0); }
@@ -1167,6 +1186,7 @@ export default function App() {
         if(key==="A")setWalkChoice(v=>(v+1)%walkMenu.length);
         else if(key==="C" || walkChoice===0)void act("walk-resume",{step:n.step});
         else if(walkChoice===1){walkEpoch.current++;setWalkSession("");setParkPage(0);setPage("park-album");}
+        else if (walkChoice === 4) openPauseGuide();
         else if (walkChoice === 3) {
           walkEpoch.current++; setWalkSession("");
           setAlbumReturnSession(sessionKey); setAlbumCategory("scenery"); setAlbumCursor(startAlbum()); setPage("album");
@@ -1186,6 +1206,7 @@ export default function App() {
         if (key === "A") setFishingChoice(v => (v + 1) % fishingMenu.length);
         else if (key === "C" || fishingChoice === 0) void act("fish-resume", { step: n.step });
         else if (fishingChoice === 1) { setFishingSession(""); setFishPage(0); setPage("fish-album"); }
+        else if (fishingChoice === 4) openPauseGuide();
         else if (fishingChoice === 3) {
           fishingEpoch.current++; setFishingSession("");
           setAlbumReturnSession(sessionKey); setAlbumCategory("scenery"); setAlbumCursor(startAlbum()); setPage("album");
@@ -1204,7 +1225,8 @@ export default function App() {
       if (n.end) {
         if (key !== "A") void act("tetris-finish", { step: n.step });
       } else if (n.paused || tetrisSession !== pet.game.id) {
-        if (key === "A") setTetrisChoice(v => (v + 1) % 4);
+        if (key === "A") setTetrisChoice(v => (v + 1) % tetrisOptions.length);
+        else if (key === "B" && tetrisChoice === 4) openPauseGuide();
         else {
           const kind = key === "C" ? "tetris-resume" : ["tetris-resume", "tetris-rotate", "tetris-drop", "cancel-play"][tetrisChoice];
           // After a reload the local pause may not yet be persisted. Save it
@@ -1566,7 +1588,7 @@ export default function App() {
   const walkHint=walking?.beat===72?"B / C 收好发现":walking?.paused || walkSession!==pet?.game?.id?"A 选择  B 确认  C 继续":"A 跳跃  B 蹲下  C 暂停";
   const fishing = pet?.game?.fishing;
   const fishingHint = fishing?.phase === "done" ? "B / C 收好发现" : fishing?.paused || (["wait", "bite"].includes(fishing?.phase ?? "") && fishingSession !== pet?.game?.id) ? "A 选择  B 确认  C 继续" : "A 换钓点  B 抛 / 提竿  C 暂停";
-  const gameNavHint = page === "arcade"
+  const gameNavHint = page === "pause-guide" ? "A / B 翻页  C 返回暂停" : page === "arcade"
     ? "A 换游戏  B 进入  C 返回"
     : page === "game-guide"
       ? guideSeen(games[arcadeChoice].id) && !guideReview ? "A 重看规则  B 开始  C 返回选择" : "A 翻页  B 开始  C 返回选择"
@@ -1789,7 +1811,7 @@ export default function App() {
                     <span>
                       {clockAhead ? "CLOCK CHECK" : page === "import-preview" ? "BACKUP PREVIEW" : corrupt ? "SAVE RECOVERY" : page === "choose"
                         ? "HELLO, FRIEND"
-                        : (page === "arcade" || page === "game-guide")
+                        : (page === "arcade" || page === "game-guide" || page === "pause-guide")
                           ? "PLAY TOGETHER"
                           : page === "menu"
                             ? "CARE MENU"
@@ -1860,6 +1882,7 @@ export default function App() {
                             now={now}
                           />
                         )}
+                        {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused />}
                         {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} />}
                         {abandoning && <AbandonGame stars={!pet.game?.kind} fishing={pet.game?.kind === "fishing"} walk={pet.game?.kind === "walk"} />}
                         {page === "shop" && (
