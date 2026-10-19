@@ -10,6 +10,7 @@ import {
   stagePoints,
   growthPageCount,
   formRules,
+  formConditions,
 } from "./growth";
 import { stageLook } from "./stageLooks";
 import { species } from "./types";
@@ -63,6 +64,7 @@ export function GrowthPanel({
   const evidenceCare = record ?? g.care;
   const trackedHours = record?.trackedHours ?? g.trackedHours;
   const wellbeing = record?.wellbeing ?? g.wellbeing;
+  const checks = formConditions({ trackedHours, wellbeing, care: evidenceCare });
   return (
     <div className="growth-panel" data-growth-page={page}>
       {page === 0 ? (
@@ -195,11 +197,19 @@ export function GrowthPanel({
               : "尚无舒适度记录"}
           </small>
           <small className="form-guide-formula">恬静分 =（清洁习惯 + 休息习惯）÷ 2</small>
+          <small className="form-check-note">
+            {record ? "定型时条件核对" : "当前条件核对"}：按未四舍五入的记录核对，依次取首项。
+          </small>
           <ol className="form-rules" aria-label="成年形态判定顺序">
             {formRules.map(({ form: ruleForm, rule }) => (
               <li key={ruleForm} data-rule-form={ruleForm}
-                data-selected={ruleForm === form ? "true" : "false"}>
-                <strong>{formNames[ruleForm]}</strong><span>{rule}</span>
+                data-selected={ruleForm === form ? "true" : "false"}
+                data-condition-met={String(checks.conditions[ruleForm])}>
+                <strong>{formNames[ruleForm]}</strong>
+                <div className="form-rule-detail"><span>{rule}</span>
+                  <small className="form-rule-result">{!checks.conditions[ruleForm]
+                    ? "未满足" : checks.first === ruleForm ? "满足 · 首项" : "满足 · 前项优先"}</small>
+                </div>
               </li>
             ))}
           </ol>

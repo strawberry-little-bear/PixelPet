@@ -432,3 +432,13 @@
 .form-record-time, .form-record-missing, .form-record-care {
   display: block; font-size: 8px; line-height: 1.5; margin: 4px 0;
 }
+
+/* Conditions are text, not color alone: rounded readings are not comparisons. */
+.form-check-note, .form-rule-result {
+  display: block;
+  font-size: 7px;
+  line-height: 12px;
+}
+.form-check-note { margin-top: 3px; color: #4e653b; }
+.form-rule-detail { min-width: 0; }
+.form-rule-result { color: inherit; }

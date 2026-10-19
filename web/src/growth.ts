@@ -51,14 +51,23 @@ export function petGrowth(pet: PetState | null, now: number): Growth {
   }
   return g;
 }
-export function tendency(g: Growth): AdultForm {
-  if (g.form) return g.form;
-  if (g.trackedHours >= 12 && g.wellbeing / g.trackedHours < 0.45 - 1e-9)
-    return "easygoing";
+// The same unrounded predicates drive the provisional form and its explanation.
+// Keep the existing server tolerances and priority; the handbook never decides
+// or overwrites a saved adult form.
+export function formConditions(g: Pick<Growth, "trackedHours" | "wellbeing"> & {
+  care: Pick<Growth["care"], "play" | "clean" | "rest">;
+}): { conditions: Record<AdultForm, boolean>; first: AdultForm } {
   const gentle = (g.care.clean + g.care.rest) / 2;
-  if (g.care.play >= 2 && g.care.play > gentle * 1.5 + 1e-9) return "lively";
-  if (gentle >= 2 - 1e-9 && gentle > g.care.play * 1.5 + 1e-9) return "gentle";
-  return "balanced";
+  const easygoing = g.trackedHours >= 12 && g.wellbeing / g.trackedHours < 0.45 - 1e-9;
+  const lively = g.care.play >= 2 && g.care.play > gentle * 1.5 + 1e-9;
+  const calm = gentle >= 2 - 1e-9 && gentle > g.care.play * 1.5 + 1e-9;
+  return {
+    conditions: { easygoing, lively, gentle: calm, balanced: !easygoing && !lively && !calm },
+    first: easygoing ? "easygoing" : lively ? "lively" : calm ? "gentle" : "balanced",
+  };
+}
+export function tendency(g: Growth): AdultForm {
+  return g.form || formConditions(g).first;
 }
 export function growthProgress(g: Growth) {
   const { points, target } = stagePoints(g);

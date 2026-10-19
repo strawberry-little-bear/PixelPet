@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyGrowth, growthProgress, stagePoints, tendency } from "./growth";
+import { emptyGrowth, growthProgress, stagePoints, tendency, formConditions } from "./growth";
 import type { AdultForm, Growth } from "./types";
 
 describe("growth handbook rules", () => {
@@ -44,5 +44,39 @@ describe("growth handbook rules", () => {
     const g: Growth = { ...emptyGrowth("adult"), points: 72, form, trackedHours: 12, wellbeing: 0 };
     g.care.play = 100;
     expect(tendency(g)).toBe(form);
+  });
+});
+
+
+describe("form condition precision and priority", () => {
+  it.each([
+    [0, 0, 0, 0, "balanced"],
+    [11.99999, .1, 0, 0, "balanced"],
+    [12, .44999, 0, 0, "easygoing"],
+    [12, .45, 0, 0, "balanced"],
+    [12, .45 - 5e-10, 0, 0, "balanced"],
+    [12, .45 - 2e-9, 0, 0, "easygoing"],
+    [12, .8, 1.99999, 0, "balanced"],
+    [12, .8, 2, 0, "lively"],
+    [12, .8, 3, 2, "balanced"],
+    [12, .8, 3 + 5e-10, 2, "balanced"],
+    [12, .8, 3 + 2e-9, 2, "lively"],
+    [12, .8, 0, 1.99999, "balanced"],
+    [12, .8, 0, 2 - 5e-10, "gentle"],
+    [12, .8, 0, 2, "gentle"],
+    [12, .1, 100, 0, "easygoing"],
+  ] as const)("keeps existing rules for hours=%s, comfort=%s, play=%s, calm=%s", (hours, average, play, calm, expected) => {
+    const g = emptyGrowth(); g.trackedHours = hours; g.wellbeing = hours * average;
+    Object.assign(g.care, { play, clean: calm, rest: calm });
+    const before = structuredClone(g), checks = formConditions(g);
+    expect(checks.first).toBe(expected); expect(tendency(g)).toBe(expected);
+    expect(checks.conditions[expected]).toBe(true);
+    expect(checks.conditions.balanced).toBe(!checks.conditions.easygoing && !checks.conditions.lively && !checks.conditions.gentle);
+    expect(g).toEqual(before);
+  });
+  it("reports current predicates without overriding a previously locked form", () => {
+    const g = emptyGrowth("adult"); g.form = "gentle"; g.care.play = 99;
+    expect(formConditions(g).first).toBe("lively");
+    expect(tendency(g)).toBe("gentle");
   });
 });

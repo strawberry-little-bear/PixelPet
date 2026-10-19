@@ -67,3 +67,22 @@ describe("saved adult evidence through A/B/C", () => {
     expect(panel().querySelector('time')).toBeNull(); expect(writes()).toHaveLength(0);
   });
 });
+
+
+describe("unrounded condition reading through three keys", () => {
+  it("updates current conditions on a fresh poll without another action or stage celebration", async () => {
+    const g = emptyGrowth("growing"); g.points = 40; g.trackedHours = 12; g.wellbeing = 12 * .44999;
+    saved.growth = g;
+    await mount(); await open();
+    expect(panel().querySelector('[data-rule-form="easygoing"]')?.textContent).toContain("满足 · 首项");
+    const stale = result();
+    saved.revision++; saved.growth!.wellbeing = 12 * .45001; await poll();
+    expect(panel().textContent).toContain("平均舒适约 45%");
+    expect(panel().querySelector('[data-rule-form="easygoing"]')?.textContent).toContain("未满足");
+    expect(panel().querySelector('[data-rule-form="balanced"]')?.textContent).toContain("满足 · 首项");
+    api.mockResolvedValueOnce(stale); await poll();
+    expect(panel().querySelector('[data-rule-form="easygoing"]')?.textContent).toContain("未满足");
+    await key("c"); expect(document.querySelector(".content-home")).toBeTruthy();
+    expect(document.querySelector(".growth-celebration")).toBeNull(); expect(writes()).toHaveLength(0);
+  });
+});
