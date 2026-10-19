@@ -49,6 +49,8 @@
 .fishing-status { font-size:10px; margin:5px 0 2px; font-weight:bold; }
 .fishing-comment { display:block; font-size:9px; min-height:27px; }
 .fishing-rule { display:block; font-size:8px; }
+/* Reading text may wrap at large font sizes; never overlap the fish grid. */
+.fish-album header { height:auto; min-height:22px; flex-wrap:wrap; gap:4px; }
 .fish-album-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:2px; margin:5px 0; }
 .fish-album-grid > div { height:29px; padding:1px; border:1px dashed #9cab81; }
 .fish-album-grid > .selected { border:1px solid #516c40; background:#9fb68a55; }

@@ -14,10 +14,30 @@ const FishingWindow = 10000
 const fishCountLimit = 9999
 const fishingStepLimit = 1000000
 
-// Each spot has three equally likely species. No bait purchases, real-time
-// rarity, client-reported catches, or offline simulation.
+// Each spot has three common species. In schema15 fictional rainy sessions,
+// each cast has a 1/8 rain-koi chance; the common fish split the remaining 7/8.
+// No real weather/time gate, bait purchases, extra rewards or offline catches.
 var spotFish = [3][3]string{{"reed-minnow", "sun-carp", "ribbon-loach"}, {"sun-carp", "lotus-fish", "moon-perch"}, {"reed-minnow", "moon-perch", "pebble-goby"}}
-var fishIDs = [...]string{"reed-minnow", "sun-carp", "ribbon-loach", "lotus-fish", "moon-perch", "pebble-goby"}
+var fishIDs = [...]string{"reed-minnow", "sun-carp", "ribbon-loach", "lotus-fish", "moon-perch", "pebble-goby", "rain-koi"}
+
+// A deterministic ticket pool keeps the actual crypto/rand draw and the exact
+// probabilities separate. It is evaluated once per cast, never on resume.
+func fishingPool(schema int, gameID string, spot int) []string {
+	if schema < 15 || outingWeatherFor(gameID) != "rain" {
+		return spotFish[spot][:]
+	}
+	pool := make([]string, 0, 24)
+	for _, id := range spotFish[spot] {
+		for i := 0; i < 7; i++ {
+			pool = append(pool, id)
+		}
+	}
+	return append(pool, "rain-koi", "rain-koi", "rain-koi")
+}
+
+func (s State) sessionFish(id string) bool {
+	return knownFish(id, s.Schema) && (id != "rain-koi" || outingWeatherFor(s.Game.ID) == "rain")
+}
 
 type FishDiscovery struct {
 	ID      string `json:"id"`
@@ -148,7 +168,8 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 		if n.Paused || (n.Phase != "ready" && n.Phase != "result") {
 			return "", errors.New("这一竿还在水里呢")
 		}
-		r, err := rand.Int(rand.Reader, big.NewInt(3))
+		pool := fishingPool(s.Schema, s.Game.ID, n.Spot)
+		r, err := rand.Int(rand.Reader, big.NewInt(int64(len(pool))))
 		if err != nil {
 			return "", err
 		}
@@ -156,7 +177,7 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		n.Candidate = spotFish[n.Spot][r.Int64()]
+		n.Candidate = pool[r.Int64()]
 		n.WaitMS = 32000 + int(wait.Int64())*1000
 		n.Casts++
 		n.ElapsedMS = 0
@@ -198,7 +219,10 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 	n.Step = min(fishingStepLimit, n.Step+1)
 	return message, nil
 }
-func knownFish(id string) bool {
+func knownFish(id string, schema int) bool {
+	if id == "rain-koi" && schema < 15 {
+		return false
+	}
 	for _, v := range fishIDs {
 		if v == id {
 			return true
@@ -216,7 +240,7 @@ func (s State) validPond() bool {
 	}
 	seen := map[string]bool{}
 	for _, d := range p.Fish {
-		if !knownFish(d.ID) || seen[d.ID] || s.HatchedAt == 0 || d.FirstAt < max(p.Since, s.HatchedAt) || d.LastAt < d.FirstAt || d.LastAt > s.LastTick || d.Count < 1 || d.Count > fishCountLimit {
+		if !knownFish(d.ID, s.Schema) || seen[d.ID] || s.HatchedAt == 0 || d.FirstAt < max(p.Since, s.HatchedAt) || d.LastAt < d.FirstAt || d.LastAt > s.LastTick || d.Count < 1 || d.Count > fishCountLimit {
 			return false
 		}
 		seen[d.ID] = true
@@ -240,7 +264,7 @@ func (s State) validFishingGame() bool {
 	}
 	counts := map[string]int{}
 	for _, id := range n.Catches {
-		if !knownFish(id) {
+		if !s.sessionFish(id) {
 			return false
 		}
 		counts[id]++
@@ -259,13 +283,13 @@ func (s State) validFishingGame() bool {
 	if n.Phase == "ready" {
 		return n.Casts == 0 && len(n.Catches) == 0 && n.Candidate == "" && n.WaitMS == 0 && n.ElapsedMS == 0 && n.Outcome == "" && n.LastFish == ""
 	}
-	if !knownFish(n.Candidate) || n.WaitMS < 32000 || n.WaitMS > 40000 || n.WaitMS%1000 != 0 || n.Casts < 1 {
+	if !s.sessionFish(n.Candidate) || n.WaitMS < 32000 || n.WaitMS > 40000 || n.WaitMS%1000 != 0 || n.Casts < 1 {
 		return false
 	}
 	switch n.Phase {
 	case "wait", "bite":
 		candidateOK := false
-		for _, id := range spotFish[n.Spot] {
+		for _, id := range fishingPool(s.Schema, g.ID, n.Spot) {
 			candidateOK = candidateOK || id == n.Candidate
 		}
 		limit := n.WaitMS

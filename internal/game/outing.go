@@ -8,6 +8,16 @@ import (
 
 var outingWeather = [...]string{"clear", "cloud", "rain"}
 
+// Session-only fictional weather, shared by collection eligibility and memories.
+// Invalid IDs must never enable a weather-conditioned discovery.
+func outingWeatherFor(id string) string {
+	if !validGameID(id) || id != strings.ToLower(id) {
+		return ""
+	}
+	prefix, _ := strconv.ParseUint(id[:6], 16, 32)
+	return outingWeather[prefix%48%3]
+}
+
 // Match the fictional sky in web/src/outing.ts. Session IDs, not client weather
 // or the real clock, select it. Only a real discovery calls this recorder.
 // Return a notification only for a newly saved encounter, never a read/repeat.
@@ -16,14 +26,11 @@ func (s *State) rememberOuting(now time.Time) string {
 		return ""
 	}
 	id := s.Game.ID
-	if !validGameID(id) || id != strings.ToLower(id) {
+	weather := outingWeatherFor(id)
+	if weather == "" {
 		return ""
 	}
-	prefix, err := strconv.ParseUint(id[:6], 16, 32)
-	if err != nil {
-		return ""
-	}
-	s.sharedMemory("scenery-"+s.Game.Kind+"-"+outingWeather[prefix%48%3], now)
+	s.sharedMemory("scenery-"+s.Game.Kind+"-"+weather, now)
 	if s.Schema >= 14 {
 		if kind := outingEncounter(s.Game.Kind, id); kind != "" {
 			before := len(s.Album.Entries)

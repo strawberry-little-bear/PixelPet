@@ -108,7 +108,7 @@ func TestEncountersUpgradeDoesNotBackfill(t *testing.T) {
 				t.Fatal("legacy session recorded encounter")
 			}
 			before := copyState(s)
-			before.Schema = 14
+			before.Schema = Schema
 			if !s.Upgrade(now) || !reflect.DeepEqual(before, s) || s.Upgrade(now) {
 				t.Fatal("upgrade changed history")
 			}

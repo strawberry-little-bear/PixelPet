@@ -17,7 +17,7 @@ import { parkCatalog, walkMenu } from "./walk";
 import { completedExperience, experienceWords } from "./companion";
 import type { GameExperience } from "./types";
 import { FishingGame, FishAlbum } from "./FishingGame";
-import { fishCatalog, fishingMenu } from "./fishing";
+import { fishCatalogFor, fishingMenu } from "./fishing";
 import { TetrisGame, tetrisOptions } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
 import { TileGame, nextTile } from "./TileGame";
@@ -1174,7 +1174,7 @@ export default function App() {
     }
     if (page === "fish-album") {
       if (key === "C") { setPage(pet.game?.kind === "fishing" ? "game" : "home"); setFishingChoice(0); }
-      else setFishPage(v => (v + 1) % fishCatalog.length);
+      else setFishPage(v => (v + 1) % fishCatalogFor(pet).length);
       return;
     }
     if (page === "arcade") {

@@ -131,6 +131,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		// only future successful catches/discovery points can record one.
 		s.Schema = 14
 	}
+	if s.Schema == 14 {
+		// Enable a new catalogue entry without rerolling existing casts or
+		// fabricating past discoveries, scenery, care or reward history.
+		s.Schema = 15
+	}
 	return true
 }
 

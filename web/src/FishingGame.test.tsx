@@ -107,7 +107,7 @@ describe("actual discoveries and anatomical companions", () => {
     saved.pond!.fish = [{ id: "reed-minnow", count: 2, firstAt: Date.parse("2026-10-18T08:00:00Z"), lastAt: Date.now() }]; render(<FishAlbum pet={saved} page={0} />); expect(screen.getByText("青苇小鲦")).toBeTruthy(); expect(screen.getByText(/2026\/10\/18.*2 次/)).toBeTruthy(); expect(document.querySelectorAll(".fish-album text")).toHaveLength(5);
   });
   it.each(fishCatalog)("renders a distinct $shape fish shape", fish => {
-    saved.pond!.fish = [{ id: fish.id, count: 1, firstAt: Date.now(), lastAt: Date.now() }]; render(<FishAlbum pet={saved} page={fishCatalog.indexOf(fish)} />); expect(screen.getByText(fish.name)).toBeTruthy(); expect(document.querySelector(`.fish-${fish.shape}`)).toBeTruthy();
+    saved.schema = 15; saved.pond!.fish = [{ id: fish.id, count: 1, firstAt: Date.now(), lastAt: Date.now() }]; render(<FishAlbum pet={saved} page={fishCatalog.indexOf(fish)} />); expect(screen.getByText(fish.name)).toBeTruthy(); expect(document.querySelector(`.fish-${fish.shape}`)).toBeTruthy();
   });
   it.each(fishingCompanions.flatMap((companion, index) => ["baby", "growing", "adult"].map(stage => ({ companion, index, stage }))))("uses $companion.rig own $stage anatomy and handling method", ({ companion, index, stage }) => {
     saved.species = index; saved.growth!.stage = stage as "baby" | "growing" | "adult"; saved.game!.fishing!.phase = "wait"; render(<FishingGame pet={saved} active choice={0} />);
@@ -166,5 +166,57 @@ describe("quiet waiting feedback without false bites", () => {
     pet.game!.fishing!.candidate = before.game!.fishing!.candidate; pet.game!.fishing!.waitMs = before.game!.fishing!.waitMs;
     expect(pet).toEqual(before); expect(api).not.toHaveBeenCalled();
     expect(document.querySelectorAll('.fishing-game button,.fishing-game a,.fishing-game input')).toHaveLength(0);
+  });
+});
+
+describe("rain fish catalogue compatibility", () => {
+  it.each([8, 14, 15])("wraps the schema %i catalogue with A/B and returns to the unchanged pause", async schema => {
+    saved.schema = schema; saved.game!.fishing!.paused = true;
+    await mount(); await key("a"); await key("b");
+    const count = schema >= 15 ? 7 : 6;
+    expect(document.querySelectorAll(".fish-album-grid > div")).toHaveLength(count);
+    expect(screen.getByText(`已发现 0 / ${count}`)).toBeTruthy();
+    for (let i = 1; i < count; i++) await key(i % 2 ? "b" : "a");
+    if (schema >= 15) {
+      expect(screen.getByText(/每竿 1\/8/)).toBeTruthy();
+      expect(screen.getByText(/不看现实天气/)).toBeTruthy();
+      expect(screen.queryByText("雨珠小鲤")).toBeNull();
+    }
+    await key("b");
+    expect(document.querySelector(".fish-album-grid > div:first-child")?.getAttribute("aria-current")).toBe("true");
+    await key("c"); expect(screen.getByText("池塘已暂停")).toBeTruthy();
+    expect(calls()).toHaveLength(0); expect(saved.game!.fishing!.casts).toBe(0);
+  });
+  it.each([false, true])("shows the rain fish only after a saved discovery (%s)", discovered => {
+    saved.schema = 15; saved.game!.fishing!.candidate = "rain-koi";
+    if (discovered) saved.pond!.fish = [{id:"rain-koi",count:2,firstAt:Date.now()-1000,lastAt:Date.now()}];
+    render(<FishAlbum pet={saved} page={6} />);
+    expect(screen.queryByText("雨珠小鲤") !== null).toBe(discovered);
+    expect(document.querySelectorAll(".fish-album text")).toHaveLength(discovered ? 6 : 7);
+    expect(screen.getByText(discovered ? /共遇见 2 次/ : "真实钓到以后，才会留下模样和发现日期。")).toBeTruthy();
+    expect(screen.getByText(/每竿 1\/8/)).toBeTruthy();
+    expect(document.querySelectorAll(".fish-album button,.fish-album a,.fish-album input")).toHaveLength(0);
+    expect(api).not.toHaveBeenCalled();
+  });
+  it("keeps a selected entry highlighted if an old server replaces a newer state", () => {
+    saved.schema=14; render(<FishAlbum pet={saved} page={6} />);
+    expect(document.querySelector(".fish-album-grid > div:first-child")?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelectorAll('.fish-album-grid > div')).toHaveLength(6);
+    expect(screen.queryByText(/每竿 1\/8/)).toBeNull();
+  });
+  it.each(["wait", "bite"])("never reveals the rain candidate in %s", phase => {
+    saved.schema=15; Object.assign(saved.game!.fishing!, {phase,candidate:"rain-koi",casts:1});
+    render(<FishingGame pet={saved} active choice={0} />);
+    expect(screen.queryByText(/雨珠小鲤/)).toBeNull();
+    expect(document.querySelector(".fishing-catch")).toBeNull();
+  });
+  it("uses ordinary completion copy and saved first-discovery feedback for a caught rain fish", () => {
+    saved.schema=15;
+    Object.assign(saved.game!.fishing!, {phase:"result",candidate:"rain-koi",lastFish:"rain-koi",catches:["rain-koi"],outcome:"caught",casts:1});
+    saved.pond!.fish=[{id:"rain-koi",count:1,firstAt:Date.now(),lastAt:Date.now()}];
+    render(<FishingGame pet={saved} active choice={0} />);
+    expect(screen.getByText("雨珠小鲤！初次发现，已记入图鉴。")).toBeTruthy();
+    expect(document.querySelector(".fishing-catch .fish-rain")).toBeTruthy();
+    expect(api).not.toHaveBeenCalled();
   });
 });
