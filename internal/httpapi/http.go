@@ -15,6 +15,12 @@ import (
 )
 
 func Handler(db *store.Store, web string) http.Handler {
+	return handlerWithClock(db, web, time.Now)
+}
+
+// The private clock seam allows complete HTTP journeys without changing saved
+// growth/history or exposing clock controls to clients. Production uses time.Now.
+func handlerWithClock(db *store.Store, web string, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
 	write := func(w http.ResponseWriter, result store.Result, err error) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -66,7 +72,7 @@ func Handler(db *store.Store, web string) http.Handler {
 		return true
 	}
 	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, r *http.Request) {
-		result, err := db.Do(nil, nil, false, time.Now())
+		result, err := db.Do(nil, nil, false, now())
 		write(w, result, err)
 	})
 	mux.HandleFunc("POST /api/visit", func(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +80,7 @@ func Handler(db *store.Store, web string) http.Handler {
 		if !decode(w, r, &visit) {
 			return
 		}
-		result, err := db.Visit(time.Now())
+		result, err := db.Visit(now())
 		write(w, result, err)
 	})
 	mux.HandleFunc("POST /api/recap/read", func(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +94,7 @@ func Handler(db *store.Store, web string) http.Handler {
 			http.Error(w, "无效的小结编号", 400)
 			return
 		}
-		result, err := db.ReadRecapForGeneration(receipt.ID, time.Now(), r.Header.Get("X-PixelPet-Generation"))
+		result, err := db.ReadRecapForGeneration(receipt.ID, now(), r.Header.Get("X-PixelPet-Generation"))
 		write(w, result, err)
 	})
 	mux.HandleFunc("POST /api/action", func(w http.ResponseWriter, r *http.Request) {
@@ -114,11 +120,11 @@ func Handler(db *store.Store, web string) http.Handler {
 			http.Error(w, "请求编号过长", 400)
 			return
 		}
-		result, err := db.DoForGeneration(&a, nil, false, time.Now(), r.Header.Get("X-PixelPet-Generation"))
+		result, err := db.DoForGeneration(&a, nil, false, now(), r.Header.Get("X-PixelPet-Generation"))
 		write(w, result, err)
 	})
 	mux.HandleFunc("GET /api/backup", func(w http.ResponseWriter, r *http.Request) {
-		result, err := db.Do(nil, nil, false, time.Now())
+		result, err := db.Do(nil, nil, false, now())
 		if err != nil {
 			write(w, result, err)
 			return
@@ -133,7 +139,7 @@ func Handler(db *store.Store, web string) http.Handler {
 		if !decode(w, r, &state) {
 			return
 		}
-		result, err := db.DoForGeneration(nil, &state, false, time.Now(), r.Header.Get("X-PixelPet-Generation"))
+		result, err := db.DoForGeneration(nil, &state, false, now(), r.Header.Get("X-PixelPet-Generation"))
 		write(w, result, err)
 	})
 	mux.HandleFunc("POST /api/reset", func(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +153,7 @@ func Handler(db *store.Store, web string) http.Handler {
 			http.Error(w, "需要确认重新开始", 400)
 			return
 		}
-		result, err := db.DoForGeneration(nil, nil, true, time.Now(), r.Header.Get("X-PixelPet-Generation"))
+		result, err := db.DoForGeneration(nil, nil, true, now(), r.Header.Get("X-PixelPet-Generation"))
 		write(w, result, err)
 	})
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "API not found", 404) })
