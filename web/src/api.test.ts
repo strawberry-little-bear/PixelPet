@@ -145,3 +145,24 @@ describe("unfinished-game cancellation conflict", () => {
     await expect(request("action", { kind: "cancel-play" })).rejects.toMatchObject({ code: undefined, outcome: "rejected" });
   });
 });
+
+describe("sleep-state transport precondition", () => {
+ it.each([false,true])("sends %s with the save guard without changing action JSON", async expectedSleeping => {
+  const action={kind:"sleep",requestId:"bedtime"},generation="a".repeat(32);
+  respond(new Response(JSON.stringify(result)));await request("action",action,generation,expectedSleeping);
+  expect(fetch).toHaveBeenCalledWith("/api/action",expect.objectContaining({body:JSON.stringify(action),headers:{"Content-Type":"application/json","X-PixelPet-Generation":generation,"X-PixelPet-Sleep-If":expectedSleeping?"sleeping":"awake"}}));
+ });
+ it("keeps unguarded legacy callers unchanged", async () => {
+  respond(new Response(JSON.stringify(result)));await request("action",{kind:"sleep"});
+  const headers=(vi.mocked(fetch).mock.calls[0][1] as RequestInit).headers;
+  expect(headers).not.toHaveProperty("X-PixelPet-Sleep-If");
+ });
+ it("classifies a sleep conflict as known refusal, without retry", async () => {
+  respond(new Response(JSON.stringify({code:"sleep_changed",error:"changed"}),{status:409}));
+  await expect(request("action",{kind:"sleep"},undefined,false)).rejects.toMatchObject({outcome:"rejected",code:"sleep_changed"});expect(fetch).toHaveBeenCalledTimes(1);
+ });
+ it.each([400,500,503])("does not trust sleep conflict diagnosis on HTTP %s", async status => {
+  respond(new Response(JSON.stringify({code:"sleep_changed",error:"changed"}),{status}));
+  await expect(request("action",{kind:"sleep"},undefined,false)).rejects.toMatchObject({code:undefined,outcome:status===400?"rejected":"unknown"});
+ });
+});

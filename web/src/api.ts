@@ -1,7 +1,7 @@
 import type { Result } from "./types";
 import { RequestFailure, validSaveGeneration } from "./requestFailure";
 
-export async function request(path: string, body?: unknown, saveGeneration?: string): Promise<Result> {
+export async function request(path: string, body?: unknown, saveGeneration?: string, expectedSleeping?: boolean): Promise<Result> {
   const writing = body !== undefined;
   let encoded: string | undefined;
   let unfinishedCancel = false;
@@ -17,7 +17,7 @@ export async function request(path: string, body?: unknown, saveGeneration?: str
     const response = await fetch(`/api/${path}`, {
       cache: "no-store",
       ...(writing
-        ? { method: "POST", headers: { "Content-Type": "application/json", ...(saveGeneration ? { "X-PixelPet-Generation": saveGeneration } : {}), ...(unfinishedCancel ? { "X-PixelPet-Cancel-If": "unfinished" } : {}) }, body: encoded }
+        ? { method: "POST", headers: { "Content-Type": "application/json", ...(saveGeneration ? { "X-PixelPet-Generation": saveGeneration } : {}), ...(unfinishedCancel ? { "X-PixelPet-Cancel-If": "unfinished" } : {}), ...(expectedSleeping !== undefined ? { "X-PixelPet-Sleep-If": expectedSleeping ? "sleeping" : "awake" } : {}) }, body: encoded }
         : {}),
       signal: AbortSignal.timeout(10000),
     });
@@ -28,7 +28,7 @@ export async function request(path: string, body?: unknown, saveGeneration?: str
       let generation: string | undefined;
       try {
         const data = JSON.parse(text);
-        if (response.status === 409 && (data?.code === "save_corrupt" || data?.code === "clock_ahead" || data?.code === "save_changed" || data?.code === "game_finished")) code = data.code;
+        if (response.status === 409 && (data?.code === "save_corrupt" || data?.code === "clock_ahead" || data?.code === "save_changed" || data?.code === "game_finished" || data?.code === "sleep_changed")) code = data.code;
         if (code && validSaveGeneration(data?.saveGeneration)) generation = data.saveGeneration;
         if (typeof data?.error === "string" && data.error.trim()) message = data.error;
       } catch { /* Non-JSON error responses are still not successful saves. */ }

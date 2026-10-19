@@ -77,6 +77,9 @@ type State struct {
 // must not remove a terminal result produced by another page.
 var ErrGameFinished = errors.New("本局已经结束，放弃未执行。请先读取本局结果")
 
+// ErrSleepChanged refuses a stale bedtime/wake intent instead of reversing it.
+var ErrSleepChanged = errors.New("睡眠状态已变化，本次入睡或起床未执行。请先读取当前状态")
+
 // AwaitingFinish excludes stars/tiles, which settle and remove their session in
 // the last action. The other four games keep a result for explicit collection.
 func (g *MiniGame) AwaitingFinish() bool {
@@ -109,8 +112,9 @@ type Action struct {
 	Tile      int    `json:"tile,omitempty"`
 	GameID    string `json:"gameId,omitempty"`
 
-	// Transport-only precondition; not part of portable commands or saves.
-	RequireUnfinished bool `json:"-"`
+	// Transport-only preconditions; not part of portable commands or saves.
+	RequireUnfinished bool  `json:"-"`
+	ExpectedSleeping  *bool `json:"-"`
 }
 
 func New(now time.Time) State {
@@ -141,6 +145,9 @@ func (s *State) Advance(now time.Time) bool {
 	return true
 }
 func (s *State) Apply(a Action, now time.Time) (string, error) {
+	if a.ExpectedSleeping != nil && (a.Kind != "sleep" || s.Sleeping != *a.ExpectedSleeping) {
+		return "", ErrSleepChanged
+	}
 	if a.Kind == "hatch" {
 		if s.HatchedAt != 0 {
 			return "", errors.New("小伙伴已经孵化啦")

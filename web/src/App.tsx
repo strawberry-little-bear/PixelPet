@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { petNeed } from "./needs";
 import { request } from "./api";
-import { isClockAhead, isSaveCorrupt, isSaveChanged, isGameFinished, failureGeneration, needsReconciliation } from "./requestFailure";
+import { isClockAhead, isSaveCorrupt, isSaveChanged, isGameFinished, isSleepChanged, failureGeneration, needsReconciliation } from "./requestFailure";
 import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
@@ -175,8 +175,8 @@ export default function App() {
   const [corrupt, setCorrupt] = useState(false);
   const corruptRef = useRef(false);
   const [uncertain, setUncertain] = useState(false);
-  const [refusedChange, setRefusedChange] = useState<"save" | "game" | null>(null);
-  const refusedChangeRef = useRef<"save" | "game" | null>(null);
+  const [refusedChange, setRefusedChange] = useState<"save" | "game" | "sleep" | null>(null);
+  const refusedChangeRef = useRef<"save" | "game" | "sleep" | null>(null);
   const [checking, setChecking] = useState(false);
   const uncertainRef = useRef(false);
   const readInFlight = useRef<number | null>(null);
@@ -429,7 +429,7 @@ export default function App() {
     stopActivity();
     setError("这次操作的结果还未确认，可能已经保存。按 B 核对存档，不会自动重试。");
   }, [stopActivity, discardImport]);
-  const markChangeRejected = useCallback((reason: "save" | "game") => {
+  const markChangeRejected = useCallback((reason: "save" | "game" | "sleep") => {
     markUncertain();
     setRefusedChange(reason);
     refusedChangeRef.current = reason;
@@ -438,7 +438,9 @@ export default function App() {
     setTools(false);
     setPurchaseConfirm(null);
     setAbandonGame(null);
-    setError(reason === "save"
+    setError(reason === "sleep"
+      ? "睡眠状态已在其他页面变化，本次入睡或起床未执行。按 B 读取最新状态，不会自动重试。"
+      : reason === "save"
       ? "存档已在其他页面替换，本次操作未执行。按 B 读取当前存档，不会自动重试。"
       : "本局已在其他页面结束，本次放弃未执行。按 B 读取最新结果，不会自动收好。");
   }, [markUncertain]);
@@ -829,7 +831,7 @@ export default function App() {
     const activeBoardEpoch = boardEpoch.current;
     const echoEpoch = homeEchoEpoch.current;
     try {
-      const r = await request("action", {
+      const body = {
         kind,
         ...((kind === "catch" ||
           kind === "cancel-play" ||
@@ -841,7 +843,10 @@ export default function App() {
           : {}),
         ...extra,
         requestId: crypto.randomUUID(),
-      }, acceptedGeneration.current);
+      };
+      const r = kind === "sleep"
+        ? await request("action", body, acceptedGeneration.current, pet?.sleeping)
+        : await request("action", body, acceptedGeneration.current);
       if (!apply(r)) {
         markUncertain();
         return false;
@@ -909,6 +914,7 @@ export default function App() {
       else if (isSaveCorrupt(e)) markCorrupt(false, failureGeneration(e));
       else if (isSaveChanged(e)) markChangeRejected("save");
       else if (isGameFinished(e)) markChangeRejected("game");
+      else if (isSleepChanged(e)) markChangeRejected("sleep");
       else if (needsReconciliation(e)) markUncertain();
       else setError(e instanceof Error ? e.message : "操作被拒绝，请查看提示。");
       return false;
@@ -1447,7 +1453,9 @@ export default function App() {
     : page === "game-guide"
       ? "A 翻页  B 开始  C 返回选择"
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A / B 翻页  C 返回" : "";
-  const lcdHint = clockAhead ? "B 重新检查 · 不重置存档" : page === "import-preview"
+  const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"
+      : uncertain || unavailable ? checking ? "正在读取 · 不重做操作" : "B 读取存档 · 不重做操作"
+      : page === "import-preview"
       ? busy ? "正在导入…" : pendingImport?.backup ? "A / C 取消  B 确认替换" : "A / C 取消"
       : corrupt ? "B 重新检查 · 存档盒可修复"
       : !pet ? "B 重新连接"
@@ -1697,7 +1705,7 @@ export default function App() {
                       <div className={`save-recovery ${clockAhead ? "clock-recovery" : ""}`} role="status" aria-live="polite">
                         <Cloud size={28} />
                         <h2>{checking ? "正在核对存档" : clockAhead ? "服务时间待校准" : uncertain ? "先核对，再继续" : "小窝暂时未连接"}</h2>
-                        <p>{clockAhead ? "服务时间早于存档时间，先暂停操作；这不表示存档损坏。" : refusedChange === "game" ? "本局已在其他页面结束，本次放弃未执行。" : refusedChange === "save" ? "存档已在其他页面替换，本次操作未执行。" : uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
+                        <p>{clockAhead ? "服务时间早于存档时间，先暂停操作；这不表示存档损坏。" : refusedChange === "sleep" ? "睡眠状态已在其他页面变化，本次入睡或起床未执行。" : refusedChange === "game" ? "本局已在其他页面结束，本次放弃未执行。" : refusedChange === "save" ? "存档已在其他页面替换，本次操作未执行。" : uncertain ? "上次操作可能已经保存，暂不重复提交。" : pet ? "暂时无法读取最新状态，先暂停操作。" : "还没有读到存档，请确认本机服务已启动。"}</p>
                         <p>{checking ? "只读取当前存档，不重做操作。" : clockAhead ? "请校准运行 Go 服务的电脑时间，再按 B 检查。不要重置存档。" : "按 B 重连并查看当前存档。"}</p>
                         <small>{clockAhead && uncertain ? "上次操作结果仍待核对 · 不自动重试" : "游戏不会自动继续 · 不重播成功动作"}</small>
                       </div>

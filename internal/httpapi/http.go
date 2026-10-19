@@ -29,6 +29,10 @@ func Handler(db *store.Store, web string) http.Handler {
 				status = http.StatusConflict
 				body["code"] = "save_changed"
 			}
+			if errors.Is(err, game.ErrSleepChanged) {
+				status = http.StatusConflict
+				body["code"] = "sleep_changed"
+			}
 			if errors.Is(err, game.ErrGameFinished) {
 				status = http.StatusConflict
 				body["code"] = "game_finished"
@@ -98,6 +102,14 @@ func Handler(db *store.Store, web string) http.Handler {
 			return
 		}
 		a.RequireUnfinished = cancelIf == "unfinished"
+		if sleepIf := r.Header.Get("X-PixelPet-Sleep-If"); sleepIf != "" {
+			if a.Kind != "sleep" || (sleepIf != "awake" && sleepIf != "sleeping") {
+				http.Error(w, "无效的睡眠前置条件", http.StatusBadRequest)
+				return
+			}
+			expected := sleepIf == "sleeping"
+			a.ExpectedSleeping = &expected
+		}
 		if len(a.RequestID) > 100 {
 			http.Error(w, "请求编号过长", 400)
 			return
