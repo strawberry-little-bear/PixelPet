@@ -55,3 +55,16 @@ it("clears the confirmed sleep receipt when the save generation changes",async()
  await mount();await wake();expect(summary()).not.toBeNull();generation="b".repeat(32);saved.revision++;await poll();
  expect(summary()).toBeNull();expect(writes()).toHaveLength(1);
 });
+it.each([12,24])("keeps the %s-hour settlement comparison fixed after the browser clock and live state change",async settledHours=>{
+ saved.createdAt=at-26*3600000;saved.hatchedAt=saved.createdAt;
+ saved.sleepSession!.startedAt=at-24*3600000;saved.sleepSession!.settledHours=settledHours;
+ saved.growth!.trackedHours=settledHours;
+ await mount();await wake();
+ expect(summary()?.textContent).toContain("入睡至起床：24.00 小时");
+ expect(summary()?.textContent).toContain(`实际结算：${settledHours.toFixed(2)} 小时`);
+ if(settledHours===12)expect(summary()?.textContent).toContain("未计入结算：12.00 小时");
+ else expect(summary()?.textContent).not.toContain("未计入结算：");
+ const original=summary()?.textContent;
+ vi.setSystemTime(at+72*3600000);saved.revision++;saved.needs.energy=100;await poll();
+ expect(summary()?.textContent).toBe(original);expect(writes()).toHaveLength(1);
+});

@@ -19,6 +19,27 @@ describe("complete recorded sleep receipt", () => {
     expect(screen.getByRole("group",{name:"本次成长与习惯"}).textContent).toContain("本次成长：+0.00");
     expect(group.querySelector("button,a,input,[tabindex]")).toBeNull();
   });
+  it.each([
+    { elapsed: 24, settled: 12, gap: "12.00" },
+    { elapsed: 24, settled: 24, gap: null },
+    { elapsed: 36, settled: 24, gap: "12.00" },
+    { elapsed: 0, settled: 0, gap: null },
+    { elapsed: 1, settled: 1 - 1e-10, gap: null },
+    { elapsed: 1, settled: 1 - .001, gap: "<0.01" },
+  ])("distinguishes recorded elapsed time from settlement without a client clock (%j)", ({ elapsed, settled, gap }) => {
+    render(<CareOutcome feedback={{ ...feedback, sleepSummary: {
+      startedAt: end - elapsed * 3600000, wokeAt: end, settledHours: settled,
+      energyRecovered: 0, restGain: 0, growthPoints: 0,
+    } }} />);
+    const group = screen.getByRole("group", { name: "这次睡眠的实际结算" });
+    expect(group.textContent).toContain(`入睡至起床：${elapsed.toFixed(2)} 小时`);
+    expect(group.textContent).toContain(`实际结算：${settled.toFixed(2)} 小时`);
+    if (gap === null) expect(group.textContent).not.toContain("未计入结算：");
+    else {
+      expect(group.textContent).toContain(`未计入结算：${gap} 小时`);
+      expect(group.textContent).toContain("这部分不会补算，也不是额外损失的体力或成长");
+    }
+  });
   it("does not recompute the receipt from current state or replay time", () => {
     const {rerender}=render(<CareOutcome feedback={feedback}/>);
     const before=screen.getByRole("group",{name:"这次睡眠的实际结算"}).innerHTML;

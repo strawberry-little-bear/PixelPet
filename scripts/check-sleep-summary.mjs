@@ -123,6 +123,40 @@ try {
       } finally { await context.close(); }
     }
   }
+  // Response-shaped fixtures only: these prove the long-duration text/layout,
+  // not natural day-long sleeps. Go controlled-clock tests prove real capping.
+  for (const { width, font } of [{ width: 1200, font: 14 }, { width: 320, font: 28 }]) {
+    for (const settledHours of [12, 24]) {
+      await seed('baby', false);
+      const context = await browser.newContext({ viewport: { width, height: 700 }, hasTouch: true,
+        isMobile: width < 700, reducedMotion: 'reduce', forcedColors: font === 28 ? 'active' : 'none' });
+      const page = await context.newPage(), errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = font + 'px'; }), font);
+      try {
+        await page.goto(base); await page.locator('.home-caption').waitFor(); await sleep(page);
+        await page.route('**/api/action', async route => {
+          const response = await route.fetch(), body = await response.json();
+          if (body.careFeedback?.reason === 'awake') {
+            const wokeAt = body.careFeedback.effect.at;
+            body.careFeedback.sleepSummary = { startedAt: wokeAt - 24 * 3600000, wokeAt,
+              settledHours, energyRecovered: 0, restGain: 0, growthPoints: 0 };
+          }
+          await route.fulfill({ response, json: body });
+        });
+        await sleep(page); await page.locator('.sleep-summary').waitFor();
+        const text = await page.locator('.sleep-summary').textContent();
+        assert(text.includes('入睡至起床：24.00 小时'));
+        assert(text.includes(`实际结算：${settledHours.toFixed(2)} 小时`));
+        assert.equal(text.includes('未计入结算：12.00 小时'), settledHours === 12);
+        await readable(page); await wait(3200);
+        await page.locator('.sleep-summary').screenshot({ path: join(dir, `duration-${width}-${settledHours}.png`) });
+        await page.screenshot({ path: join(dir, `duration-${width}-${settledHours}-viewport.png`) });
+        assert.deepEqual(errors, []);
+        results.push({ kind: 'duration-response-fixture', width, font, elapsedHours: 24, settledHours, passed: true });
+      } finally { await context.close(); }
+    }
+  }
   console.log(JSON.stringify({ dir, results }, null, 2));
 } finally {
   if (browser) await browser.close();

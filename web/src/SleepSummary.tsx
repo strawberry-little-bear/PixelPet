@@ -24,11 +24,18 @@ function recordedSleep(f: CareFeedback): Summary | null {
 export function SleepSummary({ feedback }: { feedback: CareFeedback }) {
   const summary = recordedSleep(feedback);
   if (!summary) return null;
+  // Compare only the acknowledged server endpoints and accumulated settlement.
+  // Reads can split a long sleep into several capped settlements; do not cap
+  // the whole sleep again or use the current browser clock to extend it.
+  const elapsedHours = (summary.wokeAt - summary.startedAt) / 3600000;
+  const unsettledHours = Math.max(0, elapsedHours - summary.settledHours);
   return <div className="care-learning sleep-summary" role="group" aria-label="这次睡眠的实际结算">
     <h3>这次睡眠 · 已确认</h3>
     <span>入睡：<time dateTime={new Date(summary.startedAt).toISOString()}>{localTime(summary.startedAt)}</time></span>
     <span>起床：<time dateTime={new Date(summary.wokeAt).toISOString()}>{localTime(summary.wokeAt)}</time>（本地时间）</span>
+    <span>入睡至起床：{amount(elapsedHours)} 小时</span>
     <span>实际结算：{amount(summary.settledHours)} 小时</span>
+    {unsettledHours > 1e-7 && <p className="sleep-unsettled">未计入结算：{amount(unsettledHours)} 小时。单次结算有上限；这部分不会补算，也不是额外损失的体力或成长。</p>}
     <strong>恢复体力：+{amount(summary.energyRecovered)}</strong>
     <span>休息习惯：+{amount(summary.restGain)}</span>
     <span>睡眠期间成长：+{amount(summary.growthPoints)} 点</span>
