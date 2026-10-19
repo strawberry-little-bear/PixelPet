@@ -16,7 +16,7 @@ export function validCareRules(value: unknown): value is CareRules {
 export function StatusGuide({ pet, rules }: { pet: PetState; rules: CareRules | null }) {
   const rates = rules?.[pet.sleeping ? "sleeping" : "awake"];
   return <section className="status-guide" aria-label="时间与状态说明">
-    <h3>时间与状态</h3>
+    <h3 data-care-reading-start>时间与状态</h3>
     <p>最近读取：{pet.sleeping ? "正在睡觉" : "清醒中"}</p>
     {rates ? <>
       <dl className="status-rates" aria-label="每小时基准变化">

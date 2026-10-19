@@ -25,3 +25,8 @@
 已查看320px双倍文字/强制颜色的短屏与普通高度规则页、返回暂停菜单及桌面视口图；两页全页图另作文字完整性取证。浏览器产物：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-pause-guide-jVH2NZ`。
 
 日志与独立构建：`/tmp/pet-pause-viewport`。真实会话与响应夹具分别记录，不代替实体手机、真人读屏或自然长时游玩验收。玩家数据库、共享 dist、原进程与 18102 试玩页保留，未自动部署新版。
+
+
+## 后续共用实现（2026-10-20）
+
+成长与状态阅读接入同一单次定位机制，底层滚动副作用提取至`web/src/useReadingViewport.ts`；暂停适配hook仍校验原会话、页面及阻断条件，不放宽恢复/自动续玩边界。暂停相关43项单元/集成与30组浏览器复验通过，详见[CARE_READING_VIEWPORT.md](CARE_READING_VIEWPORT.md)。

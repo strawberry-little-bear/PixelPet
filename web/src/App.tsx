@@ -1,3 +1,4 @@
+import { useReadingViewport } from "./useReadingViewport";
 import { usePauseReadingViewport, type PauseReadingDestination } from "./usePauseReadingViewport";
 import { GrowthTrack } from "./GrowthTrack";
 import { useBackupExport } from "./useBackupExport";
@@ -226,12 +227,12 @@ export default function App() {
   const [guideReview, setGuideReview] = useState(false);
   // A current-session reader, never a start card. Its B only turns a page.
   const [pauseGuideSession, setPauseGuideSession] = useState<string | null>(null);
-  const pauseReadingRoot = useRef<HTMLDivElement>(null);
+  const readingRoot = useRef<HTMLDivElement>(null);
   const [pauseReadingDestination, setPauseReadingDestination] = useState<PauseReadingDestination | null>(null);
   const [abandonGame, setAbandonGame] = useState<string | null>(null);
   const sessionKey = gameSessionKey(pet?.game);
   const pauseGuide = pauseGuideSession === sessionKey ? games.find(game => game.id === pet?.game?.kind) : undefined;
-  usePauseReadingViewport(pauseReadingRoot, pauseReadingDestination, sessionKey, page,
+  usePauseReadingViewport(readingRoot, pauseReadingDestination, sessionKey, page,
     uncertain || unavailable || corrupt || clockAhead || tools || help || reset || !foreground);
   const abandoning = page === "game" && abandonGame !== null && abandonGame === sessionKey;
   useEffect(() => { setAbandonGame(null); }, [sessionKey]);
@@ -324,6 +325,17 @@ export default function App() {
   const latestRevision = useRef(-1);
   const acceptedPet = useRef<PetState | null>(null);
   const acceptedGeneration = useRef<string | undefined>(undefined);
+  const [careReadingDestination, setCareReadingDestination] = useState<{ petKey: string | null; page: "growth" | "status" } | null>(null);
+  // Immutable lifecycle fields keep older services usable; the generation also
+  // distinguishes restoring a backup of the same pet. Never key on revision.
+  const careReadingKey = pet ? JSON.stringify([acceptedGeneration.current, pet.createdAt, pet.hatchedAt, pet.species]) : null;
+  useReadingViewport(readingRoot, careReadingDestination, "[data-care-reading-start]",
+    !!careReadingKey && careReadingDestination?.petKey === careReadingKey && careReadingDestination?.page === page &&
+    !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  const navigateCareReading = (destination: "growth" | "status") => {
+    setCareReadingDestination({ petKey: careReadingKey, page: destination });
+  };
+
   const modalRef = useRef<HTMLElement>(null);
   const modalReturnFocus = useRef<HTMLElement | null>(null);
 
@@ -1343,9 +1355,12 @@ export default function App() {
         setSelected(0);
       } else if (page === "menu") setSelected((v) => (v + 1) % items.length);
       else if (page === "game") setLane((v) => (v + 1) % 3);
-      else if (page === "status") setStatusPage(v => (v + 1) % statusPageCount);
-      else if (page === "growth")
-        setGrowthPage((v) => (v + 1) % growthPageCount);
+      else if (page === "status") {
+        setStatusPage(v => (v + 1) % statusPageCount); navigateCareReading("status");
+      }
+      else if (page === "growth") {
+        setGrowthPage((v) => (v + 1) % growthPageCount); navigateCareReading("growth");
+      }
       else if (page === "journal")
         setJournalCursor(cursor => nextJournal(pet.logs, cursor));
       return;
@@ -1404,16 +1419,18 @@ export default function App() {
         setAlbumCursor(startAlbum());
       } else if (item.kind === "status") {
         setStatusPage(0);
-        setPage("status");
+        setPage("status"); navigateCareReading("status");
       } else if (item.kind === "growth") {
         setPage("growth");
-        setGrowthPage(0);
+        setGrowthPage(0); navigateCareReading("growth");
       } else if (item.kind === "journal") {
         setPage("journal");
         setJournalCursor(startJournal(pet.logs));
       } else void act(item.kind);
     } else if (page === "game") void act("catch", { lane });
-    else if (page === "growth") setGrowthPage((v) => (v + 1) % growthPageCount);
+    else if (page === "growth") {
+      setGrowthPage((v) => (v + 1) % growthPageCount); navigateCareReading("growth");
+    }
     else setPage("home");
   };
   useEffect(() => {
@@ -1855,7 +1872,7 @@ export default function App() {
                       <i />
                     </span>
                   </div>
-                  <div ref={pauseReadingRoot} className={`lcd-content content-${page}`}>
+                  <div ref={readingRoot} className={`lcd-content content-${page}`}>
                     {uncertain || unavailable ? (
                       <div className={`save-recovery ${clockAhead ? "clock-recovery" : ""}`} role="status" aria-live="polite">
                         <Cloud size={28} />
@@ -2036,7 +2053,7 @@ export default function App() {
                         {page === "status" && (
                           <div className="screen-status" data-status-page={statusPage}>
                             {statusPage === 0 ? <>
-                            <div className="status-name">
+                            <div className="status-name" data-care-reading-start>
                               <PetArt
                                 index={index}
                                 stage={growth.stage}

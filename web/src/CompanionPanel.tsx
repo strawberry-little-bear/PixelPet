@@ -7,7 +7,7 @@ export function CompanionPanel({ companion: c }: { companion?: Companion }) {
   const recentGame = games.find(game => game.id === recent?.kind);
   return (
     <section className="companion-panel" aria-label="共同游戏与兴趣">
-      <div className="habit-heading">
+      <div className="habit-heading" data-care-reading-start>
         <span>共同游戏 · 兴趣记录</span><strong>不影响形态</strong>
       </div>
       <p className="companion-summary">
