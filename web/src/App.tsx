@@ -332,14 +332,15 @@ export default function App() {
   const latestRevision = useRef(-1);
   const acceptedPet = useRef<PetState | null>(null);
   const acceptedGeneration = useRef<string | undefined>(undefined);
-  const [careReadingDestination, setCareReadingDestination] = useState<{ petKey: string | null; page: "growth" | "status" | "journal" } | null>(null);
+  const [careReadingDestination, setCareReadingDestination] = useState<{ petKey: string | null; page: "growth" | "status" | "journal" | "menu" } | null>(null);
   // Immutable lifecycle fields keep older services usable; the generation also
   // distinguishes restoring a backup of the same pet. Never key on revision.
   const careReadingKey = pet ? JSON.stringify([acceptedGeneration.current, pet.createdAt, pet.hatchedAt, pet.species]) : null;
-  useReadingViewport(readingRoot, careReadingDestination, "[data-care-reading-start]",
+  useReadingViewport(readingRoot, careReadingDestination,
+    page === "menu" ? '.care-menu [aria-current="true"]' : "[data-care-reading-start]",
     !!careReadingKey && careReadingDestination?.petKey === careReadingKey && careReadingDestination?.page === page &&
     !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
-  const navigateCareReading = (destination: "growth" | "status" | "journal") => {
+  const navigateCareReading = (destination: "growth" | "status" | "journal" | "menu") => {
     setCareReadingDestination({ petKey: careReadingKey, page: destination });
   };
 
@@ -1448,8 +1449,10 @@ export default function App() {
       if (page === "choose") setChosen((v) => (v + 1) % 10);
       else if (page === "home") {
         setPage("menu");
-        setSelected(0);
-      } else if (page === "menu") setSelected((v) => (v + 1) % items.length);
+        setSelected(0); navigateCareReading("menu");
+      } else if (page === "menu") {
+        setSelected((v) => (v + 1) % items.length); navigateCareReading("menu");
+      }
       else if (page === "game") setLane((v) => (v + 1) % 3);
       else if (page === "status") {
         setStatusPage(v => (v + 1) % statusPageCount); navigateCareReading("status");
@@ -1481,7 +1484,7 @@ export default function App() {
     }
     if (page === "home") {
       setPage("menu");
-      setSelected(0);
+      setSelected(0); navigateCareReading("menu");
       return;
     }
     if (page === "menu") {
