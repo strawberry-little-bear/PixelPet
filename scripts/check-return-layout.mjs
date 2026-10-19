@@ -50,7 +50,7 @@ async function textBounds(page) {
   });
 }
 try {
-  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: join(root, 'web/dist') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: process.env.PIXELPET_TEST_WEB || join(root, 'web/dist') }, stdio: ['ignore', 'pipe', 'pipe'] });
   server.once('error', e => { startupError = e; }); server.stdout.on('data', d => { log += d; }); server.stderr.on('data', d => { log += d; });
   let ready = false;
   for (let i = 0; i < 100; i++) {

@@ -336,6 +336,15 @@ export default function App() {
     setCareReadingDestination({ petKey: careReadingKey, page: destination });
   };
 
+  const [returnReadingDestination, setReturnReadingDestination] = useState<{ petKey: string | null; recapId: string; page: number } | null>(null);
+  useReadingViewport(readingRoot, returnReadingDestination, ".return-panel > header",
+    !!careReadingKey && returnReadingDestination?.petKey === careReadingKey &&
+    returnReadingDestination?.recapId === returnRecap?.id && returnReadingDestination?.page === returnPage && page === "return" &&
+    !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  const navigateReturnReading = (recapId: string, targetPage: number) => {
+    setReturnReadingDestination({ petKey: careReadingKey, recapId, page: targetPage });
+  };
+
   const modalRef = useRef<HTMLElement>(null);
   const modalReturnFocus = useRef<HTMLElement | null>(null);
 
@@ -743,6 +752,7 @@ export default function App() {
     if (busy || evolution || clip) return;
     setQueuedReturn(null);
     setReturnReading({ id: queuedReturn.id, page: 0, updated: false });
+    navigateReturnReading(queuedReturn.id, 0);
     setPage("return");
   }, [queuedReturn, page, tools, help, reset, uncertain, unavailable, corrupt, pet?.hatchedAt, pet?.sleeping, pet?.game, returnRecap?.id, busy, evolution, clip, foreground]);
   useEffect(() => {
@@ -1343,9 +1353,11 @@ export default function App() {
     }
     if (page === "return") {
       if (!returnRecap) { setPage("home"); return; }
-      if (key === "A" || (key === "B" && returnPage < returnPageCount - 1))
-        setReturnReading({ id: returnRecap.id, page: (returnPage + 1) % returnPageCount, updated: returnUpdated });
-      else setPage("home");
+      if (key === "A" || (key === "B" && returnPage < returnPageCount - 1)) {
+        const nextPage = (returnPage + 1) % returnPageCount;
+        setReturnReading({ id: returnRecap.id, page: nextPage, updated: returnUpdated });
+        navigateReturnReading(returnRecap.id, nextPage);
+      } else setPage("home");
       return;
     }
     if (key === "A") {
@@ -1395,6 +1407,7 @@ export default function App() {
       } else if (item.kind === "return") {
         if (returnRecap) {
           setReturnReading({ id: returnRecap.id, page: 0, updated: false });
+          navigateReturnReading(returnRecap.id, 0);
           setPage("return");
         } else
           setMessage(
