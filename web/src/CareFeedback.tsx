@@ -5,7 +5,7 @@ import { careHabitUnits } from "./careHabitUnits";
 
 const habitNames = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" };
 
-export function feedbackText(feedback: Feedback, growth: Growth, now: number, context?: { rules?: CareRules | null; growthRecorded?: boolean }) {
+export function feedbackText(feedback: Feedback, growth: Growth, context?: { rules?: CareRules | null; growthRecorded?: boolean }) {
   if (feedback.reason === "credited") {
     const habitGain = careHabitUnits(feedback.habitGain) ?? feedback.habitGain;
     const habit = feedback.habit ? `${habitNames[feedback.habit]} +${habitGain}` : "习惯已记住";
@@ -28,21 +28,19 @@ export function feedbackText(feedback: Feedback, growth: Growth, now: number, co
       ? "刚才饱食已满足；饱食 ≤70 才记喂食习惯"
       : "刚才清洁已满足；清洁 ≤65 才记清洁习惯" };
   }
-  const minutes = Math.max(0, Math.ceil(((feedback.retryAt ?? now) - now) / 60000));
-  return { title, detail: minutes > 0
-    ? `本次无额外奖励 · 同类奖励还需 ${minutes} 分钟`
-    : "奖励间隔已结束，下次需要时再来吧" };
+  // A confirmed result is historical, even if the toast was covered for a while.
+  // Do not infer current reward eligibility from a local clock or an old retryAt.
+  return { title, detail: "记录时同类习惯仍在间隔内；本次不计入。下次以实际结果为准。" };
 }
 
-export function CareFeedback({ feedback, growth, mood, now, rules, growthRecorded = true }: {
+export function CareFeedback({ feedback, growth, mood, rules, growthRecorded = true }: {
   feedback: Feedback | null;
   growth: Growth;
   mood: string;
-  now: number;
   rules?: CareRules | null;
   growthRecorded?: boolean;
 }) {
-  const text = feedback ? feedbackText(feedback, growth, now, { rules, growthRecorded })
+  const text = feedback ? feedbackText(feedback, growth, { rules, growthRecorded })
     : { title: mood, detail: nextGrowthGoal(growth) };
   return (
     <div className={`growth-feedback ${feedback ? "has-feedback" : ""}`}

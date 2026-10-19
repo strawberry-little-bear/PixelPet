@@ -1872,7 +1872,6 @@ export default function App() {
                               feedback={careFeedback}
                               growth={growth}
                               mood={echo ? experienceWords[echo] : message || mood}
-                              now={now}
                             />
                             <CareOutcome feedback={careOutcome} />
                           </>

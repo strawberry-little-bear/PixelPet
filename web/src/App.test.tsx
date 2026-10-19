@@ -411,7 +411,7 @@ describe("saved care feedback with three buttons", () => {
       } } : {}),
     }));
     await choose(0);
-    expect(document.querySelector(".growth-feedback")?.textContent).toContain("同类奖励还需 20 分钟");
+    expect(document.querySelector(".growth-feedback")?.textContent).toContain("记录时同类习惯仍在间隔内");
     expect(document.querySelector(".growth-feedback")?.textContent).not.toContain("成长 +");
     await key("c");
     api.mockRejectedValueOnce(new RequestFailure("保存失败", "rejected"));

@@ -12,7 +12,7 @@ describe("whole care credits from fractional legacy habit totals", () => {
     it.each([1.4 - .4, 2.2 - 1.2, 1.2 - .2])(`${kind} displays one credited action for raw gain %s`, habitGain => {
       const feedback: CareFeedback = { kind, habit, points: .25, habitGain, reason: "credited", effect };
       const before = structuredClone(feedback);
-      expect(feedbackText(feedback, emptyGrowth(), Date.now()).title).toBe(`成长 +0.25 · ${label} +1`);
+      expect(feedbackText(feedback, emptyGrowth()).title).toBe(`成长 +0.25 · ${label} +1`);
       const { container } = render(<CareOutcome feedback={feedback} />);
       expect(container.querySelector(".care-learning")?.textContent).toContain(`${label}：+1`);
       expect(feedback).toEqual(before);

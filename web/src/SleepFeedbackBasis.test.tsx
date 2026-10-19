@@ -16,7 +16,7 @@ afterEach(cleanup);
 describe.each(["baby", "growing", "adult"] as const)("confirmed sleep guidance at %s", stage => {
   it("matches the preview's response-only coefficients and never claims an immediate reward", () => {
     const p = pet(stage), before = structuredClone(p);
-    render(<CareFeedback feedback={resting} growth={p.growth!} mood="" now={0} rules={rules} />);
+    render(<CareFeedback feedback={resting} growth={p.growth!} mood="" rules={rules} />);
     const text = screen.getByRole("status").textContent!;
     expect(text).toContain(carePreview(p, "sleep", rules)[1]);
     expect(text).toContain("每恢复 20 体力"); expect(text).not.toMatch(/28|0\.25/);
@@ -26,30 +26,30 @@ describe.each(["baby", "growing", "adult"] as const)("confirmed sleep guidance a
     expect(document.querySelector("button,a,input,[role=button]")).toBeNull();
   });
   it.each([undefined, null, { ...rules, growth: undefined }, { ...rules, growth: { ...rules.growth!, restEnergyPerHabit: 0 } }])("never guesses coefficients from unavailable/invalid metadata %j", invalid => {
-    const text = feedbackText(resting, emptyGrowth(stage), 0, { rules: invalid }).detail;
+    const text = feedbackText(resting, emptyGrowth(stage), { rules: invalid }).detail;
     expect(text).toContain("成长基准尚未读到"); expect(text).toContain("实际恢复量");
     expect(text).not.toMatch(/28|0\.25|习惯 \+1|成长 \+/);
     if (stage === "adult") expect(text).toContain("形态不变");
   });
 });
 it("does not use an age-derived fallback when actual growth was omitted", () => {
-  render(<CareFeedback feedback={resting} growth={emptyGrowth("adult")} growthRecorded={false} mood="" now={0} rules={rules} />);
+  render(<CareFeedback feedback={resting} growth={emptyGrowth("adult")} growthRecorded={false} mood="" rules={rules} />);
   const text = screen.getByRole("status").textContent!;
   expect(text).toContain("成长记录尚未读到"); expect(text).not.toMatch(/20|0\.2|28|0\.25|成年|成长 \+/);
 });
 it("preserves valid zero reward coefficients rather than replacing them with defaults", () => {
-  const text = feedbackText(resting, emptyGrowth(), 0, { rules: { ...rules, growth: { ...rules.growth!, restPointsPerHabit: 0 } } }).detail;
+  const text = feedbackText(resting, emptyGrowth(), { rules: { ...rules, growth: { ...rules.growth!, restPointsPerHabit: 0 } } }).detail;
   expect(text).toContain("成长 +0；"); expect(text).not.toContain("0.25");
 });
 it("rerenders accepted coefficient removal without keeping the previous numeric guidance", () => {
-  const view = render(<CareFeedback feedback={resting} growth={emptyGrowth()} mood="" now={0} rules={rules} />);
+  const view = render(<CareFeedback feedback={resting} growth={emptyGrowth()} mood="" rules={rules} />);
   expect(screen.getByRole("status").textContent).toContain("每恢复 20");
-  view.rerender(<CareFeedback feedback={resting} growth={emptyGrowth()} mood="" now={0} />);
+  view.rerender(<CareFeedback feedback={resting} growth={emptyGrowth()} mood="" />);
   expect(screen.getByRole("status").textContent).toContain("成长基准尚未读到");
   expect(screen.getByRole("status").textContent).not.toMatch(/20|0\.2|28|0\.25/);
 });
 it("keeps waking feedback separate from sleep's conditional future recovery explanation", () => {
-  const text = feedbackText({ ...resting, reason: "awake" }, emptyGrowth(), 0, { rules });
+  const text = feedbackText({ ...resting, reason: "awake" }, emptyGrowth(), { rules });
   expect(text.title).toContain("只按实际恢复"); expect(text.detail).toContain("距成长期");
   expect(text.detail).not.toMatch(/每恢复|28|20|0\.25/);
 });
