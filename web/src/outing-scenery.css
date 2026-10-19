@@ -1,0 +1,8 @@
+/* One quiet text block, outside controls/live regions; no timers or motion. */
+.fishing-game > .outing-caption, .walking-game > .outing-caption { display:block; font-size:8px; line-height:12px; margin-top:3px; overflow-wrap:anywhere; }
+.outing-compact { position:absolute; right:3px; top:2px; width:77px; padding:1px; margin:0; font-size:8px; line-height:10px; overflow-wrap:anywhere; background:#e3e7c5ed; border:1px solid #84917e; }
+/* A genuine bite owns the corner; atmosphere must not compete with B. */
+.pond-scene[data-motion="bite"] .outing-compact { visibility:hidden; }
+.outing-caption span { display:block; }
+.outing-label { font-weight:bold; }
+@media (forced-colors:active) { .outing-sky path { stroke:CanvasText; } .outing-compact { background:Canvas; color:CanvasText; border-color:CanvasText; } }

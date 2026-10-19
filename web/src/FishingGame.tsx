@@ -1,3 +1,5 @@
+import { outingScenery } from "./outing";
+import { OutingCaption, OutingSky } from "./OutingScenery";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
 import { fishCatalog, fishInfo, fishingCompanions, fishingMenu, fishingSpots, fishingWaitNotes } from "./fishing";
@@ -21,6 +23,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
   if (!n) return null;
   const timed = n.phase === "wait" || n.phase === "bite";
   const paused = n.phase !== "done" && (n.paused || (timed && !active));
+  const scenery = outingScenery(pet.game);
   const companion = fishingCompanions[pet.species] ?? fishingCompanions[0];
   const caught = n.outcome === "caught", bite = n.phase === "bite" && !paused;
   const state = paused ? "paused" : bite ? "bite" : caught ? "caught" : n.phase === "wait" ? "waiting" : "ready";
@@ -32,8 +35,9 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
     <header><strong>池塘钓鱼 · {fishingSpots[n.spot]}</strong><span>第 {n.casts} / 3 竿 · {n.catches.length} 鱼</span></header>
     <div className="pond-scene" data-motion={state} data-rig={companion.rig} data-method={companion.method}>
       <svg className="pond-background" viewBox="0 0 240 102" preserveAspectRatio="none" aria-hidden="true" shapeRendering="crispEdges">
-        <path d="M0 62h240v40H0z" fill="#88ac94" /><path d="M0 0h240v62H0z" fill="#c6d5ac" />
-        <path d="M0 55h75v11h-5v16H0z" fill="#839669" /><path d="M0 51h73v8H0z" fill="#a8b784" />
+        <path d="M0 62h240v40H0z" fill="#88ac94" /><path d="M0 0h240v62H0z" fill={scenery?.light.sky ?? "#c6d5ac"} />
+        <OutingSky scenery={scenery} />
+        <path d="M0 55h75v11h-5v16H0z" fill={scenery?.season.foliage ?? "#839669"} /><path d="M0 51h73v8H0z" fill={scenery?.season.bank ?? "#a8b784"} />
         {n.spot === 0 ? <g stroke="#657c4d" strokeWidth="2"><path d="M214 64V23m8 41V35m9 29V19m-25 45V38" /><path d="M211 19h6v13h-6zm17-5h6v14h-6z" fill="#9c8758" stroke="none" /></g> : n.spot === 1 ? <g fill="#678a5d"><path d="M188 73h27v8h-27zm-37 17h31v7h-31z" /><path d="M198 69h10v6h-10z" fill="#b48c88" /></g> : <g fill="#a5ad8e"><path d="M201 53h18v7h5v10h-29V60h6zm-21 25h10v9h-15v-5h5z" /></g>}
         <path d="M88 89h19m14-18h13m60 23h19m-68-11h9" stroke="#c5ddbd" strokeWidth="2" />
         {companion.rig === "dolphin" && <path d="M3 72h60v16H3z" fill="#88ac94" />}
@@ -46,6 +50,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
         {timed && <g className="fishing-bobber"><path d="M163 69h10v6h-10z" fill="#b27c68" /><path d="M163 75h10v4h-10z" fill="#eee4bf" /><path d="M157 83h22" stroke="#c8ddbd" strokeWidth="2" /></g>}
       </svg>
       <div className="fishing-companion" aria-label={companion.waiting}><PetArt index={pet.species} stage={petGrowth(pet, pet.lastTick).stage} expression={caught ? "content" : "awake"} motion="fishing" accessory={pet.economy?.equipped.accessory} /></div>
+      {!paused && n.phase !== "done" && <OutingCaption scenery={scenery} compact />}
       {caught && <div className="fishing-catch"><FishArt id={n.lastFish!} /></div>}
       {bite && <strong className="fishing-bite" role="status">咬钩啦！按 B 提竿</strong>}
       {paused && <div className="fishing-pause" role="status"><strong>池塘已暂停</strong><ol>{fishingMenu.map((label, i) => <li key={label} className={choice === i ? "selected" : ""}>{choice === i ? "▸ " : "　"}{label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></div>}
@@ -53,6 +58,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
     <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${n.catches.length} 条鱼，B / C 收好${n.outcome === "early" ? "；提前提竿，这一竿已用掉。" : ""}` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "还没咬钩，等「咬钩啦」再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提前提竿，这一竿已用掉。下一竿等咬钩提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
     <small className={`fishing-comment${waiting ? " fishing-wait-note" : ""}`}>{paused ? "没有离线钓鱼，也不补跑漏掉的节拍。" : bite ? companion.bite : caught ? fish?.story : waiting ? waitingNote : companion.waiting}</small>
     <small className="fishing-rule">{n.phase === "done" ? n.catches.length ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币" : "A 换钓点（收竿后）· B 抛竿 / 提竿 · C 暂停"}</small>
+    {(paused || n.phase === "done") && <OutingCaption scenery={scenery} />}
   </section>;
 }
 

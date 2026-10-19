@@ -37,6 +37,8 @@ async function key(page, key) {
 }
 async function readable(page, selector) {
   const failures = await page.locator(selector).evaluate(el => {
+    const bounds = document.querySelector('.lcd-content').getBoundingClientRect();
+    const footer = document.querySelector('.lcd-bottom').getBoundingClientRect();
     const failures = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
@@ -44,6 +46,7 @@ async function readable(page, selector) {
       const range = document.createRange(); range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
+        if (box.top < bounds.top - 1 || box.bottom > Math.min(bounds.bottom, footer.top) + 1 || box.left < bounds.left - 1 || box.right > bounds.right + 1) failures.push({ text: node.textContent, reason: 'outside game content / overlaps footer' });
         for (let parent = node.parentElement; parent; parent = parent.parentElement) {
           const style = getComputedStyle(parent), clip = parent.getBoundingClientRect();
           if ((['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowX) &&
@@ -91,6 +94,13 @@ try {
       for (const k of ['A', 'A', 'B', 'A', 'A', 'A', 'A', 'B', 'B']) await key(page, k);
       await page.locator('.fishing-game').waitFor();
       assert.equal((await api('state')).state.game.fishing.phase, 'ready');
+      const sceneryKey = await page.locator('.outing-caption').getAttribute('data-scenery');
+      assert(sceneryKey); await readable(page, '.fishing-game');
+      for (let spot = 0; spot < 3; spot++) {
+        await key(page, 'A');
+        assert.equal(await page.locator('.outing-caption').getAttribute('data-scenery'), sceneryKey);
+      }
+      assert.equal((await api('state')).state.game.fishing.spot, 0);
       assert.equal(await page.locator('.fishing-ripples').count(), 0);
       await key(page, 'B'); await page.locator('.pond-scene[data-motion="waiting"]').waitFor();
       notes.add(await page.locator('.fishing-wait-note').innerText());
@@ -117,6 +127,7 @@ try {
       // Pause midway, then help and reload must never create an auto-resume.
       await key(page, 'C'); await page.locator('.fishing-pause').waitFor();
       const paused = (await api('state')).state.game.fishing, count = writes.length;
+      assert.equal(await page.locator('.outing-caption').getAttribute('data-scenery'), sceneryKey);
       assert.equal(paused.paused, true); assert.equal(await page.locator('.fishing-wait-note').count(), 0);
       assert.deepEqual((await snapshot()).animations, []);
       await readable(page, '.fishing-game');
@@ -125,6 +136,7 @@ try {
       assert.deepEqual((await snapshot()).animations, []);
       await page.getByRole('button', { name: '关闭', exact: true }).click();
       await page.reload(); await page.locator('.fishing-pause').waitFor();
+      assert.equal(await page.locator('.outing-caption').getAttribute('data-scenery'), sceneryKey);
       assert.deepEqual((await snapshot()).animations, []); await wait(1200);
       assert.deepEqual((await api('state')).state.game.fishing, paused); assert.equal(writes.length, count);
       await key(page, 'C'); await page.locator('.pond-scene[data-motion="waiting"]').waitFor();
@@ -143,6 +155,8 @@ try {
         await wait(850);
       }
       await page.locator('.fishing-bite').waitFor({ timeout: 2000 });
+      assert.equal(await page.locator('.outing-caption').getAttribute('data-scenery'), sceneryKey);
+      assert.equal(await page.locator('.outing-compact:visible').count(), 0, 'Real bite gets priority over the scenery label');
       const bite = (await api('state')).state.game.fishing;
       assert.equal(bite.phase, 'bite'); assert(bite.waitMs >= 32000 && bite.waitMs <= 40000);
       assert(bite.elapsedMs < 10000, 'Original reaction window is still open');
@@ -166,7 +180,7 @@ try {
       assert((await page.locator('.fishing-status').innerText()).includes('这一竿已用掉'));
       assert.equal(await page.locator('.fishing-wait-note').count(), 0);
       assert.deepEqual(errors, []);
-      results.push({ width, font, motion, waitMs: bite.waitMs, notes: [...notes], moving, moved, writes: writes.map(a => a.kind), errors });
+      results.push({ width, font, motion, sceneryKey, waitMs: bite.waitMs, notes: [...notes], moving, moved, writes: writes.map(a => a.kind), errors });
     } catch (e) {
       if (page) {
         await page.screenshot({ path: join(dir, 'failure.png'), fullPage: true });
