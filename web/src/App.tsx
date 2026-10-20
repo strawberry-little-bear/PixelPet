@@ -1676,7 +1676,7 @@ export default function App() {
         (e.key === "ArrowDown" || e.key === " ")) return;
       // Enter on a care or memory reading stop is not a confirmation/page turn.
       // Native activation on physical buttons and explicit A/B/C stay intact.
-      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region") && e.key === "Enter") return;
+      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region,.sleep-home-guidance") && e.key === "Enter") return;
       const key = e.key.toLowerCase();
       // Enter/Space activate the focused physical key, just like clicking it.
       // In particular the import preview deliberately focuses safe C: never
@@ -2269,10 +2269,11 @@ export default function App() {
                               growth={growth}
                               mood={echo ? experienceWords[echo] : message || mood}
                             />
-                            {pet.sleeping && <section className="sleep-home-guidance" aria-label="休息中的照顾提示">
+                            {pet.sleeping && <CareReadingRegion className="sleep-home-guidance" label="休息中的照顾提示"
+                              hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
                               <strong>最近读取 · 正在休息</strong>
                               <CareAdvice pet={pet} />
-                            </section>}
+                            </CareReadingRegion>}
                             <CareOutcome feedback={careOutcome} readable />
                             <GameOutcome outcome={gameOutcome} />
                           </>

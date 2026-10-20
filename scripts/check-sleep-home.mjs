@@ -41,6 +41,61 @@ async function bedtime(page) {
   await key(page, 'B'); const result = await (await response).json();
   await page.locator('.home-caption').waitFor(); return result.state;
 }
+// Use actual Tab and browser key defaults, not focus()/scroll scripts, to enter
+// and read the guidance. Scripted scroll only puts each direction at mid-page.
+async function keyboardReading(page, writes) {
+  const panel = page.getByRole('region', { name: '休息中的照顾提示', exact: true });
+  await page.locator('.button-a').focus();
+  for (let i = 0; i < 10 && !await panel.evaluate(el => document.activeElement === el); i++) await page.keyboard.press('Shift+Tab');
+  assert(await panel.evaluate(el => document.activeElement === el), 'Tab cannot reach sleep guidance');
+  assert.equal(await panel.getAttribute('tabindex'), '0');
+  const hintId = await panel.getAttribute('aria-describedby');
+  assert.match(await page.locator(`[id="${hintId}"]`).innerText(), /Enter 不操作/);
+  assert.deepEqual(await panel.evaluate(el => { const s = getComputedStyle(el); return [s.outlineWidth, s.outlineStyle]; }), ['2px', 'solid']);
+  const count = writes.length, movements = [];
+  for (const [key, direction] of [['ArrowDown', 1], ['Space', 1], ['Shift+Space', -1], ['End', 1], ['PageUp', -1], ['Home', -1], ['PageDown', 1]]) {
+    await page.evaluate(direction => scrollTo({ top: (document.documentElement.scrollHeight - innerHeight) * (direction > 0 ? .2 : .8), behavior: 'instant' }), direction);
+    await wait(200); const before = await page.evaluate(() => scrollY);
+    await page.keyboard.press(key);
+    await page.waitForFunction(({ before, direction }) => direction * (scrollY - before) > 1, { before, direction }, { timeout: 2500 });
+    await wait(200); movements.push({ key, before, after: await page.evaluate(() => scrollY) });
+    assert.equal(await page.locator('.content-home').count(), 1, 'Reading opened a game page');
+    assert(await panel.evaluate(el => document.activeElement === el)); assert.equal(writes.length, count);
+  }
+  for (const key of ['Space', 'ArrowDown', 'Enter']) {
+    await page.keyboard.down(key); await page.keyboard.down(key); await page.keyboard.up(key);
+    assert.equal(await page.locator('.content-home').count(), 1); assert.equal(writes.length, count);
+  }
+  // Wait for native smooth scroll to finish, without disabling native behavior.
+  const position = await page.evaluate(() => new Promise((resolve, reject) => {
+    let previous = scrollY, stable = 0; const deadline = performance.now() + 3000;
+    function frame() { stable = scrollY === previous ? stable + 1 : 0; previous = scrollY;
+      if (stable >= 12) return resolve(scrollY);
+      if (performance.now() > deadline) return reject(new Error('Native scroll did not settle'));
+      requestAnimationFrame(frame);
+    } requestAnimationFrame(frame);
+  }));
+  const synced = page.waitForResponse(r => new URL(r.url()).pathname === '/api/visit');
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await synced; await wait(150);
+  assert.equal(await page.evaluate(() => scrollY), position, 'Sync moved reading scroll');
+  assert(await panel.evaluate(el => document.activeElement === el), 'Sync lost reading focus');
+  assert.equal(writes.length, count);
+  await page.keyboard.press('a'); await page.locator('.care-menu').waitFor();
+  await page.keyboard.press('c'); await panel.waitFor();
+  // Tab forward exits the reading stop and still reaches the original A/B/C.
+  await page.locator('.button-a').focus();
+  for (let i = 0; i < 10 && !await panel.evaluate(el => document.activeElement === el); i++) await page.keyboard.press('Shift+Tab');
+  assert(await panel.evaluate(el => document.activeElement === el));
+  // A confirmed bedtime also has its own result-reading stop after guidance.
+  for (let i = 0; i < 8 && !await page.locator('.button-a').evaluate(el => document.activeElement === el); i++) await page.keyboard.press('Tab');
+  assert(await page.locator('.button-a').evaluate(el => document.activeElement === el));
+  await page.keyboard.press('Tab');
+  assert(await page.locator('.button-b').evaluate(el => document.activeElement === el));
+  await page.keyboard.press('Enter'); await page.locator('.care-menu').waitFor();
+  assert.equal(await page.locator('.care-menu [aria-current=true] .menu-number').innerText(), '01');
+  await page.keyboard.press('c'); await panel.waitFor(); assert.equal(writes.length, count);
+  return movements;
+}
 async function readable(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   const panel = page.locator('.sleep-home-guidance');
@@ -85,9 +140,9 @@ try {
     await wait(100);
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
-  const modes = [{ width: 1200, font: 14 }, { width: 320, font: 14 }, { width: 320, font: 28 }];
+  const modes = [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 14 }, { width: 320, height: 700, font: 28 }, { width: 320, height: 380, font: 28 }];
   for (const mode of modes) for (const stage of ['baby', 'growing', 'adult']) {
-    const context = await browser.newContext({ viewport: { width: mode.width, height: 700 }, hasTouch: true,
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
       isMobile: mode.width === 320, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
     await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; }), mode.font);
     const page = await context.newPage(), errors = [], writes = [];
@@ -96,7 +151,7 @@ try {
     page.on('requestfailed', request => errors.push(`Failed: ${request.url()}`));
     page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()}: ${response.url()}`); });
     page.on('request', r => { if (r.method() !== 'GET' && !new URL(r.url()).pathname.endsWith('/api/visit')) writes.push(r.postDataJSON()?.kind ?? r.url()); });
-    const label = `${mode.width}-${mode.font}-${stage}`;
+    const label = `${mode.width}-${mode.height}-${mode.font}-${stage}`;
     try {
       for (const scenario of [
         { name: 'resting', needs: {}, text: '不必急着叫醒' },
@@ -127,6 +182,8 @@ try {
         if (stage === 'baby' && scenario.name === 'dirty') await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
         results.push({ ...mode, stage, scenario: scenario.name, passed: true });
       }
+      const movements = await keyboardReading(page, writes);
+      results.push({ ...mode, stage, scenario: 'native-keyboard-reading', movements, passed: true });
       const wake = await bedtime(page); assert.equal(wake.sleeping, false);
       assert.equal(await page.locator('.sleep-home-guidance').count(), 0);
       const bed = await bedtime(page); assert.equal(bed.sleeping, true);
@@ -135,6 +192,10 @@ try {
       assert.equal(await page.locator('.growth-feedback').getAttribute('data-feedback'), 'resting', 'Bedtime feedback fixture was not exercised');
       await readable(page); assert.deepEqual(writes, ['sleep', 'sleep']); assert.deepEqual(errors, []);
       results.push({ ...mode, stage, scenario: 'explicit-wake-bed', passed: true });
+      const bedtimeMovements = await keyboardReading(page, writes);
+      assert.deepEqual(writes, ['sleep', 'sleep']); assert.deepEqual(errors, []);
+      if (stage === 'baby') await page.screenshot({ path: join(dir, `bedtime-${label}.png`), fullPage: true });
+      results.push({ ...mode, stage, scenario: 'native-keyboard-with-bedtime-receipt', movements: bedtimeMovements, passed: true });
     } catch (error) { await page.screenshot({ path: join(dir, `${label}-failure.png`), fullPage: true }); throw error;
     } finally { await context.close(); }
   }
