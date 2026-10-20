@@ -1,5 +1,7 @@
 package game
 
+import "math"
+
 // MaxOfflineHours is the existing cap for one elapsed-time settlement. Expose
 // the same value used by Advance, not a separate handbook approximation.
 const MaxOfflineHours = 12.0
@@ -35,10 +37,23 @@ func growthRuleBasis() GrowthRuleBasis {
 	return GrowthRuleBasis{BasePerHour: growthBasePerHour, ComfortPerHour: growthComfortPerHour, RestEnergyPerHabit: restEnergyPerHabit, RestPointsPerHabit: restPointsPerHabit}
 }
 
+// A millisecond of passive decay is at least 5e-7 points. This comparison-only
+// tolerance removes much smaller accumulated floating-point residue at care
+// boundaries without rounding persisted needs or changing rates/bonus amounts.
+const careNeedTolerance = 1e-9
+
+func careNeed(value, boundary float64) float64 {
+	if math.Abs(value-boundary) <= careNeedTolerance {
+		return boundary
+	}
+	return value
+}
+
 // CareRules is response metadata, never part of the portable pet save.
 type CareRules struct {
 	Awake           Needs             `json:"awake"`
 	Sleeping        Needs             `json:"sleeping"`
+	NeedTolerance   float64           `json:"needTolerance"`
 	MaxOfflineHours float64           `json:"maxOfflineHours"`
 	Actions         CareActionEffects `json:"actions"`
 	Growth          GrowthRuleBasis   `json:"growth"`
@@ -53,5 +68,5 @@ func needRates(sleeping bool) Needs {
 }
 
 func CareRuleBook() CareRules {
-	return CareRules{Awake: needRates(false), Sleeping: needRates(true), MaxOfflineHours: MaxOfflineHours, Actions: careActionEffects(), Growth: growthRuleBasis()}
+	return CareRules{NeedTolerance: careNeedTolerance, Awake: needRates(false), Sleeping: needRates(true), MaxOfflineHours: MaxOfflineHours, Actions: careActionEffects(), Growth: growthRuleBasis()}
 }

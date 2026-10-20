@@ -8,7 +8,7 @@ import (
 )
 
 func TestCareRulesRetainExistingRates(t *testing.T) {
-	want := CareRules{Awake: Needs{Hunger: -3, Mood: -2.5, Clean: -2, Energy: -2}, Sleeping: Needs{Hunger: -3, Mood: 0, Clean: -2, Energy: 14}, MaxOfflineHours: 12, Actions: CareActionEffects{Feed: Needs{Hunger: 20, Mood: 3, Clean: -3}, Clean: Needs{Clean: 35, Mood: 4}}, Growth: GrowthRuleBasis{BasePerHour: .5, ComfortPerHour: .75, RestEnergyPerHabit: 28, RestPointsPerHabit: .25}}
+	want := CareRules{NeedTolerance: 1e-9, Awake: Needs{Hunger: -3, Mood: -2.5, Clean: -2, Energy: -2}, Sleeping: Needs{Hunger: -3, Mood: 0, Clean: -2, Energy: 14}, MaxOfflineHours: 12, Actions: CareActionEffects{Feed: Needs{Hunger: 20, Mood: 3, Clean: -3}, Clean: Needs{Clean: 35, Mood: 4}}, Growth: GrowthRuleBasis{BasePerHour: .5, ComfortPerHour: .75, RestEnergyPerHabit: 28, RestPointsPerHabit: .25}}
 	if got := CareRuleBook(); got != want {
 		t.Fatalf("passive rules changed: %+v", got)
 	}

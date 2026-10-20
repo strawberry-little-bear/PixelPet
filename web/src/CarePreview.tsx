@@ -11,15 +11,24 @@ const careNeeds = {
 } as const;
 const fullEnergy = 100;
 
+// Response-only capability: old servers retain exact comparisons. Reject a
+// malformed/oversized tolerance rather than promising different care rules.
+// Normalize only the comparison, never the saved reading or displayed effects.
+function careNeed(value: number, boundary: number, rules?: CareRules | null) {
+  const tolerance = rules?.needTolerance;
+  return typeof tolerance === "number" && Number.isFinite(tolerance) && tolerance >= 0 && tolerance <= 1e-9 &&
+    Math.abs(value - boundary) <= tolerance ? boundary : value;
+}
+
 // Meters use rounded integers, but eligibility still uses the authoritative
 // fractional reading. Explain only a boundary that looks equal on the meter.
-function roundedReading(pet: PetState, kind: CareKind): string | null {
+function roundedReading(pet: PetState, kind: CareKind, rules?: CareRules | null): string | null {
   if (!pet.hatchedAt || pet.game || (pet.sleeping && kind !== "sleep")) return null;
   const config = kind === "sleep" ? null : careNeeds[kind];
   const value = config ? pet.needs[config.key] : pet.needs.energy;
   const label = config ? config.label : "体力";
   const thresholds = config ? [config.habitAt, config.fullAt] : [fullEnergy];
-  const threshold = thresholds.find(at => value !== at && Math.round(value) === at);
+  const threshold = thresholds.find(at => (kind === "sleep" ? value : careNeed(value, at, rules)) !== at && Math.round(value) === at);
   return threshold === undefined ? null
     : `最近读取：${label}实际${value > threshold ? "高于" : "低于"} ${threshold}，整数显示 ${threshold}。`;
 }
@@ -49,7 +58,7 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
   const feeding = kind === "feed";
   const config = careNeeds[kind];
   const need = pet.needs[config.key];
-  if (need >= config.fullAt) return [feeding
+  if (careNeed(need, config.fullAt, rules) >= config.fullAt) return [feeding
     ? "肚子已经饱饱的；暂时不能喂食，等需要时再来。"
     : "已经干干净净的；暂时不用洗澡。"];
 
@@ -57,7 +66,7 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
   // The server checks need before cooldown. Keep that same priority even when
   // both would prevent a habit credit. Missing legacy growth is not evidence
   // of a new reward; let the next authoritative response supply its history.
-  if (need > config.habitAt) return [effect, feeding
+  if (careNeed(need, config.habitAt, rules) > config.habitAt) return [effect, feeding
     ? "饱食已满足；饱食 ≤70 时喂食才记习惯，本次不记。"
     : "清洁已满足；清洁 ≤65 时洗澡才记习惯，本次不记。"];
   if (!pet.growth) return [effect, "成长记录尚未读到；是否记习惯，以照顾后的结果为准。"];
@@ -76,7 +85,7 @@ const effectLabels = [["hunger", "饱食"], ["mood", "心情"], ["clean", "清�
 export function careBaseEffect(pet: PetState, kind: string, rules?: CareRules | null): Needs | null {
   if (!pet.hatchedAt || pet.game || pet.sleeping || (kind !== "feed" && kind !== "clean")) return null;
   const config = careNeeds[kind];
-  if (pet.needs[config.key] >= config.fullAt) return null;
+  if (careNeed(pet.needs[config.key], config.fullAt, rules) >= config.fullAt) return null;
   const effect = rules?.actions?.[kind];
   return effect && effectLabels.every(([key]) => typeof effect[key] === "number" && Number.isFinite(effect[key]) && Math.abs(effect[key]) <= 100)
     ? effect : null;
@@ -86,7 +95,7 @@ export function CarePreview({ pet, kind, hint, rules }: { pet: PetState; kind: s
   const care = kind === "feed" || kind === "clean" || kind === "sleep";
   const effect = careBaseEffect(pet, kind, rules);
   const lines = care ? carePreview(pet, kind, rules) : [hint];
-  const reading = care ? roundedReading(pet, kind) : null;
+  const reading = care ? roundedReading(pet, kind, rules) : null;
   return (
     <div className="care-preview" role="note" aria-label="所选菜单说明" data-care-preview={kind}>
       <strong>{care ? "照顾前看看" : "菜单说明"}</strong>

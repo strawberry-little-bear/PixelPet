@@ -91,7 +91,7 @@ export type CareFeedback = {
 };
 export type CareActionEffects = { feed: Needs; clean: Needs };
 export type GrowthRuleBasis = { basePerHour: number; comfortPerHour: number; restEnergyPerHabit: number; restPointsPerHabit: number };
-export type CareRules = { awake: Needs; sleeping: Needs; maxOfflineHours: number; actions?: CareActionEffects; growth?: GrowthRuleBasis };
+export type CareRules = { needTolerance?: number; awake: Needs; sleeping: Needs; maxOfflineHours: number; actions?: CareActionEffects; growth?: GrowthRuleBasis };
 export type Result = {
   careRules?: CareRules;
   saveGeneration?: string;

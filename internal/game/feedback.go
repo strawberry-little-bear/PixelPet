@@ -60,14 +60,14 @@ func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedbac
 		f.Habit = "nutrition"
 		f.HabitGain = s.Growth.Care.Nutrition - before.Care.Nutrition
 		last = before.Care.LastFeed
-		if beforeNeeds.Hunger > 70 {
+		if careNeed(beforeNeeds.Hunger, 70) > 70 {
 			f.Reason = "not-needed"
 		}
 	case "clean":
 		f.Habit = "clean"
 		f.HabitGain = s.Growth.Care.Clean - before.Care.Clean
 		last = before.Care.LastClean
-		if beforeNeeds.Clean > 65 {
+		if careNeed(beforeNeeds.Clean, 65) > 65 {
 			f.Reason = "not-needed"
 		}
 	case "catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish":

@@ -211,7 +211,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			return "", err
 		}
 	case "feed":
-		if s.Needs.Hunger >= 96 {
+		if careNeed(s.Needs.Hunger, 96) >= 96 {
 			return "", errors.New("肚子已经饱饱的啦，等一会儿再吃吧")
 		}
 		before := s.Needs.Hunger
@@ -224,7 +224,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		s.sharedMemory("meal", now)
 		msg = "啊呜！吃了一份香喷喷的小饭团。"
 	case "clean":
-		if s.Needs.Clean >= 99 {
+		if careNeed(s.Needs.Clean, 99) >= 99 {
 			return "", errors.New("已经洗得干干净净啦")
 		}
 		before := s.Needs.Clean

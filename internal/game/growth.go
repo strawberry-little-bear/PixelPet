@@ -258,13 +258,13 @@ func (s *State) recordCare(kind string, before float64, now time.Time) {
 	var score *float64
 	switch kind {
 	case "feed":
-		if before > 70 {
+		if careNeed(before, 70) > 70 {
 			return
 		}
 		last = &c.LastFeed
 		score = &c.Nutrition
 	case "clean":
-		if before > 65 {
+		if careNeed(before, 65) > 65 {
 			return
 		}
 		last = &c.LastClean
