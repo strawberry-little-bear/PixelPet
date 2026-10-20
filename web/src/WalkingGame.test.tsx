@@ -1,5 +1,5 @@
 import { RequestFailure } from "./requestFailure";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { WalkingGame, ParkAlbum } from "./WalkingGame";
@@ -38,6 +38,51 @@ describe("three-key walking",()=>{
  it("stops when hidden or help opens and never catches up on return",async()=>{await mount();await key("c");await clock(1100);await hidden(true);const count=calls().length;await clock(20000);await hidden(false);await clock(5000);expect(calls()).toHaveLength(count);await key("c");fireEvent.click(screen.getByRole("button",{name:"玩法说明"}));await clock(4000);fireEvent.click(screen.getByRole("button",{name:"关闭"}));await clock(4000);expect(calls()).toHaveLength(count+1)});
  it("does not restart after a resume response crosses background and foreground",async()=>{delayResume=true;await mount();await key("c");expect(calls()).toHaveLength(1);await hidden(true);await hidden(false);await act(async()=>release());await clock(9000);expect(calls()).toHaveLength(1);expect(document.querySelector(".walk-pause")).toBeTruthy()});
  it.each(["walk-resume","walk-step"])("fails safe when %s is rejected, without retry loops",async kind=>{failure=kind;await mount();await key("c");await clock(2000);const count=calls().length;await clock(8000);expect(calls()).toHaveLength(count);expect(document.querySelector(".walk-pause")).toBeTruthy();failure="";await key("c");await clock(1100);expect(calls().at(-1)?.kind).toBe("walk-step")});
+ it("keeps this route readable after the transient find message, without exposing future or historical finds",async()=>{
+  saved.game!.walking!.beat=28;
+  saved.park!.finds=[{id:"flower",firstAt:Date.now()-1000,lastAt:Date.now()-1000,count:4}];
+  await mount();
+  const region=screen.getByRole("region",{name:"本次沿途发现"});
+  expect(within(region).getByText("银杏叶")).toBeTruthy();
+  expect(within(region).queryByText("水边贝壳")).toBeNull();
+  expect(within(region).queryByText("落花")).toBeNull();
+  region.focus();
+  for(const k of ["Enter"," ","ArrowDown"])await act(async()=>{fireEvent.keyDown(region,{key:k})});
+  await clock(9000);
+  expect(calls()).toHaveLength(0);
+  expect(document.querySelector('.walk-pause span[data-selected="true"]')?.textContent).toContain("继续散步");
+  await key("a");await key("b");
+  expect(document.querySelector(".park-album")).toBeTruthy();
+  await key("c");
+  expect(screen.getByRole("region",{name:"本次沿途发现"})).toBeTruthy();
+  expect(calls()).toHaveLength(0);
+ });
+ it("hides the route reading while running and restores it on pause and reload without replaying discoveries",async()=>{
+  saved.game!.walking!.beat=28;
+  await mount();
+  await key("c");
+  expect(screen.queryByRole("region",{name:"本次沿途发现"})).toBeNull();
+  await clock(1100);await key("c");
+  const text=screen.getByRole("region",{name:"本次沿途发现"}).textContent;
+  expect(calls().map(a=>a.kind)).toEqual(["walk-resume","walk-step","walk-pause"]);
+  cleanup();const count=calls().length;await mount();await clock(12000);
+  expect(screen.getByRole("region",{name:"本次沿途发现"}).textContent).toBe(text);
+  expect(calls()).toHaveLength(count);
+  expect(saved.park!.finds).toHaveLength(0);
+ });
+ it("lets a focused route summary use explicit B to collect exactly once, not Enter or reading keys",async()=>{
+  saved.game!.walking!.beat=72;
+  saved.game!.walking!.souvenirs=["leaf","shell","leaf"];
+  await mount();const region=screen.getByRole("region",{name:"本次沿途发现"});region.focus();
+  expect(within(region).getAllByRole("listitem")).toHaveLength(3);
+  expect(within(region).getAllByText("银杏叶")).toHaveLength(2);
+  for(const k of ["Enter"," ","ArrowDown","a"])await act(async()=>{fireEvent.keyDown(region,{key:k})});
+  expect(calls()).toHaveLength(0);
+  await key("b");
+  expect(calls().map(a=>a.kind)).toEqual(["walk-finish"]);
+  expect(screen.queryByRole("region",{name:"本次沿途发现"})).toBeNull();
+  expect(document.querySelector(".content-home")).toBeTruthy();
+ });
  it("offers explicit B/C settlement at the end, A never submits",async()=>{saved.game!.walking!.beat=72;await mount();await clock(5000);await key("a");expect(calls()).toHaveLength(0);await key("c");expect(calls()).toEqual([expect.objectContaining({kind:"walk-finish",gameId:id,step:0})]);expect(document.querySelector(".content-home")).toBeTruthy()});
  it("opens park records from the permanent home menu without writing",async()=>{delete saved.game;await mount();await key("a");for(let i=0;i<11;i++)await key("a");await key("b");expect(document.querySelector(".park-album")).toBeTruthy();await key("b");await key("c");expect(calls()).toHaveLength(0)});
 });

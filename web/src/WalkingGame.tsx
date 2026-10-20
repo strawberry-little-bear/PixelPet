@@ -1,3 +1,4 @@
+import { WalkDiscoveries } from "./WalkDiscoveries";
 import { outingScenery } from "./outing";
 import { OutingCaption, OutingEncounterNote, OutingSky } from "./OutingScenery";
 import { PetArt, petRigKind } from "./PetArt";
@@ -33,7 +34,7 @@ export function WalkingGame({pet,active,choice}:{pet:PetState;active:boolean;cho
   <p className="walk-find">{found?`发现了${found.name}！已留在沿途发现。`:hit?"这一处走过啦，绊到也能继续，不扣状态。":`每 24 步一次发现 · 已走过 ${Math.floor(n.beat/24)} / 3 处`}</p>
   <small className="walk-method">{walkingCompanions[pet.species]}</small>
   <small>走完并收好计陪伴，3–6 币共用每日额度。</small>
-  {(paused||done)&&<><OutingEncounterNote pet={pet}/><OutingCaption scenery={scenery}/></>}
+  {(paused||done)&&<><WalkDiscoveries walking={n}/><OutingEncounterNote pet={pet}/><OutingCaption scenery={scenery}/></>}
  </section>;
 }
 export function ParkAlbum({pet,page}:{pet:PetState;page:number}) {

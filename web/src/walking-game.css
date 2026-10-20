@@ -44,3 +44,13 @@
 
 /* Reader text must grow independently of the running game header. */
 .park-album header{height:auto;min-height:22px;flex-wrap:wrap;gap:4px}
+
+/* This route's finds are reading content, only mounted while paused / done.
+   Keep the running scene geometry unchanged and let large text wrap naturally. */
+.walk-discoveries { margin-top: 12px; padding: 10px; border: 1px dashed currentColor; overflow-wrap: anywhere; }
+.walk-discoveries h3 { margin: 0 0 8px; font-size: inherit; }
+.walk-discoveries ol { list-style: none; margin: 0; padding: 0; }
+.walk-discoveries li + li { margin-top: 10px; border-top: 1px dotted currentColor; padding-top: 8px; }
+.walk-discoveries li > span { display: block; }
+.walk-discoveries li > strong { display: block; }
+.walking-game .walk-discoveries-note { margin-top: 10px; }
