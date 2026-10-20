@@ -68,3 +68,34 @@ it("hides the voice when a read fails and restores only after explicit authorita
   expect(document.querySelector(".care-outcome")).toBeNull();
   expect(api.mock.calls.every(([path]) => path === "visit" || path === "state")).toBe(true);
 });
+
+it.each(["balanced", "lively", "gentle", "easygoing"] as const)("uses saved %s adult voice across reads without replacing needs or replaying feedback", async form => {
+  saved.growth = { ...emptyGrowth("adult"), form };
+  const voice = homeVoice(2, "adult", "content", form);
+  await mount();
+  expect(caption()).toBe(voice);
+  await key("a"); await key("c");
+  expect(caption()).toBe(voice);
+  // A later habit balance is not a new adult form or dialogue event.
+  saved.growth.care.play = 200;
+  saved.growth.care.rest = 100;
+  saved.revision++;
+  await advance(15000);
+  expect(caption()).toBe(voice);
+  expect(document.querySelector(".growth-feedback")?.getAttribute("role")).toBeNull();
+  saved.needs.hunger = 10; saved.revision++;
+  await advance(15000);
+  expect(caption()).toBe("小肚子咕噜咕噜，想吃点东西");
+  saved.needs.hunger = 80; saved.needs.energy = 44; saved.needs.mood = 60; saved.revision++;
+  await advance(15000);
+  expect(caption()).toBe(homeVoice(2, "adult", "quiet"));
+  saved.sleeping = true; saved.revision++;
+  await advance(15000);
+  expect(document.querySelector(".pet-scene")?.getAttribute("data-motion")).toBe("sleeping");
+  expect(caption()).not.toBe(voice);
+  expect(document.querySelector(".care-outcome")).toBeNull();
+  expect(document.querySelector(".pet-scene")?.getAttribute("data-echo")).toBeNull();
+  expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+  expect(document.querySelector(".lcd button,.lcd input,.lcd a,.lcd [role=button]")).toBeNull();
+  expect(api.mock.calls.every(([path]) => path === "visit" || path === "state")).toBe(true);
+});

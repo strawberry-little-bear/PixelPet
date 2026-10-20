@@ -25,7 +25,7 @@ describe.each(species.map((name, index) => ({ name, index })))("$name stage comp
       expect(voice).not.toMatch(/金币|奖励|签到|每天|上次|昨天|喂我|终于|不来|孤单/);
     }
   });
-  it("has distinct stage voices and does not infer legacy growth from age or form", () => {
+  it("has distinct stage voices and does not infer legacy or younger stages from age or form", () => {
     for (const kind of Object.keys(cues)) {
       expect(new Set(stages.map(stage => homeVoice(index, stage, kind))).size).toBe(3);
       expect(homeVoice(index, undefined, kind)).toBeNull();
@@ -34,7 +34,7 @@ describe.each(species.map((name, index) => ({ name, index })))("$name stage comp
       for (const stage of stages) for (const form of ["balanced", "lively", "gentle", "easygoing"] as const) {
         const saved = pet(index, stage);
         saved.growth!.form = form;
-        expect(petNeed(saved)?.text).toBe(homeVoice(index, stage, "content"));
+        expect(petNeed(saved)?.text).toBe(homeVoice(index, stage, "content", stage === "adult" ? form : undefined));
       }
     }
   });

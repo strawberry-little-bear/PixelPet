@@ -22,6 +22,7 @@
 
 - [成长、阈值与成年形态](GROWTH.md)
 - [照顾指南](CARE_GUIDE.md) · [宠物照顾说明](PET_CARE_GUIDE.md)
+- [小窝阶段对白与成年陪伴风格](HOME_STAGE_VOICE.md)
 - [共同游戏与有限兴趣](COMPANION.md)
 - [金币、每日问候与小窝商店](ECONOMY.md)
 - [永久纪念册分类浏览](ALBUM_BROWSING.md) · [成长日记阅读](JOURNAL_READING.md)

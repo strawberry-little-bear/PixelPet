@@ -1,20 +1,16 @@
 // Saved-stage home voices, not simulated growth journeys or human playtests.
 // All writes/fixtures are confined to a disposable DB and random-port server.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
-import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homeVoice } from '../web/src/homeVoice.ts';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set an absolute isolated PIXELPET_TEST_BINARY');
-assert(web && isAbsolute(web), 'Set an absolute isolated PIXELPET_TEST_WEB');
-const shared = async p => realpath(p).catch(() => resolve(p));
-assert.notEqual(await realpath(binary), await shared(join(root, 'bin/pixelpet')), 'Do not use shared binary');
-assert.notEqual(await realpath(web), await shared(join(root, 'web/dist')), 'Do not use shared web build');
+const { binary, web } = await isolatedTestBuilds({ root });
 assert.equal(process.argv.length, 2, 'No player URL or database arguments');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-home-voice-')), results = [];
@@ -93,7 +89,7 @@ try {
       for (const kind of ['content', 'quiet']) {
         const label = `${mode.width}-${species}-${stage}-${kind}`;
         const before = await seed(species, stage, kind === 'quiet' ? { mood: 60, energy: 44 } : {});
-        const count = writes.length, voice = homeVoice(species, stage, kind);
+        const count = writes.length, voice = homeVoice(species, stage, kind, before.growth.form);
         await page.goto(base); await page.locator('.home-caption').waitFor();
         assert.equal(await page.locator('.growth-feedback strong').innerText(), voice, label);
         assert(await page.locator(`.gesture-${kind}`).count() > 0, 'existing calm gesture missing');
@@ -113,6 +109,31 @@ try {
         results.push({ label, voice, passed: true });
       }
     }
+    // Legal migrated adult fixtures, not naturally raised four-form journeys.
+    // Only the saved form/card are varied; neutral old evidence stays absent.
+    for (const form of ['balanced', 'lively', 'gentle', 'easygoing']) {
+      const fixture = await seed(2, 'adult');
+      assert(!fixture.growth.formRecord, 'fixture unexpectedly has frozen evidence');
+      fixture.growth.form = form;
+      fixture.album.entries.find(m => m.kind === 'adult').form = form;
+      const before = (await api('import', fixture)).state;
+      const label = `${mode.width}-adult-${form}`, voice = homeVoice(2, 'adult', 'content', form);
+      const count = writes.length;
+      await page.goto(base); await page.locator('.home-caption').waitFor();
+      assert.equal(await page.locator('.growth-feedback strong').innerText(), voice, label);
+      assert.equal(await page.locator('.growth-feedback').getAttribute('role'), null);
+      await readable(page);
+      await key(page, 'A'); await page.locator('.care-menu').waitFor();
+      assert.match(await page.locator('.care-menu-advice').innerText(), /现在很舒适/);
+      await key(page, 'C');
+      assert.equal(await page.locator('.growth-feedback strong').innerText(), voice);
+      await page.reload(); await page.locator('.home-caption').waitFor();
+      assert.equal(await page.locator('.growth-feedback strong').innerText(), voice);
+      assert.equal(writes.length, count, 'voice or navigation wrote an action');
+      unchanged(before, (await api('state')).state);
+      await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
+      results.push({ label, voice, passed: true });
+    }
     for (const stage of ['baby', 'growing', 'adult']) {
       const label = `${mode.width}-${stage}-care-sleep-game`, before = await seed(2, stage, { hunger: 50 });
       await page.goto(base); await page.locator('.home-caption').waitFor();
@@ -122,7 +143,7 @@ try {
       await page.locator('.care-outcome').waitFor();
       assert.match(await page.locator('.growth-feedback strong').innerText(), /喂食习惯/);
       await page.waitForFunction(expected => document.querySelector('.growth-feedback strong')?.textContent === expected,
-        homeVoice(2, stage, 'content'), { timeout: 12000 });
+        homeVoice(2, stage, 'content', before.growth.form), { timeout: 12000 });
       await readable(page);
       const after = (await api('state')).state;
       assert.equal(after.careCount, before.careCount + 1);

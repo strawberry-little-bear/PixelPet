@@ -1,4 +1,4 @@
-import type { GrowthStage } from "./types";
+import type { AdultForm, GrowthStage } from "./types";
 
 // Present-tense companionship, not a claimed memory, event or care reward.
 // Only use a recorded stage; legacy saves without growth keep their old cue.
@@ -57,8 +57,77 @@ const voices: readonly Record<LivingStage, Voice>[] = [
   },
 ];
 
-export function homeVoice(species: number, stage: GrowthStage | undefined, kind: string): string | null {
+// A present-tense style for the saved adult form, never a care verdict or a
+// newly inferred personality. Low-energy quiet cues keep their neutral wording.
+const adultVoices: readonly Record<AdultForm, string>[] = [
+  {
+    balanced: "大尾巴轻轻圈好，陪你看光也听听风",
+    lively: "蓬尾巴轻快地晃晃，想和你看看新风景",
+    gentle: "大尾巴暖暖围在身旁，静静陪你歇一会儿",
+    easygoing: "把大尾巴随意铺好，我们慢慢待着就好",
+  },
+  {
+    balanced: "羽翼轻轻舒展开，陪你看云也听听风",
+    lively: "羽翼精神地扬起来，想和你看看远处",
+    gentle: "羽翼柔柔收在身旁，安静停着陪你",
+    easygoing: "羽翼松松地拢好，我们不赶着飞远",
+  },
+  {
+    balanced: "长耳轻轻转向你，陪你听风也看看光",
+    lively: "长耳精神地竖起来，想和你听听新声音",
+    gentle: "长耳软软歇在身侧，安静陪你听风",
+    easygoing: "长耳随意舒展开，我们慢慢待着就好",
+  },
+  {
+    balanced: "双鳍轻轻舒展开，陪你看光也听听水声",
+    lively: "小鳍精神地扬扬，想和你看看闪亮水光",
+    gentle: "双鳍柔柔贴在身侧，静静陪你看水光",
+    easygoing: "尾鳍松松地摆好，我们慢慢看水光吧",
+  },
+  {
+    balanced: "菌盖轻轻转向你，陪你看光也看看叶子",
+    lively: "菌盖轻快地摇摇，想和你看看新绿叶",
+    gentle: "菌盖稳稳停下来，安静陪你看一会儿光",
+    easygoing: "菌盖随意歪一点，我们慢慢待着就好",
+  },
+  {
+    balanced: "小爪舒舒服服放好，陪你看光也听听风",
+    lively: "小爪精神地挥挥，想和你看看新风景",
+    gentle: "小爪软软抱在身前，安静陪着你就好",
+    easygoing: "把小爪随意搭好，我们慢慢待着就好",
+  },
+  {
+    balanced: "蹼足轻轻收好，陪你看叶子也听听风",
+    lively: "后腿精神地撑好，想和你看看远处绿叶",
+    gentle: "蹼足柔柔歇下来，安静陪你看看叶子",
+    easygoing: "蹼足松松地放好，我们慢慢看叶子吧",
+  },
+  {
+    balanced: "尾尖轻轻圈好，陪你看光也听听风",
+    lively: "尾尖轻快地翘起来，想和你看看新风景",
+    gentle: "小爪软软收在身前，安静陪你看一会儿光",
+    easygoing: "尾尖随意卷一卷，我们慢慢待着就好",
+  },
+  {
+    balanced: "双翼轻轻舒展开，陪你看云也看看星光",
+    lively: "双翼精神地扬起来，想和你看看远方",
+    gentle: "双翼柔柔拢在身侧，安静陪你看一会儿光",
+    easygoing: "抱好小爪、放松双翼，我们慢慢待着就好",
+  },
+  {
+    balanced: "前爪舒舒服服放好，陪你听风也看看光",
+    lively: "尾巴轻快地摇摇，想和你听听新声音",
+    gentle: "软耳轻轻垂在身侧，安静陪你听风",
+    easygoing: "小爪随意搭在身前，我们慢慢待着就好",
+  },
+];
+
+export function homeVoice(species: number, stage: GrowthStage | undefined, kind: string, form?: AdultForm | ""): string | null {
   if (!Number.isInteger(species) || species < 0 || !["baby", "growing", "adult"].includes(stage ?? "") ||
       (kind !== "content" && kind !== "quiet")) return null;
+  if (stage === "adult" && kind === "content" &&
+      (form === "balanced" || form === "lively" || form === "gentle" || form === "easygoing")) {
+    return adultVoices[species]?.[form] ?? null;
+  }
   return voices[species]?.[stage as LivingStage]?.[kind] ?? null;
 }
