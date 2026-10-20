@@ -1,0 +1,100 @@
+# 开发与运行说明
+
+[项目首页](../README.md) · [文档导航](README.md) · [协作规则](../AGENTS.md)
+
+## 环境
+
+- Go 1.26+，依据 [`go.mod`](../go.mod)。SQLite 驱动为 `modernc.org/sqlite`，不需要 CGO。
+- Node.js `^24.15.0 || >=26.0.0`，pnpm 11.25.0，依据 [`web/package.json`](../web/package.json)。
+- 使用已提交的 `web/pnpm-lock.yaml`；安装依赖用 `pnpm install --frozen-lockfile`。
+
+下列命令均从仓库根目录开始，除非代码块明确 `cd web`。首次启动和单服务构建见[首页快速开始](../README.md#快速开始)。
+
+## 前后端开发
+
+```sh
+# 终端一：后端，默认 http://127.0.0.1:8080
+go run ./cmd/pet
+
+# 终端二：Vite，默认 http://127.0.0.1:5173
+cd web
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Vite 将 `/api` 代理到 `127.0.0.1:8080`，见 [`vite.config.ts`](../web/vite.config.ts)。如果修改后端端口，须同时调整代理。开发与构建运行默认共用 `data/pixelpet.db`；要试验新存档，请给后端显式指定独立数据库，而不是清空玩家数据库。
+
+```sh
+# 替换上面的后端命令：使用全新的临时存档
+DEV_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pixelpet-dev.XXXXXX")"
+PIXELPET_DB="$DEV_DIR/test.db" go run ./cmd/pet
+```
+
+不要在已有玩家服务的端口上启动第二个后端，也不要把临时测试请求发给玩家服务。
+
+## 服务配置
+
+| 环境变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `PIXELPET_ADDR` | `127.0.0.1:8080` | HTTP 监听地址 |
+| `PIXELPET_DB` | `data/pixelpet.db` | SQLite 存档路径 |
+| `PIXELPET_WEB` | `web/dist` | 已构建网页目录 |
+
+相对路径以启动进程的工作目录为基准；[`scripts/run.sh`](../scripts/run.sh) 会先切到仓库根目录，并在 PATH 无 Go 时尝试 `.tools/go/bin/go`。脚本要求已有 `web/dist/index.html`，不会自动构建前端。
+
+这是没有身份认证的本地单玩家服务，不要直接暴露到公网。配置一个监听地址不等于具备安全的多人部署能力。
+
+## 验证与隔离构建
+
+后端和前端单元测试使用测试夹具／临时库；浏览器验收必须另外指定临时数据库和测试端口。下面把构建输出也放进独立目录，避免覆盖玩家正在使用的 `bin/pixelpet` 和 `web/dist`：
+
+```sh
+CHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pixelpet-check.XXXXXX")"
+
+go test -race -count=1 ./...
+go vet ./...
+go build -o "$CHECK_DIR/pixelpet" ./cmd/pet
+
+(cd web && pnpm install --frozen-lockfile)
+(cd web && pnpm test)
+(cd web && pnpm exec tsc --noEmit)
+(cd web && pnpm exec vite build --outDir "$CHECK_DIR/web")
+
+node --test scripts/*.test.mjs prototypes/rhythm/*.test.mjs
+```
+
+浏览器脚本按专项文档运行，显式提供 `PIXELPET_TEST_BINARY`、`PIXELPET_TEST_WEB` 和 `PIXELPET_PLAYWRIGHT_MODULE`。可用脚本及保护规则见 [`browser-test-builds.mjs`](../scripts/browser-test-builds.mjs)；不要直接运行未知脚本并假定它不会触及共享构建。玩家库 `data/pixelpet.db` 不用于测试，也不通过导入或重置覆盖。
+
+GitHub Actions 当前运行 Go 竞态测试和构建、前端测试／构建，以及节奏原型协议和算术检查；并不自动包含全部 Chrome 专项验收。具体以 [CI 配置](../.github/workflows/ci.yml) 为准。
+
+## 存档与安全边界
+
+- SQLite 保存宠物、时间戳、钱包、库存、四槽布置、游戏会话、图鉴、最近 30 条日记及独立永久纪念册。当前 schema 17，兼容 schema 1–16；实际迁移逻辑位于 `internal/store/`。
+- 后端校验规则并事务提交，收到保存成功回复后前端才展示成功。断线、响应异常和多页面冲突先核对状态，不自动重放照顾或继续实时游戏。
+- 时间采用服务端 UTC。每次结算最多 12 小时，不是一次离开的全局累计上限；时间倒退时暂停写入并引导校时，不误报存档损坏。
+- JSON 导入先预览再确认，由服务端严格校验，替换前保留恢复快照。导入清理未完成对局，不发完成奖励、不补造历史。
+- 本地备份可由用户迁移，不宣称防篡改的在线经济。服务重启可续玩，与浏览器缓存不是同一份存储。
+
+专项说明：[连接恢复](SAVE_RECOVERY.md) · [备份确认](BACKUP_CONFIRMATION.md) · [损坏存档修复](CORRUPT_SAVE_RECOVERY.md) · [时间保护](CLOCK_RECOVERY.md) · [多页面存档同步](SAVE_SYNC.md)
+
+## 目录结构
+
+```text
+cmd/pet/          HTTP 服务入口
+internal/game/    养成规则与时间结算
+internal/store/   SQLite 持久化与迁移
+internal/httpapi/ JSON API 与静态文件服务
+web/              React 前端、素材与前端测试
+scripts/          启动脚本、隔离浏览器验收与辅助检查
+prototypes/       不接正式存档的独立实验
+docs/             玩法说明、专项设计、截图与历史验证
+data/             本机存档（不提交）
+```
+
+## 协作与文档维护
+
+- 按完整功能批次交付，测试通过后提交并推送；提交身份按 [`AGENTS.md`](../AGENTS.md) 核对，不修改全局 Git 配置，不重写历史。
+- 仅使用 A / B / C 三键，不在 LCD 新增可点击玩法控件；保持旧档兼容。
+- README 只保留项目介绍、启动和核心玩法；技术细节进专项文档，由[文档导航](README.md)按主题收录。
+- 新功能与历史验证不要堆到首页；最新进度放 [PROGRESS.md](PROGRESS.md)，下一步放 [NEXT_STEPS.md](NEXT_STEPS.md)。不要把历史测试数量当成当前全量结果。
+- 提交源码、锁文件和测试，不提交数据库、构建输出、工具或私密配置。运行中的玩家服务不会因提交或推送自动更新；部署前应单独确认存档和服务边界。
