@@ -25,6 +25,11 @@ const damagedFishing = (r: Result, catches: unknown) => ({ ...r, state: { ...r.s
     round: 0, score: 0, lastBeat: -1, fishing: { spot: 0, casts: 0, catches, phase: "ready", step: 0,
       waitMs: 0, elapsedMs: 0, candidate: "", lastPulseAt: r.serverTime, paused: true } } } });
 const corruptions = [
+  ["damaged tiles model", (r: Result) => ({ ...r, state: { ...r.state, game: { id: "0123456789abcdef0123456789abcdef", kind: "tiles", startedAt: r.serverTime, round: 0, score: 0, lastBeat: -1, tiles: { board: null, pick: -1, pairs: 0, shuffles: 0 } } } })],
+  ["damaged snake model", (r: Result) => ({ ...r, state: { ...r.state, game: { id: "0123456789abcdef0123456789abcdef", kind: "snake", startedAt: r.serverTime, round: 0, score: 0, lastBeat: -1, snake: { body: null } } } })],
+  ["damaged tetris model", (r: Result) => ({ ...r, state: { ...r.state, game: { id: "0123456789abcdef0123456789abcdef", kind: "tetris", startedAt: r.serverTime, round: 0, score: 0, lastBeat: -1, tetris: { board: null } } } })],
+  ["damaged walk model", (r: Result) => ({ ...r, state: { ...r.state, game: { id: "0123456789abcdef0123456789abcdef", kind: "walk", startedAt: r.serverTime, round: 0, score: 0, lastBeat: -1, walking: { route: null } } } })],
+  ["object stars score", (r: Result) => ({ ...r, state: { ...r.state, game: { startedAt: r.serverTime, round: 0, score: {}, lastBeat: -1 } } })],
   ["object active catches", (r: Result) => damagedFishing(r, {})],
   ["string active catches", (r: Result) => damagedFishing(r, "empty")],
   ["null active catch", (r: Result) => damagedFishing(r, [null])],

@@ -1,3 +1,4 @@
+import { validGameResponse } from "./gameResponse";
 import { fishCatalog } from "./fishing";
 import { parkCatalog } from "./walk";
 import { outingMemoryWords } from "./outing-memory";
@@ -148,7 +149,7 @@ export function validCoreResponse(value: unknown): value is Result {
     count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
-    count(state.careCount) && validTreasureResponse(state.game) && validFishingResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond) && validPark(state.park) &&
+    count(state.careCount) && validGameResponse(state.game) && validTreasureResponse(state.game) && validFishingResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond) && validPark(state.park) &&
     validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>
