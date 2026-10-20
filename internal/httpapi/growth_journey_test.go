@@ -298,89 +298,129 @@ func (j *httpGrowthJourney) restore() {
 	j.visit(time.UnixMilli(j.clock.Load()))
 }
 
-func TestHTTPGrowthJourneyFromEggThroughAdult(t *testing.T) {
-	adultAfter := map[string]time.Duration{}
-	for _, policy := range []string{"unattended", "quiet", "playful", "balanced"} {
-		t.Run(policy, func(t *testing.T) {
-			j := &httpGrowthJourney{t: t, start: time.Now().Add(time.Hour).Truncate(time.Millisecond)}
-			j.clock.Store(j.start.UnixMilli())
-			j.open(filepath.Join(t.TempDir(), "journey.db"))
-			t.Cleanup(j.close)
-			j.call("GET", "/api/state", nil)
-			j.call("POST", "/api/reset", map[string]bool{"confirm": true})
-			if j.result.State.LastTick != j.clock.Load() || j.result.State.Growth.Stage != "egg" {
-				t.Fatal("reset did not use server clock")
-			}
-			j.sequence++
-			j.call("POST", "/api/action", game.Action{Kind: "hatch", Species: 0, RequestID: fmt.Sprintf("http-growth-%d", j.sequence)})
-			if j.result.State.Growth.Stage != "baby" || j.result.State.Growth.Points != 0 || j.result.State.HatchedAt != j.clock.Load() {
-				t.Fatal("not a freshly hatched baby")
-			}
-			j.visit(j.start.Add(48 * time.Hour))
-			p := j.result.State
-			if p.Needs != (game.Needs{Hunger: 44, Mood: 50, Clean: 66, Energy: 61}) || p.CareCount != 0 || p.Growth.TrackedHours != 12 || math.Abs(p.Growth.Points-12.255) > 1e-8 {
-				t.Fatal("48h absence did not settle exactly 12h")
-			}
-			if j.result.ReturnRecap == nil || j.result.ReturnRecap.To-j.result.ReturnRecap.From != (48*time.Hour).Milliseconds() {
-				t.Fatal("recap confused elapsed time with settlement cap")
-			}
-			j.restore() // continue this same baby, never a threshold fixture
-			growingRestored := false
-			for hour := 49; hour <= 216; hour++ {
-				if policy == "unattended" && hour%12 != 0 {
-					continue
-				}
-				j.visit(j.start.Add(time.Duration(hour) * time.Hour))
-				if !growingRestored && j.result.State.Growth.Stage == "growing" {
-					j.restore()
-					growingRestored = true
-				}
-				if hour == 120 {
-					j.restart()
-				}
-				if policy != "unattended" {
-					j.care(policy, hour)
-				}
-			}
-			want := map[string]string{"unattended": "easygoing", "quiet": "gentle", "playful": "lively", "balanced": "balanced"}[policy]
-			if !growingRestored || j.growingAt == 0 || j.adultAt == 0 || j.adultForm != want {
-				t.Fatalf("policy failed natural three-stage journey: %+v", j.result.State.Growth)
-			}
-			counts := map[string]int{}
-			for _, m := range j.result.State.Album.Entries {
-				counts[fmt.Sprintf("%s/%d", m.Kind, m.Days)]++
-			}
-			for _, key := range []string{"hatch/0", "growing/0", "adult/0", "days/1", "days/7"} {
-				if counts[key] != 1 {
-					t.Fatalf("missing/duplicate actual milestone %s: %v", key, counts)
-				}
-			}
-			j.restore()
-			if j.result.State.Sleeping {
-				j.action("sleep", 0)
-			}
-			careBefore := j.result.State.Growth.Care
-			j.action("sleep", 0)
-			trackedBefore := j.result.State.Growth.TrackedHours
-			j.visit(time.UnixMilli(j.clock.Load()).Add(48 * time.Hour))
-			if j.result.State.Growth.TrackedHours-trackedBefore != 12 || j.result.State.Needs.Energy != 100 || j.result.State.Growth.Care.Rest <= careBefore.Rest {
-				t.Fatal("adult sleep did not retain cap and effective rest")
-			}
-			j.visit(time.UnixMilli(j.clock.Load()).Add(time.Hour))
-			restAtFull := j.result.State.Growth.Care.Rest
-			j.visit(time.UnixMilli(j.clock.Load()).Add(time.Hour))
-			if j.result.State.Growth.Care.Rest != restAtFull {
-				t.Fatal("full energy sleep invented effective rest")
-			}
-			j.restart()
-			j.restore()
-			adultAfter[policy] = time.Duration(j.adultAt-j.start.UnixMilli()) * time.Millisecond
-			t.Logf("simulated growing %v; adult %v; form %s; real HTTP requests %d", time.Duration(j.growingAt-j.start.UnixMilli())*time.Millisecond, adultAfter[policy], j.adultForm, j.requests)
-		})
+// The species is a cosmetic identity, not a hidden growth difficulty setting.
+// Compare actual HTTP journeys, not precomputed/imported growth histories.
+type httpGrowthOutcome struct {
+	GrowingAfter time.Duration
+	AdultAfter   time.Duration
+	Form         string
+	Record       game.FormRecord
+}
+
+func runHTTPGrowthJourney(t *testing.T, start time.Time, species int, policy string) httpGrowthOutcome {
+	t.Helper()
+	j := &httpGrowthJourney{t: t, start: start}
+	j.clock.Store(j.start.UnixMilli())
+	j.open(filepath.Join(t.TempDir(), "journey.db"))
+	t.Cleanup(j.close)
+	j.call("GET", "/api/state", nil)
+	j.call("POST", "/api/reset", map[string]bool{"confirm": true})
+	if j.result.State.LastTick != j.clock.Load() || j.result.State.Growth.Stage != "egg" {
+		t.Fatal("reset did not use server clock")
 	}
-	for _, policy := range []string{"quiet", "playful", "balanced"} {
-		if duration, selected := adultAfter[policy]; selected && adultAfter["unattended"] > 0 && (duration <= 0 || duration >= adultAfter["unattended"]) {
-			t.Errorf("care did not accelerate HTTP journey: %s %v vs %v", policy, adultAfter[policy], adultAfter["unattended"])
+	j.sequence++
+	j.call("POST", "/api/action", game.Action{Kind: "hatch", Species: species, RequestID: fmt.Sprintf("http-growth-%d", j.sequence)})
+	if j.result.State.Species != species || j.result.State.Name != game.Species[species] {
+		t.Fatalf("hatch selected species %d (%q), want %d (%q)", j.result.State.Species, j.result.State.Name, species, game.Species[species])
+	}
+	if j.result.State.Growth.Stage != "baby" || j.result.State.Growth.Points != 0 || j.result.State.HatchedAt != j.clock.Load() {
+		t.Fatal("not a freshly hatched baby")
+	}
+	j.visit(j.start.Add(48 * time.Hour))
+	p := j.result.State
+	if p.Needs != (game.Needs{Hunger: 44, Mood: 50, Clean: 66, Energy: 61}) || p.CareCount != 0 || p.Growth.TrackedHours != 12 || math.Abs(p.Growth.Points-12.255) > 1e-8 {
+		t.Fatal("48h absence did not settle exactly 12h")
+	}
+	if j.result.ReturnRecap == nil || j.result.ReturnRecap.To-j.result.ReturnRecap.From != (48*time.Hour).Milliseconds() {
+		t.Fatal("recap confused elapsed time with settlement cap")
+	}
+	j.restore() // continue this same baby, never a threshold fixture
+	growingRestored := false
+	for hour := 49; hour <= 216; hour++ {
+		if policy == "unattended" && hour%12 != 0 {
+			continue
 		}
+		j.visit(j.start.Add(time.Duration(hour) * time.Hour))
+		if !growingRestored && j.result.State.Growth.Stage == "growing" {
+			j.restore()
+			growingRestored = true
+		}
+		if hour == 120 {
+			j.restart()
+		}
+		if policy != "unattended" {
+			j.care(policy, hour)
+		}
+	}
+	want := map[string]string{"unattended": "easygoing", "quiet": "gentle", "playful": "lively", "balanced": "balanced"}[policy]
+	if !growingRestored || j.growingAt == 0 || j.adultAt == 0 || j.adultForm != want {
+		t.Fatalf("policy failed natural three-stage journey: %+v", j.result.State.Growth)
+	}
+	counts := map[string]int{}
+	for _, m := range j.result.State.Album.Entries {
+		counts[fmt.Sprintf("%s/%d", m.Kind, m.Days)]++
+	}
+	for _, key := range []string{"hatch/0", "growing/0", "adult/0", "days/1", "days/7"} {
+		if counts[key] != 1 {
+			t.Fatalf("missing/duplicate actual milestone %s: %v", key, counts)
+		}
+	}
+	j.restore()
+	if j.result.State.Sleeping {
+		j.action("sleep", 0)
+	}
+	careBefore := j.result.State.Growth.Care
+	j.action("sleep", 0)
+	trackedBefore := j.result.State.Growth.TrackedHours
+	j.visit(time.UnixMilli(j.clock.Load()).Add(48 * time.Hour))
+	if j.result.State.Growth.TrackedHours-trackedBefore != 12 || j.result.State.Needs.Energy != 100 || j.result.State.Growth.Care.Rest <= careBefore.Rest {
+		t.Fatal("adult sleep did not retain cap and effective rest")
+	}
+	j.visit(time.UnixMilli(j.clock.Load()).Add(time.Hour))
+	restAtFull := j.result.State.Growth.Care.Rest
+	j.visit(time.UnixMilli(j.clock.Load()).Add(time.Hour))
+	if j.result.State.Growth.Care.Rest != restAtFull {
+		t.Fatal("full energy sleep invented effective rest")
+	}
+	j.restart()
+	j.restore()
+	outcome := httpGrowthOutcome{
+		GrowingAfter: time.Duration(j.growingAt-j.start.UnixMilli()) * time.Millisecond,
+		AdultAfter:   time.Duration(j.adultAt-j.start.UnixMilli()) * time.Millisecond,
+		Form:         j.adultForm, Record: *j.adultRecord,
+	}
+	t.Logf("simulated growing %v; adult %v; form %s; real HTTP requests %d", outcome.GrowingAfter, outcome.AdultAfter, outcome.Form, j.requests)
+	return outcome
+}
+
+func TestHTTPGrowthJourneyFromEggThroughAdult(t *testing.T) {
+	// Reuse the same controlled origin so only species, not calendar time,
+	// differs between otherwise identical care policies.
+	start := time.Now().Add(time.Hour).Truncate(time.Millisecond)
+	baseline := map[string]httpGrowthOutcome{}
+	for species, name := range game.Species {
+		t.Run(fmt.Sprintf("species_%d_%s", species, name), func(t *testing.T) {
+			outcomes := map[string]httpGrowthOutcome{}
+			for _, policy := range []string{"unattended", "quiet", "playful", "balanced"} {
+				t.Run(policy, func(t *testing.T) {
+					outcome := runHTTPGrowthJourney(t, start, species, policy)
+					outcomes[policy] = outcome
+					if first, exists := baseline[policy]; exists {
+						if outcome != first {
+							t.Errorf("species changed growth dates, form or threshold basis: got %+v, baseline %+v", outcome, first)
+						}
+					} else {
+						baseline[policy] = outcome
+					}
+				})
+			}
+			for _, policy := range []string{"quiet", "playful", "balanced"} {
+				care, selected := outcomes[policy]
+				unattended, compared := outcomes["unattended"]
+				if selected && compared && (care.AdultAfter <= 0 || care.AdultAfter >= unattended.AdultAfter) {
+					t.Errorf("care did not accelerate HTTP journey: %s %v vs %v", policy, care.AdultAfter, unattended.AdultAfter)
+				}
+			}
+		})
 	}
 }
