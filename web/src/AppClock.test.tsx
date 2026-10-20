@@ -81,7 +81,7 @@ it("ignores stale revision time for both the immediate display and following tic
   await act(async () => { vi.advanceTimersByTime(1000); });
   expect(statusAge()).toContain("相识第3天"); expect(writes()).toHaveLength(0);
 });
-it("continues ticking from the accepted server offset without changing saved needs or growth", async () => {
+it("continues ticking from the accepted server anchor without changing saved needs or growth", async () => {
   vi.setSystemTime(server + 7 * day); saved.game = { startedAt: server - 1350, round: 0, score: 0, lastBeat: -1 };
   const before = structuredClone(saved);
   await mount();
@@ -104,4 +104,45 @@ it("updates the live star clock with an accepted action reply, without waiting f
   expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(2);
   expect(writes()).toHaveLength(1); expect(writes()[0][1]).toMatchObject({ kind: "catch", gameId: "stars-action-clock" });
   expect(Date.now()).toBe(server);
+});
+
+for (const direction of [-1, 1]) {
+  it(`keeps acquaintance days steady when the browser wall clock jumps ${direction} week mid-session`, async () => {
+    await mount(); await openMenu(4);
+    const monotonicBefore = performance.now();
+    vi.setSystemTime(server + direction * (7 * day + 1234));
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(performance.now() - monotonicBefore).toBe(1000);
+    expect(statusAge()).toContain("相识第2天");
+    expect(document.querySelector('[aria-label="状态记录时间"] time')?.getAttribute("datetime")).toBe(new Date(saved.lastTick).toISOString());
+    expect(writes()).toHaveLength(0);
+  });
+  it(`keeps the star on elapsed server time after a ${direction} week wall-clock jump`, async () => {
+    saved.game = { id: "stars-wall-clock", startedAt: server - 1350, round: 0, score: 0, lastBeat: -1 };
+    await mount();
+    vi.setSystemTime(server + direction * (7 * day + 1234));
+    await act(async () => { vi.advanceTimersByTime(100); });
+    expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(1);
+    expect(saved.game.round).toBe(0); expect(writes()).toHaveLength(0);
+  });
+  it(`does not change today's claimed greeting after a ${direction} week wall-clock jump`, async () => {
+    await mount(); await openMenu(9);
+    vi.setSystemTime(server + direction * (7 * day + 1234));
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(document.querySelector(".shop-decision")?.textContent).toBe("今日已领取 · 不必连续来");
+    await key("b"); expect(writes()).toHaveLength(0);
+  });
+}
+it("still crosses a UTC day by elapsed time after a backward wall-clock jump", async () => {
+  servedAt = Date.parse("2026-10-20T23:59:59.500Z");
+  saved.economy!.lastDailyAt = servedAt; saved.lastTick = servedAt;
+  await mount(); await openMenu(9);
+  expect(document.querySelector(".shop-decision")?.textContent).toBe("今日已领取 · 不必连续来");
+  vi.setSystemTime(server - 7 * day);
+  await act(async () => { vi.advanceTimersByTime(1000); });
+  expect(document.querySelector(".shop-decision")?.textContent).toBe("B 收下 10 金币");
+  expect(writes()).toHaveLength(0);
+  servedAt += 1000; await key("b");
+  expect(writes()).toHaveLength(1); expect(writes()[0][1]).toMatchObject({ kind: "daily" });
+  expect(document.querySelector(".shop-decision")?.textContent).toBe("今日已领取 · 不必连续来");
 });

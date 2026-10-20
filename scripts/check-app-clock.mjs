@@ -1,5 +1,6 @@
 // Isolated HTTP/browser regression for accepting server time before the first
-// display-clock interval. Only the browser wall clock is skewed; no OS/server
+// display-clock interval, or --jump-after-load with real running intervals.
+// Only the browser wall clock is skewed; no OS/server
 // clock changes, player files, existing services or automatic reward claims.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -9,6 +10,8 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const runtimeJump = process.argv.includes('--jump-after-load');
+assert(process.argv.slice(2).every(arg => arg === '--jump-after-load'), 'Unknown argument');
 const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
 assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY');
 assert(web && isAbsolute(web), 'Set absolute PIXELPET_TEST_WEB');
@@ -74,18 +77,23 @@ try {
     if (profile === 'stars') { await api('action', { kind: 'play', requestId: crypto.randomUUID() }); await wait(1350); }
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, timezoneId: 'Asia/Shanghai', locale: 'zh-CN', reducedMotion: 'reduce' });
     try {
-      await context.addInitScript(({ skew, font }) => {
-        const nativeNow = Date.now.bind(Date); Date.now = () => nativeNow() + skew;
-        // Keep rAF, input, network and timeouts real. Hold only the app's two
-        // display intervals so every assertion observes pre-first-tick state.
+      await context.addInitScript(({ skew, font, runtimeJump }) => {
+        const nativeNow = Date.now.bind(Date);
+        window.__browserClockSkew = runtimeJump ? 0 : skew;
+        Date.now = () => nativeNow() + window.__browserClockSkew;
+        // Initial mode holds the two display intervals to test pre-first-tick
+        // state. Runtime mode leaves them real and waits for an actual tick.
         const nativeInterval = window.setInterval.bind(window);
-        window.__heldDisplayIntervals = 0;
+        window.__heldDisplayIntervals = 0; window.__displayIntervals = 0;
         window.setInterval = (handler, delay, ...args) => {
-          if (delay === 100 || delay === 1000) { window.__heldDisplayIntervals++; return nativeInterval(() => {}, delay); }
+          if (delay === 100 || delay === 1000) {
+            window.__displayIntervals++;
+            if (!runtimeJump) { window.__heldDisplayIntervals++; return nativeInterval(() => {}, delay); }
+          }
           return nativeInterval(handler, delay, ...args);
         };
         document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = font + 'px'; });
-      }, { skew, font: mode.font });
+      }, { skew, font: mode.font, runtimeJump });
       const page = await context.newPage(), samples = [], writes = [], errors = [];
       page.on('pageerror', error => errors.push(error.message));
       page.on('request', request => { if (request.method() === 'POST' && new URL(request.url()).pathname !== '/api/visit') writes.push(request.url()); });
@@ -96,6 +104,10 @@ try {
         await route.fulfill({ response, json: reply });
       });
       await page.goto(base); await page.waitForFunction(() => document.querySelector('.home-caption,.star-game'));
+      if (runtimeJump) {
+        await page.evaluate(skew => { window.__browserClockSkew = skew; }, skew);
+        await page.waitForTimeout(1100); // Actual 100ms / 1000ms display timers.
+      }
       const browserNow = await page.evaluate(() => Date.now());
       assert(Math.abs(browserNow - Date.now() - skew) < 2000);
       let selector;
@@ -111,8 +123,24 @@ try {
         assert.equal(samples.at(-1).state.growth, undefined);
       } else if (profile === 'stars') {
         selector = '.star-game'; const sample = samples.at(-1);
-        const expected = Math.floor(Math.max(0, sample.serverTime - sample.state.game.startedAt) / 900) % 3;
-        assert.equal(await page.locator('.game-lane').evaluateAll(lanes => lanes.findIndex(lane => lane.querySelector('.falling-star.visible'))), expected);
+        const lane = () => page.locator('.game-lane').evaluateAll(lanes => lanes.findIndex(lane => lane.querySelector('.falling-star.visible')));
+        if (runtimeJump) {
+          // Server and runner share the unchanged host clock. Sample away from
+          // 900ms boundaries to allow the real 100ms render cadence and network.
+          let checked = false;
+          for (let i = 0; i < 100; i++) {
+            const before = Date.now(), elapsed = Math.max(0, before - sample.state.game.startedAt);
+            if (elapsed % 900 >= 300 && elapsed % 900 <= 550) {
+              const actual = await lane(), after = Date.now();
+              if (after - before < 100) { assert.equal(actual, Math.floor(elapsed / 900) % 3); checked = true; break; }
+            }
+            await wait(30);
+          }
+          assert(checked, 'Could not sample a stable real-time star position');
+        } else {
+          const expected = Math.floor(Math.max(0, sample.serverTime - sample.state.game.startedAt) / 900) % 3;
+          assert.equal(await lane(), expected);
+        }
         assert.equal(sample.state.game.round, 0); assert.equal(sample.state.game.score, 0);
       } else if (profile === 'arcade-quota') {
         await openMenu(page, 1); selector = '.arcade-panel';
@@ -123,11 +151,12 @@ try {
         assert.equal(await page.locator('.shop-decision').innerText(), profile === 'daily-claimed' ? '今日已领取 · 不必连续来' : 'B 收下 10 金币');
       }
       await layout(page, selector);
-      assert(await page.evaluate(() => window.__heldDisplayIntervals > 0));
+      assert(await page.evaluate(() => window.__displayIntervals > 0));
+      assert.equal(await page.evaluate(() => window.__heldDisplayIntervals > 0), !runtimeJump);
       if (skew > 0) await page.screenshot({ path: join(dir, `${profile}-${mode.label}.png`), fullPage: true });
       if (profile === 'daily-claimed') await key(page, 'b'); // Must not send a duplicate claim.
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
-      results.push({ skew, mode: mode.label, profile, serverTime: samples.at(-1).serverTime, browserNow, legacyFixture: profile === 'legacy', importedHistory: ['daily-open', 'arcade-quota'].includes(profile), writes: writes.length });
+      results.push({ runtimeJump, skew, mode: mode.label, profile, serverTime: samples.at(-1).serverTime, browserNow, legacyFixture: profile === 'legacy', importedHistory: ['daily-open', 'arcade-quota'].includes(profile), writes: writes.length });
       console.log('PASS', results.length, skew, mode.label, profile);
     } finally { await context.close(); }
   }

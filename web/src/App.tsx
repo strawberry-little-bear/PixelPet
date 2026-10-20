@@ -1,3 +1,4 @@
+import { anchorServerClock, readServerClock } from "./serverClock";
 import { useTreasureViewport, type TreasureDestination } from "./useTreasureViewport";
 import { useReadingViewport } from "./useReadingViewport";
 import { usePauseReadingViewport, type PauseReadingDestination } from "./usePauseReadingViewport";
@@ -178,7 +179,7 @@ export default function App() {
   const [selected, setSelected] = useState(0);
   const [lane, setLane] = useState(1);
   const [now, setNow] = useState(Date.now());
-  const offset = useRef(0);
+  const clock = useRef(anchorServerClock(now));
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState("");
@@ -432,7 +433,7 @@ export default function App() {
         setEvolution({ stage: nextStage, form: r.state.growth?.form || "" });
       knownStage.current = nextStage;
     }
-    offset.current = r.serverTime - Date.now();
+    clock.current = anchorServerClock(r.serverTime);
     // The new snapshot must not render against the previous/browser clock
     // until the next interval (days, legacy estimates and live star position).
     setNow(r.serverTime);
@@ -723,7 +724,7 @@ export default function App() {
   }, [busy, refresh]);
   useEffect(() => {
     const timer = setInterval(
-      () => setNow(Date.now() + offset.current),
+      () => setNow(readServerClock(clock.current)),
       page === "game" ? 100 : 1000,
     );
     return () => clearInterval(timer);
@@ -1102,7 +1103,7 @@ export default function App() {
       if (epoch !== walkEpoch.current) return;
       if(document.hidden || !gameWindowActive.current){walkEpoch.current++;setWalkSession("");return;}
       void act("walk-step",{step:n.step}).then(ok=>{if(!ok){walkEpoch.current++;setWalkSession("");void refresh();}});
-    },Math.max(80,1050-(Date.now()+offset.current-n.lastPulseAt)));
+    },Math.max(80,1050-(readServerClock(clock.current)-n.lastPulseAt)));
     return ()=>clearTimeout(timer);
   },[pet?.game,walkSession,page,busy,tools,help,reset,abandoning]);
   useEffect(() => {
@@ -1119,7 +1120,7 @@ export default function App() {
           void refresh();
         }
       });
-    }, Math.max(80, 1050 - (Date.now() + offset.current - n.lastPulseAt)));
+    }, Math.max(80, 1050 - (readServerClock(clock.current) - n.lastPulseAt)));
     return () => clearTimeout(timer);
   }, [pet?.game, fishingSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
@@ -1132,7 +1133,7 @@ export default function App() {
       void act("tetris-step", { step: n.step }).then(ok => {
         if (!ok) { setTetrisSession(""); void refresh(); }
       });
-    }, Math.max(40, 1050 - (Date.now() + offset.current - n.lastFallAt)));
+    }, Math.max(40, 1050 - (readServerClock(clock.current) - n.lastFallAt)));
     return () => clearTimeout(timer);
   }, [pet?.game, tetrisSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
@@ -1161,7 +1162,7 @@ export default function App() {
           void refresh();
         }
       });
-    }, Math.max(80, 650 - (Date.now() + offset.current - n.lastMoveAt)));
+    }, Math.max(80, 650 - (readServerClock(clock.current) - n.lastMoveAt)));
     return () => clearTimeout(timer);
   }, [pet?.game, snakeSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
