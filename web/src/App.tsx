@@ -118,7 +118,7 @@ const items = [
   },
   {
     label: careMenuLabel("arcade"),
-    hint: "星星、配对、果园、积木、池塘与公园",
+    hint: `共 ${games.length} 款小游戏 · 按喜好选，不必都玩`,
     icon: Sparkles,
     kind: "arcade",
   },

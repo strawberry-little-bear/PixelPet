@@ -1,7 +1,7 @@
 // Real HTTP game-directory/guide reading; isolated build, save and random port.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -10,6 +10,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
 assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary');
 assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+const shared = async path => realpath(path).catch(() => resolve(path));
+assert.notEqual(await realpath(binary), await shared(join(root, 'bin/pixelpet')), 'Do not use shared binary, including symlinks');
+assert.notEqual(await realpath(web), await shared(join(root, 'web/dist')), 'Do not use shared web build, including symlinks');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-arcade-reading-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -116,7 +119,14 @@ try {
     try {
       console.log('RUN', label); await page.goto(base); await page.locator('.home-caption').waitFor();
       const preferences = await page.evaluate(() => JSON.stringify(localStorage));
-      for (const k of ['A', 'A', 'B']) await key(page, k);
+      for (const k of ['A', 'A']) await key(page, k);
+      const entrance = page.locator('[data-care-preview="arcade"]');
+      await entrance.waitFor();
+      assert.match(await entrance.innerText(), new RegExp(`${ids.length} 款小游戏`));
+      assert.match(await entrance.innerText(), /按喜好选，不必都玩/);
+      await readable(page, '[data-care-preview="arcade"]');
+      if (index === 0 && !seen) await page.screenshot({ path: join(dir, `entrance-${mode.width}-${mode.height}.png`), fullPage: true });
+      await key(page, 'B');
       await selection(ids[0]);
       for (let i = 0; i < index; i++) { await key(page, 'A'); await selection(ids[i + 1]); }
       // Cycle through and wrap the directory once, using the real key's native
