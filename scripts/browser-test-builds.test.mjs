@@ -81,3 +81,36 @@ for (const script of scripts) {
     await assert.rejects(readFile(env.PIXELPET_DB), { code: 'ENOENT' });
   });
 }
+
+for (const nextWeb of [undefined, 'relative', 'shared']) {
+  test(`runtime cache refuses ${nextWeb ?? 'missing'} next build before browser import`, async t => {
+    const f = await fixture(t), env = { ...process.env, ...f.env, PIXELPET_PLAYWRIGHT_MODULE: join(f.dir, 'no-playwright.mjs') };
+    delete env.PIXELPET_CACHE_NEXT_WEB;
+    if (nextWeb) env.PIXELPET_CACHE_NEXT_WEB = nextWeb === 'shared' ? join(repository, 'web/dist') : nextWeb;
+    await assert.rejects(promisify(execFile)(process.execPath, [join(repository, 'scripts/check-runtime-cache.mjs')], { env, timeout: 10000 }), error => {
+      assert.match(error.stderr, nextWeb === 'shared' ? /shared/ : /Set absolute isolated PIXELPET_TEST_WEB/);
+      assert.doesNotMatch(error.stderr, /ERR_MODULE_NOT_FOUND/); return true;
+    });
+  });
+}
+test('runtime cache serves only temporary copies with its own database and address', async t => {
+  const f = await fixture(t), next = join(f.dir, 'next'), trace = join(f.dir, 'cache-trace.json'), playwright = join(f.dir, 'playwright.mjs');
+  for (const [web, app] of [[f.web, 'before.js'], [next, 'after.js']]) {
+    await mkdir(join(web, '.vite'), { recursive: true });
+    await writeFile(join(web, 'index.html'), 'fixture');
+    await writeFile(join(web, 'runtime.js'), 'stable runtime');
+    await writeFile(join(web, '.vite/manifest.json'), JSON.stringify({ entry: { isEntry: true, file: app }, runtime: { name: 'react-vendor', file: 'runtime.js' } }));
+  }
+  await writeFile(playwright, 'export const chromium = {};');
+  await writeFile(f.binary, `#!${process.execPath}\nrequire('node:fs').writeFileSync(process.env.TEST_TRACE, JSON.stringify({web:process.env.PIXELPET_WEB,db:process.env.PIXELPET_DB,addr:process.env.PIXELPET_ADDR})); process.exit(23);`);
+  await chmod(f.binary, 0o755);
+  const env = { ...process.env, ...f.env, TMPDIR: f.dir, PIXELPET_CACHE_NEXT_WEB: next,
+    PIXELPET_PLAYWRIGHT_MODULE: playwright, TEST_TRACE: trace, PIXELPET_DB: join(f.dir, 'do-not-use.db'),
+    PIXELPET_ADDR: '127.0.0.1:18102', PIXELPET_WEB: join(repository, 'web/dist') };
+  await assert.rejects(promisify(execFile)(process.execPath, [join(repository, 'scripts/check-runtime-cache.mjs')], { env, timeout: 10000 }));
+  const captured = JSON.parse(await readFile(trace, 'utf8'));
+  assert(captured.web.startsWith(f.dir + '/')); assert.notEqual(captured.web, f.web); assert.notEqual(captured.web, next);
+  assert(captured.db.startsWith(f.dir + '/')); assert(captured.db.endsWith('/test.db'));
+  assert.match(captured.addr, /^127\.0\.0\.1:\d+$/); assert.notEqual(captured.addr, env.PIXELPET_ADDR);
+  await assert.rejects(readFile(env.PIXELPET_DB), { code: 'ENOENT' });
+});

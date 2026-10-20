@@ -44,3 +44,5 @@ jobs:
         run: node --test ../prototypes/rhythm/*.test.mjs
       - run: pnpm test
       - run: pnpm build
+      - name: Check runtime cache separation in temporary builds
+        run: node ../scripts/check-build-cache.mjs

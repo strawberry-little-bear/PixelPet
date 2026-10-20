@@ -61,11 +61,12 @@ go build -o "$CHECK_DIR/pixelpet" ./cmd/pet
 (cd web && pnpm exec vite build --outDir "$CHECK_DIR/web")
 
 node --test scripts/*.test.mjs prototypes/rhythm/*.test.mjs
+node scripts/check-build-cache.mjs
 ```
 
 浏览器脚本按专项文档运行，显式提供 `PIXELPET_TEST_BINARY`、`PIXELPET_TEST_WEB` 和 `PIXELPET_PLAYWRIGHT_MODULE`。可用脚本及保护规则见 [`browser-test-builds.mjs`](../scripts/browser-test-builds.mjs)；不要直接运行未知脚本并假定它不会触及共享构建。玩家库 `data/pixelpet.db` 不用于测试，也不通过导入或重置覆盖。
 
-GitHub Actions 当前运行 Go 竞态测试和构建、前端测试／构建，以及节奏原型协议和算术检查；并不自动包含全部 Chrome 专项验收。具体以 [CI 配置](../.github/workflows/ci.yml) 为准。
+GitHub Actions 当前运行 Go 竞态测试和构建、前端测试／构建，以及节奏原型协议和算术检查；并不自动包含全部 Chrome 专项验收。另含临时双构建的[稳定运行时与更新缓存检查](BUILD_CACHE.md)。具体以 [CI 配置](../.github/workflows/ci.yml) 为准。
 
 ## 存档与安全边界
 

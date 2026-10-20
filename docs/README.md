@@ -76,6 +76,7 @@
 
 ## 跨系统验证与实验边界
 
+- [稳定运行时分包、静态缓存与更新验证](BUILD_CACHE.md)
 - [从新蛋到成年的受控存储层旅程](GROWTH_JOURNEYS.md)
 - [四种照顾策略的受控 HTTP 旅程](HTTP_GROWTH_JOURNEYS.md)
 - [照顾跨阶段、刷新与恢复的浏览器旅程](CARE_GROWTH_JOURNEY.md)

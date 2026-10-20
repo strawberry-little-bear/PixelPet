@@ -158,6 +158,7 @@ func handlerWithClock(db *store.Store, web string, now func() time.Time) http.Ha
 	})
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "API not found", 404) })
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w = newStaticCacheWriter(w, r.URL.Path)
 		if r.Method != "GET" && r.Method != "HEAD" {
 			w.WriteHeader(405)
 			return
