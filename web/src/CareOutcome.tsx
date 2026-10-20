@@ -1,6 +1,7 @@
 import type { CareFeedback, Needs } from "./types";
 import "./care-outcome.css";
 import { SleepSummary } from "./SleepSummary";
+import { CareReadingRegion } from "./CareReadingRegion";
 import { careHabitUnits } from "./careHabitUnits";
 import { formNames } from "./growth";
 
@@ -55,14 +56,14 @@ function milestoneText(f: CareFeedback): string | null {
   return null;
 }
 
-export function CareOutcome({ feedback }: { feedback: CareFeedback | null }) {
+export function CareOutcome({ feedback, readable = false }: { feedback: CareFeedback | null; readable?: boolean }) {
   if (!feedback || !validEffect(feedback.effect)) return null;
   const { before, after, at } = feedback.effect;
   const learning = learningSummary(feedback);
   const milestone = learning ? milestoneText(feedback) : null;
   const action = feedback.kind === "feed" ? "喂食" : feedback.kind === "clean" ? "洗澡" :
     feedback.kind === "sleep" ? feedback.reason === "awake" ? "起床" : "入睡" : "陪玩";
-  return <section className="care-outcome" aria-label="上次操作的即时变化">
+  const outcome = <section className="care-outcome" aria-label="上次操作的即时变化">
     <h3>本页上次已确认 · {action}</h3>
     <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
       year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
@@ -87,4 +88,10 @@ export function CareOutcome({ feedback }: { feedback: CareFeedback | null }) {
     <small>以上仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>
     <SleepSummary feedback={feedback} />
   </section>;
+  // Home has no surrounding reading region. Status already has its own stop,
+  // so opt in only at home and never expose an empty stop for invalid metadata.
+  return readable ? <CareReadingRegion className="care-outcome-reading" label="照顾结果阅读区"
+    hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
+    {outcome}
+  </CareReadingRegion> : outcome;
 }

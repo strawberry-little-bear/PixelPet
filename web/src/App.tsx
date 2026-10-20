@@ -1646,9 +1646,9 @@ export default function App() {
       // and shortcuts on physical buttons still perform the original controls.
       if (e.target instanceof HTMLElement && e.target.matches(".return-panel,.care-reading-region") &&
         (e.key === "ArrowDown" || e.key === " ")) return;
-      // Enter on the menu's new read-only stop is not a care confirmation.
+      // Enter on a care menu/result reading stop is not a care confirmation.
       // Native activation on physical buttons and explicit A/B/C stay intact.
-      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading") && e.key === "Enter") return;
+      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading") && e.key === "Enter") return;
       const key = e.key.toLowerCase();
       // Enter/Space activate the focused physical key, just like clicking it.
       // In particular the import preview deliberately focuses safe C: never
@@ -2214,7 +2214,7 @@ export default function App() {
                               growth={growth}
                               mood={echo ? experienceWords[echo] : message || mood}
                             />
-                            <CareOutcome feedback={careOutcome} />
+                            <CareOutcome feedback={careOutcome} readable />
                             <GameOutcome outcome={gameOutcome} />
                           </>
                         )}
