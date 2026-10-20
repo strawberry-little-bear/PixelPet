@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY');
-assert(web && isAbsolute(web), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary');
+assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-care-menu-guidance-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -70,6 +70,7 @@ try {
     { label: 'desktop', width: 1280, height: 900, font: 14 },
     { label: 'phone-large', width: 320, height: 568, font: 28 },
     { label: 'contrast-large', width: 320, height: 568, font: 28, forcedColors: 'active' },
+    { label: 'short-large', width: 320, height: 380, font: 28 },
   ];
   const profiles = [
     { label: 'hungry', need: 'hunger', menu: '吃点东西', index: 0 },
@@ -78,16 +79,22 @@ try {
     { label: 'playful', need: 'mood', menu: '一起玩耍', index: 1 },
     { label: 'sleep-hungry', need: 'hunger', menu: '吃点东西', index: 0, sleeping: true },
     { label: 'sleep-dirty', need: 'clean', menu: '洗个澡澡', index: 2, sleeping: true },
-    { label: 'full-energy', menu: '睡个好觉', index: 3, full: true },
+    { label: 'full-energy', menu: '睡个好觉', index: 3, full: true, advice: '现在很舒适' },
+    { label: 'quiet', menu: '一起玩耍', index: 1, needs: { mood: 10, energy: 43 }, advice: '可以安静陪伴' },
+    { label: 'comfortable', menu: '吃点东西', index: 0, advice: '现在很舒适' },
+    { label: 'sleeping', menu: '起床啦', index: 3, sleeping: true, advice: '正在休息，不必急着叫醒' },
+    { label: 'sleep-full', menu: '起床啦', index: 3, sleeping: true, full: true, advice: '体力已满，可以从菜单选「起床啦」' },
   ];
   for (const stage of ['baby', 'growing', 'adult']) for (const mode of modes) for (const profile of profiles) {
     const at = Date.now(), age = { baby: 1, growing: 25, adult: 80 }[stage] * 3600000;
     const needs = { hunger: 80, mood: 80, clean: 80, energy: 80 };
     if (profile.need) needs[profile.need] = 10;
+    Object.assign(needs, profile.needs);
     const response = await fetch(base + '/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
       schema: 1, revision: 1, species: 2, name: '照顾伙伴', createdAt: at - age, hatchedAt: at - age, lastTick: at,
       sleeping: !!profile.sleeping, needs, careCount: 0, logs: [],
     }) });
+    const expectedAdvice = profile.advice ?? (profile.sleeping ? `先从菜单选「起床啦」，再选「${profile.menu}」` : `从菜单选「${profile.menu}」`);
     const imported = await response.json(); assert(response.ok, JSON.stringify(imported)); assert.equal(imported.state.growth.stage, stage);
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, isMobile: mode.width === 320, hasTouch: true, reducedMotion: 'reduce', forcedColors: mode.forcedColors || 'none' });
     try {
@@ -108,7 +115,7 @@ try {
         await select(page, 4); await key(page, 'b');
         const advice = page.getByLabel('照顾建议'); await advice.waitFor();
         const text = await advice.innerText();
-        assert(text.includes(profile.sleeping ? `先从菜单选「起床啦」，再选「${profile.menu}」` : `从菜单选「${profile.menu}」`));
+        assert(text.includes(expectedAdvice));
         await readable(page, '[aria-label="照顾建议"]');
         if (stage === 'baby' && profile.label === 'sleep-dirty') await page.screenshot({ path: join(dir, `sleep-advice-${mode.label}.png`), fullPage: true });
         await key(page, 'c');
@@ -117,17 +124,64 @@ try {
       assert((await page.locator('.care-item.selected').innerText()).includes(profile.menu));
       const preview = await page.getByLabel('所选菜单说明').innerText();
       await readable(page, '[aria-label="所选菜单说明"]');
-      if (profile.sleeping) {
+      if (profile.sleeping && profile.need) {
         assert(preview.includes(`先选「起床啦」叫醒，再选「${profile.menu}」`));
         for (let i = profile.index; i < 3; i++) await key(page, 'a');
         assert((await page.locator('.care-item.selected').innerText()).includes('起床啦'));
         assert((await page.getByLabel('所选菜单说明').innerText()).includes('按 B 轻轻叫醒'));
       }
-      if (profile.full) { assert(preview.includes('饱食和清洁仍会下降')); assert(preview.includes('不增加休息习惯')); }
+      if (profile.full && !profile.sleeping) { assert(preview.includes('饱食和清洁仍会下降')); assert(preview.includes('不增加休息习惯')); }
+      const menuAdvice = page.locator('.care-menu-advice');
+      await menuAdvice.waitFor({ timeout: 3000 });
+      assert((await menuAdvice.innerText()).includes('现在怎么照顾 · 最近读取'));
+      assert((await menuAdvice.innerText()).includes(expectedAdvice));
+      await readable(page, '.care-menu-advice');
+      const layout = await page.evaluate(() => {
+        const menu = document.querySelector('.care-menu').getBoundingClientRect();
+        const advice = document.querySelector('.care-menu-advice').getBoundingClientRect();
+        const preview = document.querySelector('.care-preview').getBoundingClientRect();
+        return { menuEnd: menu.bottom, adviceTop: advice.top, adviceEnd: advice.bottom, previewTop: preview.top,
+          font: parseFloat(getComputedStyle(document.querySelector('.care-menu-advice .care-advice')).fontSize),
+          readingFont: parseFloat(getComputedStyle(document.querySelector('.lcd-content')).fontSize) };
+      });
+      assert(layout.menuEnd <= layout.adviceTop + 1 && layout.adviceEnd <= layout.previewTop + 1, 'menu/advice/preview overlap');
+      assert.equal(layout.font, layout.readingFont, 'advice must retain reading font size');
+      // Native document scrolling reaches the whole note and then the keys;
+      // this does not add a clickable LCD control or move the selected item.
+      const selectedBefore = await page.locator('.care-item.selected').innerText();
+      await menuAdvice.scrollIntoViewIfNeeded();
+      if (stage === 'baby' && ['sleep-dirty', 'comfortable'].includes(profile.label)) await page.screenshot({ path: join(dir, `menu-advice-${profile.label}-${mode.label}.png`), fullPage: true });
+      await page.locator('.button-c').scrollIntoViewIfNeeded();
+      assert.equal(await page.locator('.care-item.selected').innerText(), selectedBefore);
+      await page.reload(); await page.locator('.home-caption').waitFor();
+      await key(page, 'b');
+      assert((await page.locator('.care-menu-advice').innerText()).includes(expectedAdvice), 'refresh lost saved advice');
+      assert((await page.locator('.care-item.selected').innerText()).includes('吃点东西'), 'advice must not auto-select an action');
       await readable(page, '.care-menu'); await readable(page, '[aria-label="所选菜单说明"]');
       if (stage === 'baby' && ['full-energy', 'sleep-dirty'].includes(profile.label)) await page.screenshot({ path: join(dir, `${profile.label}-${mode.label}.png`), fullPage: true });
-      assert.deepEqual(writes, [], 'reading guidance must not issue a care write'); assert.deepEqual(errors, []);
-      results.push({ stage, mode: mode.label, profile: profile.label, fixture: !!profile.full });
+      assert.deepEqual(writes, [], 'reading guidance must not issue a care write');
+      let explicitFeed = false;
+      if (profile.label === 'tired') {
+        // Deliberately choose feed even though rest is recommended: only B's
+        // actual selected action may be submitted; advice is never automation.
+        const acknowledgement = page.waitForResponse(res => new URL(res.url()).pathname === '/api/action' && res.request().method() === 'POST');
+        await key(page, 'b');
+        const res = await acknowledgement, reply = await res.json();
+        assert(res.ok(), JSON.stringify(reply));
+        assert.equal(reply.state.sleeping, false, 'recommendation executed instead of selected feed');
+        assert.equal(reply.state.careCount, 1);
+        assert.equal(reply.careFeedback.kind, 'feed');
+        assert.equal(reply.careFeedback.habitGain, 0, 'already satisfied food must not credit a habit');
+        assert.equal(reply.careFeedback.points, 0);
+        assert.deepEqual(writes, ['/api/action']);
+        const persisted = await (await fetch(base + '/api/state')).json();
+        assert.equal(persisted.state.careCount, 1);
+        assert.equal(persisted.state.sleeping, false);
+        assert.equal(persisted.state.growth.care.nutrition, 0);
+        explicitFeed = true;
+      }
+      assert.deepEqual(errors, []);
+      results.push({ stage, mode: mode.label, profile: profile.label, fixture: !!profile.full, explicitFeed });
       console.log('PASS', results.length, stage, mode.label, profile.label);
     } finally { await context.close(); }
   }

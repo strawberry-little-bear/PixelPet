@@ -118,12 +118,14 @@
 
 /* Selected-menu explanations stay in reading flow; never shrink the three
    physical keys or put a new clickable care control inside the LCD. */
+.care-menu-advice { border-top: 1px dashed #839567; margin-top: 8px; padding-top: 8px; }
+.reading-mode .lcd-content .care-menu-advice .care-advice { font-size: inherit; line-height: 1.6; margin: 4px 0; }
 .care-preview { border-top: 1px dashed #839567; margin-top: 8px; padding-top: 8px; }
 .care-preview strong { display: block; }
 .care-preview p { margin: 4px 0; }
 .care-preview small { display: block; margin-top: 6px; }
 @media (forced-colors: active) {
-  .care-preview { border-color: CanvasText; }
+  .care-preview, .care-menu-advice { border-color: CanvasText; }
 }
 
 /* Keep status values such as 100 intact at readable/root-scaled sizes.

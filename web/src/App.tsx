@@ -2203,6 +2203,10 @@ export default function App() {
                                   );
                                 })}
                             </div>
+                            <section className="care-menu-advice" aria-label="菜单中的照顾建议">
+                              <strong>现在怎么照顾 · 最近读取</strong>
+                              <CareAdvice pet={pet} />
+                            </section>
                             <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} rules={careRules} />
                           </>
                         )}
