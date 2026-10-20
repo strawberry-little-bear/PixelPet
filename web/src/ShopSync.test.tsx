@@ -108,6 +108,34 @@ describe("shop selection and purchase intent during authoritative updates", () =
     expect(document.querySelector('.shop-sync-note')).toBeNull();
     expect(saved.economy!.coins).toBe(88); expect(mutations()).toHaveLength(1);
   });
+  it("marks use as saved only after acknowledgement, and keeps removal separate from its trial preview", async () => {
+    await mount(); await open();
+    const caption = () => document.querySelector(".shop-preview small")?.textContent;
+    expect(caption()).toBe("仅预览 · 未使用");
+    let accept!: (reply: Result) => void;
+    api.mockImplementationOnce(() => new Promise<Result>(resolve => { accept = resolve; }));
+    await key("b");
+    expect(caption()).toBe("仅预览 · 未使用");
+    expect(document.querySelector<HTMLButtonElement>(".button-b")?.disabled).toBe(true);
+    saved.economy!.equipped.room = "clover-pot"; saved.revision++;
+    await act(async () => { accept(result()); });
+    expect(caption()).toBe("使用中 · 已保存");
+    await sync();
+    expect(caption()).toBe("使用中 · 已保存");
+    expect(mutations()).toHaveLength(1);
+    await key("b");
+    expect(saved.economy!.equipped.room).toBe("");
+    expect(caption()).toBe("仅预览 · 未使用");
+    expect(document.querySelector('.shop-preview [data-item="clover-pot"]')).not.toBeNull();
+    expect(saved.economy!.coins).toBe(100);
+    expect(mutations().map(([, body]) => body)).toEqual([
+      expect.objectContaining({ kind: "equip", item: "clover-pot" }),
+      expect.objectContaining({ kind: "equip", item: "clover-pot" }),
+    ]);
+    await key("c");
+    expect(document.querySelector('.shop-preview [data-item="clover-pot"]')).toBeNull();
+    expect(caption()).toBe("当前小窝 · 装扮不影响成长");
+  });
   it("does not redirect confirmation to a replacement item when the quoted item disappears", async () => {
     saved.economy!.owned = [];
     await mount(); await open("all"); await key("b");

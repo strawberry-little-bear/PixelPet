@@ -21,6 +21,8 @@ export function ShopPanel({ pet, shop, page, category = null, confirm, now, noti
   const growth = petGrowth(pet, now);
   const owned = !!item && !!e?.owned?.includes(item.id);
   const worn = !!item && itemEquipped(pet, item);
+  const previewCaption = !item ? "当前小窝 · 装扮不影响成长"
+    : !owned ? "仅预览 · 未购买" : worn ? "使用中 · 已保存" : "仅预览 · 未使用";
   const preview = { accessory: "", room: "", ...e?.equipped, ...(item ? { [item.slot]: item.id } : {}) };
   const allowance = gameAllowance(e, shop, now);
   return <section className="shop-panel" aria-label="小窝商店" data-shop-page={page} data-shop-category={category || "directory"} data-confirm={confirm}>
@@ -28,9 +30,11 @@ export function ShopPanel({ pet, shop, page, category = null, confirm, now, noti
     {notice && <p className="shop-sync-note" role="status">{notice}</p>}
     {!e || !shop ? <p>小店还没开门，请更新服务后再来看看。</p> : <>
       {category && <div className="shop-breadcrumb">{section.title} · {items.length} 件 · C 返回分类</div>}
-      <div className="shop-preview" aria-hidden="true">
-        <PetScene index={pet.species} stage={growth.stage} form={growth.form} motion="idle" clipId={0} dirty={false} equipped={preview} />
-        <small>{item ? owned ? "已拥有 · 预览不改变存档" : "实景预览 · 尚未购买" : "装扮不改变成长与成年形态"}</small>
+      <div className="shop-preview">
+        <div aria-hidden="true">
+          <PetScene index={pet.species} stage={growth.stage} form={growth.form} motion="idle" clipId={0} dirty={false} equipped={preview} />
+        </div>
+        <small>{previewCaption}</small>
       </div>
       {!category ? <>
         <div className="shop-sections" role="list" aria-label="商店分类">{shopSections.map((s, i) => <div key={s.id} role="listitem" aria-current={page === i ? "true" : undefined} data-section={s.id}><span>{page === i ? "▸" : "·"} {s.title}</span><small className="shop-quantity">{s.id === "daily" ? `+${shop.dailyCoins} 币` : `${shopItems(shop, pet, s.id).length} 件`}</small></div>)}</div>

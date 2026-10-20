@@ -104,8 +104,42 @@ describe("three-key categorized shop previews", () => {
     for (const id of ["sky-bow", "clover-pot", "mint-floor", "meadow-wall"]) {
       expect(document.querySelectorAll(`.shop-preview [data-item="${id}"]`)).toHaveLength(1);
     }
-    expect(screen.getByText("实景预览 · 尚未购买")).toBeTruthy();
+    expect(screen.getByText("仅预览 · 未购买")).toBeTruthy();
     expect(JSON.stringify(p)).toBe(before);
+  });
+  it.each(rules.catalog)("distinguishes preview, purchase and saved use for $slot", item => {
+    const p = pet(); p.economy!.owned = []; p.economy!.equipped = { accessory: "", room: "" };
+    const props = { shop: rules, category: "all" as const, page: rules.catalog.indexOf(item), now, confirm: false };
+    const { rerender } = render(<ShopPanel {...props} pet={p} />);
+    const caption = () => document.querySelector(".shop-preview small")!;
+    expect(caption().textContent).toBe("仅预览 · 未购买");
+    expect(caption().closest('[aria-hidden="true"]')).toBeNull();
+    rerender(<ShopPanel {...props} pet={p} confirm />);
+    expect(caption().textContent).toBe("仅预览 · 未购买");
+    p.economy!.owned.push(item.id);
+    rerender(<ShopPanel {...props} pet={p} />);
+    expect(caption().textContent).toBe("仅预览 · 未使用");
+    p.economy!.equipped[item.slot] = item.id;
+    rerender(<ShopPanel {...props} pet={p} />);
+    expect(caption().textContent).toBe("使用中 · 已保存");
+    expect(screen.getByRole("status").textContent).toBe("使用中 · B 收起来");
+    p.economy!.equipped[item.slot] = "";
+    const before = JSON.stringify(p);
+    rerender(<ShopPanel {...props} pet={p} />);
+    expect(caption().textContent).toBe("仅预览 · 未使用");
+    // Removing an item keeps its free preview, not its saved use.
+    expect(document.querySelector(`.shop-preview [data-item="${item.id}"]`)).not.toBeNull();
+    expect(JSON.stringify(p)).toBe(before);
+  });
+  it("shows saved equipment in the directory and an empty owned filter without calling it a trial", () => {
+    const p = pet();
+    const { rerender } = render(<ShopPanel pet={p} shop={rules} page={0} now={now} confirm={false} />);
+    expect(screen.getByText("当前小窝 · 装扮不影响成长")).toBeTruthy();
+    expect(document.querySelector('.shop-preview [data-item="leaf-pin"]')).not.toBeNull();
+    p.economy!.owned = []; p.economy!.equipped.accessory = "";
+    rerender(<ShopPanel pet={p} shop={rules} category="owned" page={0} now={now} confirm={false} />);
+    expect(screen.getByText("当前小窝 · 装扮不影响成长")).toBeTruthy();
+    expect(document.querySelector('.shop-preview [data-item="leaf-pin"]')).toBeNull();
   });
   it("keeps all four cosmetic slots on sleep and bath scenes without moving occlusion", () => {
     for (const motion of ["sleeping", "bathing"] as const) {
