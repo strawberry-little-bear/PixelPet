@@ -92,6 +92,81 @@ describe("real discoveries and species-specific participation",()=>{
  it.each(walkingCompanions.flatMap((method,index)=>["baby","growing","adult"].map(stage=>({method,index,stage}))))("uses $stage anatomy for species $index in every pose",({method,index,stage})=>{saved.species=index;saved.growth!.stage=stage as "baby"|"growing"|"adult";const rig=petRigKind(index,saved.growth!.stage);saved.economy={coins:0,lastDailyAt:0,lastGameAt:0,gameCoins:0,owned:["sky-bow"],equipped:{accessory:"sky-bow",room:""}};saved.game!.walking!.paused=false;const {rerender}=render(<WalkingGame pet={saved} active choice={0}/>);expect(screen.getByText(method)).toBeTruthy();for(const pose of ["","jump","duck"] as const){saved.game!.walking!.pose=pose;rerender(<WalkingGame pet={saved} active choice={0}/>);expect(document.querySelector(`.park-scene[data-rig="${rig}"][data-pose="${pose||"moving"}"]`)).toBeTruthy();expect(document.querySelector(`.${rig}-rig[data-rig-stage="${stage}"]`)).toBeTruthy();expect(document.querySelectorAll(".walking-actor svg")).toHaveLength(1);expect(document.querySelector(".walking-actor svg")?.classList.contains("rig-motion-walking")).toBe(true);expect(document.querySelectorAll(".equipped-accessory")).toHaveLength(1);expect(document.querySelectorAll("button,a,input")).toHaveLength(0)}});
 });
 
+describe("read the timing of a walking action", () => {
+ it.each([
+  { species: 2, obstacle: "rock", pose: "jump", action: "跳跃", input: "A" },
+  { species: 2, obstacle: "branch", pose: "duck", action: "蹲下", input: "B" },
+  { species: 3, obstacle: "rock", pose: "jump", action: "跃水", input: "A" },
+  { species: 3, obstacle: "branch", pose: "duck", action: "下潜", input: "B" },
+ ] as const)("explains early, timely and wrong actions for species $species / $obstacle", ({ species, obstacle, pose, action, input }) => {
+  const pet = fixture(); pet.species = species;
+  const n = pet.game!.walking!; n.route.fill(obstacle); n.paused = false;
+  const { rerender } = render(<WalkingGame pet={pet} active choice={0} />);
+  const hint = () => document.querySelector(".walk-find")?.textContent;
+  expect(hint()).toBe(`近 3 步再按 ${input} ${action} · 动作保持 3 步。`);
+  Object.assign(n, { pose, poseUntil: 3 }); rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(hint()).toBe(`动作会先结束 · 近 3 步再按 ${input} ${action}。`);
+  Object.assign(n, { beat: 3, pose: "", poseUntil: 0 }); rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(hint()).toBe(`现在按 ${input} ${action} · 动作保持 3 步。`);
+  Object.assign(n, { pose, poseUntil: 6 }); rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(hint()).toBe(`${action}可覆盖本处 · 不必连按。`);
+  Object.assign(n, { beat: 5 }); rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(hint()).toBe(`${action}可覆盖本处 · 不必连按。`);
+  n.pose = pose === "jump" ? "duck" : "jump"; rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(hint()).toBe(`现在按 ${input} ${action} · 动作保持 3 步。`);
+ });
+ it("uses the next visible obstacle, not the previous one or future souvenirs", () => {
+  const pet = fixture(), n = pet.game!.walking!;
+  Object.assign(n, { beat: 9, paused: false, pose: "jump", poseUntil: 12 }); n.route[1] = "branch";
+  render(<WalkingGame pet={pet} active choice={0} />);
+  expect(document.querySelector(".walk-find")?.textContent).toBe("现在按 B 下潜 · 动作保持 3 步。");
+  expect(document.querySelector(".walking-game")?.textContent).not.toMatch(/水边贝壳|落花/);
+  expect(api).not.toHaveBeenCalled();
+ });
+ it("preserves discovery, boundary and finish messages instead of inventing obstacle history", () => {
+  const pet = fixture(), n = pet.game!.walking!; n.paused = false;
+  const { rerender } = render(<WalkingGame pet={pet} active choice={0} />);
+  Object.assign(n, { beat: 6, cleared: 1, pose: "duck", poseUntil: 9 });
+  rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(document.querySelector(".walk-find")?.textContent).toBe("这一处走过啦，绊到也能继续，不扣状态。");
+  n.beat = 24; rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(document.querySelector(".walk-find")?.textContent).toBe("发现了银杏叶！已留在沿途发现。");
+  Object.assign(n, { beat: 28, pose: "", poseUntil: 0 }); rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(document.querySelector(".walk-find")?.textContent).toBe("现在按 A 跃水 · 动作保持 3 步。");
+  n.beat = 72; rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(document.querySelector(".walk-warning")?.textContent).toContain("B / C 收好");
+  expect(document.querySelector(".walk-find")?.textContent).toBe("发现了落花！已留在沿途发现。");
+ });
+ it.each([true, false])("does not invite a timed action during a saved/local pause (saved %s)", paused => {
+  const pet = fixture(); Object.assign(pet.game!.walking!, { beat: 3, paused });
+  render(<WalkingGame pet={pet} active={paused} choice={0} />);
+  expect(document.querySelector(".walk-find")?.textContent).toBe("每 24 步一次发现 · 已走过 0 / 3 处");
+  expect(document.querySelector(".walk-find")?.textContent).not.toContain("现在按");
+ });
+ it("only shows coverage after the App receives the saved action", async () => {
+  saved.game!.walking!.beat = 3;
+  await mount(); await key("c");
+  const normal = api.getMockImplementation()!;
+  let accept!: () => Promise<void>;
+  api.mockImplementation((...args) => args[0] === "action" && (args[1] as {kind: string}).kind === "walk-jump"
+   ? new Promise(resolve => { accept = async () => resolve(await normal(...args)); }) : normal(...args));
+  await key("a");
+  expect(document.querySelector(".walk-find")?.textContent).toBe("现在按 A 跃水 · 动作保持 3 步。");
+  expect(saved.game!.walking!.pose).toBe("");
+  await act(async () => { await accept(); });
+  expect(document.querySelector(".walk-find")?.textContent).toBe("跃水可覆盖本处 · 不必连按。");
+  expect(calls().filter(a => a.kind === "walk-jump")).toHaveLength(1);
+ });
+ it("does not expire or extend a pose using local time", async () => {
+  const pet = fixture(); Object.assign(pet.game!.walking!, { beat: 3, paused: false, pose: "jump", poseUntil: 6 });
+  const before = structuredClone(pet); render(<WalkingGame pet={pet} active choice={0} />);
+  await clock(10000);
+  expect(document.querySelector(".walk-find")?.textContent).toBe("跃水可覆盖本处 · 不必连按。");
+  expect(pet).toEqual(before); expect(api).not.toHaveBeenCalled();
+  expect(document.querySelectorAll(".lcd button,.walking-game button,.walking-game a,.walking-game input")).toHaveLength(0);
+ });
+});
+
 describe("pause while an automatic walking step is in flight", () => {
  async function pendingStep(beat = 0) {
   saved.game!.walking!.beat = beat;

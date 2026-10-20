@@ -3,7 +3,7 @@ import { outingScenery } from "./outing";
 import { OutingCaption, OutingEncounterNote, OutingSky } from "./OutingScenery";
 import { PetArt, petRigKind } from "./PetArt";
 import { petGrowth } from "./growth";
-import { parkCatalog, walkMenu, walkingCompanions } from "./walk";
+import { parkCatalog, walkMenu, walkingCompanions, walkingTimingHint } from "./walk";
 import type { PetState } from "./types";
 import "./walking-game.css";
 
@@ -31,7 +31,7 @@ export function WalkingGame({pet,active,choice}:{pet:PetState;active:boolean;cho
    {paused&&<div className="walk-pause"><strong>慢慢走，不必赶路</strong><div>{walkMenu.map((v,i)=><span key={v} data-selected={choice===i}>{choice===i?"▸":"　"} {v}</span>)}</div><small>A 选择 · B 确认 · C 继续</small></div>}
   </div>
   <p className="walk-warning" aria-live="polite">{done?`到终点啦！避开 ${n.cleared} / 12 处，B / C 收好。`:paused?"刷新或离开后手动继续，不会离线赶路。":`${next==="rock"?dolphin?"前方浅石 · A 跃水":"前方石头 · A 跳跃":dolphin?"前方低枝 · B 下潜":"前方树枝 · B 蹲下"} · 还有 ${remaining} 步`}</p>
-  <p className="walk-find">{found?`发现了${found.name}！已留在沿途发现。`:hit?"这一处走过啦，绊到也能继续，不扣状态。":`每 24 步一次发现 · 已走过 ${Math.floor(n.beat/24)} / 3 处`}</p>
+  <p className="walk-find">{found?`发现了${found.name}！已留在沿途发现。`:hit?"这一处走过啦，绊到也能继续，不扣状态。":paused||done?`每 24 步一次发现 · 已走过 ${Math.floor(n.beat/24)} / 3 处`:walkingTimingHint(n,dolphin)}</p>
   <small className="walk-method">{walkingCompanions[pet.species]}</small>
   <small>走完并收好计陪伴，3–6 币共用每日额度。</small>
   {(paused||done)&&<><WalkDiscoveries walking={n}/><OutingEncounterNote pet={pet}/><OutingCaption scenery={scenery}/></>}
