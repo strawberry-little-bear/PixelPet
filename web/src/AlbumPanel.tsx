@@ -18,7 +18,7 @@ export const albumCategories = [
 export type AlbumCategory = typeof albumCategories[number]["id"];
 const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
   treasure: "play", hatch: "growth", growing: "growth", adult: "growth",
-  meal: "care", bath: "care", goodnight: "care",
+  meal: "care", bath: "care", goodnight: "care", rested: "care",
   stars: "play", "perfect-stars": "play", tiles: "play", snake: "play", tetris: "play", fishing: "play", walk: "play",
   outfit: "home", decoration: "home", wallpaper: "home", floor: "home",
   days: "days",
@@ -52,6 +52,7 @@ export function memoryWords(m: Memory, legacy: boolean) {
     case "meal": return { title: "一份暖暖的小饭团", story: `${legacy ? "纪念册开启后记下的第一顿饭" : "你们一起吃的第一顿饭"}，啊呜一口，小窝也暖了起来。` };
     case "bath": return { title: "泡泡里的小陪伴", story: `${legacy ? "纪念册开启后记下的第一次洗澡" : "你们的第一次泡泡澡"}，把这份温柔收好。` };
     case "goodnight": return { title: "轻轻说一声晚安", story: `${legacy ? "纪念册开启后第一次道晚安" : "你第一次轻轻道晚安"}。放心休息，小窝一直在这里。` };
+    case "rested": return { title: "睡饱后的小小伸展", story: "这一觉真正恢复了体力，睡饱后你轻轻叫醒了小伙伴。记下这次小小伸展，不用每次都等到满格。" };
     case "stars": return { title: "一起追过的星光", story: `${legacy ? "纪念册里记下的第一场" : "你们完整玩完的第一场"}接星星，接住了 ${m.score ?? 0} 颗。记住的是一起玩，不只是分数。` };
     case "perfect-stars": return { title: "五颗星，都接住啦", story: "五次默契的小接应，凑成一整把星光。值得记住，但不用每次都做到。" };
     case "walk": return {title:"公园里走过的第一条小路",story:"一起走完并收好了一次公园散步。绊到也没关系，沿途的真实发现和慢慢陪伴的时光都留了下来。"};
@@ -75,7 +76,7 @@ export function AlbumPanel({ pet, now, page, category = "all", missing = false }
   const words = memory ? memoryWords(memory, pet.album?.legacy ?? false) : undefined;
   const stage = memory?.kind === "hatch" ? "baby" : memory?.kind === "growing" ? "growing" : memory?.kind === "adult" ? "adult" : pet.growth?.stage || "baby";
   const isPortrait = !memory || ["hatch", "growing", "adult"].includes(memory.kind);
-  const Icon = memory && isOutingMemory(memory.kind) ? BookOpen : memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : memory?.kind === "goodnight" ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
+  const Icon = memory && isOutingMemory(memory.kind) ? BookOpen : memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : (memory?.kind === "goodnight" || memory?.kind === "rested") ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
   return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage} data-album-category={category} data-album-kind={memory?.kind}>
     <header><strong>{category !== "all" ? categoryLabel : memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
     {missing && <small role="status" className="album-source">同步时未找到刚才那条回忆，已返回本类封面。</small>}

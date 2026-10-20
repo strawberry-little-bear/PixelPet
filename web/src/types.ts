@@ -156,6 +156,7 @@ export type Memory = {
     | "meal"
     | "bath"
     | "goodnight"
+    | "rested"
     | "stars"
     | "perfect-stars"
     | "days"

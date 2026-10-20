@@ -82,7 +82,7 @@ func TestAlbumKeepsFirstSharedExperiencesBeyondDiary(t *testing.T) {
 	later := now.Add(2 * time.Hour)
 	applyAt(t, &s, "sleep", later)
 	applyAt(t, &s, "feed", later)
-	if memoryOf(t, s, "meal") != first || len(s.Logs) != 30 || len(s.Album.Entries) != 4 {
+	if memoryOf(t, s, "meal") != first || len(s.Logs) != 30 || len(s.Album.Entries) != 5 || !hasMemory(s, "rested") {
 		t.Fatal("first memories were lost or duplicated", s.Album)
 	}
 	encoded, _ := json.Marshal(s)

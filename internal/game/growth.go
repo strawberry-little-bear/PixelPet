@@ -150,6 +150,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		// Track only future explicit bedtimes, never invent a legacy session.
 		s.Schema = 17
 	}
+	if s.Schema == 17 {
+		// Preserve a known active sleep, but never infer a past rested wake.
+		// The new memory can only be recorded by a future explicit wake.
+		s.Schema = 18
+	}
 	return true
 }
 

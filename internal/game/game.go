@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 17
+const Schema = 18
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -242,6 +242,11 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			s.sharedMemory("goodnight", now)
 			msg = "晚安，小伙伴。睡着时体力会慢慢恢复。"
 		} else {
+			// Only a known session with actual recovery can leave this memory.
+			// Ordinary reads and an immediate wake at full energy do not qualify.
+			if s.Schema >= 18 && s.SleepSession != nil && s.SleepSession.EnergyRecovered > 0 && s.Needs.Energy == 100 {
+				s.sharedMemory("rested", now)
+			}
 			diary = sleepDiary(s.SleepSession, now.UnixMilli())
 			s.SleepSession = nil
 			msg = "早安！今天也一起慢慢长大吧。"

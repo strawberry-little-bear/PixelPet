@@ -58,7 +58,7 @@ function validCompanion(value: unknown): boolean {
 // album. Chronology, uniqueness and how memories are earned stay server rules.
 const memoryKinds: Record<Memory["kind"], unknown> = {
   ...outingMemoryWords,
-  hatch: true, growing: true, adult: true, meal: true, bath: true, goodnight: true,
+  hatch: true, growing: true, adult: true, meal: true, bath: true, goodnight: true, rested: true,
   stars: true, "perfect-stars": true, days: true, outfit: true, decoration: true,
   wallpaper: true, floor: true, tiles: true, snake: true, tetris: true, fishing: true, walk: true, treasure: true,
 };

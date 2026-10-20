@@ -84,6 +84,9 @@ func (s State) validAlbum(now time.Time) bool {
 	if s.Schema >= 16 {
 		limit++
 	}
+	if s.Schema >= 18 {
+		limit++
+	}
 	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > limit {
 		return false
 	}
@@ -175,6 +178,10 @@ func (s State) validAlbum(now time.Time) bool {
 			}
 		case "tiles":
 			if s.Schema < 5 || m.Source != "shared" {
+				return false
+			}
+		case "rested":
+			if s.Schema < 18 || m.Source != "shared" {
 				return false
 			}
 		case "meal", "bath", "goodnight":
