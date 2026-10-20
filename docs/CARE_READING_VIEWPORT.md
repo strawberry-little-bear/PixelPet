@@ -26,3 +26,7 @@
 最终浏览器截图与断言记录：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-care-reading-FNTSsV`。
 
 日志、复现图和独立构建：`/tmp/pet-care-reading`。脚本必须传绝对路径`PIXELPET_TEST_BINARY`、独立`PIXELPET_TEST_WEB`及可选`PIXELPET_PLAYWRIGHT_MODULE`，自建临时数据库/随机端口，结束时清理自己的服务。玩家数据库哈希、共享dist、原进程与18102标签保持；未自动部署新版，实体手机/真人读屏/自然长时体验仍待反馈。
+
+## 后续：原生键盘阅读
+
+[键盘阅读增强](CARE_READING_KEYBOARD.md)增加可 Tab 到达的命名只读区，↑/↓、空格等使用默认文档滚动；物理键与 A/B/C 不变。原明确导航定位的唯一开头标记现位于短提示，真实浏览器同时逐页验证实际标题可见，防止提示挤出标题；普通读取仍不跳、不抢焦点。不新增内部滚动，也不改变回访小结的独立固定高度策略。

@@ -1,3 +1,4 @@
+import { CareReadingRegion } from "./CareReadingRegion";
 import { GrowthTrack } from "./GrowthTrack";
 import { GrowthSnapshot } from "./GrowthSnapshot";
 import { GrowthBasis } from "./GrowthBasis";
@@ -90,10 +91,10 @@ export function GrowthPanel({
   ];
   const evidenceValues = [evidenceCare.play, calmScore, ...(record ? [record.nutrition, record.clean, record.rest] : [])];
   return (
-    <div className="growth-panel" data-growth-page={page}>
+    <CareReadingRegion className="growth-panel" data-growth-page={page} label="成长手册阅读区">
       {page === 0 ? (
         <>
-          <div className="growth-panel-title" data-care-reading-start>
+          <div className="growth-panel-title">
             <PetArt index={index} stage={g.stage} />
             <div>
               <strong>
@@ -135,7 +136,7 @@ export function GrowthPanel({
         </>
       ) : page === 1 ? (
         <>
-          <div className="habit-heading" data-care-reading-start>
+          <div className="habit-heading">
             <span>{g.form ? "成年形态" : "当前倾向"}</span>
             <strong>{formNames[form]}</strong>
           </div>
@@ -169,7 +170,7 @@ export function GrowthPanel({
         </>
       ) : page === 3 ? <CompanionPanel companion={companion} /> : page === 4 ? (
         <div className="growth-time-guide" aria-label="离线与成长说明">
-          <h3 data-care-reading-start>不在的时候，也慢慢长大</h3>
+          <h3>不在的时候，也慢慢长大</h3>
           <GrowthBasis stage={g.stage} rules={rules} />
           <dl>
             <div><dt>离线结算</dt><dd>读取或操作时按距上次保存的时间结算，每次结算有上限；超出该次上限不补扣、不补长。多次读取可能累计更多，具体上限见状态页。</dd></div>
@@ -180,7 +181,7 @@ export function GrowthPanel({
         </div>
       ) : page === 5 ? (
         <section className="growth-look-guide" aria-label="三阶段外观说明">
-          <h3 data-care-reading-start>{species[index] ?? "小伙伴"}的三阶段</h3>
+          <h3>{species[index] ?? "小伙伴"}的三阶段</h3>
           <p>同一位小伙伴的不同阶段，不是换一只宠物，也不只是放大原图。</p>
           {g.stage === "egg" && <p>孵化后开始三阶段旅程。</p>}
           <dl>
@@ -199,7 +200,7 @@ export function GrowthPanel({
         </section>
       ) : (
         <div className="form-guide">
-          <div className="habit-heading" data-care-reading-start>
+          <div className="habit-heading">
             <span>{record ? "定型时 · 形态依据" : g.form ? "已定型 · 形态依据" : "当前倾向 · 形态依据"}</span>
             <strong>{formNames[form]}</strong>
           </div>
@@ -246,6 +247,6 @@ export function GrowthPanel({
         </div>
       )}
       <span className="growth-page-dots">{page + 1} / {growthPageCount}</span>
-    </div>
+    </CareReadingRegion>
   );
 }

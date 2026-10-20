@@ -1,15 +1,18 @@
 // Real HTTP care/status/handbook reading; isolated build, save and random port.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY');
-assert(web && isAbsolute(web), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary');
+assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+const shared = async path => realpath(path).catch(() => resolve(path));
+assert.notEqual(await realpath(binary), await shared(join(root, 'bin/pixelpet')), 'Do not use shared binary, including symlinks');
+assert.notEqual(await realpath(web), await shared(join(root, 'web/dist')), 'Do not use shared web build, including symlinks');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-care-reading-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -31,10 +34,52 @@ async function visible(page, selector) {
   const box = await page.locator(selector).boundingBox(), height = await page.evaluate(() => innerHeight);
   assert(box && box.y >= -1 && box.y + box.height <= height + 1, `${selector} outside native viewport: ${JSON.stringify(box)}`);
 }
+async function visibleHeading(page, kind, n) {
+  const selector = kind === 'growth' ? [
+    '.growth-panel-title', '.growth-panel > .habit-heading', '.form-guide > .habit-heading',
+    '.companion-panel > .habit-heading', '.growth-time-guide > h3', '.growth-look-guide > h3',
+  ][n] : ['.status-name', '.status-guide > h3'][n];
+  await visible(page, selector);
+}
 async function open(page, kind) {
   await key(page, 'A'); for (let i = 0; i < (kind === 'growth' ? 6 : 4); i++) await key(page, 'A');
   await key(page, 'B'); await page.locator(`.content-${kind}`).waitFor();
   await visible(page, '[data-care-reading-start]');
+}
+async function nativeRead(page, kind, panel, capturePath) {
+  const originalKey = await focusedKey(page), value = await panel.getAttribute(`data-${kind}-page`);
+  assert(originalKey, 'Start from a physical key, not a scripted region focus');
+  for (let i = 0; i < 12 && !await panel.evaluate(el => document.activeElement === el); i++)
+    await page.keyboard.press('Shift+Tab');
+  assert(await panel.evaluate(el => document.activeElement === el), 'Reading region must be reachable with native Tab');
+  assert.equal(await panel.getAttribute('aria-label'), kind === 'growth' ? '成长手册阅读区' : '状态说明阅读区');
+  assert.equal(await panel.getAttribute('tabindex'), '0');
+  const hint = await panel.getAttribute('aria-describedby');
+  assert.match(await page.locator(`[id="${hint}"]`).innerText(), /↑\/↓ 或空格/);
+  const outline = await panel.evaluate(el => ({width:getComputedStyle(el).outlineWidth, style:getComputedStyle(el).outlineStyle}));
+  assert.equal(outline.width, '2px'); assert.equal(outline.style, 'solid');
+  if (capturePath) await page.screenshot({path:capturePath});
+  const movements = [];
+  // Exercise real browser defaults, not synthetic events or a custom scroll handler.
+  for (const [key, direction] of [['ArrowDown',1],['Space',1],['Shift+Space',-1],['End',1],['PageUp',-1],['Home',-1],['PageDown',1]]) {
+    // Give each key room in its intended direction. A short desktop document
+    // can reach Home after PageUp already; that no-op is not a keyboard failure.
+    await page.evaluate(direction => {
+      const max = document.documentElement.scrollHeight - innerHeight;
+      scrollTo({top: max * (direction > 0 ? 0.2 : 0.8), behavior: 'instant'});
+    }, direction);
+    await wait(200); const before = await page.evaluate(() => scrollY);
+    await page.keyboard.press(key);
+    await page.waitForFunction(({before,direction}) => direction * (scrollY - before) > 1, {before,direction}, {timeout:2500});
+    await wait(200); const after = await page.evaluate(() => scrollY);
+    assert.equal(await panel.getAttribute(`data-${kind}-page`), value, `${key} must not turn the page`);
+    assert(await panel.evaluate(el => document.activeElement === el), `${key} must retain reading focus`);
+    movements.push({key,before,after});
+  }
+  // Tab leaves the region normally; Enter/Space on physical keys stay controls.
+  for (let i = 0; i < 6 && await focusedKey(page) !== originalKey; i++) await page.keyboard.press('Tab');
+  assert.equal(await focusedKey(page), originalKey, 'Reading must not trap Tab focus');
+  return {kind,page:Number(value),movements};
 }
 async function readable(page, kind) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal page overflow');
@@ -79,7 +124,7 @@ try {
     const before = (await api('state')).state; assert.equal(before.growth.stage, stage);
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true, isMobile: mode.width < 700,
       reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
-    const page = await context.newPage(), writes = [], errors = []; let reads = 0;
+    const page = await context.newPage(), writes = [], errors = [], nativeReading = []; let reads = 0;
     const label = `${stage}-${sleeping}-${mode.width}-${mode.height}`, capture = stage === 'baby' && !sleeping || stage === 'adult' && sleeping;
     page.on('pageerror', e => errors.push(e.message));
     page.on('response', res => { if (['/api/state', '/api/visit'].includes(new URL(res.url()).pathname)) reads++; });
@@ -93,7 +138,12 @@ try {
         for (let n = 0; n < pages; n++) {
           const panel = page.locator(kind === 'growth' ? '.growth-panel' : '.screen-status');
           assert.equal(await panel.getAttribute(`data-${kind}-page`), String(n));
-          await visible(page, '[data-care-reading-start]'); await readable(page, kind);
+          await visible(page, '[data-care-reading-start]'); await visibleHeading(page, kind, n); await readable(page, kind);
+          if (kind === 'growth' && n === 4 || kind === 'status' && n === 1) {
+            nativeReading.push(await nativeRead(page, kind, panel, capture ? join(dir, `native-${kind}-${label}.png`) : null));
+            // Resume the original reading/sync checks from the explicit start.
+            await page.locator('[data-care-reading-start]').scrollIntoViewIfNeeded();
+          }
           const focused = await focusedKey(page);
           if (capture && (n === 0 || n === 4 || n === 5 || kind === 'status')) {
             await page.screenshot({ path: join(dir, `visible-${kind}-${label}-${n}.png`) });
@@ -121,6 +171,7 @@ try {
         const focused = await focusedKey(page); assert(focused, 'physical key lost native focus');
         for (const [index, key] of ['Enter', 'Space'].entries()) {
           await page.keyboard.press(key); await visible(page, '[data-care-reading-start]');
+          await visibleHeading(page, kind, (index + 1) % pages);
           assert.equal(await page.locator(kind === 'growth' ? '.growth-panel' : '.screen-status').getAttribute(`data-${kind}-page`), String((index + 1) % pages), 'native key must flip exactly once');
           assert.equal(await focusedKey(page), focused);
         }
@@ -130,7 +181,7 @@ try {
       const after = (await api('state')).state;
       for (const field of ['species', 'hatchedAt', 'sleeping', 'careCount', 'economy', 'game']) assert.deepEqual(after[field], before[field]);
       assert.equal(after.growth.stage, stage); assert.equal(after.growth.form, before.growth.form);
-      results.push({ type: 'real-http-reading-after-legacy-migration', stage, sleeping, ...mode, pages: 8 });
+      results.push({ type: 'real-http-reading-after-legacy-migration', stage, sleeping, ...mode, pages: 8, nativeReading });
     } catch (e) { await page.screenshot({ path: join(dir, `failure-${label}.png`) }); throw e; }
     finally { await context.close(); }
   }

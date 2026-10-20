@@ -1,3 +1,4 @@
+import { CareReadingRegion } from "./CareReadingRegion";
 import { treasureReactionFor, treasureReactionMs, type TreasureReaction } from "./treasure-reaction";
 import { anchorServerClock, readServerClock } from "./serverClock";
 import { useTreasureViewport, type TreasureDestination } from "./useTreasureViewport";
@@ -1640,10 +1641,10 @@ export default function App() {
             !e.target.classList.contains("physical-button")))
       )
         return;
-      // A focused recap is a native reading region. Let Down/Space (including
-      // held keys and Shift+Space) scroll instead of turning them into A/B.
-      // Letter controls and shortcuts on the physical buttons stay unchanged.
-      if (e.target instanceof HTMLElement && e.target.matches(".return-panel") &&
+      // Only a focused native reading region opts out of Down/Space shortcuts.
+      // Held keys and Shift+Space keep their browser scroll behavior; letters
+      // and shortcuts on physical buttons still perform the original controls.
+      if (e.target instanceof HTMLElement && e.target.matches(".return-panel,.care-reading-region") &&
         (e.key === "ArrowDown" || e.key === " ")) return;
       const key = e.key.toLowerCase();
       // Enter/Space activate the focused physical key, just like clicking it.
@@ -2265,9 +2266,9 @@ export default function App() {
                           />
                         )}
                         {page === "status" && (
-                          <div className="screen-status" data-status-page={statusPage}>
+                          <CareReadingRegion className="screen-status" data-status-page={statusPage} label="状态说明阅读区">
                             {statusPage === 0 ? <>
-                            <div className="status-name" data-care-reading-start>
+                            <div className="status-name">
                               <PetArt
                                 index={index}
                                 stage={growth.stage}
@@ -2301,7 +2302,7 @@ export default function App() {
                             </div>
                             </> : <StatusGuide pet={pet} rules={careRules} />}
                             <small className="status-page-number">{statusPage + 1} / {statusPageCount}</small>
-                          </div>
+                          </CareReadingRegion>
                         )}
                         {page === "journal" && (
                           <JournalPanel logs={pet.logs} cursor={journalCursor} />
