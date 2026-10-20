@@ -66,6 +66,17 @@
 .reading-mode .lcd-content :is(p, small, strong, b, span, dt, dd, li, time, header, h3, .care-item, .lcd-meter, .companion-rows) {
   font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere;
 }
+/* Welcome captions and the anonymous text in choose-name are divs, so the
+   generic reading type rule above misses them. Keep their hierarchy at larger
+   root sizes, and let the counter move below the name on narrow screens. */
+.reading-mode :is(.content-choose, .content-hatch) .screen-caption {
+  font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere;
+}
+.reading-mode .content-choose .choose-name {
+  font-size: 1.071429rem; line-height: 1.6; flex-wrap: wrap; overflow-wrap: anywhere;
+}
+.reading-mode .content-choose .choose-name > span { white-space: nowrap; }
+.reading-mode .content-hatch .hatch-view > :is(strong, small) { max-width: 100%; text-align: center; }
 .reading-mode .lcd-content :is(header, .habit-heading, .home-caption, .shop-footer, .shop-panel h3, .form-rules li) { flex-wrap: wrap; gap: 4px; }
 .reading-mode .care-item { height: auto; min-height: 27px; padding: 3px; }
 .reading-mode .care-item > svg { flex-shrink: 0; }

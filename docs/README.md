@@ -70,7 +70,7 @@
 
 ## 三键、阅读与无障碍
 
-- [三键阅读可达性](READING_ACCESSIBILITY.md) · [键盘输入安全](KEYBOARD_SAFETY.md)
+- [三键阅读可达性与首次迎接字号](READING_ACCESSIBILITY.md) · [键盘输入安全](KEYBOARD_SAFETY.md)
 - [阅读页成功通知不遮字／按键](READING_NOTICES.md)
 - [物理键盘与网络等待焦点](PHYSICAL_KEYBOARD.md) · [可选提示音容错](AUDIO_SAFETY.md)
 - [窗口失焦暂停](WINDOW_PAUSE.md) · [回窗同步](WINDOW_RETURN_SYNC.md)

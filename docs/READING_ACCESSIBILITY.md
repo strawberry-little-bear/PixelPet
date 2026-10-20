@@ -22,3 +22,22 @@
 
 ![大字成长说明](reading-large-guide.png)
 ![大字散步暂停说明](reading-large-pause.png)
+
+## 2026-10-21 · 首次迎接文字随字号放大
+
+旧隔离构建的 Chrome 实测：根字号从 14px 改为 28px 时，选伙伴页的名字仍为 15px，选伙伴／孵化页的欢迎语仍为 10px；相邻页码和孵化提示已从 12px 变成 24px。原因是这些 `div` 没有匹配通用阅读字号规则，不是孵化或存档问题。
+
+现在仅在这两页补相对字号：名字 15→30px，欢迎语 12→24px；窄屏允许页码移到下一行，孵化提示居中换行。角色／蛋的尺寸、A 换伙伴、B 确认、C 返回重选，以及正式孵化与照顾规则均不改变；异常恢复页不套用这些规则。
+
+专项脚本 [`check-welcome-reading.mjs`](../scripts/check-welcome-reading.mjs) 使用独立二进制、网页、随机端口和临时数据库：
+
+```sh
+PIXELPET_TEST_BINARY=/absolute/isolated/pixelpet \
+PIXELPET_TEST_WEB=/absolute/isolated/web \
+PIXELPET_PLAYWRIGHT_MODULE=/absolute/playwright/index.mjs \
+node scripts/check-welcome-reading.mjs
+```
+
+覆盖桌面 1200px／手机 320px × 根字号 14px／28px（手机大字另用强制颜色，均减少动态），同时核对两页文字实际倍增、LCD 文本边界、横向溢出和只有三颗玩法键。真实三键路径包括重选、取消、刷新后尚未孵化、显式 B 孵化恰好一次、刷新保留伙伴，再到首次喂食的实际状态改善。日常回访读取不被误算为孵化动作。
+
+这是隔离浏览器功能与布局回归，不是浏览器页面缩放、自然多日养成、实体手机或真人可用性／读屏认证；结果与日志位置见[开发进度](PROGRESS.md)。
