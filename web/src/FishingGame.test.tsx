@@ -122,6 +122,69 @@ it.each([1, 2, 3])("explains that an early reel used cast %i, including the last
   expect(document.querySelector(".fishing-status")?.textContent).toContain(casts === 3 ? "三竿完成" : "下一竿等咬钩提示");
 });
 
+describe("used and remaining casts", () => {
+  it("starts with zero used casts and three available casts, not an ordinal zero", () => {
+    render(<FishingGame pet={fixture()} active choice={0} />);
+    expect(document.querySelector(".fishing-game header span")?.textContent).toBe("已抛 0 / 3 竿 · 0 鱼");
+    expect(document.querySelector(".fishing-rule")?.textContent).toBe("还可抛 3 竿 · A 换钓点 · B 抛竿 · C 暂停");
+  });
+  it.each(["early", "missed", "caught"] as const)("keeps used and remaining counts after %s results", outcome => {
+    const pet = fixture(); const n = pet.game!.fishing!;
+    Object.assign(n, { phase: "result", outcome, casts: 1 });
+    if (outcome === "caught") { n.catches = ["reed-minnow"]; n.lastFish = "reed-minnow"; }
+    const { rerender } = render(<FishingGame pet={pet} active choice={0} />);
+    for (const casts of [1, 2]) {
+      n.casts = casts; rerender(<FishingGame pet={pet} active choice={0} />);
+      expect(document.querySelector(".fishing-game header span")?.textContent).toBe(`已抛 ${casts} / 3 竿 · ${outcome === "caught" ? 1 : 0} 鱼`);
+      expect(document.querySelector(".fishing-rule")?.textContent).toContain(`还可抛 ${3 - casts} 竿`);
+      if (outcome === "early") expect(document.querySelector(".fishing-status")?.textContent).toContain("这一竿已用掉");
+    }
+  });
+  it.each(["wait", "bite"] as const)("does not confuse the third active %s cast with zero chances to reel", phase => {
+    const pet = fixture(); const n = pet.game!.fishing!;
+    Object.assign(n, { phase, casts: 3, waitMs: 40000, candidate: "sun-carp" });
+    const { rerender } = render(<FishingGame pet={pet} active choice={0} />);
+    for (const paused of [false, true]) {
+      n.paused = paused; rerender(<FishingGame pet={pet} active choice={0} />);
+      expect(document.querySelector(".fishing-game header span")?.textContent).toBe("已抛 3 / 3 竿 · 0 鱼");
+      expect(document.querySelector(".fishing-rule")?.textContent).not.toContain("还可抛");
+      expect(document.querySelector(".fishing-game")?.textContent).not.toMatch(/40000|sun-carp|暖阳小鲤/);
+      if (!paused && phase === "bite") expect(screen.getByText("咬钩啦！按 B 提竿")).toBeTruthy();
+    }
+  });
+  it("does not show a remaining-cast invitation on a ready/result pause menu", () => {
+    const pet = fixture(); const n = pet.game!.fishing!;
+    const { rerender } = render(<FishingGame pet={pet} active choice={0} />);
+    for (const phase of ["ready", "result"] as const) {
+      Object.assign(n, { phase, paused: true, casts: phase === "ready" ? 0 : 1, outcome: phase === "ready" ? undefined : "early" });
+      rerender(<FishingGame pet={pet} active choice={0} />);
+      expect(screen.getByText("池塘已暂停")).toBeTruthy();
+      expect(document.querySelector(".fishing-rule")?.textContent).not.toContain("还可抛");
+    }
+  });
+  it.each([false, true])("keeps explicit collection qualification at three used casts (caught %s)", caught => {
+    const pet = fixture(); Object.assign(pet.game!.fishing!, { phase: "done", casts: 3, outcome: "early", catches: caught ? ["reed-minnow"] : [] });
+    render(<FishingGame pet={pet} active choice={0} />);
+    expect(document.querySelector(".fishing-game header span")?.textContent).toBe(`已抛 3 / 3 竿 · ${caught ? 1 : 0} 鱼`);
+    expect(document.querySelector(".fishing-status")?.textContent).toContain("B / C 收好");
+    expect(document.querySelector(".fishing-status")?.textContent).toContain("这一竿已用掉");
+    expect(document.querySelector(".fishing-rule")?.textContent).toBe(caught ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币");
+    expect(document.querySelector(".fishing-rule")?.textContent).not.toContain("还可抛");
+  });
+  it("does not restore a consumed early cast through pause, resume or App reload", async () => {
+    await mount(); await key("b"); await key("b");
+    expect(saved.game!.fishing!.outcome).toBe("early");
+    expect(document.querySelector(".fishing-rule")?.textContent).toContain("还可抛 2 竿");
+    await key("c"); await key("c");
+    expect(document.querySelector(".fishing-rule")?.textContent).toContain("还可抛 2 竿");
+    cleanup(); await mount();
+    expect(document.querySelector(".fishing-game header span")?.textContent).toContain("已抛 1 / 3 竿");
+    await key("b"); // The next explicit cast, not a restored first cast.
+    expect(saved.game!.fishing!.casts).toBe(2);
+    expect(calls().filter(a => a.kind === "fish-cast")).toHaveLength(2);
+  });
+});
+
 // Atmosphere follows confirmed elapsed time, never a local countdown or fish RNG.
 describe("quiet waiting feedback without false bites", () => {
   it.each([
