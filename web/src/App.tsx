@@ -878,10 +878,11 @@ export default function App() {
     setEvolution(null);
   }, [evolution, uncertain, unavailable, corrupt, page, busy, clip, pet?.sleeping, pet?.game, pet?.species, tools, help, reset, foreground]);
   useEffect(() => { recapDisplayEpoch.current++; }, [page, tools, help, reset]);
-  // An acknowledgement can itself cross a growth threshold. Let the saved
-  // growth celebration finish before presenting its recap, rather than hiding
-  // that celebration behind the recap. Navigation/backgrounding cancels only
-  // this automatic presentation; the acknowledged card stays in the menu.
+  // Let confirmed care feedback and any saved growth celebration finish before
+  // automatically presenting a recap. Care feedback keeps its existing full
+  // home reading interval; the persistent outcome must not block the recap.
+  // Navigation/backgrounding cancels only this automatic presentation;
+  // the acknowledged card stays in the menu.
   useEffect(() => {
     if (!queuedReturn) return;
     if (
@@ -892,12 +893,12 @@ export default function App() {
       setQueuedReturn(null);
       return;
     }
-    if (busy || evolution || clip) return;
+    if (busy || evolution || clip || careFeedback) return;
     setQueuedReturn(null);
     setReturnReading({ id: queuedReturn.id, page: 0, updated: false });
     navigateReturnReading(queuedReturn.id, 0);
     setPage("return");
-  }, [queuedReturn, page, tools, help, reset, uncertain, unavailable, corrupt, pet?.hatchedAt, pet?.sleeping, pet?.game, returnRecap?.id, busy, evolution, clip, foreground, windowFocused]);
+  }, [queuedReturn, page, tools, help, reset, uncertain, unavailable, corrupt, pet?.hatchedAt, pet?.sleeping, pet?.game, returnRecap?.id, busy, evolution, clip, careFeedback, foreground, windowFocused]);
   useEffect(() => {
     if (
       uncertain || unavailable || corrupt ||
@@ -910,6 +911,7 @@ export default function App() {
       busy ||
       clip ||
       evolution ||
+      careFeedback ||
       pet?.sleeping ||
       pet?.game ||
       tools ||
@@ -969,6 +971,7 @@ export default function App() {
     busy,
     clip,
     evolution,
+    careFeedback,
     pet?.sleeping,
     pet?.game,
     tools,
