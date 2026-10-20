@@ -91,3 +91,167 @@ describe("real discoveries and species-specific participation",()=>{
  it.each(parkCatalog)("renders a distinct $id discovery only after actually meeting it",item=>{saved.park!.finds=[{id:item.id,firstAt:Date.now(),lastAt:Date.now(),count:1}];render(<ParkAlbum pet={saved} page={parkCatalog.indexOf(item)}/>);expect(screen.getByText(item.name)).toBeTruthy();expect(document.querySelectorAll("button,a,input")).toHaveLength(0)});
  it.each(walkingCompanions.flatMap((method,index)=>["baby","growing","adult"].map(stage=>({method,index,stage}))))("uses $stage anatomy for species $index in every pose",({method,index,stage})=>{saved.species=index;saved.growth!.stage=stage as "baby"|"growing"|"adult";const rig=petRigKind(index,saved.growth!.stage);saved.economy={coins:0,lastDailyAt:0,lastGameAt:0,gameCoins:0,owned:["sky-bow"],equipped:{accessory:"sky-bow",room:""}};saved.game!.walking!.paused=false;const {rerender}=render(<WalkingGame pet={saved} active choice={0}/>);expect(screen.getByText(method)).toBeTruthy();for(const pose of ["","jump","duck"] as const){saved.game!.walking!.pose=pose;rerender(<WalkingGame pet={saved} active choice={0}/>);expect(document.querySelector(`.park-scene[data-rig="${rig}"][data-pose="${pose||"moving"}"]`)).toBeTruthy();expect(document.querySelector(`.${rig}-rig[data-rig-stage="${stage}"]`)).toBeTruthy();expect(document.querySelectorAll(".walking-actor svg")).toHaveLength(1);expect(document.querySelector(".walking-actor svg")?.classList.contains("rig-motion-walking")).toBe(true);expect(document.querySelectorAll(".equipped-accessory")).toHaveLength(1);expect(document.querySelectorAll("button,a,input")).toHaveLength(0)}});
 });
+
+describe("pause while an automatic walking step is in flight", () => {
+ async function pendingStep(beat = 0) {
+  saved.game!.walking!.beat = beat;
+  await mount(); await key("c");
+  const normal = api.getMockImplementation()!;
+  let resolve!: (value: Result) => void;
+  let reject!: (error: unknown) => void;
+  api.mockImplementation((...args) => args[0] === "action" && (args[1] as {kind: string}).kind === "walk-step"
+   ? new Promise((yes, no) => { resolve = yes; reject = no; }) : normal(...args));
+  await clock(1100);
+  return { normal, resolve, reject };
+ }
+ it("accepts physical C during a step, immediately stops locally, and saves once with the new step", async () => {
+  const pending = await pendingStep();
+  expect(screen.getByRole("button", {name: "C 返回"}).hasAttribute("disabled")).toBe(false);
+  expect(screen.getByRole("button", {name: "A 选择"}).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", {name: "B 确认"}).hasAttribute("disabled")).toBe(true);
+  await act(async () => { fireEvent.click(screen.getByRole("button", {name: "C 返回"})); });
+  await key("c"); await key("a"); await key("b");
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step"]);
+  await clock(5000);
+  await act(async () => { pending.resolve(await pending.normal("action", calls()[1])); });
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step", "walk-pause"]);
+  expect(calls()[2]).toMatchObject({gameId: id, step: 2});
+  expect(saved.game!.walking!.paused).toBe(true);
+  expect(saved.game!.walking!.beat).toBe(1);
+  await clock(5000); expect(calls()).toHaveLength(3);
+ });
+ it("does not buffer movement keys during the automatic write", async () => {
+  const pending = await pendingStep();
+  await key("a"); await key("b");
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step"]);
+  await key("c");
+  await act(async () => { pending.resolve(await pending.normal("action", calls()[1])); });
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step", "walk-pause"]);
+  expect(saved.game!.walking!.pose).toBe("");
+ });
+ it("keeps the queued pause single while its own save remains in flight", async () => {
+  const pending = await pendingStep(); await key("c");
+  const pendingAPI = api.getMockImplementation()!;
+  let resolvePause!: (value: Result) => void;
+  api.mockImplementation((...args) => args[0] === "action" && (args[1] as {kind: string}).kind === "walk-pause"
+   ? new Promise(yes => { resolvePause = yes; }) : pendingAPI(...args));
+  await act(async () => { pending.resolve(await pending.normal("action", calls()[1])); });
+  expect(calls()[2]).toMatchObject({kind: "walk-pause", gameId: id, step: 2});
+  expect(screen.getByRole("button", {name: "C 返回"}).hasAttribute("disabled")).toBe(true);
+  await key("c"); await key("c"); await clock(5000);
+  expect(calls()).toHaveLength(3);
+  await act(async () => { resolvePause(await pending.normal("action", calls()[2])); });
+  await clock(5000);
+  expect(saved.game!.walking!.paused).toBe(true);
+  expect(calls()).toHaveLength(3);
+ });
+ it.each(["unknown", "rejected"] as const)("does not retry a %s deferred pause or resume after readback", async outcome => {
+  const pending = await pendingStep(); await key("c");
+  const pendingAPI = api.getMockImplementation()!;
+  api.mockImplementation((...args) => args[0] === "action" && (args[1] as {kind: string}).kind === "walk-pause"
+   ? Promise.reject(new RequestFailure("暂停结果未确认", outcome)) : pendingAPI(...args));
+  await act(async () => { pending.resolve(await pending.normal("action", calls()[1])); });
+  await clock(16000);
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step", "walk-pause"]);
+  cleanup(); await mount(); await clock(5000);
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+  expect(calls()).toHaveLength(3);
+ });
+ it("does not swallow the physical click before React paints the automatic busy state", async () => {
+  await mount(); await key("c");
+  const normal = api.getMockImplementation()!;
+  let resolve!: (value: Result) => void;
+  api.mockImplementation((...args) => args[0] === "action" && (args[1] as {kind: string}).kind === "walk-step"
+   ? new Promise(yes => { resolve = yes; }) : normal(...args));
+  const button = screen.getByRole("button", {name: "C 返回"});
+  await act(async () => {
+   vi.advanceTimersByTime(1050);
+   expect(calls().at(-1)?.kind).toBe("walk-step");
+   expect(button.hasAttribute("disabled")).toBe(false);
+   fireEvent.click(button);
+  });
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+  await act(async () => { resolve(await normal("action", calls()[1])); });
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step", "walk-pause"]);
+ });
+ it("does not turn the pending C into settlement when the accepted step reaches the finish", async () => {
+  const pending = await pendingStep(71); await key("c");
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+  await act(async () => { pending.resolve(await pending.normal("action", calls()[1])); });
+  expect(saved.game!.walking!.beat).toBe(72);
+  expect(screen.getByText(/到终点啦/)).toBeTruthy();
+  await clock(12000);
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step"]);
+  await key("b");
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step", "walk-finish"]);
+ });
+ it("preserves a discovery accepted with the held step without repeating it or rewarding a pause", async () => {
+  const pending = await pendingStep(23); await key("c");
+  await act(async () => { pending.resolve(await pending.normal("action", calls()[1])); });
+  expect(saved.game!.walking!.beat).toBe(24);
+  expect(saved.park!.finds).toEqual([expect.objectContaining({id: "leaf", count: 1})]);
+  expect(screen.getByRole("region", {name: "本次沿途发现"}).textContent).toContain("银杏叶");
+  expect(saved.careCount).toBe(0);
+  cleanup(); const count = calls().length; await mount(); await clock(12000);
+  expect(calls()).toHaveLength(count);
+  expect(saved.park!.finds![0].count).toBe(1);
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+ });
+ it.each(["walk-resume", "walk-jump", "walk-duck"])("does not queue C behind explicit %s", async kind => {
+  await mount(); if (kind !== "walk-resume") await key("c");
+  const normal = api.getMockImplementation()!;
+  let resolve!: (value: Result) => void;
+  api.mockImplementation((...args) => args[0] === "action" && (args[1] as {kind: string}).kind === kind
+   ? new Promise(yes => { resolve = yes; }) : normal(...args));
+  await key(kind === "walk-resume" ? "c" : kind === "walk-jump" ? "a" : "b");
+  await key("c");
+  expect(screen.getByRole("button", {name: "C 返回"}).hasAttribute("disabled")).toBe(true);
+  await act(async () => { resolve(await normal("action", calls().at(-1))); });
+  expect(calls().filter(a => a.kind === "walk-pause")).toHaveLength(0);
+ });
+ it.each(["generation", "session", "already-paused", "unmount"])("discards the deferred pause after %s changes", async change => {
+  const pending = await pendingStep(); await key("c");
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+  await act(async () => {
+   const reply = await pending.normal("action", calls()[1]);
+   if (change === "generation") reply.saveGeneration = "fedcba9876543210fedcba9876543210";
+   if (change === "session") reply.state.game!.id = "fedcba9876543210fedcba9876543210";
+   if (change === "already-paused") reply.state.game!.walking!.paused = true;
+   if (change === "unmount") cleanup();
+   pending.resolve(reply);
+  });
+  await clock(5000);
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step"]);
+ });
+ it.each(["rejected", "unknown"] as const)("does not replay pause after a %s step or subsequent reconciliation", async outcome => {
+  const pending = await pendingStep(); await key("c");
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+  // Hold reconciliation unavailable until the explicit B, so B cannot be
+  // mistaken for a fresh resume after an already successful automatic read.
+  let readsAvailable = outcome !== "unknown";
+  const pendingAPI = api.getMockImplementation()!;
+  api.mockImplementation((...args) => args[0] === "state" && !readsAvailable
+   ? Promise.reject(new RequestFailure("暂时不能核对", "unavailable")) : pendingAPI(...args));
+  await act(async () => { pending.reject(new RequestFailure("步进未确认", outcome)); });
+  await clock(5000);
+  readsAvailable = true;
+  if (outcome === "unknown") await key("b");
+  await clock(5000);
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step"]);
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+ });
+ it.each(["blur", "help", "hidden"])("cancels the deferred pause when %s interrupts the request", async interruption => {
+  const pending = await pendingStep(); await key("c");
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+  await act(async () => {
+   if (interruption === "blur") window.dispatchEvent(new Event("blur"));
+   else if (interruption === "help") fireEvent.click(screen.getByRole("button", {name: "玩法说明"}));
+   else { Object.defineProperty(document, "hidden", {configurable: true, value: true}); document.dispatchEvent(new Event("visibilitychange")); }
+  });
+  await act(async () => { pending.resolve(await pending.normal("action", calls()[1])); });
+  await clock(5000);
+  expect(calls().map(a => a.kind)).toEqual(["walk-resume", "walk-step"]);
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+ });
+});

@@ -192,6 +192,7 @@ export default function App() {
   const [busyAction, setBusyAction] = useState("");
   const busyActionRef = useRef("");
   const pendingFishingPause = useRef<{ id: string; generation?: string; epoch: number } | null>(null);
+  const pendingWalkPause = useRef<{ id: string; generation?: string; epoch: number } | null>(null);
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState(false);
   const unavailableRef = useRef(false);
@@ -1155,6 +1156,20 @@ export default function App() {
       busyActionRef.current = "";
       setBusyAction("");
       setBusy(false);
+      if (kind === "walk-step") {
+        const pause = pendingWalkPause.current;
+        pendingWalkPause.current = null;
+        const game = acceptedPet.current?.game;
+        // A pause is not a finish command: reaching beat 72 still needs an
+        // explicit new keypress to collect. Unknown steps are never replayed.
+        if (succeeded && pause && pause.epoch === walkEpoch.current &&
+          pause.generation === acceptedGeneration.current && game?.id === pause.id &&
+          game.kind === "walk" && game.walking && !game.walking.paused && game.walking.beat < 72 &&
+          !clockAheadRef.current && !document.hidden && windowActive.current &&
+          !uncertainRef.current && !unavailableRef.current && !corruptRef.current) {
+          void act("walk-pause", { gameId: pause.id, step: game.walking.step });
+        }
+      }
       if (kind === "fish-step") {
         const pause = pendingFishingPause.current;
         pendingFishingPause.current = null;
@@ -1282,6 +1297,8 @@ export default function App() {
       // pause from a disposed page (including StrictMode cleanup).
       fishingEpoch.current++;
       pendingFishingPause.current = null;
+      walkEpoch.current++;
+      pendingWalkPause.current = null;
     };
   }, []);
 
@@ -1298,6 +1315,11 @@ export default function App() {
     !!pet.game.fishing && !pet.game.fishing.paused && ["wait", "bite"].includes(pet.game.fishing.phase) &&
     !tools && !help && !reset && !abandoning && !document.hidden && windowActive.current &&
     !uncertainRef.current && !unavailableRef.current && !corruptRef.current;
+  const canPauseWalkingStep = (kind: string) => kind === "walk-step" && page === "game" &&
+    pet?.game?.kind === "walk" && !!pet.game.id && walkSession === pet.game.id &&
+    !!pet.game.walking && !pet.game.walking.paused && pet.game.walking.beat < 72 &&
+    !tools && !help && !reset && !abandoning && !document.hidden && windowActive.current &&
+    !clockAheadRef.current && !uncertainRef.current && !unavailableRef.current && !corruptRef.current;
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
     if (busyRef.current) {
@@ -1306,6 +1328,11 @@ export default function App() {
         fishingEpoch.current++;
         pendingFishingPause.current = { id: pet.game.id, generation: acceptedGeneration.current, epoch: fishingEpoch.current };
         setFishingSession(""); setFishingChoice(0);
+      } else if (key === "C" && pet?.game?.id && canPauseWalkingStep(busyActionRef.current) && !pendingWalkPause.current) {
+        audio.current?.cancel();
+        walkEpoch.current++;
+        pendingWalkPause.current = { id: pet.game.id, generation: acceptedGeneration.current, epoch: walkEpoch.current };
+        setWalkSession(""); setWalkChoice(0);
       }
       return;
     }
@@ -2511,7 +2538,7 @@ export default function App() {
                 {["A", "B", "C"].map((key, i) => (
                   <div className="button-unit" key={key}>
                     <button
-                      disabled={(busy && !(key === "C" && canPauseFishingPulse(busyAction))) || checking || ((uncertain || unavailable) && key !== "B") || (clip !== null && key !== "C")}
+                      disabled={(busy && !(key === "C" && (canPauseFishingPulse(busyAction) || canPauseWalkingStep(busyAction)))) || checking || ((uncertain || unavailable) && key !== "B") || (clip !== null && key !== "C")}
                       className={`physical-button button-${key.toLowerCase()} ${pressed === key ? "is-pressed" : ""}`}
                       aria-label={`${key} ${["选择", "确认", "返回"][i]}`}
                       onClick={() => controls.current(key)}
