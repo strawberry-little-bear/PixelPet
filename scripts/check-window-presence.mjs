@@ -41,11 +41,16 @@ assert r is not None
 print(json.dumps(dict(lastSeen=r[0],baseline=json.loads(r[1]),recap=json.loads(r[2]) if r[2] else None,pending=bool(r[3]))))
 c.close()`, db, backdate ? '1' : '0'], { encoding: 'utf8' }));
 }
-async function view(large = false) {
+async function view(large = false, initialFocused = true) {
   const ctx = await browser.newContext({ viewport: { width: large ? 320 : 1200, height: large ? 568 : 900 },
     isMobile: large, hasTouch: true, reducedMotion: 'reduce' });
   const page = await ctx.newPage(), reads = [], claims = [], actions = [], errors = [];
   await page.clock.install();
+  // Headless Chrome does not model native OS-window focus. This fixture is
+  // solely the initial browser signal; signal() supplies subsequent events.
+  await page.addInitScript(focused => {
+    Object.defineProperty(document, 'hasFocus', { configurable: true, value: () => focused });
+  }, initialFocused);
   await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; }), large ? 28 : 14);
   page.on('pageerror', e => errors.push(e.message));
   page.on('request', r => {
@@ -56,7 +61,10 @@ async function view(large = false) {
   });
   return { ctx, page, reads, claims, actions, errors };
 }
-const signal = (v, type) => v.page.evaluate(type => window.dispatchEvent(new Event(type)), type);
+const signal = (v, type) => v.page.evaluate(type => {
+  Object.defineProperty(document, 'hasFocus', { configurable: true, value: () => type === 'focus' });
+  window.dispatchEvent(new Event(type));
+}, type);
 async function open(v) {
   const read = v.page.waitForResponse(r => new URL(r.url()).pathname === '/api/visit');
   await v.page.goto(base); const r = await (await read).json(); await v.page.locator('.content-home').waitFor(); return r;
@@ -138,6 +146,52 @@ try {
         await v.page.locator('.return-panel').waitFor(); assert.equal(v.claims.length, 1);
       }
       await check(v); assert.deepEqual(v.actions, []); results.push({ lateResponse: late, passed: true });
+    } finally { release.resolve(); await v.ctx.close(); }
+  }
+  for (const sleeping of [false, true]) for (const pending of [false, true]) {
+    await seed('baby', sleeping); await api('visit', {});
+    if (pending) { presence(true); assert((await api('visit', {})).recapPending); }
+    const baseline = presence(), v = await view(sleeping, false);
+    try {
+      const first = v.page.waitForResponse(r => new URL(r.url()).pathname === '/api/state');
+      await v.page.goto(base); await first; await v.page.locator('.content-home').waitFor();
+      assert.equal(await v.page.evaluate(() => document.hasFocus()), false);
+      await v.page.clock.runFor(45000);
+      assert.deepEqual(v.reads, ['/api/state']); assert.equal(v.claims.length, 0);
+      assert.equal(await v.page.locator('.return-panel').count(), 0); assert.deepEqual(presence(), baseline);
+      const returned = v.page.waitForResponse(r => new URL(r.url()).pathname === '/api/visit');
+      await signal(v, 'focus'); await returned; await v.page.clock.runFor(1000);
+      if (pending && !sleeping) await v.page.locator('.return-panel').waitFor();
+      else await v.page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
+      assert.deepEqual(v.reads, ['/api/state', '/api/visit']);
+      assert.equal(v.claims.length, pending && !sleeping ? 1 : 0); assert.deepEqual(v.actions, []);
+      await check(v);
+      results.push({ initialUnfocused: true, sleeping, pending, controlledBrowserMillis: 45000, passed: true });
+    } finally { await v.ctx.close(); }
+  }
+  for (const nowSleeping of [false, true]) {
+    await seed(); await api('visit', {}); presence(true); assert((await api('visit', {})).recapPending);
+    const v = await view(true, false), fetched = deferred(), release = deferred(); let held = false;
+    try {
+      await v.page.goto(base); await v.page.locator('.content-home').waitFor();
+      assert.deepEqual(v.reads, ['/api/state']); assert.equal(v.claims.length, 0);
+      // A second client can update the pet after our read-only bootstrap. The
+      // focused visit must win before this old pending recap can be claimed.
+      if (nowSleeping) await api('action', { kind: 'sleep' });
+      await v.page.route('**/api/visit', async route => {
+        if (held) return route.continue(); held = true;
+        const response = await route.fetch(); fetched.resolve(); await release.promise; await route.fulfill({ response });
+      });
+      await signal(v, 'focus'); await fetched.promise;
+      await v.page.clock.runFor(1000); assert.equal(v.claims.length, 0);
+      assert.equal(await v.page.locator('.return-panel').count(), 0);
+      const finished = v.page.waitForResponse(r => new URL(r.url()).pathname === '/api/visit'); release.resolve(); await finished; await v.page.clock.runFor(1000);
+      if (!nowSleeping) await v.page.locator('.return-panel').waitFor();
+      else await v.page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
+      assert.equal(v.claims.length, nowSleeping ? 0 : 1);
+      assert.deepEqual(v.reads, ['/api/state', '/api/visit']); assert.deepEqual(v.actions, []); await check(v);
+      await v.page.screenshot({ path: join(dir, `initial-unfocused-${nowSleeping ? 'new-sleep' : 'recap'}.png`), fullPage: true });
+      results.push({ initialUnfocused: true, delayedFocusedVisit: true, nowSleeping, passed: true });
     } finally { release.resolve(); await v.ctx.close(); }
   }
   console.log(JSON.stringify({ dir, groups: results.length, results }, null, 2));

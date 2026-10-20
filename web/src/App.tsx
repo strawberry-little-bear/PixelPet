@@ -220,7 +220,7 @@ export default function App() {
   const recapDisplayEpoch = useRef(0);
   const [foreground, setForeground] = useState(() => !document.hidden);
   // Focus tracks presence, separately from visible reading time.
-  const [windowFocused, setWindowFocused] = useState(true);
+  const [windowFocused, setWindowFocused] = useState(() => document.hasFocus());
   const [clip, setClip] = useState<MotionClip | null>(null);
   const clipRef = useRef<MotionClip | null>(null);
   const clipSequence = useRef(0);
@@ -270,7 +270,7 @@ export default function App() {
   // A late accepted response may update the board, but cannot restore local
   // permission to run after backgrounding or opening a non-game panel.
   const boardEpoch = useRef(0);
-  const windowActive = useRef(true);
+  const windowActive = useRef(windowFocused);
   const [tetrisSession, setTetrisSession] = useState("");
   const [tetrisChoice, setTetrisChoice] = useState(0);
   const [snakeSession, setSnakeSession] = useState("");
@@ -345,6 +345,7 @@ export default function App() {
   useEffect(() => { audio.current?.setEnabled(sound); }, [sound]);
   useEffect(() => () => { audio.current?.dispose(); }, []);
   const initialized = useRef(false);
+  const initialReadStarted = useRef(false);
   const latestRevision = useRef(-1);
   const acceptedPet = useRef<PetState | null>(null);
   const acceptedGeneration = useRef<string | undefined>(undefined);
@@ -663,7 +664,12 @@ export default function App() {
     return true;
   }, [apply, stopActivity, discardImport]);
   const refresh = useCallback(async function readCurrent() {
-    if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden || !windowActive.current) return;
+    if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
+    // A visible but initially unfocused window may display authoritative state
+    // once without recording a visit. Neither polling nor failed bootstraps
+    // count as presence until a real focus event arrives.
+    if (!windowActive.current && initialReadStarted.current) return;
+    initialReadStarted.current = true;
     returnReadPending.current = false;
     const epoch = syncEpoch.current;
     const recovering = uncertainRef.current;
@@ -675,7 +681,7 @@ export default function App() {
     try {
       // Recovery only reads authoritative state. Never replay the lost mutation
       // or claim a recap as a substitute for finding out what was saved.
-      const r = recovering || repairing || clockBlocked ? await request("state") : await request("visit", {});
+      const r = recovering || repairing || clockBlocked || !windowActive.current ? await request("state") : await request("visit", {});
       if (epoch !== syncEpoch.current) return;
       acceptCurrentRead(r, { recovering, changed, repairing, clockBlocked });
     } catch (error) {
@@ -881,6 +887,9 @@ export default function App() {
       uncertain || unavailable || corrupt ||
       !returnRecap ||
       !returnPending ||
+      // A focused return may be replacing an initially read pending recap.
+      // Wait for that read before claiming or invalidating its sync epoch.
+      readInFlight.current !== null ||
       page !== "home" ||
       busy ||
       clip ||

@@ -3,5 +3,5 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  test: { environment: "jsdom", restoreMocks: true },
+  test: { environment: "jsdom", restoreMocks: true, setupFiles: ["./src/focused-test-window.ts"] },
 });
