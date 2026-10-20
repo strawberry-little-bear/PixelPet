@@ -94,3 +94,39 @@ it("offline recovery does not replay navigation, and old services can still expl
   await key("b"); await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(2);
   await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(3); expect(writes()).toHaveLength(0);
 });
+
+it.each(games)("reopens the selected $id without starting, marking rules or replaying navigation", async game => {
+  await mount(); await directory();
+  for (let i = 0; i < games.indexOf(game); i++) await key("a");
+  const preferences = JSON.stringify(localStorage);
+  await key("c");
+  // Ordinary saves can rename, care and grow without changing this pet's identity.
+  saved.name = "新的昵称"; saved.careCount++; saved.needs.hunger++; saved.growth!.points = 25; saved.growth!.stage = "growing";
+  await refresh();
+  expect(screen.getByText("长大啦 · C 跳过")).toBeTruthy();
+  await key("c"); // Dismiss the real cross-stage celebration, not the directory.
+  const calls = vi.mocked(window.scrollBy).mock.calls.length;
+  await directory(); expect(choice()).toBe(game.id);
+  expect(window.scrollBy).toHaveBeenCalledTimes(calls + 1);
+  await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(calls + 1);
+  await key("b"); expect(document.querySelector(".game-guide")?.getAttribute("data-guide")).toBe(game.id);
+  await key("c"); expect(choice()).toBe(game.id);
+  expect(writes()).toHaveLength(0); expect(JSON.stringify(localStorage)).toBe(preferences);
+});
+it.each(["generation", "lifecycle"])("does not share a selection across a %s replacement", async kind => {
+  await mount(); await directory(); await key("a"); await key("a"); await key("c");
+  if (kind === "generation") { generation = "b".repeat(32); saved.revision = 0; }
+  else { generation = undefined; saved.createdAt++; saved.hatchedAt!++; }
+  await refresh(); await directory(); expect(choice()).toBe("stars"); expect(writes()).toHaveLength(0);
+});
+it("a fresh page starts at the first game, not a stored preference", async () => {
+  await mount(); await directory(); await key("a"); await key("c");
+  cleanup(); await act(async () => { render(<App />); });
+  await directory(); expect(choice()).toBe("stars"); expect(writes()).toHaveLength(0);
+});
+it("retains the same-save choice through a read-only offline recovery", async () => {
+  await mount(); await directory(); await key("a"); await key("c");
+  api.mockRejectedValueOnce(new Error("offline")); await refresh();
+  expect(document.querySelector(".save-recovery")).toBeTruthy();
+  await key("b"); await directory(); expect(choice()).toBe("tiles"); expect(writes()).toHaveLength(0);
+});

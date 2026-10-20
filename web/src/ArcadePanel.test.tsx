@@ -54,6 +54,7 @@ beforeEach(() => {
       const t = saved.game?.tetris;
       if (t && a.kind === "tetris-resume") { t.paused = false; t.lastFallAt = Date.now(); }
       if (t && a.kind === "tetris-pause") t.paused = true;
+      if (saved.game?.fishing && a.kind === "fish-pause") saved.game.fishing.paused = true;
       saved.revision++;
     }
     return response();
@@ -248,4 +249,19 @@ describe("playtest feedback: compact repeat entry", () => {
     expect(games.find(game => game.id === "fishing")!.lesson).toContain("提前提竿也会用掉这一竿");
     expect(games.find(game => game.id === "tetris")!.lesson).toContain("按 C 打开旋转、落底等操作");
   });
+});
+
+it.each(games.map((info, index) => ({ info, index, id: info.id })))("retains $id after leaving, starts only on explicit B and retains it after abandoning", async ({ info, index }) => {
+  await mount(); await select(index); await key("c"); await select(0);
+  expect(document.querySelector(".arcade-card.selected")?.getAttribute("data-game")).toBe(info.id);
+  await key("b"); expect(actions()).toHaveLength(0); expect(guideSeen(info.id)).toBe(false);
+  await key("b"); expect(actions().map(a => a.kind)).toEqual([info.startAction]); expect(guideSeen(info.id)).toBe(true);
+  // These games expose their pause menu before the abandon confirmation.
+  if (info.id === "fishing") await key("c");
+  await openConfirmation(info); await key("b");
+  expect(saved.game).toBeUndefined();
+  await select(0); expect(document.querySelector(".arcade-card.selected")?.getAttribute("data-game")).toBe(info.id);
+  const before = actions().length;
+  await key("b"); expect(document.querySelector(".game-quick-start")).toBeTruthy();
+  await key("c"); await clock(1000); expect(actions()).toHaveLength(before);
 });

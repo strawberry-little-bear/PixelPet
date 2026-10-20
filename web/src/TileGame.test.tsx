@@ -171,7 +171,7 @@ describe("three-key pet tile matching", () => {
     expect(scroll).toHaveBeenCalledTimes(1);
   });
 
-  it("selects a game without starting it, preserves the default star choice, and returns without a mutation", async () => {
+  it("defaults to stars, then retains a browsed game on return without a mutation", async () => {
     await mount();
     await selector();
     expect(
@@ -194,7 +194,7 @@ describe("three-key pet tile matching", () => {
       document
         .querySelector('.arcade-card[aria-current="true"]')
         ?.getAttribute("data-game"),
-    ).toBe("stars");
+    ).toBe("tiles");
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelectorAll(".lcd button")).toHaveLength(0);
   });

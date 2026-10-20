@@ -250,7 +250,7 @@ export default function App() {
   const [pressed, setPressed] = useState("");
   const [journalCursor, setJournalCursor] = useState(() => startJournal([]));
   const [growthPage, setGrowthPage] = useState(0);
-  const [arcadeChoice, setArcadeChoice] = useState(0);
+  const [arcadeSelection, setArcadeSelection] = useState<{ petKey: string; choice: number } | null>(null);
   const [guidePage, setGuidePage] = useState(0);
   const [guideReview, setGuideReview] = useState(false);
   // A current-session reader, never a start card. Its B only turns a page.
@@ -366,6 +366,12 @@ export default function App() {
   // Immutable lifecycle fields keep older services usable; the generation also
   // distinguishes restoring a backup of the same pet. Never key on revision.
   const careReadingKey = pet ? JSON.stringify([acceptedGeneration.current, pet.createdAt, pet.hatchedAt, pet.species]) : null;
+  // Page-local browsing memory, not a saved preference or an instruction to play.
+  // Polls, care and growth keep it; another pet/save must not inherit it.
+  const arcadeChoice = careReadingKey && arcadeSelection?.petKey === careReadingKey ? arcadeSelection.choice : 0;
+  const setArcadeChoice = (choice: number) => {
+    if (careReadingKey) setArcadeSelection({ petKey: careReadingKey, choice });
+  };
   usePhysicalButtonFocus(JSON.stringify([physicalFocusEpoch.current, page === "import-preview"]),
     tools || help || reset || uncertain || unavailable || corrupt || clockAhead || !foreground || !windowFocused);
   useReadingViewport(readingRoot, careReadingDestination,
@@ -1743,8 +1749,7 @@ export default function App() {
     if (page === "menu") {
       const item = items[selected];
       if (item.kind === "arcade") {
-        setArcadeChoice(0);
-        setPage("arcade"); navigateArcadeReading("arcade", 0);
+        setPage("arcade"); navigateArcadeReading("arcade");
       } else if (item.kind === "return") {
         if (returnRecap) {
           setReturnReading({ id: returnRecap.id, page: 0, updated: false });
@@ -1890,6 +1895,7 @@ export default function App() {
     try {
       const r = await request("import", pending.backup.data, acceptedGeneration.current);
       initialized.current = true;
+      setArcadeSelection(null);
       setAlbumReturnSession(null);
       discardImport();
       latestRevision.current = -1;
@@ -1923,6 +1929,7 @@ export default function App() {
     try {
       const r = await request("reset", { confirm: true }, acceptedGeneration.current);
       initialized.current = true;
+      setArcadeSelection(null);
       setAlbumReturnSession(null);
       discardImport();
       latestRevision.current = -1;

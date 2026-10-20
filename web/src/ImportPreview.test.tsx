@@ -156,3 +156,14 @@ describe("three-key import confirmation",()=>{
   expect(screen.getByText(/<img src=x/)).toBeTruthy();expect(document.querySelector("img,script,button,a,input")).toBeNull();
  });
 });
+
+it("clears the page-local game choice after a successful same-lifecycle legacy import, but not cancellation", async () => {
+  await mount();
+  const directory = async () => { for (const k of ["a", "a", "b"]) await key(k); };
+  await directory(); await key("a"); await key("c");
+  await chooseFile(JSON.stringify(saved)); await key("c");
+  await directory(); expect(document.querySelector(".arcade-card.selected")?.getAttribute("data-game")).toBe("tiles");
+  await key("c"); await chooseFile(JSON.stringify(saved)); await key("b");
+  await directory(); expect(document.querySelector(".arcade-card.selected")?.getAttribute("data-game")).toBe("stars");
+  expect(imports()).toHaveLength(1); expect(api.mock.calls.some(([path]) => path === "action")).toBe(false);
+});
