@@ -7,7 +7,7 @@ import type { Result, ReturnRecap } from "./types";
 async function key(key: string) { await act(async () => { fireEvent.keyDown(window, { key }); }); }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 for (const committed of [false, true]) {
-  it.each(["date", "needs"])(`reconciles an invalid %s in a recap claim without reclaiming it (committed=${committed})`, async field => {
+  it.each(["date", "needs", "reversed"])(`reconciles an invalid %s in a recap claim without reclaiming it (committed=${committed})`, async field => {
     vi.useFakeTimers(); localStorage.clear(); const now = Date.now();
     const needs = { hunger: 50, mood: 70, clean: 60, energy: 80 };
     const snapshot = { needs, stage: "baby" as const, form: "" as const, points: 1, rest: 0, trackedHours: 1 };
@@ -17,6 +17,7 @@ for (const committed of [false, true]) {
       hatchedAt: now - 3600000, lastTick: now, needs, sleeping: false, careCount: 0, growth: emptyGrowth(), logs: [] },
       message: "", serverTime: now, returnRecap: structuredClone(recap), recapPending: pending });
     const damage = (r: Result) => field === "date" ? { ...r, returnRecap: { ...r.returnRecap, from: 8640000000000001 } }
+      : field === "reversed" ? { ...r, returnRecap: { ...r.returnRecap, from: recap.to + 1 } }
       : { ...r, returnRecap: { ...r.returnRecap, after: { ...snapshot, needs: null } } };
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       const path = url.replace("/api/", ""); calls.push(path);

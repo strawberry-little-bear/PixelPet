@@ -150,7 +150,9 @@ function validReturnSnapshot(value: unknown): boolean {
 }
 function validReturnRecap(value: unknown): boolean {
   return value == null || (record(value) && typeof value.id === "string" && value.id.trim().length > 0 &&
-    timestamp(value.from) && timestamp(value.to) &&
+    // Both dates may be renderable while the saved interval still runs backward.
+    // Do not let absenceLabel turn it into a fabricated one-minute return.
+    timestamp(value.from) && timestamp(value.to) && value.from <= value.to &&
     validReturnSnapshot(value.before) && validReturnSnapshot(value.after));
 }
 function validNeeds(value: unknown): boolean {

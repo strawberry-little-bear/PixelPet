@@ -13,6 +13,8 @@ const invalid: [string, Record<string, unknown>][] = [
     ["missing id", { ...recap, id: undefined }], ["object id", { ...recap, id: {} }], ["empty id", { ...recap, id: " " }],
     ["string from", { ...recap, from: "123" }], ["negative to", { ...recap, to: -1 }],
     ["unrenderable from", { ...recap, from: 8640000000000001 }], ["missing to", { ...recap, to: undefined }],
+    ["from after to", { ...recap, from: now + 1 }], ["to before from", { ...recap, to: recap.from - 1 }],
+    ["reversed to epoch zero", { ...recap, to: 0 }],
   ].map(([name, value]) => [String(name), { returnRecap: value }] as [string, Record<string, unknown>]),
   ...["before", "after"].flatMap(endpoint => [
     ["missing snapshot", undefined], ["array snapshot", []], ["missing needs", { ...snapshot, needs: null }],
@@ -29,6 +31,8 @@ const invalid: [string, Record<string, unknown>][] = [
 const old = structuredClone(recap); delete old.before.sleeping; delete old.after.sleeping;
 const partial = structuredClone(recap); delete partial.before.sleeping;
 const compatible = [ {}, { returnRecap: null }, { returnRecap: recap, recapPending: true },
+  { returnRecap: { ...recap, from: now, to: now } },
+  { returnRecap: { ...recap, from: 0, to: now } },
   { returnRecap: old }, { returnRecap: partial },
   { returnRecap: { ...recap, before: { ...snapshot, sleeping: null }, after: { ...snapshot, sleeping: null } } },
   { returnRecap: recap, recapPending: false, recapClaimed: true },

@@ -46,7 +46,7 @@
 - [回访两页三键导航](RETURN_NAVIGATION.md) · [固定 LCD 与内部滚动](RETURN_LAYOUT.md)
 - [离开期间累计结算与单次上限](RETURN_SETTLEMENT.md)
 - [回访历史睡眠状态](RETURN_SLEEP.md) · [回访后的当前照顾建议](RETURN_CARE.md)
-- [回访响应保护](RETURN_RESPONSE_SAFETY.md) · [回访外层阅读视口](RETURN_READING_VIEWPORT.md)
+- [回访响应保护](RETURN_RESPONSE_SAFETY.md) · [起止顺序校验](RETURN_PERIOD_VALIDATION.md) · [回访外层阅读视口](RETURN_READING_VIEWPORT.md)
 - [JSON 备份预览与确认](BACKUP_CONFIRMATION.md) · [损坏存档修复](CORRUPT_SAVE_RECOVERY.md)
 - [连接／保存结果核对](SAVE_RECOVERY.md) · [多页面存档同步](SAVE_SYNC.md)
 - [时间倒退保护](CLOCK_RECOVERY.md) · [基础响应保护](RESPONSE_CORE_GUARD.md)

@@ -145,9 +145,10 @@ with sqlite3.connect(sys.argv[1]) as db:
 `, join(dir, 'test.db'), String(hours * 3600000)]);
 }
 const corruptions = [
-  ...['date', 'needs'].map(field => ({ name: 'return-' + field, stage: 'growing', damage: r => {
+  ...['date', 'needs', 'period'].map(field => ({ name: 'return-' + field, stage: 'growing', damage: r => {
     r.returnRecap = returnHistory(r); r.recapPending = true;
     if (field === 'date') r.returnRecap.from = 8640000000000001;
+    else if (field === 'period') r.returnRecap.from = r.returnRecap.to + 1;
     else r.returnRecap.before.needs = null;
   } })),
   { name: 'habits', stage: 'baby', damage: r => { r.state.growth.care = null; } },
@@ -169,7 +170,9 @@ try {
   }
   assert(ready, 'Own test server did not start: ' + log);
   browser = await chromium.launch({ channel: 'chrome', headless: true });
-  if (scope === 'all') for (const test of corruptions) for (const scenario of ['initial', 'poll', 'committed', 'uncommitted']) {
+  // The return subset includes reversed-period entry/reconciliation as well
+  // as recap claims; other corruption categories remain in the full matrix.
+  for (const test of corruptions.filter(test => scope === 'all' || (scope === 'return' && test.name === 'return-period'))) for (const scenario of ['initial', 'poll', 'committed', 'uncommitted']) {
     const seeded = await seed(test.stage, test.stage === 'adult');
     const v = await view(modes[['initial', 'committed'].includes(scenario) ? 1 : 0]);
     try {
@@ -300,7 +303,7 @@ try {
       await end(v, { compatibility: 'feedback-' + feedback, layout: await readable(v) }, 1);
     } finally { await v.ctx.close(); }
   }
-  if (scope !== 'settlement') for (const committed of [false, true]) for (const field of ['date', 'needs']) {
+  if (scope !== 'settlement') for (const committed of [false, true]) for (const field of ['date', 'needs', 'period']) {
     const seeded = await absent(); const v = await view(modes[committed ? 1 : 0]);
     let badRead = true, seenRecap;
     try {
@@ -313,6 +316,7 @@ try {
         if (path === '/api/recap/read' || (path === '/api/state' && badRead)) {
           assert(reply.returnRecap);
           if (field === 'date') reply.returnRecap.to = 8640000000000001;
+          else if (field === 'period') reply.returnRecap.to = reply.returnRecap.from - 1;
           else reply.returnRecap.after.needs = null;
         }
         await route.fulfill({ response, json: reply });
@@ -322,7 +326,7 @@ try {
       assert.equal(await v.page.locator('.return-panel').count(), 0);
       assert.equal(await v.page.locator('.button-a').isDisabled(), true);
       assert.equal(await v.page.locator('.button-c').isDisabled(), true);
-      if (field === 'needs') await v.page.screenshot({ path: join(artifacts, 'return-recovery-' + v.mode.label + '.png'), fullPage: true });
+      if (['needs', 'period'].includes(field)) await v.page.screenshot({ path: join(artifacts, 'return-recovery-' + (field === 'period' ? 'period-' : '') + v.mode.label + '.png'), fullPage: true });
       const authoritative = await get();
       assert.equal(authoritative.recapPending, !committed);
       assert.equal(authoritative.returnRecap.id, seenRecap.id);
@@ -343,7 +347,7 @@ try {
       assert.equal(await v.page.locator('.return-panel header span').innerText(), '1 / 2');
       await key(v, 'a'); assert.equal(await v.page.locator('.return-panel header span').innerText(), '2 / 2');
       const layout = await readable(v);
-      if (field === 'needs') await v.page.screenshot({ path: join(artifacts, 'return-response-' + v.mode.label + '.png'), fullPage: true });
+      if (['needs', 'period'].includes(field)) await v.page.screenshot({ path: join(artifacts, 'return-response-' + (field === 'period' ? 'period-' : '') + v.mode.label + '.png'), fullPage: true });
       await key(v, 'c'); await v.page.locator('.content-home').waitFor();
       const after = await get();
       assert.deepEqual(after.returnRecap, authoritative.returnRecap);

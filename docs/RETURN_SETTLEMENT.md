@@ -51,9 +51,9 @@ export PIXELPET_TEST_WEB=/tmp/pixelpet-return-settlement-web
 PIXELPET_TEST_BINARY=/tmp/pixelpet-return-settlement \
 PIXELPET_PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
 PIXELPET_TEST_SCOPE=settlement node scripts/check-growth-response.mjs
-# 去掉 PIXELPET_TEST_SCOPE 执行完整响应回归；return 子集保持原八组。
+# 去掉 PIXELPET_TEST_SCOPE 执行完整响应回归；return 子集现含起止顺序保护，共14组。
 ```
 
-测试仅使用脚本自建临时库和空闲端口，结束关闭自己的服务；不刷新玩家页面、不重启原进程、不导入/覆盖玩家存档。构建会更新被忽略的 `web/dist`，共用目录的原服务之后重载可能读到新前端，不代表其后端已部署。
+测试仅使用脚本自建临时库和空闲端口，结束关闭自己的服务；不刷新玩家页面、不重启原进程、不导入/覆盖玩家存档。当前必须显式提供独立前后端构建，入口拒绝共享 `bin/pixelpet` 和 `web/dist`；源码推送不代表玩家服务已部署。历史验收数量保留原范围，新增子集说明见[起止顺序校验](RETURN_PERIOD_VALIDATION.md)。
 
 当前复跑须显式提供独立前端及二进制，共享构建不再作为默认值，见 [浏览器构建隔离](BROWSER_BUILD_ISOLATION.md)；本页旧共享构建说明为历史记录。
