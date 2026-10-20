@@ -1,18 +1,14 @@
 // Native growth-stage records, isolated HTTP service/save/random port.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
-import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute isolated PIXELPET_TEST_BINARY');
-assert(web && isAbsolute(web), 'Set absolute isolated PIXELPET_TEST_WEB');
-const shared = path => realpath(path).catch(e => { if (e.code === 'ENOENT') return resolve(path); throw e; });
-assert.notEqual(await realpath(binary), await shared(join(root, 'bin/pixelpet')), 'Do not use shared binary');
-assert.notEqual(await realpath(web), await shared(join(root, 'web/dist')), 'Do not use shared web build');
+const { binary, web } = await isolatedTestBuilds({ root });
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-stage-records-')), dbPath = join(dir, 'test.db'), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -90,7 +86,7 @@ async function seed(profile) {
   }
   return (await api('import',pet)).state;
 }
-async function open(page) {await key(page,'A');for(let i=0;i<6;i++)await key(page,'A');await key(page,'B');for(let i=0;i<5;i++)await key(page,'A');}
+async function open(page) {await key(page,'A');for(let i=0;i<6;i++)await key(page,'A');await key(page,'B');for(let i=0;i<5;i++)await key(page,'B');}
 async function verify(page, pet, profile) {
   const panel = page.getByRole('region',{name:'成长手册阅读区'});
   assert.equal(await page.locator('.growth-page-dots').innerText(),'6 / 6');

@@ -1,18 +1,14 @@
 // Real HTTP care/status/handbook reading; isolated build, save and random port.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
-import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary');
-assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
-const shared = async path => realpath(path).catch(() => resolve(path));
-assert.notEqual(await realpath(binary), await shared(join(root, 'bin/pixelpet')), 'Do not use shared binary, including symlinks');
-assert.notEqual(await realpath(web), await shared(join(root, 'web/dist')), 'Do not use shared web build, including symlinks');
+const { binary, web } = await isolatedTestBuilds({ root });
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-care-reading-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -162,7 +158,7 @@ try {
           await page.locator(end).scrollIntoViewIfNeeded(); await visible(page, end);
           // Full-page diagnostic capture comes last; it can perturb mobile scrollY.
           if (capture && (n === 0 || n === 4 || kind === 'status')) await page.screenshot({ path: join(dir, `full-${kind}-${label}-${n}.png`), fullPage: true });
-          await key(page, kind === 'growth' && n % 2 ? 'B' : 'A');
+          await key(page, kind === 'growth' ? 'B' : 'A');
         }
         assert.equal(await page.locator(kind === 'growth' ? '.growth-panel' : '.screen-status').getAttribute(`data-${kind}-page`), '0');
         await visible(page, '[data-care-reading-start]');
@@ -175,13 +171,39 @@ try {
           assert.equal(await page.locator(kind === 'growth' ? '.growth-panel' : '.screen-status').getAttribute(`data-${kind}-page`), String((index + 1) % pages), 'native key must flip exactly once');
           assert.equal(await focusedKey(page), focused);
         }
+        if (kind === 'growth') {
+          assert((await page.locator('.lcd-bottom').innerText()).includes('A 上一页'));
+          assert((await page.locator('.lcd-bottom').innerText()).includes('B 下一页'));
+          // Starting at page 2 after native Enter/Space on B, reverse every
+          // page. Scroll to each ending first, so A must reveal the new start.
+          for (let step = 1; step <= pages; step++) {
+            await page.locator('.growth-page-dots').scrollIntoViewIfNeeded();
+            await key(page, 'A'); const expected = (2 - step + pages) % pages;
+            assert.equal(await page.locator('.growth-panel').getAttribute('data-growth-page'), String(expected));
+            await visible(page, '[data-care-reading-start]'); await visibleHeading(page, kind, expected); await readable(page, kind);
+            const beforeReads = reads, position = await page.evaluate(() => scrollY);
+            await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+            for (let i = 0; i < 100 && reads === beforeReads; i++) await wait(20);
+            assert(reads > beforeReads, 'reverse reading poll did not complete'); await wait(100);
+            assert.equal(await page.locator('.growth-panel').getAttribute('data-growth-page'), String(expected));
+            assert.equal(await page.evaluate(() => scrollY), position, 'reverse reading poll jumped');
+            assert.equal(await focusedKey(page), 'a');
+            if (capture && expected === 5) await page.screenshot({ path: join(dir, `reverse-growth-${label}.png`) });
+          }
+          // Native activation of a focused A also reverses exactly once.
+          for (const [i, activation] of ['Enter', 'Space'].entries()) {
+            await page.keyboard.press(activation); const expected = 1 - i;
+            assert.equal(await page.locator('.growth-panel').getAttribute('data-growth-page'), String(expected));
+            await visible(page, '[data-care-reading-start]'); assert.equal(await focusedKey(page), 'a');
+          }
+        }
         await key(page, kind === 'growth' ? 'C' : 'B'); await page.locator('.home-caption').waitFor();
       }
       assert.equal(await page.evaluate(() => JSON.stringify(localStorage)), preference); assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       const after = (await api('state')).state;
       for (const field of ['species', 'hatchedAt', 'sleeping', 'careCount', 'economy', 'game']) assert.deepEqual(after[field], before[field]);
       assert.equal(after.growth.stage, stage); assert.equal(after.growth.form, before.growth.form);
-      results.push({ type: 'real-http-reading-after-legacy-migration', stage, sleeping, ...mode, pages: 8, nativeReading });
+      results.push({ type: 'real-http-reading-after-legacy-migration', stage, sleeping, ...mode, pages: 8, reverseGrowthPages: 6, nativeReading });
     } catch (e) { await page.screenshot({ path: join(dir, `failure-${label}.png`) }); throw e; }
     finally { await context.close(); }
   }

@@ -97,7 +97,7 @@ describe("habit precision follows accepted snapshots, not the reading clock", ()
     saved.growth!.care.rest = .02; await mount(); expect(row("有效休息")).toBe("<0.1");
     const old = reply(); old.state.revision--; old.state.growth!.care.rest = 0;
     api.mockResolvedValueOnce(old); await poll(); expect(row("有效休息")).toBe("<0.1");
-    await key("a"); expect(document.querySelector(".growth-page-dots")?.textContent).toBe("3 / 6");
+    await key("b"); expect(document.querySelector(".growth-page-dots")?.textContent).toBe("3 / 6");
     expect(document.querySelector(".form-guide-record")?.textContent).toContain("恬静分 <0.1");
     await key("b"); expect(document.querySelector(".growth-page-dots")?.textContent).toBe("4 / 6"); expect(note()).toBeNull();
     await key("c"); expect(document.querySelector(".content-home")).toBeTruthy();

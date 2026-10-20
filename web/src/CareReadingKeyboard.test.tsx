@@ -46,7 +46,7 @@ it.each(kinds)("%s exposes one named, read-only tab stop on every page, without 
     expect(hint?.textContent).toContain("A/B/C");
     expect(panel.querySelectorAll("[data-care-reading-start]")).toHaveLength(1);
     expect(panel.querySelector("button,a,input,[role=button],[aria-live]")).toBeNull();
-    expect(current(kind)).toBe(String(n)); await key("a");
+    expect(current(kind)).toBe(String(n)); await key(kind === "growth" ? "b" : "a");
   }
   expect(current(kind)).toBe("0"); expect(writes()).toHaveLength(0);
 });
@@ -61,15 +61,15 @@ it.each(kinds)("%s lets native scrolling, held keys and Tab through only in its 
   // Native defaults themselves are checked in Chrome, not simulated by jsdom.
   expect(writes()).toHaveLength(0);
   expect((await key("ArrowDown")).defaultPrevented).toBe(true);
-  expect(current(kind)).toBe("1");
+  expect(current(kind)).toBe(kind === "growth" ? "5" : "1");
 });
 it.each(kinds)("%s retains letter controls and Escape while reading, without adding an action", async kind => {
   await open(kind); const panel = root(kind); panel.focus();
-  expect((await key("a", panel)).defaultPrevented).toBe(true); expect(current(kind)).toBe("1");
+  expect((await key("a", panel)).defaultPrevented).toBe(true); expect(current(kind)).toBe(kind === "growth" ? "5" : "1");
   expect(document.activeElement).toBe(panel);
   expect((await key("b", panel)).defaultPrevented).toBe(true);
   if (kind === "growth") {
-    expect(current(kind)).toBe("2"); expect(document.activeElement).toBe(panel);
+    expect(current(kind)).toBe("0"); expect(document.activeElement).toBe(panel);
     await key("Escape", panel);
   }
   expect(document.querySelector(".home-caption")).toBeTruthy(); expect(writes()).toHaveLength(0);
@@ -78,13 +78,13 @@ it.each(kinds)("%s preserves reading focus and page across ordinary syncs", asyn
   await open(kind); const panel = root(kind); panel.focus(); await key("a", panel);
   saved.revision++; saved.needs.hunger=69;
   await act(async () => { document.dispatchEvent(new Event("visibilitychange")); await vi.advanceTimersByTimeAsync(17000); });
-  expect(root(kind)).toBe(panel); expect(document.activeElement).toBe(panel); expect(current(kind)).toBe("1");
+  expect(root(kind)).toBe(panel); expect(document.activeElement).toBe(panel); expect(current(kind)).toBe(kind === "growth" ? "5" : "1");
   expect(writes()).toHaveLength(0);
 });
 it.each(kinds)("%s does not turn Space on a focused physical A into scrolling", async kind => {
   await open(kind); const button = document.querySelector<HTMLButtonElement>(".button-a")!; button.focus();
-  expect((await key(" ", button)).defaultPrevented).toBe(true); expect(current(kind)).toBe("1");
+  expect((await key(" ", button)).defaultPrevented).toBe(true); expect(current(kind)).toBe(kind === "growth" ? "5" : "1");
   expect(document.activeElement).toBe(button);
-  expect((await key(" ", button, {repeat:true})).defaultPrevented).toBe(true); expect(current(kind)).toBe("1");
+  expect((await key(" ", button, {repeat:true})).defaultPrevented).toBe(true); expect(current(kind)).toBe(kind === "growth" ? "5" : "1");
   expect(writes()).toHaveLength(0);
 });

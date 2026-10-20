@@ -12,7 +12,7 @@ const panel = () => document.querySelector('.growth-panel')!;
 const writes = () => api.mock.calls.filter(([p]) => ["action", "import", "reset", "recap/read"].includes(p));
 async function key(key: string) { await act(async () => { fireEvent.keyDown(window, { key }); }); }
 async function mount() { await act(async () => { render(<App />); }); }
-async function open() { await key("a"); for (let i = 0; i < 6; i++) await key("a"); await key("b"); await key("a"); await key("b"); }
+async function open() { await key("a"); for (let i = 0; i < 6; i++) await key("a"); await key("b"); await key("b"); await key("b"); }
 async function poll() { await act(async () => { vi.advanceTimersByTime(15000); }); }
 function adult(form: AdultForm = "lively") {
   const g = emptyGrowth("adult"); g.points = 72; g.form = form; g.adultAt = at - 3600000;

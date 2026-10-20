@@ -80,9 +80,9 @@ describe("growth basis accepted snapshots and three-key navigation", () => {
       lastTick: Date.now(), sleeping: false, careCount: 0, logs: [], growth: emptyGrowth(), needs: { hunger: 60, mood: 80, clean: 60, energy: 40 } };
     api.mockImplementation(async () => reply());
   });
-  it("opens the existing fifth page with B, wraps with A/B and returns with C, without a write", async () => {
+  it("opens the existing fifth page with B, wraps forwards with B and returns with C, without a write", async () => {
     await open(); expect(basis()).toBeTruthy(); expect(document.querySelector(".growth-page-dots")?.textContent).toBe("5 / 6");
-    await key("a"); expect(basis()).toBeNull(); await key("b"); expect(document.querySelector(".growth-page-dots")?.textContent).toBe("1 / 6");
+    await key("b"); expect(basis()).toBeNull(); await key("b"); expect(document.querySelector(".growth-page-dots")?.textContent).toBe("1 / 6");
     await key("c"); expect(document.querySelector(".content-home")).toBeTruthy(); expect(writes()).toHaveLength(0);
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelector(".lcd button,.lcd input,.lcd a,.lcd [role=button]")).toBeNull();
@@ -111,7 +111,8 @@ describe("growth basis accepted snapshots and three-key navigation", () => {
   });
   it("clears the reading on failed reads and safely resumes with a legacy server", async () => {
     await open(); api.mockRejectedValueOnce(new Error("offline")); await poll(); expect(basis()).toBeNull();
-    metadata = undefined; await key("b"); await key("a"); for (let i = 0; i < 6; i++) await key("a"); await key("b"); for (let i = 0; i < 4; i++) await key("b");
+    metadata = undefined; await key("b");
+    expect(document.querySelector(".growth-page-dots")?.textContent).toBe("5 / 6");
     expect(basis()?.textContent).toContain("成长基准尚未读到"); expect(writes()).toHaveLength(0);
   });
 });

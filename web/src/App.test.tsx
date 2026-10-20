@@ -199,7 +199,7 @@ describe("three-button pet animation lifecycle", () => {
     expect(document.querySelector(".growth-score")?.textContent).toContain(
       "12.0",
     );
-    await key("a");
+    await key("b");
     expect(
       document.querySelector(".growth-panel")?.getAttribute("data-growth-page"),
     ).toBe("1");
@@ -207,17 +207,17 @@ describe("three-button pet animation lifecycle", () => {
     await key("b");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("2");
     expect(document.querySelector(".form-guide")?.textContent).toContain("成年时按上方顺序确定");
-    await key("a");
+    await key("b");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("3");
     expect(document.querySelector(".companion-panel")).not.toBeNull();
-    await key("a");
+    await key("b");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("4");
     expect(document.querySelector(".growth-time-guide")?.textContent).toContain("每次结算有上限");
     expect(document.querySelector(".growth-time-guide")?.textContent).toContain("多次读取可能累计更多");
-    await key("a");
+    await key("b");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("5");
     expect(document.querySelector(".growth-look-guide")?.textContent).toContain("草莓兔的三阶段");
-    await key("a");
+    await key("b");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("0");
     expect(document.querySelectorAll("[data-preview-stage]")).toHaveLength(3);
     for (let i = 0; i < growthPageCount; i++) await key("b");

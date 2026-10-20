@@ -20,7 +20,7 @@
 
 ### 成长与照顾
 
-- [成长、阈值与成年形态](GROWTH.md)
+- [成长手册、阈值与成年形态](GROWTH.md)（A 上一页／B 下一页）
 - [照顾指南](CARE_GUIDE.md) · [宠物照顾说明](PET_CARE_GUIDE.md)
 - [小窝阶段对白与成年陪伴风格](HOME_STAGE_VOICE.md)
 - [共同游戏与有限兴趣](COMPANION.md)

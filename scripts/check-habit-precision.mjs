@@ -1,5 +1,6 @@
 // Optional real-Chrome acceptance. Own temporary save/server only; never targets a player's URL.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import net from 'node:net';
@@ -8,8 +9,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY;
-assert(binary && isAbsolute(binary), 'Set PIXELPET_TEST_BINARY to an absolute, freshly built test binary.');
+const { binary, web } = await isolatedTestBuilds({ root });
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-habit-precision-'));
 const artifacts = process.env.PIXELPET_TEST_ARTIFACTS || dir;
@@ -66,7 +66,7 @@ async function inspect(page, mode) {
   return { mode, ...layout };
 }
 try {
-  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: join(root, 'web/dist') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
   server.once('error', e => { startupError = e; });
   server.stderr.on('data', data => { log += data; }); server.stdout.on('data', data => { log += data; });
   let ready = false;
@@ -95,7 +95,7 @@ try {
       assert.equal(await page.locator('.habit-precision-note').count(), ['zero', 'record'].includes(test.profile) ? 0 : 1);
       const habitsLayout = await inspect(page, test.mode.label);
       if (test.profile === 'natural' && test.stage === 'growing') await page.screenshot({ path: join(artifacts, `habit-precision-${test.mode.label}.png`), fullPage: true });
-      await key(page, 'a'); assert.equal(await page.locator('.growth-page-dots').textContent(), '3 / 6');
+      await key(page, 'b'); assert.equal(await page.locator('.growth-page-dots').textContent(), '3 / 6');
       const evidence = await page.locator('.form-guide-record').textContent();
       assert(evidence.includes(test.profile === 'record' ? '定型时陪玩 <0.1 · 恬静分 <0.1' : `当前陪玩 0.0 · 恬静分 ${test.profile === 'zero' ? '0.0' : '<0.1'}`), evidence);
       if (test.profile === 'record') {
@@ -108,7 +108,7 @@ try {
       await key(page, 'c'); await page.locator('.home-caption').waitFor();
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       const after = (await (await fetch(base + '/api/state')).json()).state;
-      assert.equal(after.growth.stage, test.stage); assert.equal(after.growth.form, seeded.growth.form); assert.equal(after.careCount, 0); assert.equal(after.schema, 13);
+      assert.equal(after.growth.stage, test.stage); assert.equal(after.growth.form, seeded.growth.form); assert.equal(after.careCount, 0); assert.equal(after.schema, seeded.schema);
       assert.deepEqual(after.growth.formRecord, seeded.growth.formRecord);
       if (test.profile === 'natural') {
         assert(seeded.growth.care.rest >= 0 && seeded.growth.care.rest < .05); assert(after.needs.energy > seeded.needs.energy);

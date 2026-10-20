@@ -25,7 +25,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 it("opens on the existing first page, cycles six pages and exits with no gameplay writes", async () => {
   await mount(); expect(text()).toContain("50.0%"); expect(document.querySelector(".growth-page-dots")?.textContent).toBe("1 / 6");
-  await key("a"); expect(screen.queryByLabelText("此刻状态与成长")).toBeNull();
+  await key("b"); expect(screen.queryByLabelText("此刻状态与成长")).toBeNull();
   for (let i = 0; i < 5; i++) await key("b"); expect(text()).toContain("0.88 点/小时");
   await key("c"); expect(document.querySelector(".content-home")).toBeTruthy(); expect(writes()).toHaveLength(0);
   expect(document.querySelectorAll(".physical-button")).toHaveLength(3); expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();

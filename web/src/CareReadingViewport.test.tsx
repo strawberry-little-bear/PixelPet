@@ -42,7 +42,7 @@ it.each((["baby", "growing", "adult"] as const).flatMap(stage => [false, true].f
     expect(window.scrollBy).toHaveBeenCalledTimes(1); expect(document.activeElement).toBe(focus);
     for (let i = 1; i <= count; i++) {
       expect(document.querySelectorAll(`.content-${page} [data-care-reading-start]`)).toHaveLength(1);
-      await key(page === "growth" && i % 2 ? "b" : "a");
+      await key(page === "growth" ? "b" : "a");
       expect(window.scrollBy).toHaveBeenCalledTimes(i + 1); expect(document.activeElement).toBe(focus);
     }
     expect(document.querySelector(page === "growth" ? ".growth-panel" : ".screen-status")?.getAttribute(`data-${page}-page`)).toBe("0");
@@ -77,4 +77,20 @@ it.each(["growth", "status"] as const)("legacy %s snapshots without growth or ge
   await mount(); delete saved.growth; generation = undefined; await refresh();
   await open(page); await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(2);
   await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(2); expect(writes()).toHaveLength(0);
+});
+
+it("reverse handbook navigation reveals every page once, without replaying on reads or taking focus", async () => {
+  await mount(); const before = structuredClone(saved);
+  const button = document.querySelector<HTMLButtonElement>(".button-a")!; button.focus();
+  await open("growth"); expect(window.scrollBy).toHaveBeenCalledTimes(1);
+  for (const [step, expected] of [5, 4, 3, 2, 1, 0].entries()) {
+    await key("a");
+    expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe(String(expected));
+    expect(document.querySelectorAll(".growth-panel [data-care-reading-start]")).toHaveLength(1);
+    expect(window.scrollBy).toHaveBeenCalledTimes(step + 2); expect(document.activeElement).toBe(button);
+    await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(step + 2);
+  }
+  await key("b"); expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("1");
+  expect(window.scrollBy).toHaveBeenCalledTimes(8); expect(writes()).toHaveLength(0);
+  before.revision = saved.revision; expect(saved).toEqual(before);
 });

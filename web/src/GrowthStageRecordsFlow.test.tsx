@@ -11,7 +11,7 @@ const reply = (): Result => ({state:structuredClone(saved),serverTime:Date.now()
 const dates = () => [...document.querySelectorAll<HTMLTimeElement>(".growth-stage-record time")].map(el => el.dateTime);
 const writes = () => api.mock.calls.filter(([p]) => !["state","visit"].includes(p));
 async function key(key: string) {await act(async()=>{window.dispatchEvent(new KeyboardEvent("keydown",{key,bubbles:true}));});}
-async function open() {await key("a");for(let i=0;i<6;i++) await key("a");await key("b");for(let i=0;i<5;i++)await key("a");}
+async function open() {await key("a");for(let i=0;i<6;i++) await key("a");await key("b");for(let i=0;i<5;i++)await key("b");}
 async function mount() {await act(async()=>{render(<App/>);});await open();}
 async function poll() {await act(async()=>{await vi.advanceTimersByTimeAsync(15000);});}
 beforeEach(()=>{

@@ -1690,7 +1690,7 @@ export default function App() {
         setStatusPage(v => (v + 1) % statusPageCount); navigateCareReading("status");
       }
       else if (page === "growth") {
-        setGrowthPage((v) => (v + 1) % growthPageCount); navigateCareReading("growth");
+        setGrowthPage((v) => (v + growthPageCount - 1) % growthPageCount); navigateCareReading("growth");
       }
       return;
     }
@@ -2008,7 +2008,7 @@ export default function App() {
                       : page === "album"
                       ? albumCategory === null ? "A 换分类  B 进入  C 返回小窝" : returningToPause ? "A 上一页  B 下一页  C 返回暂停" : "A 上一页  B 下一页  C 返回分类"
                       : page === "growth"
-                      ? "A / B 换页　 C 返回"
+                      ? "A 上一页  B 下一页  C 返回"
                       : page === "journal"
                         ? "A 较早　 B 较新　 C 返回"
                         : "C 返回小窝";
