@@ -29,7 +29,9 @@
 
 ```sh
 ./.tools/go/bin/go build -o /tmp/pixelpet-return-response ./cmd/pet
+(cd web && ./node_modules/.bin/vite build --outDir /tmp/pixelpet-return-response-web)
 PIXELPET_TEST_BINARY=/tmp/pixelpet-return-response \
+PIXELPET_TEST_WEB=/tmp/pixelpet-return-response-web \
 PIXELPET_PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
 node scripts/check-growth-response.mjs
 ```
@@ -51,3 +53,7 @@ node scripts/check-growth-response.mjs
 本轮最终临时库为 `/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-growth-response-L0d1v9/test.db`，结果 JSON 与完整截图在同目录，自己的端口 61011 已确认关闭。玩家库 SHA256 保持 `a8b712d5419fe6227b255f4d63869612e451da7abddffd60124de8ee65c23eee`，原进程 38015 / 39567 与 Vite 24615 保留。
 
 持续目标继续；后续优先实际养成/离开体验及可复现问题，不为持续迭代随意更改数值或增加惩罚。自然长时、真实设备与真人试玩仍待反馈。
+
+## 当前复跑约束（2026-10-20）
+
+以上共享 dist 的说明保留为当批历史；当前复跑必须显式设置独立 `PIXELPET_TEST_BINARY` 与 `PIXELPET_TEST_WEB`，不再读取共享构建。详见 [浏览器构建隔离](BROWSER_BUILD_ISOLATION.md)。

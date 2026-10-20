@@ -1,14 +1,16 @@
 // Chrome's native touch input pipeline, not DOM-dispatched scroll events.
 // Own random-port service and temporary DB only; history is an HTTP fixture.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..'), binary = process.env.PIXELPET_TEST_BINARY;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY to a test binary.');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { binary, web } = await isolatedTestBuilds();
+console.log(JSON.stringify({ testBuilds: { binary, web } }));
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-return-touch-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -65,7 +67,7 @@ async function edge(page, cdp, down) {
   throw new Error(`Touch gestures did not reach ${down ? 'bottom' : 'top'}: ${JSON.stringify(await reading(page))}`);
 }
 try {
-  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: process.env.PIXELPET_TEST_WEB || join(root, 'web/dist') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
   server.once('error', e => { startupError = e; }); server.stdout.on('data', d => { log += d; }); server.stderr.on('data', d => { log += d; });
   let ready = false;
   for (let i = 0; i < 100; i++) {

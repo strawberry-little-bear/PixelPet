@@ -33,7 +33,7 @@
 
 ## 重跑
 
-先构建前端与临时服务二进制，再设置绝对路径 `PIXELPET_TEST_BINARY`，需要时设置 `PIXELPET_PLAYWRIGHT_MODULE`，执行：
+先构建前端与临时服务二进制，再设置独立构建的绝对路径 `PIXELPET_TEST_BINARY` 和 `PIXELPET_TEST_WEB`，需要时设置 `PIXELPET_PLAYWRIGHT_MODULE`，执行：
 
 ```sh
 node scripts/check-return-layout.mjs
@@ -81,3 +81,5 @@ node scripts/check-growth-response.mjs
 ## 后续：原生触摸与页头遮盖（2026-10-19）
 
 新增 [原生触摸阅读验收](RETURN_TOUCH.md)：8 组手机布局、16 个页面、32 次手势中换页/同步通过。24 次换页/新记录的 408 个逐帧采样全部归零，8 次同记录继续阅读；顶底额外滑动不带动外层页面。修复页头上方 7px 留白露出文字碎片，将原留白移入不透明页头；修改前后设备高度与完整滚动范围相同，未改内容、字号或三键。原布局 12 组、End 中途换页 96 次、键盘阅读 96 组复跑通过。此为 Chrome 原生输入模拟，非实体手机或真人认证。
+
+当前复跑统一拒用共享 bin／dist（含目录别名和共享入口硬链接），构建示例及准确边界见 [浏览器构建隔离](BROWSER_BUILD_ISOLATION.md)。历史验收数据保持原样，当前复跑以新的隔离约束为准。

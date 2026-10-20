@@ -1,15 +1,15 @@
 // Live short sleeps: isolated HTTP/SQLite + Chrome; never touches a player save.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'));
-assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'));
+const { binary, web } = await isolatedTestBuilds();
+console.log(JSON.stringify({ testBuilds: { binary, web } }));
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-sleep-progress-')), results = [];
 const port = await new Promise((resolve, reject) => {

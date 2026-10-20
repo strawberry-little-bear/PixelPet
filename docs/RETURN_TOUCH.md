@@ -23,12 +23,14 @@
 
 ## 重跑与边界
 
-先构建前端和专用服务二进制，再设置绝对路径 `PIXELPET_TEST_BINARY`，必要时设置 `PIXELPET_PLAYWRIGHT_MODULE`，执行：
+先构建前端和专用服务二进制，再设置独立构建的绝对路径 `PIXELPET_TEST_BINARY` 和 `PIXELPET_TEST_WEB`，必要时设置 `PIXELPET_PLAYWRIGHT_MODULE`，执行：
 
 ```sh
 node scripts/check-return-touch.mjs
 ```
 
-脚本自行创建临时数据库、随机端口及独立 Chrome，退出时关闭自己的服务；不接收玩家 URL 或数据库。`PIXELPET_TEST_WEB` 可指向隔离的旧版前端以复现。历史小结由 HTTP 响应夹具提供，不是自然跨阶段或 48 小时结算证明。
+脚本自行创建临时数据库、随机端口及独立 Chrome，退出时关闭自己的服务；不接收玩家 URL 或数据库。`PIXELPET_TEST_WEB` 为必填，可显式指向隔离的旧版前端以复现。历史小结由 HTTP 响应夹具提供，不是自然跨阶段或 48 小时结算证明。
 
 这是 Chrome 自动化原生触摸模拟，不是实体手机、iOS Safari、系统地址栏收缩、真人触屏/读屏或所有浏览器认证。手势中 A/B 使用键盘模拟设备键，不将其描述为双指点按。未更改后端、存档 schema、成长/奖励或三键规则，玩家库哈希、原服务与玩家标签保持不变。持续目标保留。
+
+当前复跑统一拒用共享 bin／dist（含目录别名和共享入口硬链接），构建示例及准确边界见 [浏览器构建隔离](BROWSER_BUILD_ISOLATION.md)。历史验收数据保持原样，当前复跑以新的隔离约束为准。

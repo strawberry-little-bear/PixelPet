@@ -43,6 +43,8 @@ Go 测试使用独立临时库和显式时间，验证累计时长、饱食/清�
 先完成前端构建，再执行：
 
 ```sh
+export PIXELPET_TEST_WEB=/tmp/pixelpet-return-settlement-web
+(cd web && ./node_modules/.bin/vite build --outDir "$PIXELPET_TEST_WEB")
 ./.tools/go/bin/go test -race -count=1 ./...
 ./.tools/go/bin/go vet ./...
 ./.tools/go/bin/go build -o /tmp/pixelpet-return-settlement ./cmd/pet
@@ -53,3 +55,5 @@ PIXELPET_TEST_SCOPE=settlement node scripts/check-growth-response.mjs
 ```
 
 测试仅使用脚本自建临时库和空闲端口，结束关闭自己的服务；不刷新玩家页面、不重启原进程、不导入/覆盖玩家存档。构建会更新被忽略的 `web/dist`，共用目录的原服务之后重载可能读到新前端，不代表其后端已部署。
+
+当前复跑须显式提供独立前端及二进制，共享构建不再作为默认值，见 [浏览器构建隔离](BROWSER_BUILD_ISOLATION.md)；本页旧共享构建说明为历史记录。

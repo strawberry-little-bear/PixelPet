@@ -1,14 +1,16 @@
 // Focused reading-key regression: own temporary database/server, never a player's URL.
 // Historical recap responses are intercepted fixtures, not a settlement test.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..'), binary = process.env.PIXELPET_TEST_BINARY;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY.');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { binary, web } = await isolatedTestBuilds();
+console.log(JSON.stringify({ testBuilds: { binary, web } }));
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-return-keyboard-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -19,7 +21,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 async function key(page, k) { await page.locator(`.button-${k}:not(:disabled)`).tap(); }
 async function review(page) { await key(page, 'a'); for (let i = 0; i < 7; i++) await key(page, 'a'); await key(page, 'b'); await page.locator('.return-panel').waitFor(); }
 try {
-  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: process.env.PIXELPET_TEST_WEB || join(root, 'web/dist') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
   server.once('error', e => { startupError = e; }); server.stdout.on('data', d => { log += d; }); server.stderr.on('data', d => { log += d; });
   let ready = false;
   for (let i = 0; i < 100; i++) {

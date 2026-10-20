@@ -17,7 +17,7 @@
 
 ## 重跑与边界
 
-构建前端和临时服务二进制后，设置绝对路径 `PIXELPET_TEST_BINARY`，必要时设置 `PIXELPET_PLAYWRIGHT_MODULE`，运行：
+构建前端和临时服务二进制后，设置独立构建的绝对路径 `PIXELPET_TEST_BINARY` 和 `PIXELPET_TEST_WEB`，必要时设置 `PIXELPET_PLAYWRIGHT_MODULE`，运行：
 
 ```sh
 node scripts/check-return-keyboard.mjs
@@ -26,3 +26,5 @@ node scripts/check-return-scroll.mjs
 ```
 
 脚本自行创建独立临时库、随机端口及浏览器，不接收玩家 URL 或数据库，结束时清理自己的服务。长小结通过拦截响应提供历史夹具，不是自然跨阶段结算证据；本批不改服务端、存档 schema、成长/奖励或三键规则。不等同于真人读屏/触屏或所有浏览器认证，不刷新玩家标签或重启原服务。
+
+当前复跑统一拒用共享 bin／dist（含目录别名和共享入口硬链接），构建示例及准确边界见 [浏览器构建隔离](BROWSER_BUILD_ISOLATION.md)。历史验收数据保持原样，当前复跑以新的隔离约束为准。

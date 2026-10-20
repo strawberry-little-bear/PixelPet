@@ -1,5 +1,6 @@
 // Growth, care and return-response real-Chrome acceptance. Always creates its own save/server; never a player's URL.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
@@ -9,8 +10,8 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY;
-assert(binary && isAbsolute(binary), 'Set PIXELPET_TEST_BINARY to an absolute, freshly built test binary.');
+const { binary, web } = await isolatedTestBuilds();
+console.log(JSON.stringify({ testBuilds: { binary, web } }));
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-growth-response-'));
 const artifacts = process.env.PIXELPET_TEST_ARTIFACTS || dir;
@@ -157,7 +158,7 @@ const corruptions = [
   { name: 'feedback-reason', stage: 'adult', damage: r => { r.careFeedback = { kind: 'feed', reason: {}, points: 0, habitGain: 1, habit: 'nutrition' }; } },
 ];
 try {
-  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: join(root, 'web/dist') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
   server.once('error', e => { startupError = e; });
   server.stderr.on('data', data => { log += data; }); server.stdout.on('data', data => { log += data; });
   let ready = false;

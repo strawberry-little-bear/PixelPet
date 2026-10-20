@@ -38,7 +38,9 @@
 
 ```sh
 ./.tools/go/bin/go build -o /tmp/pixelpet-growth-response ./cmd/pet
+(cd web && ./node_modules/.bin/vite build --outDir /tmp/pixelpet-growth-response-web)
 PIXELPET_TEST_BINARY=/tmp/pixelpet-growth-response \
+PIXELPET_TEST_WEB=/tmp/pixelpet-growth-response-web \
 PIXELPET_PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
 node scripts/check-growth-response.mjs
 ```
@@ -52,3 +54,7 @@ node scripts/check-growth-response.mjs
 持续迭代目标保留；下一批仍优先真实试玩反馈与可复现的照顾、成长、离开恢复问题，不将候选新游戏或未执行验收记为完成。
 
 后续已补充 [照顾反馈保护与单次习惯显示](CARE_FEEDBACK_SAFETY.md)：检查已提供的短提示基础数据，并兼容合法旧档的小数累计运算误差；可选 effect 仍单独降级。成长浏览器脚本已扩展，本文的 20 组是本批历史证据，后续结果见新文档。
+
+## 当前复跑约束（2026-10-20）
+
+以上共享 dist 的说明保留为当批历史；当前复跑必须显式设置独立 `PIXELPET_TEST_BINARY` 与 `PIXELPET_TEST_WEB`，不再读取共享构建。详见 [浏览器构建隔离](BROWSER_BUILD_ISOLATION.md)。
