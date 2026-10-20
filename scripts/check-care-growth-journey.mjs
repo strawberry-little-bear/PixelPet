@@ -123,7 +123,19 @@ try {
         response.request().postDataJSON().kind === kind);
       await choose(page, index);
       const saved = await response; assert(saved.ok(), await saved.text());
-      return { result: await saved.json(), body: saved.request().postDataJSON(), headers: await saved.request().allHeaders() };
+      const result = await saved.json();
+      if (kind === 'feed' || kind === 'clean') {
+        const effect = result.careFeedback.effect, changes = [];
+        for (const [key, label] of Object.entries({ hunger: '饱食', mood: '心情', clean: '清洁', energy: '体力' })) {
+          const delta = effect.after[key] - effect.before[key];
+          if (delta === 0) continue;
+          const value = Math.round(Math.abs(delta) * 100 + 1e-7) / 100;
+          changes.push(`${label}${delta > 0 ? '+' : '−'}${value === 0 ? '<0.01' : value.toFixed(2)}`);
+        }
+        assert(result.state.logs[0].text.includes(`即时需求：${changes.length ? changes.join('、') : '不变'}（不含时间结算）。`),
+          'saved diary must match the acknowledged clamped effect, excluding passive settlement');
+      }
+      return { result, body: saved.request().postDataJSON(), headers: await saved.request().allHeaders() };
     }
     async function reload(stage, motion = 'idle') {
       const count = writes.filter(write => write.path === '/api/action').length;
@@ -139,6 +151,7 @@ try {
       const current = (await api('state')).state;
       const index = current.logs.findIndex(log => log.at === entry.at && log.text === entry.text);
       assert(index >= 0, 'acknowledged diary missing from authoritative save');
+      assert(entry.text.includes('即时需求：') && entry.text.includes('（不含时间结算）。'));
       assert(entry.text.includes('本次成长 +') && entry.text.includes('不含操作前的时间成长'));
       const count = writes.filter(write => write.path === '/api/action').length;
       await choose(page, 5); await page.locator('.screen-journal').waitFor();

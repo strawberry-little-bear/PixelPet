@@ -57,9 +57,9 @@ func TestHTTPCareDiaryPersistsActualLearningWithoutReplayOrExtraEntries(t *testi
 	seed.Needs.Hunger, seed.Needs.Clean = 20, 0
 	seed.Logs = []game.Log{{At: now.UnixMilli(), Text: "旧日记保持原文。"}}
 	r = call("import", seed)
-	for _, tc := range []struct{ kind, id, reason string }{
-		{"feed", "first-feed", "credited"}, {"feed", "second-feed", "cooldown"}, {"feed", "third-feed", "cooldown"}, {"feed", "fourth-feed", "not-needed"},
-		{"clean", "first-clean", "credited"}, {"clean", "second-clean", "cooldown"}, {"clean", "third-clean", "not-needed"},
+	for _, tc := range []struct{ kind, id, reason, needs string }{
+		{"feed", "first-feed", "credited", "饱食+20.00、心情+3.00"}, {"feed", "second-feed", "cooldown", "饱食+20.00、心情+3.00"}, {"feed", "third-feed", "cooldown", "饱食+20.00、心情+3.00"}, {"feed", "fourth-feed", "not-needed", "饱食+20.00、心情+3.00"},
+		{"clean", "first-clean", "credited", "心情+4.00、清洁+35.00"}, {"clean", "second-clean", "cooldown", "心情+4.00、清洁+35.00"}, {"clean", "third-clean", "not-needed", "清洁+30.00"},
 	} {
 		before := r.State.Logs
 		action := map[string]any{"kind": tc.kind, "requestId": tc.id}
@@ -73,6 +73,9 @@ func TestHTTPCareDiaryPersistsActualLearningWithoutReplayOrExtraEntries(t *testi
 		}
 		if !strings.HasPrefix(r.State.Logs[0].Text, r.Message) || !strings.Contains(r.State.Logs[0].Text, "本次成长 +") {
 			t.Fatal("missing learning", r.State.Logs)
+		}
+		if !strings.Contains(r.State.Logs[0].Text, "即时需求："+tc.needs+"（不含时间结算）。") {
+			t.Fatal("wrong persisted actual need effect", tc, r.State.Logs[0])
 		}
 		replay := call("action", action)
 		if !reflect.DeepEqual(replay.State.Logs, r.State.Logs) || !reflect.DeepEqual(replay.CareFeedback, f) {
