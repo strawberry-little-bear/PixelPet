@@ -22,3 +22,8 @@
 .game-abandon p { margin: 14px 0; font-size: 12px; }
 .game-abandon small { font-size: 9px; }
 .game-abandon strong { display: block; font-size: 10px; margin-top: 15px; }
+
+/* Only paused/terminal sessions opt in; live game geometry stays unchanged. */
+.session-allowance { border-top: 1px dashed currentColor; margin-top: 10px; padding-top: 8px; }
+.session-allowance > strong, .session-allowance > small { display: block; }
+.session-allowance .guide-allowance { margin: 6px 0; }

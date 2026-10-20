@@ -27,6 +27,7 @@ import { fishCatalogFor, fishingMenu } from "./fishing";
 import { TetrisGame, tetrisOptions } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
 import { TileGame, nextTile } from "./TileGame";
+import { GameAllowance } from "./GuideReward";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
 import { games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
 import type { TileLink } from "./TileGame";
@@ -1799,6 +1800,14 @@ export default function App() {
   const walkHint=walking?.beat===72?"B / C 收好发现":walking?.paused || walkSession!==pet?.game?.id?"A 选择  B 确认  C 继续":"A 跳跃  B 蹲下  C 暂停";
   const fishing = pet?.game?.fishing;
   const fishingHint = fishing?.phase === "done" ? "B / C 收好发现" : fishing?.paused || (["wait", "bite"].includes(fishing?.phase ?? "") && fishingSession !== pet?.game?.id) ? "A 选择  B 确认  C 继续" : "A 换钓点  B 抛 / 提竿  C 暂停";
+  // Keep reward context out of live boards. A refreshed session is locally
+  // paused even when the last server snapshot still says it was running.
+  const gameRewardReading = gameAwaitingFinish(pet?.game)
+    || (snake && (snake.paused || snakeSession !== pet?.game?.id))
+    || (blocks && (blocks.paused || tetrisSession !== pet?.game?.id))
+    || (treasure && (treasure.paused || treasureSession !== pet?.game?.id))
+    || (walking && (walking.paused || walkSession !== pet?.game?.id))
+    || (fishing && (fishing.paused || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)));
   const gameNavHint = page === "pause-guide" ? "A / B 翻页  C 返回暂停" : page === "arcade"
     ? "A 换游戏  B 进入  C 返回"
     : page === "game-guide"
@@ -2339,6 +2348,11 @@ export default function App() {
                             </div>
                           </div>
                         )}
+                        {page === "game" && !abandoning && gameRewardReading && <section className="session-allowance" aria-label="本局奖励提示">
+                          <strong>本局奖励提示</strong>
+                          <GameAllowance economy={pet.economy} shop={shop} now={now} />
+                          <small>基础规则不代表本局一定得币；是否满足条件、实际所得以结算时为准。</small>
+                        </section>}
                       </>
                     )}
                   </div>
