@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { albumView, nextAlbum, reconcileAlbum, startAlbum } from "./album-reading";
+import { albumView, nextAlbum, previousAlbum, reconcileAlbum, startAlbum } from "./album-reading";
 import type { AlbumCursor } from "./album-reading";
 import type { Memory, PetState } from "./types";
 const pet = (...entries: Memory[]): PetState => ({ album: { since: 1, legacy: false, entries } } as PetState);
@@ -63,5 +63,44 @@ describe("permanent-memory identity cursor", () => {
     const p = pet(meal, hatch, bath), cursor = selected("meal"), before = structuredClone({ p, cursor });
     albumView(p, "all", cursor); nextAlbum(p, "all", cursor); reconcileAlbum(p, "growth", cursor);
     expect({ p, cursor }).toEqual(before);
+  });
+});
+
+
+describe("bidirectional permanent-memory cursor", () => {
+  it("goes back through the cover and wraps to the latest saved memory", () => {
+    const p = pet(meal, hatch, bath); let cursor = startAlbum();
+    const sequence = Array.from({ length: 5 }, () => {
+      const page = albumView(p, "all", cursor).page; cursor = previousAlbum(p, "all", cursor); return page;
+    });
+    expect(sequence).toEqual([0, 3, 2, 1, 0]);
+  });
+  it.each(["all", "care", "growth"] as const)("both directions undo each other in %s", category => {
+    const p = pet(meal, hatch, bath), before = structuredClone(p); let cursor = startAlbum();
+    for (let i = 0; i < 6; i++) {
+      expect(previousAlbum(p, category, nextAlbum(p, category, cursor))).toEqual(cursor);
+      expect(nextAlbum(p, category, previousAlbum(p, category, cursor))).toEqual(cursor);
+      cursor = nextAlbum(p, category, cursor);
+    }
+    expect(p).toEqual(before);
+  });
+  it("uses the updated identity when tied-date memories arrive before the selected one", () => {
+    const p = pet(hatch, meal, bath), cursor = selected("meal"), before = structuredClone(cursor);
+    expect(previousAlbum(p, "all", cursor)).toEqual(selected("bath"));
+    expect(cursor).toEqual(before);
+  });
+  it("does not confuse day milestones when reversing", () => {
+    const p = pet({kind:"days",days:1,at:1,source:"elapsed"}, {kind:"days",days:7,at:2,source:"elapsed"});
+    expect(previousAlbum(p, "days", selected("days", 7))).toEqual(selected("days", 1));
+    expect(previousAlbum(p, "days", startAlbum())).toEqual(selected("days", 7));
+  });
+  it("reconciles a missing record before reversing, clearing the explanation only on deliberate input", () => {
+    const p = pet(hatch, bath), cursor = reconcileAlbum(p, "all", selected("meal"));
+    expect(cursor.missing).toBe(true);
+    expect(previousAlbum(p, "all", cursor)).toEqual(selected("bath"));
+    expect(cursor.missing).toBe(true);
+  });
+  it.each([{}, {album:{since:1,legacy:false,entries:[]}}])("empty or legacy albums stay on the cover (%s)", fixture => {
+    expect(previousAlbum(fixture as PetState, "all", {selected:null,missing:true})).toEqual(startAlbum());
   });
 });

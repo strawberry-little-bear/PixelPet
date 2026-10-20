@@ -42,6 +42,9 @@ it.each(kinds)("opens saved scenery from %s pause using only three keys, and C r
   await open(); expect(panel().dataset.albumCategory).toBe("scenery");
   expect(document.querySelector('.lcd-bottom')?.textContent).toContain("C 返回暂停");
   await key("b"); expect(panel().dataset.albumKind).toBe("scenery-fishing-clear");
+  await key("a"); expect(panel().dataset.albumKind).toBeUndefined();
+  await key("a"); expect(panel().dataset.albumKind).toBe("scenery-walk-rain");
+  await key("b"); expect(panel().dataset.albumKind).toBeUndefined();
   await key("a"); expect(panel().dataset.albumKind).toBe("scenery-walk-rain");
   await clock(17000); await refresh(); expect(panel().dataset.albumKind).toBe("scenery-walk-rain");
   expect(panel().querySelector("button,a,input")).toBeNull();

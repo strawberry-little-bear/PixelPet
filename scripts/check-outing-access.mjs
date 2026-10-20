@@ -131,6 +131,7 @@ try {
         await open(page); await readable(page, '.album-panel');
         if (status === 'saved') {
           await key(page, 'B'); assert.equal(await page.locator('.album-panel').getAttribute('data-album-kind'), 'scenery-fishing-clear'); await readable(page, '.album-panel');
+          await key(page, 'A'); assert.equal(await page.locator('.album-panel').getAttribute('data-album-kind'), null);
           await key(page, 'A'); assert.equal(await page.locator('.album-panel').getAttribute('data-album-kind'), 'scenery-walk-rain'); await readable(page, '.album-panel');
         } else assert.match(await page.locator('.album-panel').innerText(), status === 'legacy' ? /请更新服务/ : /还没有留下风景手记/);
         await page.screenshot({ path: join(dir, `reader-${kind}-${width}-${scale}-${status}.png`), fullPage: true });

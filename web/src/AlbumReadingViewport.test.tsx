@@ -51,7 +51,7 @@ it.each((["baby", "growing", "adult"] as const).flatMap(stage => [false, true].m
     }
     await key("b"); expect(panel().dataset.albumCategory).toBe("all");
     for (const [n, kind] of ["hatch", "meal", "scenery-walk-rain", undefined].entries()) {
-      await key(n % 2 ? "a" : "b"); expect(panel().dataset.albumKind).toBe(kind); expect(window.scrollBy).toHaveBeenCalledTimes(n + 10);
+      await key("b"); expect(panel().dataset.albumKind).toBe(kind); expect(window.scrollBy).toHaveBeenCalledTimes(n + 10);
     }
     await key("c"); expect(document.querySelector('[data-album-directory="all"]')).toBeTruthy(); expect(window.scrollBy).toHaveBeenCalledTimes(14);
     await refresh(); await act(async () => { await vi.advanceTimersByTimeAsync(17000); });
@@ -72,7 +72,7 @@ it("leaves already visible directory rows and card headings alone", async () => 
   await mount(); await open(); await key("a"); await key("b"); await key("a"); await key("c"); expect(window.scrollBy).not.toHaveBeenCalled();
 });
 it("ordinary sync preserves reading and memory identity, including missing-memory fallback", async () => {
-  await mount(); await open(); await key("b"); await key("a"); await key("b"); expect(panel().dataset.albumKind).toBe("meal");
+  await mount(); await open(); await key("b"); await key("b"); await key("b"); expect(panel().dataset.albumKind).toBe("meal");
   saved.album!.entries.push({ kind: "bath", at: saved.album!.entries[1].at, source: "shared" }); await refresh();
   expect(panel().dataset.albumKind).toBe("meal"); expect(window.scrollBy).toHaveBeenCalledTimes(4);
   saved.album!.entries = saved.album!.entries.filter(m => m.kind !== "meal"); await refresh();

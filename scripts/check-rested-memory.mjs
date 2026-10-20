@@ -114,10 +114,17 @@ try {
       assert(wake.careFeedback.sleepSummary.energyRecovered > 0); assert(!wake.state.sleeping);
       await key(page, 'C'); await openCareAlbum(page);
       assert.equal(await page.locator('.album-panel h3').filter({ hasText: '睡饱后的小小伸展' }).count(), 0);
-      // Cover -> goodnight -> rested. A and B both turn a card; C remains return.
-      await key(page, 'A'); assert.equal(await page.locator('.album-panel h3').innerText(), '轻轻说一声晚安');
+      // Cover -> goodnight -> rested. B turns forward; C remains return.
+      await key(page, 'B'); assert.equal(await page.locator('.album-panel h3').innerText(), '轻轻说一声晚安');
       await key(page, 'B'); assert.equal(await page.locator('.album-panel h3').innerText(), '睡饱后的小小伸展');
       assert((await page.locator('.album-panel > p').innerText()).includes('不用每次都等到满格'));
+      // These two cards came from real sleep/wake requests above, not response fixtures.
+      const date = await page.locator('.album-panel time').getAttribute('datetime');
+      for (const [k, expected] of [['A', 'goodnight'], ['A', null], ['A', 'rested'], ['B', null], ['B', 'goodnight'], ['B', 'rested']]) {
+        await key(page, k); await readable(page);
+        assert.equal(await page.locator('.album-panel').getAttribute('data-album-kind'), expected);
+      }
+      assert.equal(await page.locator('.album-panel time').getAttribute('datetime'), date, 'reverse browsing changed the recorded date');
       const font = await page.locator('.album-panel > p').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
       assert(Math.abs(font - mode.font * 12 / 14) < .1, 'card does not inherit enlarged type');
       await readable(page); await page.locator('.album-panel > header').scrollIntoViewIfNeeded();
@@ -126,7 +133,7 @@ try {
       await reloadHome(page);
       const backup = await api('backup'); assert.deepEqual(cards(backup), remembered);
       const restored = await api('import', backup); assert.deepEqual(cards(restored.state), remembered);
-      await reloadHome(page); await openCareAlbum(page); await key(page, 'B'); await key(page, 'B');
+      await reloadHome(page); await openCareAlbum(page); await key(page, 'A');
       assert.equal(await page.locator('.album-panel h3').innerText(), '睡饱后的小小伸展');
       assert.equal(writes.length, 2, 'reading/reloading/restoring replayed sleep'); assert.deepEqual(errors, []);
       results.push({ stage, ...mode, energyRecovered: wake.careFeedback.sleepSummary.energyRecovered, remembered, passed: true });

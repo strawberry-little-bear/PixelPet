@@ -1,15 +1,15 @@
 // Real HTTP permanent album reading; isolated build, save and random port.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY');
-assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+const { binary, web } = await isolatedTestBuilds();
+console.log(JSON.stringify({ testBuilds: { binary, web } }));
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-album-reading-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -53,6 +53,7 @@ async function readable(page) {
   assert.deepEqual(problems, [], 'reading text clipped or overlaps footer');
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
   assert.equal(await page.locator('.physical-button').count(), 3);
+  assert(await page.locator('.lcd-bottom').evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1), 'three-key directions clipped');
 }
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -68,14 +69,21 @@ try {
   const modes = [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 28 }, { width: 320, height: 380, font: 28 }];
   const categories = ['all', 'growth', 'care', 'play', 'home', 'days', 'scenery'];
   const cases = [{ kind: 'home', sleeping: false }, { kind: 'home', sleeping: true }, { kind: 'fishing', sleeping: false }, { kind: 'walk', sleeping: false }];
-  for (const mode of modes) for (const { kind, sleeping } of cases) {
+  for (const mode of modes) for (const { kind, sleeping } of cases) for (const history of ['empty', 'saved']) {
     const at = Date.now();
     const fixture = (await api('import', { schema: 1, revision: 1, species: 2, name: '纪念伙伴',
       createdAt: at - 3600000, hatchedAt: at - 3500000, lastTick: at, sleeping,
       needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] })).state;
     // Constructed legal care memories exercise longer card text; they are not
-    // claimed as naturally played history. No scenery discoveries are fabricated.
+    // claimed as naturally played history. Saved scenery uses constructed discoveries
+    // and must pass the real service import validation, not a response mock.
     for (const memory of ['meal', 'bath', 'goodnight']) fixture.album.entries.push({ kind: memory, at: fixture.lastTick, source: 'shared' });
+    if (history === 'saved') {
+      const at = fixture.lastTick;
+      fixture.pond.fish = [{ id: 'reed-minnow', firstAt: at, lastAt: at, count: 1 }];
+      fixture.park.finds = [{ id: 'leaf', firstAt: at, lastAt: at, count: 1 }];
+      for (const kind of ['scenery-fishing-clear', 'scenery-walk-rain']) fixture.album.entries.push({ kind, at, source: 'shared' });
+    }
     await api('import', fixture);
     if (kind !== 'home') {
       const game = (await api('action', { kind: kind === 'fishing' ? 'play-fishing' : 'play-walk' })).state.game;
@@ -85,7 +93,7 @@ try {
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
       isMobile: mode.width === 320, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
     const page = await context.newPage(), errors = [], writes = []; let reads = 0;
-    const label = `${kind}-${sleeping}-${mode.width}-${mode.height}-${mode.font}`;
+    const label = `${kind}-${sleeping}-${mode.width}-${mode.height}-${mode.font}-${history}`;
     page.on('pageerror', error => errors.push(error.message));
     page.on('response', res => { if (['/api/state', '/api/visit'].includes(new URL(res.url()).pathname)) reads++; });
     page.on('request', req => { if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push(req.url()); });
@@ -122,9 +130,18 @@ try {
           const pages = Number((await page.locator('.album-panel > header > span').innerText()).split('/')[1]);
           for (let i = 0; i < pages; i++) {
             await page.locator('.album-source:last-child').scrollIntoViewIfNeeded(); await visible(page, '.album-source:last-child');
-            await key(page, i % 2 ? 'A' : 'B'); await visible(page, header); await readable(page);
+            await key(page, 'B'); await visible(page, header); await readable(page);
             assert.equal(await page.locator('.album-panel > header > span').innerText(), `${(i + 1) % pages + 1} / ${pages}`);
           }
+          // Reverse the entire category, including cover-to-last and first-to-cover.
+          for (let i = 0; i < pages; i++) {
+            await page.locator('.album-source:last-child').scrollIntoViewIfNeeded();
+            await key(page, 'A'); await visible(page, header); await readable(page);
+            assert.equal(await page.locator('.album-panel > header > span').innerText(), `${(pages - i - 1) % pages + 1} / ${pages}`);
+          }
+          // Back/forward pairs must restore the exact selected page, not jump twice.
+          await page.keyboard.press('a'); await page.keyboard.press('b'); await visible(page, header);
+          assert.equal(await page.locator('[data-album-page]').getAttribute('data-album-page'), '0');
           if (n === 0) {
             await stableRead();
             await page.locator('.button-b').focus();
@@ -133,6 +150,14 @@ try {
               assert.equal(await page.locator('.album-panel > header > span').innerText(), `${i + 2} / ${pages}`, 'native activation flips exactly once');
               assert.equal(await focusedKey(page), 'b', 'reading stole native key focus');
             }
+            await page.locator('.button-a').focus();
+            for (const [i, k] of ['Space', 'Enter'].entries()) {
+              await page.keyboard.press(k); await visible(page, header);
+              assert.equal(await page.locator('.album-panel > header > span').innerText(), `${2 - i} / ${pages}`, 'native A flips backwards exactly once');
+              assert.equal(await focusedKey(page), 'a', 'reading stole native A focus');
+            }
+            await key(page, 'A'); await visible(page, header); await readable(page);
+            assert.equal(await page.locator('[data-album-page]').getAttribute('data-album-page'), String(pages - 1));
             await page.screenshot({ path: join(dir, `card-${label}.png`) });
           }
           await page.locator('.album-source:last-child').scrollIntoViewIfNeeded();
@@ -146,7 +171,15 @@ try {
         for (const k of ['A', 'A', 'A', 'B']) await key(page, k);
         await visible(page, header); await readable(page);
         assert.equal(await page.locator('[data-album-page]').getAttribute('data-album-category'), 'scenery');
-        assert((await page.locator('.album-panel').innerText()).includes('还没有留下风景手记'));
+        if (history === 'empty') assert((await page.locator('.album-panel').innerText()).includes('还没有留下风景手记'));
+        else {
+          assert.equal(await page.locator('.album-panel > header > span').innerText(), '1 / 3');
+          for (const [k, expected] of [['A', 'scenery-walk-rain'], ['A', 'scenery-fishing-clear'], ['A', null], ['B', 'scenery-fishing-clear'], ['B', 'scenery-walk-rain'], ['B', null]]) {
+            await page.locator('.album-source:last-child').scrollIntoViewIfNeeded(); await key(page, k);
+            await visible(page, header); await readable(page);
+            assert.equal(await page.locator('[data-album-page]').getAttribute('data-album-kind'), expected);
+          }
+        }
         await stableRead();
         for (const k of ['A', 'B']) {
           await page.locator('.album-source:last-child').scrollIntoViewIfNeeded();
@@ -168,7 +201,7 @@ try {
       assert.equal(await page.evaluate(() => JSON.stringify(localStorage)), preferences);
       const after = (await api('state')).state;
       for (const field of ['species', 'hatchedAt', 'sleeping', 'careCount', 'economy', 'game', 'album', 'pond', 'park', 'logs']) assert.deepEqual(after[field], before[field]);
-      results.push({ ...mode, kind, sleeping, history: 'constructed-care; empty-scenery' });
+      results.push({ ...mode, kind, sleeping, history: `constructed-care; ${history}-scenery` });
     } catch (error) { await page.screenshot({ path: join(dir, `failure-${label}.png`) }); throw error; }
     finally { await context.close(); }
   }

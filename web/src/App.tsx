@@ -66,7 +66,7 @@ import { CareAdvice } from "./CareAdvice";
 import { careMenuLabel } from "./careMenu";
 import { previewBackup, backupSizeLimit } from "./backup";
 import { ImportPreview, type PendingImport } from "./ImportPreview";
-import { albumView, nextAlbum, reconcileAlbum, startAlbum } from "./album-reading";
+import { albumView, nextAlbum, previousAlbum, reconcileAlbum, startAlbum } from "./album-reading";
 import { AlbumDirectory, AlbumPanel, albumCategories, type AlbumCategory } from "./AlbumPanel";
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
@@ -1423,7 +1423,7 @@ export default function App() {
         } else { setAlbumCategory(null); navigateAlbumReading(null); }
       }
       else if (key === "A" || key === "B") {
-        setAlbumCursor(cursor => nextAlbum(pet, albumCategory, cursor)); navigateAlbumReading(albumCategory);
+        setAlbumCursor(cursor => (key === "A" ? previousAlbum : nextAlbum)(pet, albumCategory, cursor)); navigateAlbumReading(albumCategory);
       }
       return;
     }
@@ -2006,7 +2006,7 @@ export default function App() {
                     : page === "status"
                       ? "A 换页　 B / C 回小窝"
                       : page === "album"
-                      ? albumCategory === null ? "A 换分类  B 进入  C 返回小窝" : returningToPause ? "A / B 换页  C 返回暂停" : "A / B 换页  C 返回分类"
+                      ? albumCategory === null ? "A 换分类  B 进入  C 返回小窝" : returningToPause ? "A 上一页  B 下一页  C 返回暂停" : "A 上一页  B 下一页  C 返回分类"
                       : page === "growth"
                       ? "A / B 换页　 C 返回"
                       : page === "journal"

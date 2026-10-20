@@ -18,8 +18,16 @@ export function albumView(pet: PetState, category: AlbumCategory, cursor: AlbumC
   const page = current.selected ? memories.findIndex(memory => sameMemory(memory, current.selected!)) + 1 : 0;
   return { cursor: current, page };
 }
-export function nextAlbum(pet: PetState, category: AlbumCategory, cursor: AlbumCursor): AlbumCursor {
+function turnAlbum(pet: PetState, category: AlbumCategory, cursor: AlbumCursor, direction: 1 | -1): AlbumCursor {
   const memories = albumMemories(pet, category), { page } = albumView(pet, category, cursor);
-  const next = memories[page];
+  const nextPage = (page + direction + memories.length + 1) % (memories.length + 1);
+  const next = memories[nextPage - 1];
   return next ? { selected: { kind: next.kind, days: next.days }, missing: false } : startAlbum();
+}
+
+export function nextAlbum(pet: PetState, category: AlbumCategory, cursor: AlbumCursor): AlbumCursor {
+  return turnAlbum(pet, category, cursor, 1);
+}
+export function previousAlbum(pet: PetState, category: AlbumCategory, cursor: AlbumCursor): AlbumCursor {
+  return turnAlbum(pet, category, cursor, -1);
 }

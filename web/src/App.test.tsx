@@ -678,7 +678,7 @@ describe("saved-state proactive expression", () => {
 });
 
 describe("three-button permanent album", () => {
-  it("A/B browse collected memories, wrap, C returns via directory, reopening resets without mutations", async () => {
+  it("A/B browse collected memories in opposite directions, wrap, C returns via directory, reopening resets without mutations", async () => {
     saved.schema=3;
     saved.album={since:saved.createdAt,legacy:false,entries:[
       {kind:"hatch",at:saved.hatchedAt,source:"shared"},
@@ -691,7 +691,9 @@ describe("three-button permanent album", () => {
     const panel=()=>document.querySelector(".album-panel");
     expect(panel()?.getAttribute("data-album-page")).toBe("0");
     expect(screen.getByText("我们的纪念册")).toBeTruthy();
-    await key("a");expect(panel()?.getAttribute("data-album-page")).toBe("1");
+    await key("a");expect(panel()?.getAttribute("data-album-page")).toBe("2");
+    await key("b");expect(panel()?.getAttribute("data-album-page")).toBe("0");
+    await key("b");expect(panel()?.getAttribute("data-album-page")).toBe("1");
     expect(screen.getByText("小小的初次相遇")).toBeTruthy();
     await key("b");expect(panel()?.getAttribute("data-album-page")).toBe("2");
     expect(screen.getByText("一份暖暖的小饭团")).toBeTruthy();
