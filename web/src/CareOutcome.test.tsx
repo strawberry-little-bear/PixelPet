@@ -62,3 +62,15 @@ describe("authoritative care outcome", () => {
   expect(screen.queryByRole("region")).toBeNull();
  });
 });
+
+it("keeps a capped care growth receipt at the same precision as its diary entry", () => {
+  const needs = { hunger: 60.035, mood: 80, clean: 90, energy: 85 };
+  const feedback: CareFeedback = { kind: "feed", reason: "credited", habit: "nutrition", habitGain: 1,
+    points: 0.03499999999999659,
+    effect: { at: Date.parse("2026-10-20T00:00:00Z"), before: needs, after: { ...needs, hunger: 80.035 } } };
+  const before = structuredClone(feedback);
+  render(<CareOutcome feedback={feedback} />);
+  expect(screen.getByRole("group", { name: "本次成长与习惯" }).textContent).toContain("本次成长：+0.04 点");
+  expect(document.querySelector('[data-need="hunger"]')?.textContent).toContain("60.04 → 80.04");
+  expect(feedback).toEqual(before);
+});

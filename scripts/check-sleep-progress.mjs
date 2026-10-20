@@ -39,7 +39,8 @@ async function sync(page) {
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   const r = await response; assert(r.ok()); const data = await r.json(); await wait(100); return data;
 }
-const amount = n => n > 0 && n < .005 ? '<0.01' : n.toFixed(2);
+// Independent canonical display expectation, matching the diary specification.
+const amount = n => { const fixed = (Math.round(n * 100 + 1e-7) / 100).toFixed(2); return n > 0 && fixed === '0.00' ? '<0.01' : fixed; };
 async function matches(page, result) {
   const s = result.state.sleepSession; assert(s && result.state.sleeping);
   const panel = page.locator('.sleep-progress'); await panel.waitFor();

@@ -1,3 +1,4 @@
+import { careAmount, fixedCareAmount } from "./careAmount";
 import type { CareFeedback, Needs } from "./types";
 import "./care-outcome.css";
 import { SleepSummary } from "./SleepSummary";
@@ -20,7 +21,7 @@ function validEffect(effect: CareFeedback["effect"]): effect is NonNullable<Care
   return !!effect && Number.isSafeInteger(effect.at) && effect.at > 0 && effect.at <= 8.64e15 &&
     validNeeds(effect.before) && validNeeds(effect.after);
 }
-const change = (n: number) => n === 0 ? "不变" : `${n > 0 ? "+" : "−"}${Math.abs(n) < .005 ? "<0.01" : Math.abs(n).toFixed(2)}`;
+const change = (n: number) => n === 0 ? "不变" : `${n > 0 ? "+" : "−"}${careAmount(Math.abs(n))}`;
 
 // This is the acknowledged action's snapshot, not a recalculation from the
 // current pet or a live cooldown. A later poll must not rewrite its explanation.
@@ -71,11 +72,11 @@ export function CareOutcome({ feedback, readable = false }: { feedback: CareFeed
     <dl>
       {needLabels.map(([key, label]) => <div key={key} data-need={key}>
         <dt>{label}</dt>
-        <dd><span>{before[key].toFixed(2)} → {after[key].toFixed(2)}</span><strong>{change(after[key] - before[key])}</strong></dd>
+        <dd><span>{fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}</span><strong>{change(after[key] - before[key])}</strong></dd>
       </div>)}
     </dl>
     {learning && <div className="care-learning" role="group" aria-label="本次成长与习惯">
-      <strong>本次成长：+{feedback.points > 0 && feedback.points < .005 ? "<0.01" : feedback.points.toFixed(2)} 点</strong>
+      <strong>本次成长：+{careAmount(feedback.points)} 点</strong>
       <span>{learning.habit}</span>
       <p>{learning.reason}</p>
       <small>习惯可继续记录；成年形态不会因之后照顾重选。</small>

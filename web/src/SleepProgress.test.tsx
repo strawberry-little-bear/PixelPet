@@ -78,3 +78,15 @@ for (const field of ["startedAt", "lastTick"] as const)
 it.each(invalid)("quietly omits invalid optional progress: %s", (_name, mutate) => {
   const p = pet(); mutate(p); render(<SleepProgress pet={p} />); expect(document.querySelector(".sleep-progress")).toBeNull();
 });
+
+it("keeps saved sleep progress at the diary's half-up precision without changing the snapshot", () => {
+  const p = pet();
+  const energyRecovered = 0.03499999999999659;
+  Object.assign(p.sleepSession!, { startedAt: at - 9000, settledHours: 9 / 3600,
+    energyRecovered, restGain: energyRecovered / 28, growthPoints: .003 });
+  const before = structuredClone(p);
+  render(<SleepProgress pet={p} />);
+  expect(text()).toContain("恢复体力：+0.04");
+  expect(text()).toContain("休息习惯：+<0.01");
+  expect(p).toEqual(before);
+});

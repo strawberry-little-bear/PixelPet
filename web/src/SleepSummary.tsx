@@ -1,7 +1,7 @@
+import { careAmount as amount } from "./careAmount";
 import type { CareFeedback, SleepSummary as Summary } from "./types";
 
 const positiveDate = (n: number) => Number.isSafeInteger(n) && n > 0 && n <= 8.64e15;
-const amount = (n: number) => n > 0 && n < .005 ? "<0.01" : n.toFixed(2);
 const localTime = (n: number) => new Date(n).toLocaleString("zh-CN", {
   year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
 });

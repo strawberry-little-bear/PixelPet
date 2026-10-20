@@ -79,3 +79,15 @@ describe("complete recorded sleep receipt", () => {
     expect(screen.queryByRole("group",{name:"这次睡眠的实际结算"})).toBeNull();
   });
 });
+
+it("uses the diary's half-up precision for a real nine-second sleep recovery", () => {
+  // A server calculation of (85 + 14 * 9 / 3600) - 85, not a zero gain.
+  const energyRecovered = 0.03499999999999659;
+  const f: CareFeedback = { ...feedback, effect: { at: start + 9000, before: needs, after: needs },
+    sleepSummary: { startedAt: start, wokeAt: start + 9000, settledHours: 9 / 3600,
+      energyRecovered, restGain: energyRecovered / 28, growthPoints: .003 } };
+  const before = structuredClone(f);
+  render(<CareOutcome feedback={f} />);
+  expect(screen.getByRole("group", { name: "这次睡眠的实际结算" }).textContent).toContain("恢复体力：+0.04");
+  expect(f).toEqual(before);
+});

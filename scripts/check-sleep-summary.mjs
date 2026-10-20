@@ -180,6 +180,57 @@ try {
       } finally { await context.close(); }
     }
   }
+  // Controlled numeric response fixtures, NOT naturally timed nine-second
+  // browser sleeps. The real Go HTTP regression proves this raw recovery and
+  // its durable diary; these two viewports prove both displays round it alike.
+  for (const { width, font } of [{ width: 1200, font: 14 }, { width: 320, font: 28 }]) {
+    await seed('baby', false);
+    await api('action', { kind: 'sleep' });
+    const context = await browser.newContext({ viewport: { width, height: 700 }, hasTouch: true,
+      isMobile: width < 700, reducedMotion: 'reduce', forcedColors: font === 28 ? 'active' : 'none' });
+    const page = await context.newPage(), errors = [], writes = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/action') writes.push(r.postDataJSON()); });
+    await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = font + 'px'; }), font);
+    await page.route('**/api/*', async route => {
+      const response = await route.fetch(), body = await response.json();
+      const energyRecovered = 0.03499999999999659;
+      if (body.state?.sleeping && body.state.sleepSession) {
+        body.state.sleepSession = { startedAt: body.state.lastTick - 9000, settledHours: 9 / 3600,
+          energyRecovered, restGain: energyRecovered / 28, growthPoints: .003 };
+        body.state.growth.care.rest = Math.max(body.state.growth.care.rest, energyRecovered / 28);
+      }
+      if (body.careFeedback?.reason === 'awake') {
+        const wokeAt = body.careFeedback.effect.at;
+        body.careFeedback.sleepSummary = { startedAt: wokeAt - 9000, wokeAt, settledHours: 9 / 3600,
+          energyRecovered, restGain: energyRecovered / 28, growthPoints: .003 };
+      }
+      await route.fulfill({ response, json: body });
+    });
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor();
+      for (const k of ['A', 'A', 'A', 'A']) await key(page, k);
+      await page.locator('.sleep-progress').waitFor();
+      assert.deepEqual(await page.locator('.sleep-progress dt').allTextContents(), ['实际结算：', '恢复体力：', '休息习惯：', '睡眠期间成长：']);
+      assert.deepEqual(await page.locator('.sleep-progress dd').allTextContents(), ['<0.01 小时', '+0.04', '+<0.01', '+<0.01 点']);
+      await readable(page, '.sleep-progress');
+      await page.locator('.sleep-progress').screenshot({ path: join(dir, `amount-progress-${width}.png`) });
+      const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/action' && r.request().postDataJSON()?.kind === 'sleep');
+      await key(page, 'B'); assert((await response).ok()); await key(page, 'C');
+      await page.locator('.sleep-summary').waitFor();
+      const text = await page.locator('.sleep-summary').innerText();
+      assert(text.includes('恢复体力：+0.04') && text.includes('休息习惯：+<0.01'));
+      // Inspect the acknowledged receipt after the ordinary short wake toast clears.
+      await page.locator('.toast').waitFor({ state: 'hidden' });
+      await readable(page);
+      await page.locator('.sleep-summary').screenshot({ path: join(dir, `amount-summary-${width}.png`) });
+      assert.equal(writes.length, 1, 'Reading numeric receipts replayed care');
+      assert.equal(await page.locator('.physical-button').count(), 3);
+      assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
+      assert.deepEqual(errors, []);
+      results.push({ kind: 'half-step-response-fixture', width, font, energyRecovered: 0.03499999999999659, displayed: '0.04', passed: true });
+    } finally { await context.close(); }
+  }
   // Actual legacy migration/current backup imports, not response fixtures.
   // Import retains sleeping but intentionally drops active session provenance.
   for (const { width, font } of [{ width: 1200, font: 14 }, { width: 320, font: 28 }]) {
