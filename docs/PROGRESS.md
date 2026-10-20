@@ -1191,3 +1191,12 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 既有Chrome：寻宝流程5组、视口6组、双页面同步6组、照顾成长回执12组通过。本轮共66组独立浏览器用例；双页面均visible，不冒称真实系统后台。未新增资源或每日任务。
 - 专题见[TREASURE_COMPANION.md](TREASURE_COMPANION.md)。日志及独立构建 `/tmp/pet-treasure-reactions/`；最终动作截图/结果 `pixelpet-treasure-reaction-rS3M11`、流程 `pixelpet-treasure-9HkrwZ`、视口 `pixelpet-treasure-viewport-98CiqU`、同步 `pixelpet-treasure-sync-PEtPEl`、照顾 `pixelpet-treasure-care-mSktOy`，均在 `/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/`。
 - 提交前再次核验玩家库、共享bin/dist七文件哈希及dist完整清单不变；18102未访问、部署或重启。持续目标保留，下一步优先收集真人对动作和照顾反馈的可复现问题，独立节奏原型仍不自动上线。
+
+
+## 2026-10-20 · 回窝短回应不受本机日期跳变影响
+
+- 复现真实结算后前拨本机日期导致小窝短回应提前消失；只将该本地12秒视觉期限改用performance.now，定时清除与渲染同源。庆祝优先、计时起点、需求/睡眠优先、中断清除及真实经历资格均不变；不改保存日期、成长、需求、奖励或schema。
+- 新增5项App回归：旧实现4失败/1控制通过，修复后全过；定向130项及全量3601项/140文件、TypeScript、独立前端构建通过。Go无缓存全量race、vet及独立构建通过，独立节奏协议/HTTP18项和历史算术6项通过。
+- 新Chrome12组真实HTTP结算与12秒等待：三阶段、桌面/320px双倍文字强制颜色、庆祝中/回应后日期前后跳变，原期限到期、到期再跳与刷新不重播，最近经历及照顾计次不变；旧构建首组失败。阶段导入构造、选格读取测试地图、仅模拟浏览器Date.now，不冒称自然养成、盲玩、实体设备或全部七款真实结算。既有运行中显示校时36组交叉通过；桌面和手机大字回应截图已实际查看。
+- 专题与复跑见[HOME_ECHO_CLOCK.md](HOME_ECHO_CLOCK.md)，日志/独立构建 `/tmp/pet-home-echo-clock/`，浏览器产物 `pixelpet-home-echo-clock-jBlcdR` 和 `pixelpet-app-clock-vmH2Oj` 位于系统临时目录。最终脚本拒绝共享bin/dist符号链接别名。
+- 玩家库、共享bin/dist七文件哈希及dist完整列表不变；18102未访问、部署或重启。持续目标保留，下一步优先收集并修复实际照顾、成长和恢复问题，不把原型自动上线或增加每日任务。

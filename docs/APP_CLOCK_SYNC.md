@@ -67,3 +67,7 @@ node scripts/check-app-clock.mjs --jump-after-load
 ```
 
 两条命令都需沿用上面的三个环境变量，指向本批独立binary/web和本机Playwright模块，不使用玩家服务。
+
+## 后续：回窝短回应
+
+上面显示校时两批明确排除的本地临时回应，现已单独改为同源的performance截止时间；不使用serverTime锚点、不改存档时间或12秒规则。问题复现、边界和独立验收见[HOME_ECHO_CLOCK.md](HOME_ECHO_CLOCK.md)。

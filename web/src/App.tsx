@@ -207,7 +207,8 @@ export default function App() {
   // Keep the last received receipt readable after the short growth toast.
   // It is page-local history, never reconstructed from later need readings.
   const [careOutcome, setCareOutcome] = useState<Feedback | null>(null);
-  const [homeEcho, setHomeEcho] = useState<(GameExperience & { until: number }) | null>(null);
+  // A page-local visual window, independent of saved dates and server clock anchors.
+  const [homeEcho, setHomeEcho] = useState<(GameExperience & { monotonicUntil: number }) | null>(null);
   const seenExperiences = useRef(new Set<string>());
   const homeEchoEpoch = useRef(0);
   const recapDisplayEpoch = useRef(0);
@@ -769,7 +770,7 @@ export default function App() {
   }, [page, tools, help, reset]);
   useEffect(() => {
     if (!homeEcho) return;
-    const timer = setTimeout(() => setHomeEcho(null), Math.max(0, homeEcho.until - Date.now()));
+    const timer = setTimeout(() => setHomeEcho(null), Math.max(0, homeEcho.monotonicUntil - performance.now()));
     return () => clearTimeout(timer);
   }, [homeEcho]);
   useEffect(() => {
@@ -1025,7 +1026,7 @@ export default function App() {
       if (["treasure-pause", "treasure-finish", "cancel-play"].includes(kind)) { setTreasureSession(""); setTreasureChoice(0); }
       const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
       if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
-        setHomeEcho({ ...experience, until: Date.now() + 12000 });
+        setHomeEcho({ ...experience, monotonicUntil: performance.now() + 12000 });
       if (kind === "walk-resume" && activeWalkEpoch === walkEpoch.current && !document.hidden && gameWindowActive.current) setWalkSession(r.state.game?.id ?? "");
       if (["walk-pause","walk-finish","cancel-play"].includes(kind)) {setWalkSession("");setWalkChoice(0);}
       if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden && gameWindowActive.current) setFishingSession(r.state.game?.id ?? "");
@@ -1779,7 +1780,7 @@ export default function App() {
   const target = pet?.game
     ? Math.floor(Math.max(0, now - pet.game.startedAt) / 900) % 3
     : 0;
-  const echo = homeEcho && page === "home" && !clip && !evolution && !tools && !help && !reset && !document.hidden && Date.now() < homeEcho.until && !pet?.sleeping && !["hungry", "tired", "dirty"].includes(need?.kind ?? "") ? homeEcho.kind : undefined;
+  const echo = homeEcho && page === "home" && !clip && !evolution && !tools && !help && !reset && !document.hidden && performance.now() < homeEcho.monotonicUntil && !pet?.sleeping && !["hungry", "tired", "dirty"].includes(need?.kind ?? "") ? homeEcho.kind : undefined;
   const motion = sceneMotion(pet?.sleeping ?? false, clip);
   const blocks = pet?.game?.tetris;
   const tetrisHint = blocks?.end ? "B / C 收好成绩" : blocks?.paused || tetrisSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 左移  B 右移  C 操作 / 暂停";

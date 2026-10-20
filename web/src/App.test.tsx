@@ -1072,6 +1072,44 @@ describe("real completed-game home echoes", () => {
     expect(api.mock.calls.filter(([p])=>p==='action')).toHaveLength(writes);
     expect(saved.companion!.interests[0].points).toBe(1);
   });
+  it.each(["baby", "growing", "adult"] as const)("keeps the %s home echo on its original monotonic deadline across local date changes", async stage => {
+    saved.growth = emptyGrowth(stage);
+    await finalStar();
+    const recent = structuredClone(saved.companion!.recent);
+    const wallStart = Date.now();
+    const writes = () => api.mock.calls.filter(([path]) => path === "action").length;
+    expect(writes()).toBe(1);
+    await advance(1500);
+    expect(document.querySelector('[data-echo="stars"]')).not.toBeNull();
+    // Wall-clock changes alone do not advance the local visual timeout.
+    for (const days of [7, -7, 0]) {
+      vi.setSystemTime(wallStart + days * 86400000);
+      await advance(1000);
+      expect(document.querySelector('[data-echo="stars"]')).not.toBeNull();
+    }
+    await advance(7499); // 11,999ms since the acknowledged settlement, not since the clip ended.
+    expect(document.querySelector('[data-echo="stars"]')).not.toBeNull();
+    await advance(1);
+    expect(document.querySelector('.home-game-token')).toBeNull();
+    vi.setSystemTime(wallStart - 7 * 86400000);
+    await advance(1000);
+    expect(document.querySelector('.home-game-token')).toBeNull();
+    expect(saved.companion!.recent).toEqual(recent);
+    expect(writes()).toBe(1);
+  });
+  it.each([-7, 7])("preserves the original echo deadline when the clock jumps %s days during celebration", async days => {
+    await finalStar();
+    const recent = structuredClone(saved.companion!.recent);
+    vi.setSystemTime(Date.now() + days * 86400000);
+    await advance(1500);
+    expect(document.querySelector('[data-echo="stars"]')).not.toBeNull();
+    await advance(10499);
+    expect(document.querySelector('[data-echo="stars"]')).not.toBeNull();
+    await advance(1);
+    expect(document.querySelector('.home-game-token')).toBeNull();
+    expect(saved.companion!.recent).toEqual(recent);
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(1);
+  });
   it.each([{feedback:false},{mismatch:true},{hungry:true}])("does not fabricate an echo or cover needs: %j",async options=>{
     await finalStar(options);await advance(1500);expect(document.querySelector('.home-game-token')).toBeNull();
   });
