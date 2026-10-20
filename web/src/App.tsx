@@ -1646,6 +1646,9 @@ export default function App() {
       // and shortcuts on physical buttons still perform the original controls.
       if (e.target instanceof HTMLElement && e.target.matches(".return-panel,.care-reading-region") &&
         (e.key === "ArrowDown" || e.key === " ")) return;
+      // Enter on the menu's new read-only stop is not a care confirmation.
+      // Native activation on physical buttons and explicit A/B/C stay intact.
+      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading") && e.key === "Enter") return;
       const key = e.key.toLowerCase();
       // Enter/Space activate the focused physical key, just like clicking it.
       // In particular the import preview deliberately focuses safe C: never
@@ -2216,7 +2219,8 @@ export default function App() {
                           </>
                         )}
                         {page === "menu" && (
-                          <>
+                          <CareReadingRegion className="care-menu-reading" label="照顾菜单阅读区"
+                            hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
                             <div className="care-menu">
                               {items
                                 .slice(
@@ -2253,7 +2257,7 @@ export default function App() {
                               <CareAdvice pet={pet} />
                             </section>
                             <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} rules={careRules} />
-                          </>
+                          </CareReadingRegion>
                         )}
                         {page === "growth" && (
                           <GrowthPanel
