@@ -20,7 +20,15 @@ const returnHistory = (r: Result) => {
   const snapshot = { needs: r.state.needs, stage: "baby", form: "", points: 1, rest: 0, trackedHours: 1 };
   return { id: "return", from: r.serverTime - 1800000, to: r.serverTime, before: snapshot, after: snapshot };
 };
+const damagedFishing = (r: Result, catches: unknown) => ({ ...r, state: { ...r.state,
+  game: { id: "0123456789abcdef0123456789abcdef", kind: "fishing", startedAt: r.serverTime,
+    round: 0, score: 0, lastBeat: -1, fishing: { spot: 0, casts: 0, catches, phase: "ready", step: 0,
+      waitMs: 0, elapsedMs: 0, candidate: "", lastPulseAt: r.serverTime, paused: true } } } });
 const corruptions = [
+  ["object active catches", (r: Result) => damagedFishing(r, {})],
+  ["string active catches", (r: Result) => damagedFishing(r, "empty")],
+  ["null active catch", (r: Result) => damagedFishing(r, [null])],
+  ["unknown active fish", (r: Result) => damagedFishing(r, ["made-up"])],
   ["object fish entries", (r: Result) => ({ ...r, state: { ...r.state, pond: { since: r.serverTime, fish: {} } } })],
   ["null fish record", (r: Result) => ({ ...r, state: { ...r.state, pond: { since: r.serverTime, fish: [null] } } })],
   ["unsafe fish count", (r: Result) => ({ ...r, state: { ...r.state, pond: { since: r.serverTime, fish: [{ id: "reed-minnow", firstAt: r.serverTime, lastAt: r.serverTime, count: "two" }] } } })],

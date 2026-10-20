@@ -30,7 +30,7 @@ beforeEach(() => {
         if (a.kind === "fish-pause") n.paused = true;
         if (a.kind === "fish-resume") { n.paused = false; n.lastPulseAt = Date.now(); }
         if (a.kind === "fish-step") { n.elapsedMs += 1050; n.lastPulseAt = Date.now(); if (n.elapsedMs >= n.waitMs) { n.phase = "bite"; n.elapsedMs = 0; } }
-        if (a.kind === "fish-reel") { if (n.phase === "bite") { n.catches.push(n.candidate); n.lastFish = n.candidate; n.outcome = "caught"; saved.pond!.fish = [{ id: n.candidate, count: n.catches.length, firstAt: Date.now(), lastAt: Date.now() }]; } else n.outcome = "early"; n.phase = n.casts === 3 ? "done" : "result"; n.elapsedMs = 0; }
+        if (a.kind === "fish-reel") { if (n.phase === "bite") { n.catches!.push(n.candidate); n.lastFish = n.candidate; n.outcome = "caught"; saved.pond!.fish = [{ id: n.candidate, count: n.catches!.length, firstAt: Date.now(), lastAt: Date.now() }]; } else n.outcome = "early"; n.phase = n.casts === 3 ? "done" : "result"; n.elapsedMs = 0; }
         n.step++;
       }
       if (a.kind === "cancel-play" || a.kind === "fish-finish") delete saved.game;

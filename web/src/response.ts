@@ -91,6 +91,16 @@ function validPark(value: unknown): boolean {
     timestamp(value.lastWalkAt) && validDiscoveries(value.finds, parkCatalog));
 }
 
+// Empty Go catches may be null or omitted even in an active session. Do not
+// confuse them with malformed supplied arrays or an absent fishing model.
+// This only guards display shape; phase/credit/sky rules stay on the server.
+function validFishingResponse(value: unknown): boolean {
+  if (!record(value) || value.kind !== "fishing") return true;
+  const n = value.fishing;
+  return record(n) && (n.catches == null || (Array.isArray(n.catches) && n.catches.length <= 3 &&
+    n.catches.every(id => fishCatalog.some(fish => fish.id === id))));
+}
+
 // Feedback is optional on old servers. If provided, its base fields are used
 // directly by the short success text. Optional effect receipts retain their own
 // local guard; missing/bad effect metadata does not make safe feedback unusable.
@@ -138,7 +148,7 @@ export function validCoreResponse(value: unknown): value is Result {
     count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
-    count(state.careCount) && validTreasureResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond) && validPark(state.park) &&
+    count(state.careCount) && validTreasureResponse(state.game) && validFishingResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond) && validPark(state.park) &&
     validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>
