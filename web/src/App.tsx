@@ -433,6 +433,9 @@ export default function App() {
       knownStage.current = nextStage;
     }
     offset.current = r.serverTime - Date.now();
+    // The new snapshot must not render against the previous/browser clock
+    // until the next interval (days, legacy estimates and live star position).
+    setNow(r.serverTime);
     if (r.returnRecap) setReturnRecap(r.returnRecap);
     if (r.recapPending !== undefined) setReturnPending(r.recapPending);
     setPet(r.state);
