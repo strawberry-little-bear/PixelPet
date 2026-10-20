@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PixelPet · 节奏原型实验室</title><link rel="stylesheet" href="/styles.css"><script type="module" src="/client.mjs"></script></head>
+<body>
+<main>
+  <header><span class="eyebrow">PIXELPET · EXPERIMENT</span><h1>一起跟着拍</h1><p>独立无奖励原型 · 尚未接入正式游戏</p></header>
+  <section class="device" aria-label="节奏原型设备">
+    <div class="screen">
+      <div class="topline"><strong>节奏拍手 · 试验</strong><span id="round">0 / 12</span></div>
+      <p id="status" role="status">正在建立独立练习会话…</p>
+      <div class="cue" aria-label="当前提示"><span id="symbol" aria-hidden="true">◇</span><strong id="direction">请稍等</strong><p id="phase">这里不读写宠物存档。</p></div>
+      <div id="progress" role="progressbar" aria-label="本拍预告" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+      <p id="last">看形状和文字即可，不需要声音。</p>
+      <div id="pause" hidden><strong>暂停选择</strong><p id="selection">继续练习</p><small>A 切换继续 / 重开 · B 确认 · C 继续</small></div>
+      <p id="network">等待连接测量…</p>
+
+    </div>
+    <div class="keys" aria-label="仅三个操作键"><button type="button" data-key="A" aria-label="A 左侧回应">A</button><button type="button" data-key="B" aria-label="B 右侧回应或确认">B</button><button type="button" data-key="C" aria-label="C 暂停或继续">C</button></div>
+  </section>
+  <section class="rules"><h2>原型边界（只读说明）</h2><p>A 回应左侧圆形，B 回应右侧三角，C 随时暂停。预告后再回应；每拍只记录第一次输入。连按、按住不补拍。</p><p>只观察方向和收包时序，不评成绩、不发资源；“窗口内/早到/晚到”不是玩家得分。本机时钟估计与单次往返不是真实单程测量。</p><p>连接往返超过 600ms、掉线、后台或窗口失焦会暂停，回来不自动继续。刷新建立新的暂停练习，不恢复旧拍。</p></section>
+  <section class="report" aria-label="本局观测"><h2>本局观测 · 不是成绩</h2><p>只保留本次页面内存；重开或刷新清空。以下到达时间由独立实验服务记录，不是客户端命中数。</p><ol id="observations"></ol></section>
+</main>
+</body></html>

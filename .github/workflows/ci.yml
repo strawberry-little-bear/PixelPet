@@ -40,5 +40,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Check offline rhythm timing arithmetic (not gameplay)
         run: node --test ../scripts/evaluate-rhythm.test.mjs
+      - name: Check isolated rhythm lab protocol and HTTP (no gameplay integration)
+        run: node --test ../prototypes/rhythm/*.test.mjs
       - run: pnpm test
       - run: pnpm build
