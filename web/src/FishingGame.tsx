@@ -60,6 +60,17 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
   const timed = n.phase === "wait" || n.phase === "bite";
   const paused = n.phase !== "done" && (n.paused || (timed && !active));
   const canCast = !paused && (n.phase === "ready" || n.phase === "result");
+  // Pause navigation has different key semantics from a live cast. Explain
+  // the selected consequence; only explicit resume restores fishing inputs.
+  const pauseAdvice = [
+    n.phase === "bite" ? "继续后仍在咬钩阶段，按 B 提竿；不会重抛或补跑。"
+      : n.phase === "wait" ? "继续后接着等咬钩，看到提示再按 B；提前提竿也会用掉一竿。"
+      : "继续后 A 换钓点、B 抛竿；不会自动抛竿。",
+    "查看累计鱼图鉴，C 返回暂停；不会继续本局。",
+    "先打开确认页；确认放弃不计陪伴或金币，已钓到的鱼仍留在图鉴。",
+    "查看风景手记，C 返回暂停；不会继续本局。",
+    "查看玩法说明，C 返回暂停；不会继续本局。",
+  ][choice];
   const scenery = outingScenery(pet.game);
   const companion = fishingCompanions[pet.species] ?? fishingCompanions[0];
   const caught = n.outcome === "caught", bite = n.phase === "bite" && !paused;
@@ -95,7 +106,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
     </div>
     <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${caughtCount} 条鱼，B / C 收好${n.outcome === "early" ? "；提前提竿，这一竿已用掉。" : ""}` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "还没咬钩；鱼影只是风景，等「咬钩啦」再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish?.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提前提竿，这一竿已用掉。下一竿等咬钩提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
     <small className={`fishing-comment${waiting ? " fishing-wait-note" : ""}`}>{paused ? "没有离线钓鱼，也不补跑漏掉的节拍。" : bite ? companion.bite : caught ? fish?.story : waiting ? waitingNote : companion.waiting}</small>
-    <small className="fishing-rule">{n.phase === "done" ? caughtCount ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币" : canCast ? `还可抛 ${3 - n.casts} 竿 · A 换钓点 · B 抛竿 · C 暂停` : "A 换钓点（收竿后）· B 抛竿 / 提竿 · C 暂停"}</small>
+    <small className="fishing-rule">{n.phase === "done" ? caughtCount ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币" : paused ? pauseAdvice : canCast ? `还可抛 ${3 - n.casts} 竿 · A 换钓点 · B 抛竿 · C 暂停` : "A 换钓点（收竿后）· B 抛竿 / 提竿 · C 暂停"}</small>
     {(paused || n.phase === "done") && <><FishingCatches fishing={n} /><OutingEncounterNote pet={pet} /><OutingCaption scenery={scenery} /></>}
   </section>;
 }

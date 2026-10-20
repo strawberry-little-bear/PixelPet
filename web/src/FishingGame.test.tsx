@@ -430,3 +430,47 @@ describe("pause while a fishing pulse is in flight", () => {
     expect(screen.getByText("池塘已暂停")).toBeTruthy();
   });
 });
+
+
+describe("paused fishing instructions match the selected operation", () => {
+  it.each([
+    ["ready", true, true, "继续后 A 换钓点、B 抛竿；不会自动抛竿。"],
+    ["result", true, true, "继续后 A 换钓点、B 抛竿；不会自动抛竿。"],
+    ["wait", true, true, "继续后接着等咬钩，看到提示再按 B；提前提竿也会用掉一竿。"],
+    ["bite", true, true, "继续后仍在咬钩阶段，按 B 提竿；不会重抛或补跑。"],
+    ["wait", false, false, "继续后接着等咬钩，看到提示再按 B；提前提竿也会用掉一竿。"],
+    ["bite", false, false, "继续后仍在咬钩阶段，按 B 提竿；不会重抛或补跑。"],
+  ] as const)("explains explicit resume for %s (saved pause %s, active %s)", (phase, paused, active, expected) => {
+    Object.assign(saved.game!.fishing!, { phase, paused, casts: phase === "ready" ? 0 : 1 });
+    render(<FishingGame pet={saved} active={active} choice={0} />);
+    expect(document.querySelector(".fishing-rule")?.textContent).toBe(expected);
+    expect(screen.getByText("A 选择 · B 确认 · C 继续")).toBeTruthy();
+    expect(document.querySelector(".fishing-rule")?.textContent).not.toContain("C 暂停");
+  });
+  it.each([
+    [1, "查看累计鱼图鉴，C 返回暂停；不会继续本局。"],
+    [2, "先打开确认页；确认放弃不计陪伴或金币，已钓到的鱼仍留在图鉴。"],
+    [3, "查看风景手记，C 返回暂停；不会继续本局。"],
+    [4, "查看玩法说明，C 返回暂停；不会继续本局。"],
+  ] as const)("explains the consequence of pause choice %s", (choice, expected) => {
+    saved.game!.fishing!.paused = true;
+    render(<FishingGame pet={saved} active={false} choice={choice} />);
+    expect(document.querySelector(".fishing-rule")?.textContent).toBe(expected);
+    expect(document.querySelectorAll(".fishing-game :is(button,a,input,[role=button])")).toHaveLength(0);
+  });
+  it("updates advice through A/B/C without casting, reeling, resuming or saving while browsing", async () => {
+    saved.game!.fishing!.paused = true; await mount();
+    const rule = () => document.querySelector(".fishing-rule")?.textContent;
+    expect(rule()).toContain("不会自动抛竿");
+    await key("a"); expect(rule()).toContain("累计鱼图鉴");
+    await key("b"); expect(document.querySelector(".fish-album")).toBeTruthy();
+    await key("c"); expect(rule()).toContain("不会自动抛竿");
+    await key("a"); await key("a"); expect(rule()).toContain("先打开确认页");
+    await key("b"); expect(screen.getByText(/实际钓到的鱼仍保留/)).toBeTruthy();
+    await key("c"); expect(rule()).toContain("不会自动抛竿");
+    await clock(10000); expect(calls()).toHaveLength(0);
+    expect(saved.game!.fishing!.casts).toBe(0);
+    await key("b"); expect(calls().map(a => a.kind)).toEqual(["fish-resume"]);
+    expect(rule()).toContain("还可抛 3 竿");
+  });
+});
