@@ -461,3 +461,6 @@
 .growth-current dd { margin: 0; }
 .growth-current p { margin: 6px 0 0; }
 .reading-mode .growth-current { font-size: inherit; }
+
+.growth-stage-record { margin-top: 4px; overflow-wrap: anywhere; }
+.growth-stage-record small, .growth-stage-record time { display: block; }

@@ -1,6 +1,7 @@
 import { CareReadingRegion } from "./CareReadingRegion";
 import { GrowthTrack } from "./GrowthTrack";
 import { GrowthSnapshot } from "./GrowthSnapshot";
+import { GrowthStageRecord } from "./GrowthStageRecord";
 import { GrowthBasis } from "./GrowthBasis";
 import { sleepGrowthGuidance } from "./sleepGuidance";
 import { CompanionPanel } from "./CompanionPanel";
@@ -183,13 +184,14 @@ export function GrowthPanel({
         <section className="growth-look-guide" aria-label="三阶段外观说明">
           <h3>{species[index] ?? "小伙伴"}的三阶段</h3>
           <p>同一位小伙伴的不同阶段，不是换一只宠物，也不只是放大原图。</p>
+          {pet && <p>成长日期按已保存记录显示（本地时间），不预测未来阶段；旧档迁移日期不代表实际长大时刻。完整故事可到纪念册的「长大时光」查看。</p>}
           {g.stage === "egg" && <p>孵化后开始三阶段旅程。</p>}
           <dl>
             {(["baby", "growing", "adult"] as const).map(stage => {
               const look = stageLook(index, stage);
               return <div key={stage} data-look-stage={stage} aria-current={g.stage === stage ? "step" : undefined}>
                 <dt>{stageNames[stage]} · {look.pose}{g.stage === stage ? " · 现在" : ""}</dt>
-                <dd>{look.detail}</dd>
+                <dd>{look.detail}{pet && <GrowthStageRecord pet={pet} stage={stage} />}</dd>
               </div>;
             })}
           </dl>
