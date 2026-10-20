@@ -81,6 +81,17 @@ export function stagePoints(g: Growth) {
       : { points: g.points, target: 24 };
 }
 
+// Preserve lower-bound readings and exact zero, but do not hide a positive
+// saved trace during the first tenth of a point or first percent of a stage.
+export function stagePointsReading(g: Growth): string {
+  const { points } = stagePoints(g);
+  return points > 0 && points < .1 ? "<0.1" : (Math.floor(points * 10) / 10).toFixed(1);
+}
+export function growthPercentReading(g: Growth): string {
+  const percent = growthProgress(g);
+  return percent > 0 && percent < 1 ? "<1%" : `${Math.floor(percent)}%`;
+}
+
 // Round remaining points upwards: a nearly complete stage is never shown as
 // already finished before the authoritative state actually advances it.
 export function nextGrowthGoal(g: Growth): string {

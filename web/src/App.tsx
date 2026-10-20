@@ -72,7 +72,8 @@ import {
   growthPageCount,
   formNames,
   tendency,
-  growthProgress,
+  growthPercentReading,
+  stagePointsReading,
   stagePoints,
 } from "./growth";
 import type { GrowthStage, AdultForm } from "./types";
@@ -2382,13 +2383,13 @@ export default function App() {
                       ? `成年 · ${formNames[growth.form || "balanced"]}`
                       : "本阶段成长进度"}
                   </span>
-                  <span>{Math.floor(growthProgress(growth))}%</span>
+                  <span>{growthPercentReading(growth)}</span>
                 </div>
                 <GrowthTrack growth={growth} estimated={!pet?.growth} />
                 <small>
                   {growth.stage === "adult"
                     ? "形态已确定，继续好好陪伴。"
-                    : `本阶段 ${(Math.floor(stagePoints(growth).points * 10) / 10).toFixed(1)} / ${stagePoints(growth).target} · ${formNames[form]}倾向`}
+                    : `本阶段 ${stagePointsReading(growth)} / ${stagePoints(growth).target} · ${formNames[form]}倾向`}
                 </small>
               </div>
             ) : null}

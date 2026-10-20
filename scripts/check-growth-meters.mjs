@@ -1,8 +1,8 @@
-// Isolated old-save migrations plus explicit reading/layout response fixtures.
-// Never reads player data or the existing preview; no natural-age claim.
+// Isolated migrations, natural first seconds after hatch, and explicit layout fixtures.
+// Never reads player data or the existing preview; no natural multi-day aging claim.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile, realpath } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -11,6 +11,8 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const binary=process.env.PIXELPET_TEST_BINARY,web=process.env.PIXELPET_TEST_WEB;
 assert(binary&&isAbsolute(binary),'Set absolute PIXELPET_TEST_BINARY');
 assert(web&&isAbsolute(web),'Set absolute PIXELPET_TEST_WEB to an isolated build');
+assert.notEqual(await realpath(binary),join(root,'bin/pixelpet'),'Do not use shared binary');
+assert.notEqual(await realpath(web),join(root,'web/dist'),'Do not use shared web build');
 const {chromium}=await import(process.env.PIXELPET_PLAYWRIGHT_MODULE||'playwright');
 const dir=await mkdtemp(join(tmpdir(),'pixelpet-growth-meters-')),results=[],fixtures={};
 const port=await new Promise((resolve,reject)=>{const s=net.createServer();s.once('error',reject);s.listen(0,'127.0.0.1',()=>{const port=s.address().port;s.close(e=>e?reject(e):resolve(port));});});
@@ -33,6 +35,15 @@ async function check(page,selector,p){
  if(value<target&&Number(value.toFixed(2))===target)assert(text.includes(`不足 ${target}`));
  assert.equal(await meter.getAttribute('tabindex'),null);assert.equal(await meter.getAttribute('aria-live'),null);
  assert(Math.abs(await meter.locator('i').evaluate(el=>parseFloat(el.style.width))-value/target*100)<.0001);
+ const reading=value>0&&value<.1?'<0.1':(Math.floor(value*10)/10).toFixed(1);
+ if(selector==='.growth-panel') {
+  assert.equal(await page.locator('.growth-score > b').evaluate(el=>el.firstChild.textContent),reading,'visible growth hides a positive trace');
+  if(value>0&&value<.1)assert.match(await page.locator('.growth-trace-note').innerText(),g?/已有少量成长/:/旧档兼容估算/);
+ } else {
+  const percent=value/target*100;
+  assert.equal(await page.locator('.companion-growth > div:first-child > span:last-child').innerText(),percent>0&&percent<1?'<1%':`${Math.floor(percent)}%`,'visible percent hides a positive trace');
+  if(stage!=='adult')assert((await page.locator('.companion-growth > small').innerText()).includes(`本阶段 ${reading} / ${target}`));
+ }
  const ax=await meter.ariaSnapshot();assert.match(ax,/progressbar "本阶段成长进度"/);
  return {stage,value,target,text,ax};
 }
@@ -70,7 +81,40 @@ try{
    assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);results.push({type:'real-old-save-read',stage,sleeping,side,lcd});
   }finally{await c.close();}
  }
- const cases=[['baby',0],['baby',.0001],['baby',23.999999],['growing',24],['growing',24.0001],['growing',71.999999],['adult',72],['legacy',1],['legacy-adult',72]];
+ // Real first seconds of life: no response fixture or clock injection.
+ // Reset is setup on this script's temporary DB only; hatch uses the actual B.
+ for(const mode of [{width:1200,height:700,font:14},{width:1200,height:700,font:28},
+   {width:320,height:700,font:14},{width:320,height:700,font:28},{width:320,height:380,font:28}]) {
+  await api('reset',{confirm:true});
+  const c=await browser.newContext({viewport:{width:mode.width,height:mode.height},hasTouch:true,isMobile:mode.width===320,
+   reducedMotion:'reduce',forcedColors:mode.font===28?'active':'none'}),p=await c.newPage(),writes=[],errors=[];let snapshot;
+  await p.addInitScript(font=>document.addEventListener('DOMContentLoaded',()=>{
+   document.documentElement.style.fontSize=`${font}px`;
+   const style=document.createElement('style');style.textContent='.companion-growth :is(span,small){font-size:.857143rem;line-height:1.6}';document.head.append(style);
+  }),mode.font);
+  await p.route(/\/api\/(state|visit)$/,async route=>{const response=await route.fetch();const json=await response.json();snapshot=json.state;await route.fulfill({response,json});});
+  p.on('pageerror',e=>errors.push(e.message));
+  p.on('request',r=>{if(r.method()==='POST'&&!['/api/state','/api/visit'].includes(new URL(r.url()).pathname))writes.push(r.postDataJSON());});
+  try {
+   await p.goto(base);await p.locator('.content-choose').waitFor();assert.equal(snapshot.hatchedAt,0);
+   await key(p,'b');await p.locator('.hatch-view').waitFor();
+   const hatchedResponse=p.waitForResponse(r=>new URL(r.url()).pathname==='/api/action');await key(p,'b');
+   const hatchResponse=await hatchedResponse;assert(hatchResponse.ok());const hatched=(await hatchResponse.json()).state;
+   await p.waitForFunction(()=>!document.querySelector('.button-b').disabled&&!document.querySelector('[data-motion="celebrating"]'));
+   await wait(1000);
+   const visited=p.waitForResponse(r=>new URL(r.url()).pathname==='/api/visit');
+   await p.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));assert((await visited).ok());await wait(100);
+   assert(snapshot.growth.points>0&&snapshot.growth.points<.1,'natural trace was not exercised');assert.equal(snapshot.growth.stage,'baby');
+   await open(p);const side=await check(p,'.companion-growth',snapshot),lcd=await check(p,'.growth-panel',snapshot);
+   assert.equal(side.text,lcd.text);await layout(p,'.growth-panel');await layout(p,'.companion-growth');
+   await p.screenshot({path:join(dir,`natural-${mode.width}-${mode.height}-${mode.font}.png`),fullPage:true});
+   await p.reload();await p.locator('.home-caption').waitFor();await open(p);await check(p,'.growth-panel',snapshot);await check(p,'.companion-growth',snapshot);
+   assert.deepEqual(writes.map(w=>w.kind),['hatch']);assert.deepEqual(snapshot.economy,hatched.economy);assert.equal(snapshot.careCount,0);
+   assert.deepEqual(errors,[]);results.push({type:'natural-first-growth',...mode,side,lcd,reloadedPoints:snapshot.growth.points});
+  }catch(e){await p.screenshot({path:join(dir,`failure-natural-${mode.width}-${mode.height}-${mode.font}.png`),fullPage:true});throw e;}
+  finally{await c.close();}
+ }
+ const cases=[['baby',0],['baby',.0001],['baby',.12],['baby',.24],['baby',23.999999],['growing',24],['growing',24.0001],['growing',24.25],['growing',24.5],['growing',71.999999],['adult',72],['legacy',1],['legacy-adult',72]];
  for(const width of [1200,320])for(const scale of [1,2]){
   const fixtureNow=Date.now();
   const c=await browser.newContext({viewport:{width,height:700},isMobile:width===320,hasTouch:true,reducedMotion:'reduce',forcedColors:scale===2?'active':'none'}),p=await c.newPage(),errors=[];let fixture;
@@ -85,7 +129,7 @@ try{
     const side=await check(p,'.companion-growth',fixture.state),lcd=await check(p,'.growth-panel',fixture.state);assert.equal(side.text,lcd.text);
     await layout(p,'.growth-panel');await layout(p,'.companion-growth');
     const size=await p.locator('.growth-next').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));assert.equal(size,12*scale);
-    if(stage==='baby'&&points>23||stage==='adult')await p.screenshot({path:join(dir,`${stage}-${width}-${scale}.png`),fullPage:true});
+    if(stage==='baby'&&points>23||stage==='adult'||points===.0001||points===24.0001)await p.screenshot({path:join(dir,`${stage}-${points}-${width}-${scale}.png`),fullPage:true});
     results.push({type:'reading-layout-fixture',stage,points,width,scale,size,side,lcd});
    }
    assert.deepEqual(errors,[]);

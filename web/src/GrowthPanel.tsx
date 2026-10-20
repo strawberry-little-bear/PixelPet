@@ -10,6 +10,7 @@ import {
   stageNames,
   tendency,
   stagePoints,
+  stagePointsReading,
   growthPageCount,
   formRules,
   formConditions,
@@ -109,7 +110,7 @@ export function GrowthPanel({
           <div className="growth-score">
             <span>{g.stage === "adult" ? "成长完成" : "本阶段成长值"}</span>
             <b>
-              {(Math.floor(current.points * 10) / 10).toFixed(1)}
+              {stagePointsReading(g)}
               <small> / {current.target}</small>
             </b>
           </div>
@@ -124,6 +125,11 @@ export function GrowthPanel({
               ? "形态已确定，还能在纪念册留下新的经历。"
               : "状态越舒适，成长越快；不用着急。"}
           </small>
+          {current.points > 0 && current.points < .1 && <small className="growth-panel-note growth-trace-note">
+            {pet && !pet.growth
+              ? "「<0.1」是旧档兼容估算，不足0.1点；实际成长以服务端记录为准。"
+              : "「<0.1」表示本阶段已有少量成长，不是零；不足0.1点时这样显示，不改变阶段判定。"}
+          </small>}
           {pet && <GrowthSnapshot pet={pet} rules={rules} />}
         </>
       ) : page === 1 ? (
