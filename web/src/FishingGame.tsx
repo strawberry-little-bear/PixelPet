@@ -66,7 +66,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
       {bite && <strong className="fishing-bite" role="status">咬钩啦！按 B 提竿</strong>}
       {paused && <div className="fishing-pause" role="status"><strong>池塘已暂停</strong><ol>{fishingMenu.map((label, i) => <li key={label} className={choice === i ? "selected" : ""}>{choice === i ? "▸ " : "　"}{label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></div>}
     </div>
-    <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${n.catches.length} 条鱼，B / C 收好${n.outcome === "early" ? "；提前提竿，这一竿已用掉。" : ""}` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "还没咬钩；鱼影只是风景，等「咬钩啦」再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提前提竿，这一竿已用掉。下一竿等咬钩提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
+    <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${n.catches.length} 条鱼，B / C 收好${n.outcome === "early" ? "；提前提竿，这一竿已用掉。" : ""}` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "还没咬钩；鱼影只是风景，等「咬钩啦」再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish?.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提前提竿，这一竿已用掉。下一竿等咬钩提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
     <small className={`fishing-comment${waiting ? " fishing-wait-note" : ""}`}>{paused ? "没有离线钓鱼，也不补跑漏掉的节拍。" : bite ? companion.bite : caught ? fish?.story : waiting ? waitingNote : companion.waiting}</small>
     <small className="fishing-rule">{n.phase === "done" ? n.catches.length ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币" : "A 换钓点（收竿后）· B 抛竿 / 提竿 · C 暂停"}</small>
     {(paused || n.phase === "done") && <><OutingEncounterNote pet={pet} /><OutingCaption scenery={scenery} /></>}
@@ -76,10 +76,10 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
 export function FishAlbum({ pet, page }: { pet: PetState; page: number; }) {
   const catalog = fishCatalogFor(pet), selected = page % catalog.length;
   const fish = catalog[selected];
-  const discovery = pet.pond?.fish.find(d => d.id === fish.id);
+  const discovery = pet.pond?.fish?.find(d => d.id === fish.id);
   return <section className="fish-album" aria-label="池塘鱼图鉴">
-    <header data-collection-reading-start><strong>池塘鱼图鉴</strong><span>已发现 {pet.pond?.fish.filter(d => catalog.some(f => f.id === d.id)).length ?? 0} / {catalog.length}</span></header>
-    <div className="fish-album-grid" style={{ gridTemplateColumns: `repeat(${catalog.length}, minmax(0, 1fr))` }}>{catalog.map((f, i) => <div key={f.id} aria-current={i === selected} className={i === selected ? "selected" : ""}><FishArt id={f.id} hidden={!pet.pond?.fish.some(d => d.id === f.id)} /></div>)}</div>
+    <header data-collection-reading-start><strong>池塘鱼图鉴</strong><span>已发现 {pet.pond?.fish?.filter(d => catalog.some(f => f.id === d.id)).length ?? 0} / {catalog.length}</span></header>
+    <div className="fish-album-grid" style={{ gridTemplateColumns: `repeat(${catalog.length}, minmax(0, 1fr))` }}>{catalog.map((f, i) => <div key={f.id} aria-current={i === selected} className={i === selected ? "selected" : ""}><FishArt id={f.id} hidden={!pet.pond?.fish?.some(d => d.id === f.id)} /></div>)}</div>
     <h3>{discovery ? fish.name : "还未遇见的小鱼"}</h3>
     <p>{discovery ? fish.story : "真实钓到以后，才会留下模样和发现日期。"}</p>
     <small>{fish.id === "rain-koi" ? "仅游戏内虚构雨景，三处钓点均可遇见 · 每竿 1/8，不是必出。" : <>可在{fish.spots.map(s => fishingSpots[s]).join(" / ")}遇见 · {pet.schema >= 15 ? "晴 / 云景三种等概率；虚构雨景时每种 7/24。" : "各钓点三种鱼等概率"}</>}</small>

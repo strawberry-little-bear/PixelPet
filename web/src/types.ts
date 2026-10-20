@@ -38,8 +38,8 @@ export type GameExperience = { kind: "stars" | "tiles" | "snake" | "tetris" | "f
 export type Companion = { since: number; interests: {kind: GameExperience["kind"]; points: number; lastAt: number}[]; recent?: GameExperience };
 export type PetState = {
  companion?: Companion;
- park?: {since:number;finds:FishDiscovery[];walks:number;lastWalkAt:number};
- pond?: {since:number;fish:FishDiscovery[]};
+ park?: {since:number;finds?:FishDiscovery[]|null;walks:number;lastWalkAt:number};
+ pond?: {since:number;fish?:FishDiscovery[]|null};
   schema: number;
   revision: number;
   species: number;

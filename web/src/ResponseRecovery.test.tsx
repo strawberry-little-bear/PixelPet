@@ -21,6 +21,12 @@ const returnHistory = (r: Result) => {
   return { id: "return", from: r.serverTime - 1800000, to: r.serverTime, before: snapshot, after: snapshot };
 };
 const corruptions = [
+  ["object fish entries", (r: Result) => ({ ...r, state: { ...r.state, pond: { since: r.serverTime, fish: {} } } })],
+  ["null fish record", (r: Result) => ({ ...r, state: { ...r.state, pond: { since: r.serverTime, fish: [null] } } })],
+  ["unsafe fish count", (r: Result) => ({ ...r, state: { ...r.state, pond: { since: r.serverTime, fish: [{ id: "reed-minnow", firstAt: r.serverTime, lastAt: r.serverTime, count: "two" }] } } })],
+  ["object park entries", (r: Result) => ({ ...r, state: { ...r.state, park: { since: r.serverTime, finds: {}, walks: 0, lastWalkAt: 0 } } })],
+  ["null park record", (r: Result) => ({ ...r, state: { ...r.state, park: { since: r.serverTime, finds: [null], walks: 0, lastWalkAt: 0 } } })],
+  ["unsafe park date", (r: Result) => ({ ...r, state: { ...r.state, park: { since: r.serverTime, finds: [{ id: "leaf", firstAt: r.serverTime, lastAt: 8640000000000001, count: 1 }], walks: 0, lastWalkAt: 0 } } })],
   ["object album entries", (r: Result) => ({ ...r, state: { ...r.state, album: { since: r.serverTime, legacy: false, entries: {} } } })],
   ["invalid memory date", (r: Result) => ({ ...r, state: { ...r.state, album: { since: r.serverTime, legacy: false, entries: [{ kind: "meal", at: 8640000000000001, source: "shared" }] } } })],
   ["null memory", (r: Result) => ({ ...r, state: { ...r.state, album: { since: r.serverTime, legacy: false, entries: [null] } } })],

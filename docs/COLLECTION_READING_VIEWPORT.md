@@ -29,3 +29,5 @@
 复跑：先在临时目录构建前端/Go，设置绝对路径 `PIXELPET_TEST_BINARY`、`PIXELPET_TEST_WEB` 与可选的 `PIXELPET_PLAYWRIGHT_MODULE`，运行 `node scripts/check-collection-reading.mjs`。脚本自建临时数据库/随机端口并清理自身进程，拒绝共享 `web/dist`。
 
 本批证据日志在 `/tmp/pet-collection-reading/`；新浏览器结果/截图在 `/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-collection-reading-zeL5lv/`（临时文件非仓库资产）。玩家库、共享dist和原试玩服务不变，没有自动部署18102。实体手机、真人读屏和自然长时游玩仍待反馈。
+
+2026-10-20 后续：[空图鉴兼容与响应保护](OUTING_COLLECTION_COMPATIBILITY.md)补齐合法 nil / 缺失集合。上述12组是原批次历史结果；当前脚本扩展为48组，增加两入口的四种集合、刷新后再进入及真实路径保护。null/缺失夹具只写脚本自建临时库，因为正常导入本身会规范化为空数组；不将构造记录当作自然游玩证据。

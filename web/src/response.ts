@@ -1,3 +1,5 @@
+import { fishCatalog } from "./fishing";
+import { parkCatalog } from "./walk";
 import { outingMemoryWords } from "./outing-memory";
 import type { Memory, Result } from "./types";
 import { careHabitUnits } from "./careHabitUnits";
@@ -71,6 +73,24 @@ function validAlbum(value: unknown): boolean {
       (memory.outingId === undefined || typeof memory.outingId === "string")))));
 }
 
+// Nil/missing Go slices are legal empty saved collections. Only those absent
+// values mean empty: reject malformed supplied history before rendering instead
+// of hiding it behind an Array.isArray fallback. Save chronology/uniqueness and
+// discovery credit remain server rules; this guard does not modify the response.
+function validDiscoveries(value: unknown, ids: readonly { id: string }[]): boolean {
+  return value == null || (Array.isArray(value) && value.every(discovery =>
+    record(discovery) && ids.some(item => item.id === discovery.id) &&
+    timestamp(discovery.firstAt) && timestamp(discovery.lastAt) &&
+    count(discovery.count) && discovery.count > 0));
+}
+function validPond(value: unknown): boolean {
+  return value == null || (record(value) && timestamp(value.since) && validDiscoveries(value.fish, fishCatalog));
+}
+function validPark(value: unknown): boolean {
+  return value == null || (record(value) && timestamp(value.since) && count(value.walks) &&
+    timestamp(value.lastWalkAt) && validDiscoveries(value.finds, parkCatalog));
+}
+
 // Feedback is optional on old servers. If provided, its base fields are used
 // directly by the short success text. Optional effect receipts retain their own
 // local guard; missing/bad effect metadata does not make safe feedback unusable.
@@ -118,7 +138,7 @@ export function validCoreResponse(value: unknown): value is Result {
     count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
-    count(state.careCount) && validTreasureResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) &&
+    count(state.careCount) && validTreasureResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond) && validPark(state.park) &&
     validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>
