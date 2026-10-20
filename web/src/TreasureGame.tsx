@@ -7,14 +7,14 @@ import "./treasure.css";
 export function TreasureGame({ pet, active, cursor, choice, reaction }: { pet: PetState; active: boolean; cursor: number; choice: number; reaction?: TreasureReaction | null }) {
   const n = pet.game?.treasure;
   if (!n) return null;
-  const clue = treasureClue(n);
+  const clue = treasureClue(n), found = treasureFound(n);
   const done = treasureDone(n), paused = !done && (n.paused || !active);
   const label = (index: number) => {
     const view = treasureCell(n, index);
     return `${index + 1}号格 · ${!view.opened && !done ? "未探索" : view.item ? `${treasureItems[view.item]}${view.opened ? "，已找到" : "，留在林间，未找到"}` : view.opened ? `空地，周围 ${view.nearby} 件` : "未探索空地"}`;
   };
   return <section className="treasure-game" aria-label="森林寻宝" data-paused={paused} data-done={done}>
-    <header data-treasure-reading-start><strong>森林寻宝</strong><span>探索 {n.opened.length} / 6 · 找到 {treasureFound(n)} / 3</span></header>
+    <header data-treasure-reading-start><strong>森林寻宝</strong><span>探索 {n.opened.length} / 6 · 找到 {found} / 3</span></header>
     <TreasureCompanion pet={pet} paused={paused} done={done} reaction={reaction}/>
     {paused && <div className="treasure-pause"><strong>慢慢找，不计时</strong><ul>{treasureMenu.map((name, i) => <li key={name} aria-current={choice === i}>{choice === i ? "▸" : "　"} {name}</li>)}</ul><small>A 选择 · B 确认 · C 继续</small></div>}
     {n.opened.length > 0 && <p className="treasure-result" aria-live="polite">上次探索：{label(n.opened[n.opened.length - 1])}</p>}
@@ -31,7 +31,9 @@ export function TreasureGame({ pet, active, cursor, choice, reaction }: { pet: P
         </div>;
       })}</div>)}
     </div>
-    <p className="treasure-status" aria-live="polite">{done ? `探索结束 · 实际找到 ${treasureFound(n)} 件，B / C 收好。` : paused ? "刷新、离开或查看规则后，手动继续。" : `${label(cursor)} · B 探索`}</p>
-    <small>空格数字＝周围八格的小物总数。六次或找齐结束；收好后 3–6 币共用每日额度。{done && "揭示不算找到。"}</small>
+    <p className="treasure-status" aria-live="polite">{done ? `探索结束 · ${found === 3 ? "三件已找齐" : "六次已用完"} · 实际找到 ${found} 件，B / C 收好。` : paused ? "刷新、离开或查看规则后，手动继续。" : `${label(cursor)} · B 探索`}</p>
+    <small className="treasure-rule">{done
+      ? `本局基础 ${3 + found} 币＝3 币探索 + ${found} 币发现；收好时受每日额度和钱包上限限制。揭示不算找到，B / C 收好才计陪伴与金币。`
+      : "空格数字＝周围八格的小物总数。六次或找齐结束；收好后 3–6 币共用每日额度。"}</small>
   </section>;
 }

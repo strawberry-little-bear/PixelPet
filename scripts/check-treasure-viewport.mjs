@@ -88,6 +88,24 @@ async function feedbackVisible(page, selector) {
   assert(boxes.buttons.every(b => b.visible && b.clear), `covered/offscreen controls: ${JSON.stringify(boxes)}`);
   return boxes;
 }
+// Reading can scroll beyond the auto-positioned result. Verify that even the
+// final line of the longer reward explanation can clear the sticky key dock.
+async function ruleEndVisible(page) {
+  await page.locator('.treasure-rule').evaluate(el => {
+    el.scrollIntoView({block:'end'});
+    const dock=document.querySelector('.device-buttons').getBoundingClientRect();
+    window.scrollBy(0,Math.max(0,el.getBoundingClientRect().bottom-dock.top+12));
+  });
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  const boxes=await page.locator('.treasure-rule').evaluate(el=>{
+    const text=el.lastChild, range=document.createRange();
+    range.setStart(text,text.length-1);range.setEnd(text,text.length);
+    const last=range.getBoundingClientRect(),dock=document.querySelector('.device-buttons').getBoundingClientRect();
+    return {top:last.top,bottom:last.bottom,dockTop:dock.top};
+  });
+  assert(boxes.top>=0&&boxes.bottom<=boxes.dockTop,`last rule line hidden by controls: ${JSON.stringify(boxes)}`);
+  return boxes;
+}
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
   server.once('error',error=>{startupError=error});
@@ -149,10 +167,12 @@ try {
     }
     assert.equal(await page.locator('.treasure-game').getAttribute('data-done'),'true','six accepted explorations must end the game');
     await readable(page); await page.screenshot({path:join(dir,`done-${width}-${height}-${font}.png`)});
+    const ruleEnd=await ruleEndVisible(page);
+    await page.screenshot({path:join(dir,`rule-${width}-${height}-${font}.png`)});
     await key(page,'B'); await page.locator('.home-caption').waitFor();
     assert.equal(await page.locator('.treasure-mode').count(),0,'dock leaked outside treasure');
     assert.deepEqual(errors, [], 'browser runtime errors');
-    results.push({width,height,font,forced,resume}); await ctx.close();
+    results.push({width,height,font,forced,resume,ruleEnd}); await ctx.close();
   }
   await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({dir,groups:results.length,results},null,2));
 } finally {

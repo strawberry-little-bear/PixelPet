@@ -5,12 +5,11 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY.');
-assert(web && isAbsolute(web), 'Set absolute PIXELPET_TEST_WEB to an isolated build.');
+const { isolatedTestBuilds } = await import('./browser-test-builds.mjs');
+const { binary, web } = await isolatedTestBuilds({ root });
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-treasure-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -76,6 +75,14 @@ async function readable(page) {
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
   assert.equal(await page.locator('.physical-button').count(), 3);
 }
+async function finishExplanation(page, found, reason) {
+  assert((await page.locator('.treasure-status').textContent()).includes(reason), 'explain why this round ended');
+  const text = await page.locator('.treasure-rule').textContent();
+  assert(text.includes(`本局基础 ${3 + found} 币＝3 币探索 + ${found} 币发现`), 'base coins must follow actual discoveries, not revealed objects');
+  assert(text.includes('每日额度和钱包上限'));
+  assert(text.includes('B / C 收好才计陪伴与金币'));
+  await readable(page);
+}
 async function digIndex(page, index) {
   for (let i = 0; i < 9; i++) {
     const chosen = await page.locator('.treasure-grid [aria-selected=true]').getAttribute('aria-label');
@@ -132,6 +139,7 @@ try {
       for (const i of empty.slice(1)) await digIndex(page, i);
       await page.locator('.treasure-game[data-done=true]').waitFor(); await readable(page);
       assert.equal(await page.locator('.treasure-grid').getByText('留在林间').count(), 3);
+      await finishExplanation(page, 0, '六次已用完');
       saved = (await api('state')).state;
       assert.equal(saved.careCount, 0); assert.equal(saved.economy.coins, 0);
       const finishStep = saved.game.treasure.step;
@@ -151,24 +159,70 @@ try {
       assert((await api('state')).state.game);
       for (const k of ['A', 'A', 'B', 'B']) await key(page, k);
       assert(!(await api('state')).state.game); assert.equal((await api('state')).state.careCount, 1);
-      assert.deepEqual(errors, []); results.push({ width, font, groups: 'start/reload/rules/six-real-digs/explicit-finish/replay/repeat/abandon', writes: writes.map(a => a.kind) });
+      // Cover one and two actual finds at the six-dig boundary without a
+      // combinatorial viewport matrix. Use the real random map, never injected progress.
+      let mixedFound = null;
+      if ((width === 1200 && font === 14) || (width === 320 && font === 28)) {
+        mixedFound = width === 1200 ? 1 : 2;
+        // A new page resets the previous arcade selection, as in the replay journey.
+        await page.reload(); await page.locator(".home-caption").waitFor();
+        await start(page, true); await key(page, 'C');
+        const before = (await api('state')).state;
+        const layout = before.game.treasure.layout;
+        const objects = layout.flatMap((v, i) => v > 0 ? [i] : []).slice(0, mixedFound);
+        const empty = layout.flatMap((v, i) => v === 0 ? [i] : []).slice(0, 6 - mixedFound);
+        for (const cell of [...objects, ...empty]) await digIndex(page, cell);
+        await finishExplanation(page, mixedFound, '六次已用完');
+        assert.equal(await page.locator('.treasure-grid').getByText('留在林间').count(), 3 - mixedFound);
+        const uncollected = (await api('state')).state;
+        assert.equal(uncollected.careCount, before.careCount);
+        assert.equal(uncollected.economy.coins, before.economy.coins);
+        await page.reload(); await page.locator('.treasure-game[data-done=true]').waitFor();
+        await finishExplanation(page, mixedFound, '六次已用完');
+        await key(page, 'A'); await wait(300);
+        assert.equal((await api('state')).state.economy.coins, before.economy.coins);
+        await page.locator('.treasure-status').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: join(dir, `mixed-${width}-${font}.png`) });
+        await key(page, 'C');
+        const collected = (await api('state')).state;
+        assert.equal(collected.careCount, before.careCount + 1);
+        assert.equal(collected.economy.coins, before.economy.coins + 3 + mixedFound);
+        await page.reload(); await page.locator('.home-caption').waitFor();
+        assert.equal((await api('state')).state.economy.coins, collected.economy.coins);
+      }
+      assert.deepEqual(errors, []); results.push({ width, font, mixedFound, groups: 'start/reload/rules/six-real-digs/explicit-finish/replay/repeat/abandon', writes: writes.map(a => a.kind) });
     } catch (e) {
       await page.screenshot({ path: join(dir, 'failure.png'), fullPage: true });
       await writeFile(join(dir, 'failure.json'), JSON.stringify({ width, font, writes, errors, state: await api('state') }, null, 2));
       console.error('Artifacts:', dir); throw e;
     } finally { await ctx.close(); }
   }
-  // Shared daily cap: all three found still count companionship, but cannot mint coins.
-  await seed(true); await api('action', { kind: 'play-treasure' });
-  let r = await api('state'), g = r.state.game;
-  await api('action', { kind: 'treasure-resume', gameId: g.id, step: 0 });
-  for (const tile of g.treasure.layout.flatMap((v, i) => v > 0 ? [i] : [])) {
-    r = await api('state'); await api('action', { kind: 'treasure-dig', gameId: g.id, step: r.state.game.treasure.step, tile });
-  }
-  r = await api('state'); assert.equal(r.state.game.treasure.opened.length, 3);
-  r = await api('action', { kind: 'treasure-finish', gameId: g.id, step: r.state.game.treasure.step });
-  assert.equal(r.state.careCount, 1); assert.equal(r.state.economy.coins, 0); assert.equal(r.state.economy.gameCoins, 30);
-  results.push({ quotaExhausted: true, earlyAllThree: true, coins: 0, careCount: 1 });
+  // Three actual finds end early. Even a displayed base of six is not a
+  // promise of minted coins when the shared allowance is exhausted.
+  await seed(true);
+  const quotaContext = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: true,
+    isMobile: true, reducedMotion: 'reduce', forcedColors: 'active' });
+  try {
+    const page = await quotaContext.newPage();
+    await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => document.documentElement.style.fontSize = '28px'));
+    await page.goto(base); await start(page); await key(page, 'C');
+    const layout = (await api('state')).state.game.treasure.layout;
+    for (const cell of layout.flatMap((v, i) => v > 0 ? [i] : [])) await digIndex(page, cell);
+    await finishExplanation(page, 3, '三件已找齐');
+    assert((await page.locator('.session-allowance .guide-allowance').textContent()).includes('当前游戏额度为 0'));
+    assert.equal(await page.locator('.treasure-grid').getByText('留在林间').count(), 0);
+    assert.equal((await api('state')).state.careCount, 0);
+    await page.reload(); await page.locator('.treasure-game[data-done=true]').waitFor();
+    await finishExplanation(page, 3, '三件已找齐');
+    await page.locator('.treasure-status').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(dir, 'quota-all-three.png') });
+    await key(page, 'B');
+    const state = (await api('state')).state;
+    assert.equal(state.careCount, 1); assert.equal(state.economy.coins, 0); assert.equal(state.economy.gameCoins, 30);
+    await page.reload(); await page.locator('.home-caption').waitFor();
+    assert.equal((await api('state')).state.careCount, 1); assert.equal((await api('state')).state.economy.coins, 0);
+    results.push({ quotaExhausted: true, earlyAllThree: true, displayedBase: 6, coins: 0, careCount: 1 });
+  } finally { await quotaContext.close(); }
   await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2));
   console.log(JSON.stringify({ groups: results.length, artifacts: dir, port }));
 } finally {

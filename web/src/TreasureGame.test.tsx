@@ -304,3 +304,47 @@ describe("local accepted treasure reactions", () => {
   expect(activity()).toBe("quiet");await key("c");expect(activity()).toBe("quiet");
  });
 });
+
+
+describe("treasure finish explains the saved result, not the revealed map", () => {
+ it.each([
+  {opened:[3,4,5,6,7,8],found:0,reason:"六次已用完",base:3},
+  {opened:[0,3,4,5,6,7],found:1,reason:"六次已用完",base:4},
+  {opened:[0,1,3,4,5,6],found:2,reason:"六次已用完",base:5},
+  {opened:[0,1,2],found:3,reason:"三件已找齐",base:6},
+  {opened:[0,3,1,4,5,2],found:3,reason:"三件已找齐",base:6},
+ ])("explains $found actual finds and $reason", ({opened,found,reason,base}) => {
+  saved.game!.treasure!.opened=opened;
+  render(<TreasureGame pet={saved} active cursor={0} choice={0}/>);
+  expect(document.querySelector(".treasure-status")?.textContent).toContain(reason);
+  expect(document.querySelector(".treasure-status")?.textContent).toContain(`实际找到 ${found} 件，B / C 收好`);
+  const rule=document.querySelector(".treasure-game > small")?.textContent;
+  expect(rule).toContain(`本局基础 ${base} 币＝3 币探索 + ${found} 币发现`);
+  expect(rule).toContain("每日额度和钱包上限");
+  expect(rule).toContain("揭示不算找到");
+  expect(rule).toContain("B / C 收好才计陪伴与金币");
+  expect(document.querySelectorAll(".treasure-grid [data-revealed=true] span")).toHaveLength(9-opened.length);
+  expect(calls()).toHaveLength(0);
+ });
+ it("does not announce a final award basis before an acknowledged terminal dig, or settle on A/reload", async()=>{
+  saved.game!.treasure!.opened=[0,1];await mount();await key("c");
+  delayDig=true;await key("b");
+  expect(document.querySelector(".treasure-game")?.getAttribute("data-done")).toBe("false");
+  expect(document.querySelector(".treasure-game > small")?.textContent).not.toContain("本局基础");
+  await act(async()=>release());
+  expect(document.querySelector(".treasure-status")?.textContent).toContain("三件已找齐");
+  expect(document.querySelector(".treasure-game > small")?.textContent).toContain("本局基础 6 币");
+  await key("a");expect(calls().some(a=>a.kind==="treasure-finish")).toBe(false);
+  cleanup();await mount();await clock(20000);
+  expect(document.querySelector(".treasure-game > small")?.textContent).toContain("本局基础 6 币");
+  expect(calls().some(a=>a.kind==="treasure-finish")).toBe(false);
+  await key("c");expect(calls().filter(a=>a.kind==="treasure-finish")).toHaveLength(1);
+ });
+ it.each([true,false])("keeps the general rule before the session ends (paused %s)",paused=>{
+  saved.game!.treasure!.opened=[0,1];saved.game!.treasure!.paused=paused;
+  render(<TreasureGame pet={saved} active cursor={2} choice={0}/>);
+  expect(document.querySelector(".treasure-game > small")?.textContent).not.toContain("本局基础");
+  expect(document.querySelector(".treasure-game > small")?.textContent).toContain("收好后 3–6 币");
+  expect(document.querySelector(".treasure-status")?.textContent).not.toMatch(/三件已找齐|六次已用完/);
+ });
+});
