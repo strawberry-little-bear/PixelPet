@@ -2094,8 +2094,8 @@ export default function App() {
                             now={now}
                           />
                         )}
-                        {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused />}
-                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} />}
+                        {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused economy={pet.economy} shop={shop} now={now} />}
+                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} economy={pet.economy} shop={shop} now={now} />}
                         {abandoning && <AbandonGame stars={!pet.game?.kind} fishing={pet.game?.kind === "fishing"} walk={pet.game?.kind === "walk"} />}
                         {page === "shop" && (
                           <ShopPanel

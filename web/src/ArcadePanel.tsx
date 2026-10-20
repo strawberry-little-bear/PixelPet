@@ -1,4 +1,6 @@
 import { DailyRefresh } from "./DailyRefresh";
+import { GuideReward } from "./GuideReward";
+import type { GuideRewardContext } from "./GuideReward";
 import { games, gameAllowance, guideSeen } from "./games";
 import type { GameInfo } from "./games";
 import type { Economy, Shop } from "./types";
@@ -31,13 +33,13 @@ export function ArcadePanel({ choice, economy, shop, now }: {
   </section>;
 }
 
-export function GameGuide({ game, page, review = false, paused = false }: { game: GameInfo; page: number; review?: boolean; paused?: boolean; }) {
+export function GameGuide({ game, page, review = false, paused = false, ...rewardContext }: GuideRewardContext & { game: GameInfo; page: number; review?: boolean; paused?: boolean; }) {
   const seen = guideSeen(game.id);
   if (seen && !review && !paused) return <section className="game-guide game-quick-start" aria-label={`${game.title}开始准备`} data-guide={game.id}>
     <header>准备再玩 · {game.title}</header>
     <strong>{game.summary} · {game.duration}</strong>
     <p>{game.controls}</p>
-    <p className="guide-reward">{game.reward}</p>
+    <GuideReward game={game} {...rewardContext} />
     <p>{game.id === "stars" || game.id === "tiles" ? "按 B 才开局，不会自动操作。" : game.id === "fishing" ? "开局后按 B 手动抛竿，不会自动开始等待。" : "开局后保持暂停，按画面提示手动继续。"}</p>
     <small>A 重看规则 · B 开始 · C 返回选游戏</small>
   </section>;
@@ -49,7 +51,7 @@ export function GameGuide({ game, page, review = false, paused = false }: { game
         <li key={step}>{step}。</li>
       )}
     </ul>
-    <p className="guide-reward">{page === 0 ? game.duration : game.reward}</p>
+    {page === 0 ? <p className="guide-reward">{game.duration}</p> : <GuideReward game={game} {...rewardContext} />}
     {paused && <p className="guide-paused-note">只读本局规则；返回仍保持暂停，按暂停画面提示手动继续。</p>}
     <small>{paused ? "A / B 翻页 · C 返回暂停" : `A 翻页 · B ${seen ? "开始" : "跳过说明，开始"} · C 返回选游戏`}</small>
   </section>;
