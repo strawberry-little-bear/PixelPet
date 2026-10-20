@@ -39,6 +39,7 @@ describe("reading recent care history without being displaced by sync", () => {
   it.each([null, undefined])("accepts a nullish old response history (%s) without crashing", async logs => {
     saved.logs = logs as unknown as PetState["logs"]; await mount(); await open();
     expect(diary().textContent).toContain("还没有日记"); await key("a"); await key("b");
+    expect(diary().textContent).toContain("还没有日记"); await key("c");
     expect(document.querySelector(".content-home")).toBeTruthy(); expect(writes()).toHaveLength(0);
   });
   it("keeps the selected care entry when one or more new logs arrive", async () => {
@@ -69,8 +70,8 @@ describe("reading recent care history without being displaced by sync", () => {
     expect(diary().textContent).toContain("最近 30 条"); expect(diary().textContent).toContain("并非逐条备份");
     expect(diary().querySelector("button,a,input")).toBeNull(); expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
   });
-  it.each(["b", "c"])("%s returns home, and re-entry starts at the current newest record", async back => {
-    await mount(); await open(); await key("a"); await key(back); expect(document.querySelector(".content-home")).toBeTruthy();
+  it("C returns home, and re-entry starts at the current newest record", async () => {
+    await mount(); await open(); await key("a"); await key("c"); expect(document.querySelector(".content-home")).toBeTruthy();
     saved.logs.unshift(entry("这次的新日记", -1)); await refresh(); await open();
     expect(diary().querySelector("p")?.textContent).toBe("这次的新日记"); expect(diary().textContent).toContain("1 / 4");
   });
@@ -84,4 +85,27 @@ describe("reading recent care history without being displaced by sync", () => {
     expect(diary().querySelector("p")?.textContent).toBe("之后真实记下的一顿饭"); expect(diary().textContent).toContain("1 / 1");
     expect(diary().textContent).not.toContain("刚才那条"); expect(writes()).toHaveLength(0);
   });
+});
+
+it("uses A for older, B for newer, and C alone to return, without writing history", async () => {
+  await mount(); await open(); const before = structuredClone(saved);
+  expect(document.body.textContent).toContain("A 较早");
+  expect(document.body.textContent).toContain("B 较新");
+  expect(diary().textContent).toContain("首尾循环");
+  await key("a"); expect(diary().querySelector("p")?.textContent).toBe("一次泡泡澡");
+  await key("b"); expect(diary().querySelector("p")?.textContent).toBe("一份饭团");
+  await key("b"); expect(diary().querySelector("p")?.textContent).toBe("刚刚相遇");
+  await key("a"); expect(diary().querySelector("p")?.textContent).toBe("一份饭团");
+  await key("c"); expect(document.querySelector(".content-home")).toBeTruthy();
+  expect(writes()).toHaveLength(0); expect(saved).toEqual(before);
+});
+
+it("reverse browsing follows the same retained anchor through sync and eviction", async () => {
+  await mount(); await open(); await key("a");
+  saved.logs.unshift(entry("新的照顾", -1)); await refresh();
+  await key("b"); expect(diary().querySelector("p")?.textContent).toBe("一份饭团");
+  saved.logs = [saved.logs[0], saved.logs[3]]; await refresh();
+  expect(diary().textContent).toContain("刚才那条已不在最近日记中");
+  await key("b"); expect(diary().querySelector("p")?.textContent).toBe("新的照顾");
+  expect(diary().textContent).not.toContain("刚才那条"); expect(writes()).toHaveLength(0);
 });

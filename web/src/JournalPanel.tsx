@@ -17,6 +17,6 @@ export function JournalPanel({ logs, cursor }: { logs: JournalLogs; cursor: Jour
       <span>0 条记录</span>
     </>}
     {current.trimmed && <small role="status" className="journal-trimmed">刚才那条已不在最近日记中{entry ? "，已移到当前最早一条。" : "。"}</small>}
-    <small className="journal-note">日记只保留最近 30 条；纪念册另记重要经历，并非逐条备份。</small>
+    <small className="journal-note">由新到旧排列，首尾循环。日记只保留最近 30 条；纪念册另记重要经历，并非逐条备份。</small>
   </section>;
 }

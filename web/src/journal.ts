@@ -38,3 +38,11 @@ export function nextJournal(logs: JournalLogs, cursor: JournalCursor): JournalCu
   const entries = logs ?? [], { index } = journalView(entries, cursor);
   return cursorAt(entries, entries.length ? (index + 1) % entries.length : 0);
 }
+
+// Move from the same reconciled anchor as forward browsing. In particular,
+// prepends, rolling eviction and indistinguishable duplicates must not turn a
+// reverse step into index-based navigation or revive a removed entry.
+export function previousJournal(logs: JournalLogs, cursor: JournalCursor): JournalCursor {
+  const entries = logs ?? [], { index } = journalView(entries, cursor);
+  return cursorAt(entries, entries.length ? (index - 1 + entries.length) % entries.length : 0);
+}

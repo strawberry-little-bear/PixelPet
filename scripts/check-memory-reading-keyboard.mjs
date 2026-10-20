@@ -1,18 +1,14 @@
 // Native keyboard reading for journal, memories and collections; isolated service/save/random port.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute isolated PIXELPET_TEST_BINARY');
-assert(web && isAbsolute(web), 'Set absolute isolated PIXELPET_TEST_WEB');
-const shared = path => realpath(path).catch(e => { if (e.code === 'ENOENT') return resolve(path); throw e; });
-assert.notEqual(await realpath(binary), await shared(join(root, 'bin/pixelpet')), 'Do not use shared binary');
-assert.notEqual(await realpath(web), await shared(join(root, 'web/dist')), 'Do not use shared web build');
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
+const { binary, web } = await isolatedTestBuilds();
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-memory-keyboard-')), dbPath = join(dir, 'test.db'), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -222,7 +218,7 @@ try {
           assert(box && box.y>=-1 && box.y+box.height<=mode.height+1,'Journal date/empty message must be visible after explicit A');
         }
         await readAll(page);
-        if (reader.kind!=='journal') { await page.keyboard.press('b'); assert(await panel.evaluate(el => document.activeElement===el)); }
+        await page.keyboard.press('b'); assert(await panel.evaluate(el => document.activeElement===el));
       }
       // Native Tab, not test-side focus(), reaches original physical A. Space and Enter each turn once.
       for (let i=0;i<12 && await focusedKey(page)!=='a';i++) await page.keyboard.press('Tab');
@@ -232,7 +228,7 @@ try {
         if (!empty) assert.notDeepEqual(await selection(page,reader.kind),selected);
         assert.equal(await focusedKey(page),'a');
       }
-      await page.keyboard.press(reader.kind==='journal'?'b':'Escape');
+      await page.keyboard.press('Escape');
       const target = paused?(reader.kind==='fish'?'.fishing-pause':'.walk-pause'):'.home-caption';
       await page.locator(target).waitFor(); assert.equal(await panel.count(),0);
       if (paused) { await page.reload(); await page.locator(target).waitFor(); }

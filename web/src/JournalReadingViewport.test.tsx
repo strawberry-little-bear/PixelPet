@@ -55,7 +55,8 @@ it.each([{ logs: [] }, { logs: null }, { logs: undefined }])("empty legacy logs 
   expect(document.querySelector(".screen-journal [data-care-reading-start]")?.textContent).toContain("还没有日记");
   expect(document.querySelector(".screen-journal time")).toBeNull(); expect(window.scrollBy).toHaveBeenCalledTimes(1);
   await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(2);
-  await key("b"); expect(document.querySelector(".home-caption")).toBeTruthy(); expect(window.scrollBy).toHaveBeenCalledTimes(2);
+  await key("b"); expect(document.querySelector(".screen-journal")).toBeTruthy(); expect(window.scrollBy).toHaveBeenCalledTimes(3);
+  await key("c"); expect(document.querySelector(".home-caption")).toBeTruthy(); expect(window.scrollBy).toHaveBeenCalledTimes(3);
   expect(writes()).toHaveLength(0);
 });
 it("leaves an already visible date alone", async () => {
@@ -106,4 +107,15 @@ it.each([false, true])("journal navigation targets the saved date/empty message,
   await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(2);
   expect(window.scrollBy).toHaveBeenLastCalledWith({ top: -412, behavior: "instant" });
   expect(writes()).toHaveLength(0);
+});
+
+it("B locates the previous saved date from the same native reader and retains focus on sync", async () => {
+  await mount(); await open();
+  const region = screen.getByRole("region", { name: "成长日记阅读区" }); region.focus();
+  await key("b");
+  expect(document.querySelector(".screen-journal > p")?.textContent).toBe(saved.logs[2].text);
+  expect(window.scrollBy).toHaveBeenCalledTimes(2); expect(document.activeElement).toBe(region);
+  await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(2); expect(document.activeElement).toBe(region);
+  await key("b"); expect(document.querySelector(".screen-journal > p")?.textContent).toBe(saved.logs[1].text);
+  expect(window.scrollBy).toHaveBeenCalledTimes(3); expect(writes()).toHaveLength(0);
 });

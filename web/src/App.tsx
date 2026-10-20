@@ -11,7 +11,7 @@ import { PetCareGuide } from "./PetCareGuide";
 import { ButtonAudio } from "./buttonAudio";
 import { purchaseMatches, selectedShopIndex, type PurchaseQuote } from "./shopBrowsing";
 import { JournalPanel } from "./JournalPanel";
-import { nextJournal, reconcileJournal, startJournal } from "./journal";
+import { nextJournal, previousJournal, reconcileJournal, startJournal } from "./journal";
 import { stageLook } from "./stageLooks";
 import { StatusGuide, statusPageCount, validCareRules } from "./StatusGuide";
 import { StatusReading } from "./StatusReading";
@@ -1296,6 +1296,14 @@ export default function App() {
       return;
     }
     setError("");
+    if (page === "journal") {
+      if (key === "C") setPage("home");
+      else {
+        setJournalCursor(cursor => (key === "A" ? nextJournal : previousJournal)(pet.logs, cursor));
+        navigateCareReading("journal");
+      }
+      return;
+    }
     if (page === "album") {
       if (albumCategory === null) {
         if (key === "A") { setAlbumChoice(v => (v + 1) % albumCategories.length); navigateAlbumReading(null); }
@@ -1579,9 +1587,6 @@ export default function App() {
       }
       else if (page === "growth") {
         setGrowthPage((v) => (v + 1) % growthPageCount); navigateCareReading("growth");
-      }
-      else if (page === "journal") {
-        setJournalCursor(cursor => nextJournal(pet.logs, cursor)); navigateCareReading("journal");
       }
       return;
     }
@@ -1901,7 +1906,7 @@ export default function App() {
                       : page === "growth"
                       ? "A / B 换页　 C 返回"
                       : page === "journal"
-                        ? "A 下一条　 B / C 返回"
+                        ? "A 较早　 B 较新　 C 返回"
                         : "C 返回小窝";
 
   // Use the same reading decision for geometry and successful notices.

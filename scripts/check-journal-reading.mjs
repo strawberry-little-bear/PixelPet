@@ -4,12 +4,11 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY');
-assert(web && isAbsolute(web), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
+const { binary, web } = await isolatedTestBuilds();
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-journal-reading-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -119,6 +118,26 @@ try {
         await key(page, 'A'); await visible(page, start);
       }
       assert.equal(await page.locator('.screen-journal > span').innerText(), empty ? '0 条记录' : '1 / 3');
+      // Reverse through the same records, including newest -> oldest wrap.
+      // Tap B from the bottom; the real UI, not test-side scroll, locates its date.
+      assert((await page.locator('.journal-note').innerText()).includes('首尾循环'));
+      for (let n = 0; n < (empty ? 1 : logs.length); n++) {
+        await page.locator('.journal-note').scrollIntoViewIfNeeded();
+        await key(page, 'B'); await visible(page, start); await readable(page);
+        const index = logs.length - 1 - n;
+        assert.equal(await page.locator('.screen-journal > p').innerText(), empty ? '还没有日记，之后的照顾和成长会慢慢记在这里。' : logs[index].text);
+        assert.equal(await focusedKey(page), 'b');
+      }
+      for (const [i, k] of ['Enter', 'Space'].entries()) {
+        await page.keyboard.press(k); await visible(page, start);
+        assert.equal(await page.locator('.screen-journal > span').innerText(), empty ? '0 条记录' : `${3 - i} / 3`);
+        assert.equal(await focusedKey(page), 'b');
+      }
+      await key(page, 'B'); await visible(page, start); // Back to newest.
+      await key(page, 'A'); await key(page, 'B'); // An adjacent forward/reverse pair is identity.
+      assert.equal(await page.locator('.screen-journal > span').innerText(), empty ? '0 条记录' : '1 / 3');
+      // Focus A by real Tab navigation, without another flip.
+      for (let i = 0; i < 12 && await focusedKey(page) !== 'a'; i++) await page.keyboard.press('Tab');
       // Native Enter/Space on the focused A key must still flip exactly once.
       assert.equal(await focusedKey(page), 'a');
       for (const [i, k] of ['Enter', 'Space'].entries()) {
@@ -133,7 +152,40 @@ try {
       assert.deepEqual(errors, []); assert.deepEqual(writes, []);
       const after = (await api('state')).state;
       for (const field of ['species', 'hatchedAt', 'sleeping', 'careCount', 'economy', 'game', 'logs']) assert.deepEqual(after[field], before[field]);
-      results.push({ ...mode, sleeping, empty, writes, errors });
+      let rolling = false;
+      if (!sleeping && !empty) {
+        // Construct a legal full history, then let an actual external care
+        // transaction prepend/evict a record. This is not 30 natural care events.
+        const history = Array.from({ length: 30 }, (_, i) => ({ at: at - (i + 1) * 1000, text: `保留的照顾记录 ${i}` }));
+        async function sync() {
+          const count = reads;
+          await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+          for (let i = 0; i < 100 && reads === count; i++) await wait(20);
+          assert(reads > count, 'external save must be read'); await wait(100);
+        }
+        await api('import', { ...after, logs: history }); await sync();
+        await key(page, 'A'); for (let i = 0; i < 5; i++) await key(page, 'A');
+        await key(page, 'B'); await page.locator('.screen-journal').waitFor();
+        await key(page, 'B'); await visible(page, start);
+        assert.equal(await page.locator('.screen-journal > p').innerText(), history[29].text);
+        const feed = await api('action', { kind: 'feed', requestId: `journal-direction-${label}` });
+        assert.equal(feed.state.logs.length, 30); assert.equal(feed.state.logs[29].text, history[28].text);
+        await sync();
+        assert.equal(await page.locator('.screen-journal > p').innerText(), history[28].text);
+        assert((await page.locator('.journal-trimmed').innerText()).includes('不在最近日记中'));
+        await key(page, 'B'); await visible(page, start);
+        assert.equal(await page.locator('.screen-journal > p').innerText(), history[27].text);
+        assert.equal(await page.locator('.journal-trimmed').count(), 0);
+        await key(page, 'A'); await visible(page, start);
+        assert.equal(await page.locator('.screen-journal > p').innerText(), history[28].text);
+        await key(page, 'A'); await visible(page, start);
+        assert.equal(await page.locator('.screen-journal > p').innerText(), feed.state.logs[0].text);
+        await key(page, 'C'); await page.locator('.home-caption').waitFor();
+        const final = (await api('state')).state;
+        assert.deepEqual(final.logs, feed.state.logs); assert.equal(final.careCount, feed.state.careCount);
+        assert.deepEqual(writes, []); assert.deepEqual(errors, []); rolling = true;
+      }
+      results.push({ ...mode, sleeping, empty, rolling, writes, errors });
     } catch (error) {
       await page.screenshot({ path: join(dir, `failure-${label}.png`) });
       console.error('Artifacts:', dir); throw error;

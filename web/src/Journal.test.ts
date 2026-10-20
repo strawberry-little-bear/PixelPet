@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { journalView, nextJournal, reconcileJournal, startJournal } from "./journal";
+import { journalView, nextJournal, previousJournal, reconcileJournal, startJournal } from "./journal";
 import type { JournalCursor } from "./journal";
 
 const logs = Object.freeze([{ at: 3000, text: "饭团" }, { at: 2000, text: "泡泡" }, { at: 1000, text: "相遇" }].map(entry => Object.freeze(entry)));
@@ -54,5 +54,46 @@ describe("read-only diary cursor", () => {
   it("clears a trim notice on explicit navigation and wraps to newest", () => {
     const cursor: JournalCursor = { entry: logs[2], olderMatches: 0, trimmed: true };
     expect(nextJournal(logs, cursor)).toEqual(startJournal(logs));
+  });
+});
+
+describe("bidirectional diary navigation", () => {
+  it.each([[], null, undefined])("keeps an empty history honest in reverse (%s)", entries => {
+    const cursor = startJournal(entries);
+    expect(previousJournal(entries, cursor)).toEqual(cursor);
+  });
+  it("goes one entry newer, wraps at newest, and is reversible", () => {
+    const oldest = previousJournal(logs, startJournal(logs));
+    expect(journalView(logs, oldest).index).toBe(2);
+    const middle = previousJournal(logs, oldest);
+    expect(journalView(logs, middle).index).toBe(1);
+    expect(previousJournal(logs, middle)).toEqual(startJournal(logs));
+    for (let cursor = startJournal(logs), i = 0; i < logs.length; i++, cursor = nextJournal(logs, cursor)) {
+      expect(previousJournal(logs, nextJournal(logs, cursor))).toEqual(cursor);
+      expect(nextJournal(logs, previousJournal(logs, cursor))).toEqual(cursor);
+    }
+  });
+  it("keeps a single record in place without mutating it", () => {
+    const only = Object.freeze([logs[0]]);
+    expect(previousJournal(only, startJournal(only))).toEqual(startJournal(only));
+  });
+  it("moves from the reconciled entry after prepending new history", () => {
+    const middle = nextJournal(logs, startJournal(logs));
+    const updated = [Object.freeze({ at: 4000, text: "长大" }), ...logs];
+    expect(journalView(updated, previousJournal(updated, middle))).toMatchObject({ entry: logs[0], index: 1 });
+  });
+  it("moves from a retained fallback and clears eviction notice", () => {
+    const retained = logs.slice(0, 2);
+    const cursor = { entry: logs[2], olderMatches: 0, trimmed: false };
+    expect(previousJournal(retained, cursor)).toEqual(startJournal(retained));
+  });
+  it("visits identical saved entries in reverse even after a duplicate prepend", () => {
+    const duplicated = [logs[0], { ...logs[0] }, logs[1]];
+    const second = nextJournal(duplicated, startJournal(duplicated));
+    const updated = [{ ...logs[0] }, ...duplicated];
+    const newer = previousJournal(updated, second);
+    expect(journalView(updated, newer).index).toBe(1);
+    expect(journalView(updated, previousJournal(updated, newer)).index).toBe(0);
+    expect(journalView(updated, previousJournal(updated, startJournal(updated))).index).toBe(3);
   });
 });

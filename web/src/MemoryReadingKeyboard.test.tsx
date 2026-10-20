@@ -67,10 +67,6 @@ it.each(readers)("$kind allows native scrolling/repeats/Enter without paging; le
   expect((await key("a", region)).defaultPrevented).toBe(true); expect(region.textContent).not.toBe(initial);
   expect(document.activeElement).toBe(region); const afterA = region.textContent;
   expect((await key("b", region)).defaultPrevented).toBe(true);
-  if (reader.kind === "journal") {
-    expect(panel()).toBeNull(); expect(document.querySelector(".home-caption")).toBeTruthy();
-    expect(writes()).toHaveLength(0); return;
-  }
   expect(region.textContent).not.toBe(afterA);
   expect(document.activeElement).toBe(region); await key("Escape", region);
   if (reader.kind === "album") { expect(document.querySelector(".album-directory")).toBeTruthy(); await key("c", region); }
