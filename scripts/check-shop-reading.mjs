@@ -51,6 +51,21 @@ async function readable(page) {
     return problems;
   });
   assert.deepEqual(problems, [], 'reading text clipped or overlaps footer');
+  const quantities = await page.locator('.shop-sections small').evaluateAll(elements => elements.map(el => {
+    const range = document.createRange(); range.selectNodeContents(el);
+    return { id: el.closest('[data-section]').getAttribute('data-section'), text: el.textContent, lines: new Set([...range.getClientRects()].filter(r => r.width && r.height).map(r => Math.round(r.top))).size,
+      clipped: el.scrollWidth > el.clientWidth + 1, font: parseFloat(getComputedStyle(el).fontSize), rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize) };
+  }));
+  assert.equal(quantities.length, await page.locator('.shop-panel[data-shop-category=directory]').count() ? 7 : 0);
+  assert(quantities.every(q => q.lines === 1 && !q.clipped && q.font >= q.rootFont * .85), `quantity split or clipped: ${JSON.stringify(quantities)}`);
+  assert(quantities.every(q => (q.id === 'daily' ? /^\+\d+ 币$/ : /^\d+ 件$/).test(q.text)), 'amount units missing or swapped');
+  if (quantities.length) {
+    const layout = await page.locator('.shop-sections').evaluate(el => ({
+      columns: getComputedStyle(el).gridTemplateColumns.split(' ').length,
+      rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize),
+    }));
+    if (layout.rootFont === 28) assert.equal(layout.columns, 1, 'large text needs one full-width category per row');
+  }
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
   assert.equal(await page.locator('.physical-button').count(), 3);
 }
@@ -66,10 +81,11 @@ try {
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
   // Put mobile first so the old build demonstrates the small-screen failure.
-  const modes = [{ width: 320, height: 700, font: 28 }, { width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 }];
+  const modes = [{ width: 320, height: 700, font: 28 }, { width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
+    { width: 320, height: 700, font: 14, smoke: true }, { width: 390, height: 700, font: 14, smoke: true }];
   const sections = ['daily', 'all', 'accessory', 'room', 'wallpaper', 'floor', 'owned'];
   const current = '.shop-sections [aria-current="true"]';
-  for (const mode of modes) for (const stage of ['baby', 'growing', 'adult']) for (const kind of ['funded', 'poor', 'sleeping']) {
+  for (const mode of modes) for (const stage of mode.smoke ? ['baby'] : ['baby', 'growing', 'adult']) for (const kind of mode.smoke ? ['funded'] : ['funded', 'poor', 'sleeping']) {
     const at = Date.now(), age = stage === 'adult' ? 80 : stage === 'growing' ? 30 : 1;
     const fixture = (await api('import', { schema: 1, revision: 1, species: 2, name: '看清再购买',
       createdAt: at - age * 3600000, hatchedAt: at - age * 3600000, lastTick: at, sleeping: kind === 'sleeping',
@@ -82,7 +98,7 @@ try {
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
       isMobile: mode.width === 320, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
     const page = await context.newPage(), errors = [], writes = []; let reads = 0;
-    const label = `${stage}-${kind}-${mode.width}-${mode.height}`;
+    const label = `${stage}-${kind}-${mode.width}-${mode.height}-${mode.font}`;
     page.on('pageerror', error => errors.push(error.message));
     page.on('response', res => { if (['/api/state', '/api/visit'].includes(new URL(res.url()).pathname)) reads++; });
     page.on('request', req => { if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push({ path: new URL(req.url()).pathname, body: req.postDataJSON() }); });
@@ -104,6 +120,7 @@ try {
       console.log('RUN', label); await page.goto(base); await page.locator('.home-caption').waitFor();
       const preferences = await page.evaluate(() => JSON.stringify(localStorage));
       await key(page, 'A'); for (let i = 0; i < 9; i++) await key(page, 'A'); await key(page, 'B'); await selection(0);
+      await page.screenshot({ path: join(dir, `directory-${label}.png`), fullPage: true });
       const font = parseFloat(await page.locator('.shop-panel p').first().evaluate(el => getComputedStyle(el).fontSize));
       assert(Math.abs(font - mode.font * 12 / 14) < .1, 'actual shop text must respect doubled root size');
       await stableRead();
@@ -171,6 +188,10 @@ try {
         await page.reload(); await page.locator('.home-caption').waitFor(); await stableRead();
         assert.equal(writes.length, 3, 'reload never repeats economics');
         assert.deepEqual((await api('state')).state.economy, economic);
+        await key(page, 'A'); for (let i = 0; i < 9; i++) await key(page, 'A'); await key(page, 'B');
+        for (let i = 0; i < 6; i++) await key(page, 'A'); await selection(6);
+        assert.equal(await page.locator('[data-section=owned] .shop-quantity').innerText(), '1 件');
+        assert.equal(writes.length, 3, 'count reading never repeats economics');
       }
       assert.deepEqual(errors, []);
       assert.equal(await page.evaluate(() => JSON.stringify(localStorage)), preferences);

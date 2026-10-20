@@ -86,7 +86,7 @@ describe("three-key categorized shop previews", () => {
     render(<ShopPanel pet={pet()} shop={rules} page={4} now={now} confirm={false} />);
     expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(7);
     expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("墙纸");
-    expect(document.querySelector('[data-section="all"] small')?.textContent).toBe("4");
+    expect(document.querySelector('[data-section="all"] small')?.textContent).toBe("4 件");
     expect(document.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
     expect(shopSections.map(s => s.id)).toContain("owned");
   });

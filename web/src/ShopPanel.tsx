@@ -33,7 +33,7 @@ export function ShopPanel({ pet, shop, page, category = null, confirm, now, noti
         <small>{item ? owned ? "已拥有 · 预览不改变存档" : "实景预览 · 尚未购买" : "装扮不改变成长与成年形态"}</small>
       </div>
       {!category ? <>
-        <div className="shop-sections" role="list" aria-label="商店分类">{shopSections.map((s, i) => <div key={s.id} role="listitem" aria-current={page === i ? "true" : undefined} data-section={s.id}><span>{page === i ? "▸" : "·"} {s.title}</span><small>{s.id === "daily" ? `+${shop.dailyCoins}` : shopItems(shop, pet, s.id).length}</small></div>)}</div>
+        <div className="shop-sections" role="list" aria-label="商店分类">{shopSections.map((s, i) => <div key={s.id} role="listitem" aria-current={page === i ? "true" : undefined} data-section={s.id}><span>{page === i ? "▸" : "·"} {s.title}</span><small className="shop-quantity">{s.id === "daily" ? `+${shop.dailyCoins} 币` : `${shopItems(shop, pet, s.id).length} 件`}</small></div>)}</div>
         <p className="shop-section-note">{section.description}</p>
         <div className="shop-decision" role="status">{section.id !== "daily" ? `B 查看${section.title}` : pet.sleeping ? "让它安心睡吧，起床后再操作。" : dailyClaimed(pet, now) ? "今日已领取 · 不必连续来" : `B 收下 ${shop.dailyCoins} 金币`}</div>
         {section.id === "daily" && <DailyRefresh now={now} lastAt={e.lastDailyAt} />}

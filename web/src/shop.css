@@ -30,10 +30,14 @@
 .surface-floor { bottom:1px; height:18px; border-top:1px solid #8f9f7955; }
 .album-picture .room-surface { position:static; width:80px; height:36px; border:2px solid #97a57b; border-radius:4px; }
 .shop-breadcrumb { font-size:8px; padding:3px 0 0; opacity:.8; }
-.shop-sections { display:grid; grid-template-columns:1fr 1fr; gap:2px 6px; margin:4px 0; }
-.shop-sections [role="listitem"] { display:flex; justify-content:space-between; padding:0 4px; border:1px solid transparent; font-size:9px; }
+.shop-sections { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr)); gap:2px 6px; margin:4px 0; }
+.shop-sections [role="listitem"] { display:flex; justify-content:space-between; align-items:baseline; gap:.35em; padding:0 4px; border:1px solid transparent; font-size:9px; }
 .shop-sections [aria-current="true"] { border-color:#849773; background:#a9bb872b; font-weight:bold; }
 .shop-sections small { font-size:8px; opacity:.7; }
+/* Labels may wrap, but the amount and its unit must remain one reading.
+   rem-based columns also adapt when text grows without viewport zoom. */
+.shop-sections [role="listitem"] > span { min-width:0; }
+.shop-sections .shop-quantity { flex-shrink:0; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .shop-panel .shop-section-note { font-size:9px; min-height:14px; }
 .shop-panel[data-shop-category="directory"] .shop-preview { height:40px; }
 .shop-panel[data-shop-category="directory"] .shop-preview .pet-scene { height:28px; }
