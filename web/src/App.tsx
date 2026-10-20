@@ -352,6 +352,12 @@ export default function App() {
     page === "menu" ? '.care-menu [aria-current="true"]' : "[data-care-reading-start]",
     !!careReadingKey && careReadingDestination?.petKey === careReadingKey && careReadingDestination?.page === page &&
     !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  // Only a newly acknowledged completion requests this one-shot position.
+  // The receipt survives reads/navigation, so none of those may replay it.
+  // Ordinary play animation can continue; an evolution takes precedence.
+  useReadingViewport(readingRoot, gameOutcome, ".game-outcome > h3",
+    page === "home" && !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead &&
+    !tools && !help && !reset && foreground && !evolution && clip?.kind !== "evolve");
   const navigateCareReading = (destination: "growth" | "status" | "journal" | "menu") => {
     setCareReadingDestination({ petKey: careReadingKey, page: destination });
   };

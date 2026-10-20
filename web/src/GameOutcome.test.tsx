@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { GameOutcome } from "./GameOutcome";
 import { completedGameOutcome } from "./game-outcome";
@@ -112,7 +112,13 @@ it.each(games)("App captures $id through its final three-key action (mocked term
     : game.id === "walk" ? { ...base, kind: "walk", walking: { route:Array<"rock">(12).fill("rock"),souvenirs:["leaf","shell","flower"],beat:72,step:4,cleared:0,pose:"",poseUntil:0,lastPulseAt:at,lastInputAt:0,paused:true } }
     : { ...base, kind: "treasure", treasure: {layout:[1,2,3,0,0,0,0,0,0],opened:[3,4,5,6,7,8],step:4,paused:true} };
   saved.companion = { since: at - 9000, interests: [], recent: {id,kind:game.id,at} };
-  await mount(); await key("b");
+  vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+    const height = this.matches(".game-outcome > h3") ? 80 : 0, top = 900;
+    return {top,bottom:top+height,left:40,right:240,width:200,height,x:40,y:top,toJSON:()=>({})};
+  });
+  await mount(); expect(window.scrollBy).not.toHaveBeenCalled(); await key("b");
+  expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({top:888,behavior:"instant"});
   expect(writes()).toHaveLength(1); expect(writes()[0][1]).toMatchObject({kind:terminalActions[game.id],gameId:id});
   expect(outcome()?.textContent).toContain(game.title); expect(outcome()?.textContent).toContain("本局共同游戏已记录");
 });
@@ -157,4 +163,69 @@ it.each(["import", "reset"] as const)("explicit %s clears the page result even f
     await act(async () => { fireEvent.click(screen.getByRole("button", {name:"确认重新开始"})); });
   }
   expect(outcome()).toBeNull(); expect(writes()).toHaveLength(2);
+});
+
+describe("acknowledged game result reading position", () => {
+  beforeEach(() => {
+    vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+      const height = this.matches(".game-outcome > h3") ? 80 : 0, top = 900;
+      return {top,bottom:top+height,left:40,right:240,width:200,height,x:40,y:top,toJSON:()=>({})};
+    });
+  });
+  it("positions an offscreen result exactly once and preserves physical key focus", async () => {
+    await mount(); expect(window.scrollBy).not.toHaveBeenCalled();
+    const button = document.querySelector<HTMLButtonElement>(".button-b")!; button.focus();
+    await key("b"); expect(outcome()).toBeTruthy();
+    expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({top:888,behavior:"instant"});
+    expect(document.activeElement).toBe(button);
+    await poll(); await act(async () => { await vi.advanceTimersByTimeAsync(17000); });
+    await key("a"); for (let i=0;i<4;i++) await key("a"); await key("b"); await key("c");
+    fireEvent.click(screen.getByRole("button",{name:"玩法说明"})); fireEvent.click(screen.getByRole("button",{name:"关闭"}));
+    expect(window.scrollBy).toHaveBeenCalledTimes(1); expect(writes()).toHaveLength(1);
+  });
+  it("keeps an already visible heading still", async () => {
+    vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(() => ({top:40,bottom:120,left:40,right:240,width:200,height:80,x:40,y:40,toJSON:()=>({})}));
+    await mount(); await key("b"); expect(outcome()).toBeTruthy(); expect(window.scrollBy).not.toHaveBeenCalled();
+  });
+  it("also brings an above-viewport heading back into view", async () => {
+    vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function(this: HTMLElement) {
+      const height=this.matches(".game-outcome > h3")?80:0,top=-500;
+      return {top,bottom:top+height,left:40,right:240,width:200,height,x:40,y:top,toJSON:()=>({})};
+    });
+    await mount(); await key("b"); expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({top:-512,behavior:"instant"});
+  });
+  it.each(["unknown","rejected"])("does not navigate from a %s completion or its recovery read", async reason => {
+    await mount(); fail=reason; await key("b"); expect(window.scrollBy).not.toHaveBeenCalled();
+    fail=""; delete saved.game; saved.revision++; if(reason==="unknown")await key("b"); else await poll();
+    expect(window.scrollBy).not.toHaveBeenCalled();
+  });
+  it("does not navigate for a plain read of an already completed game", async () => {
+    delete saved.game; await mount(); await poll(); expect(window.scrollBy).not.toHaveBeenCalled();
+  });
+  it.each(["help","background","evolution"] as const)("discards navigation interrupted by %s, without replay", async interruption => {
+    await mount(); let resolve!: (r: Result) => void;
+    api.mockImplementationOnce(() => new Promise<Result>(done => {resolve=done;}));
+    await key("b");
+    if(interruption==="help") fireEvent.click(screen.getByRole("button",{name:"玩法说明"}));
+    if(interruption==="background") {
+      Object.defineProperty(document,"hidden",{configurable:true,value:true});
+      await act(async()=>{document.dispatchEvent(new Event("visibilitychange"));});
+    }
+    delete saved.game; saved.revision++;
+    if(interruption==="evolution") {saved.growth=emptyGrowth("growing");saved.growth.points=24;saved.growth.growingAt=at;}
+    await act(async()=>{resolve({...result(structuredClone(saved)),saveGeneration:generation});});
+    expect(window.scrollBy).not.toHaveBeenCalled();
+    if(interruption==="help") fireEvent.click(screen.getByRole("button",{name:"关闭"}));
+    if(interruption==="background") {
+      Object.defineProperty(document,"hidden",{configurable:true,value:false}); await poll();
+    }
+    await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+    expect(outcome()).toBeTruthy(); expect(window.scrollBy).not.toHaveBeenCalled();
+  });
+  it("does not replay a receipt's old navigation after same-pet restore", async () => {
+    await mount(); await key("b"); expect(window.scrollBy).toHaveBeenCalledTimes(1);
+    generation="b".repeat(32); saved.revision++; await poll(); expect(outcome()).toBeNull();
+    await poll(); expect(window.scrollBy).toHaveBeenCalledTimes(1);
+  });
 });

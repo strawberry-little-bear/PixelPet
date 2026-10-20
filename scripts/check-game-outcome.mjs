@@ -95,8 +95,25 @@ try {
       await page.locator('.treasure-game[data-done="true"]').waitFor();
       const gameId = (await api('state')).state.game.id;
       const finishResponse = page.waitForResponse(r => r.url() === `${base}/api/action` && r.request().postDataJSON().kind === 'treasure-finish');
+      await page.evaluate(() => {
+        window.resultFocusTargets = [];
+        document.addEventListener('focusin', e => window.resultFocusTargets.push(e.target.matches('.button-b')), {capture:true});
+      });
       await key(page, 'B'); const confirmed = await (await finishResponse).json();
       const receipt = page.getByLabel('本页最近一次游戏结算'); await receipt.waitFor();
+      // Check before any test scrolling: being reachable later is not enough.
+      const heading = await receipt.locator('h3').boundingBox();
+      assert(heading && heading.y >= 0 && heading.y + heading.height <= mode.height,
+        `New receipt heading is outside viewport: ${JSON.stringify(heading)}`);
+      assert(await receipt.locator('h3').evaluate(el => {
+        const b = el.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return !!hit && el.contains(hit);
+      }), 'New receipt heading must not be covered');
+      // Chrome may natively blur a key while the HTTP write disables it.
+      // Do not require forced focus restoration; receipt navigation adds none.
+      assert(await page.evaluate(() => window.resultFocusTargets.every(Boolean)), 'Receipt must not steal focus');
+      await page.screenshot({path:join(dir, `${label}-initial-viewport.png`)});
+      console.log('PLACEMENT', label, JSON.stringify(heading));
       assert.equal(await receipt.locator('.game-outcome-message').innerText(), confirmed.message);
       assert.equal(await receipt.locator('time').getAttribute('datetime'), new Date(confirmed.serverTime).toISOString());
       assert.equal(confirmed.state.companion.recent.id, gameId);
@@ -105,10 +122,15 @@ try {
       if (exhausted) assert.equal(confirmed.state.economy.coins, before.economy.coins);
       else assert(confirmed.state.economy.coins > before.economy.coins);
       const text = await receipt.innerText(), count = writes.length;
-      // Let both the short message (4.2s) and care feedback (8s) expire in a real browser.
-      if (mode.width === 1200 && !exhausted) await wait(8500);
+      // Respect a player's native reading position after the one-shot jump.
+      // Expire the short message (4.2s), animation and care feedback (8s).
+      await page.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
+      const readingY = await page.evaluate(() => scrollY);
+      await wait(8500);
+      assert.equal(await page.evaluate(() => scrollY), readingY, 'Feedback expiry must not replay receipt navigation');
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
       await wait(250); assert.equal(await receipt.innerText(), text);
+      assert.equal(await page.evaluate(() => scrollY), readingY, 'Ordinary sync must not replay receipt navigation');
       await reachableLines(page, '.game-outcome');
       await page.screenshot({path:join(dir, `${label}.png`),fullPage:true});
       // Status first page also carries exactly the acknowledged receipt.
@@ -123,7 +145,7 @@ try {
       const reloaded = (await api('state')).state;
       assert.equal(reloaded.economy.coins, confirmed.state.economy.coins);
       assert.equal(reloaded.companion.recent.id, gameId);
-      assert.deepEqual(errors, []); results.push({exhausted,...mode,passed:true}); console.log('PASS', label);
+      assert.deepEqual(errors, []); results.push({exhausted,...mode,heading,passed:true}); console.log('PASS', label);
     } catch (error) {
       await page.screenshot({path:join(dir, `${label}-failure.png`),fullPage:true}); throw error;
     } finally { await context.close(); }
