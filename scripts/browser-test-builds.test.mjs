@@ -54,7 +54,7 @@ for (const kind of ['missing-binary', 'missing-web', 'directory-binary', 'missin
   if (kind.endsWith('index')) { await rm(join(f.web, 'index.html')); if (kind === 'directory-index') await mkdir(join(f.web, 'index.html')); }
   await assert.rejects(isolatedTestBuilds({ root: f.root, env: f.env }));
 });
-const scripts = ['growth-response', 'return-layout', 'return-scroll', 'return-viewport', 'return-touch', 'return-keyboard', 'sleep-progress', 'sleep-summary', 'care-growth-journey'];
+const scripts = ['recovery-reading', 'growth-response', 'return-layout', 'return-scroll', 'return-viewport', 'return-touch', 'return-keyboard', 'sleep-progress', 'sleep-summary', 'care-growth-journey'];
 for (const script of scripts) {
   test(`${script} refuses missing web before browser import or service startup`, async t => {
     const f = await fixture(t), env = { ...process.env, PIXELPET_TEST_BINARY: f.binary, PIXELPET_PLAYWRIGHT_MODULE: join(f.dir, 'no-playwright.mjs') };

@@ -38,6 +38,21 @@
 .save-recovery p { font-size: 12px; line-height: 1.6; margin: 0; }
 .save-recovery small { font-size: 10px; line-height: 1.5; }
 
+/* The recovery panel is already a reading page. Its persistent diagnostic
+   belongs before the device, not fixed over whichever line/key is in view. */
+.toast.recovery-notice {
+  position: static;
+  transform: none;
+  width: min(100%, 540px);
+  max-width: 100%;
+  margin: 0 auto 20px;
+  font-size: .857143rem;
+  line-height: 1.6;
+  animation: none;
+}
+.recovery-notice > span { min-width: 0; overflow-wrap: anywhere; }
+.recovery-notice > button { flex-shrink: 0; min-width: 44px; min-height: 44px; }
+
 /* Reading normally uses document flow. The two-page return recap below is
    intentionally bounded, so changing pages cannot stretch the device. Keep
    running game geometry fixed; non-game / paused / result screens opt in. */

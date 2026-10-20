@@ -1904,6 +1904,28 @@ export default function App() {
                         ? "A 下一条　 B / C 返回"
                         : "C 返回小窝";
 
+  // Persistent errors must not float across recovery text or the three keys.
+  // Keep import previews and ordinary gameplay notices in their existing layer.
+  const recoveryVisible = uncertain || unavailable || (corrupt && !(page === "import-preview" && pendingImport));
+  const notice = (message || error) && (
+    <div
+      className={`toast ${error ? "error" : ""} ${recoveryVisible ? "recovery-notice" : ""}`}
+      role={error ? "alert" : "status"}
+    >
+      {error ? <Cloud size={17} /> : <Check size={17} />}
+      <span>{error || message}</span>
+      <button
+        aria-label="关闭提示"
+        onClick={() => {
+          setMessage("");
+          setError("");
+        }}
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+
   return (
     <div className={`app ${treasureView ? "treasure-view" : ""}`}>
       <header className="topbar">
@@ -2011,6 +2033,7 @@ export default function App() {
           </h1>
           <p>三个按键，一只小伙伴。找回口袋里最简单的快乐。</p>
         </section>
+        {recoveryVisible && notice}
         <section className="play-space" aria-label="PixelPet 电子宠物机">
           <div className="left-note">
             <div className="note-index">
@@ -2583,24 +2606,7 @@ export default function App() {
           本地小窝，安心陪伴
         </span>
       </footer>
-      {(message || error) && (
-        <div
-          className={`toast ${error ? "error" : ""}`}
-          role={error ? "alert" : "status"}
-        >
-          {error ? <Cloud size={17} /> : <Check size={17} />}
-          <span>{error || message}</span>
-          <button
-            aria-label="关闭提示"
-            onClick={() => {
-              setMessage("");
-              setError("");
-            }}
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      {!recoveryVisible && notice}
       {(help || reset) && (
         <div
           className="modal-backdrop"

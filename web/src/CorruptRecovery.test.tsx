@@ -65,13 +65,17 @@ describe("explicit repair of a diagnosed corrupt saved state", () => {
   });
 
   it.each(["a", "c"])("allows preview with no readable pet and %s cancels without replacement", async cancel => {
-    await mount(); await file();
+    await mount();
+    expect(document.querySelector("main > .recovery-notice")).not.toBeNull();
+    await file();
+    expect(document.querySelector(".recovery-notice")).toBeNull();
     expect(document.querySelector(".import-preview")?.textContent).toContain("当前存档无法读取");
     expect(document.querySelector(".import-preview")?.textContent).not.toContain("建议先从存档盒导出");
     await advance();
     expect(document.querySelector(".import-preview dl")).toBeTruthy();
     await key(cancel);
     expect(document.querySelector(".corrupt-recovery")).toBeTruthy();
+    expect(document.querySelector("main > .recovery-notice")).not.toBeNull();
     expect(writes()).toHaveLength(0);
   });
 
