@@ -2404,6 +2404,12 @@ export default function App() {
                               growth={growth}
                               mood={echo ? experienceWords[echo] : message || mood}
                             />
+                            {!clip && !evolution && need && (need.kind === "hungry" || need.kind === "dirty" || need.kind === "tired") && (
+                              <section className="home-care-guidance" aria-label="小窝中的照顾建议">
+                                <strong>现在怎么照顾 · 最近读取</strong>
+                                <CareAdvice pet={pet} />
+                              </section>
+                            )}
                             {pet.sleeping && <CareReadingRegion className="sleep-home-guidance" label="休息中的照顾提示"
                               hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
                               <strong>最近读取 · 正在休息</strong>

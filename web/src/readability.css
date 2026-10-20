@@ -196,3 +196,12 @@
 @media (forced-colors: active) {
   .sleep-home-guidance { border-color: CanvasText; }
 }
+
+/* Body needs remain actionable while the confirmed receipt is being read.
+   Reuse normal reading flow; no alert, new control or nested scroll area. */
+.home-care-guidance { border-top: 1px dashed #839567; margin-top: 8px; padding-top: 8px; }
+.home-care-guidance > strong { display: block; }
+.home-care-guidance .care-advice { margin: 4px 0; }
+@media (forced-colors: active) {
+  .home-care-guidance { border-color: CanvasText; }
+}
