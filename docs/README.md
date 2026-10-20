@@ -72,7 +72,7 @@
 
 - [三键阅读可达性](READING_ACCESSIBILITY.md) · [键盘输入安全](KEYBOARD_SAFETY.md)
 - [阅读页成功通知不遮字／按键](READING_NOTICES.md)
-- [物理键盘回归](PHYSICAL_KEYBOARD.md) · [可选提示音容错](AUDIO_SAFETY.md)
+- [物理键盘与网络等待焦点](PHYSICAL_KEYBOARD.md) · [可选提示音容错](AUDIO_SAFETY.md)
 - [窗口失焦暂停](WINDOW_PAUSE.md) · [回窗同步](WINDOW_RETURN_SYNC.md)
 - [蛇／方块自动节拍中 C 暂停](BOARD_PULSE_PAUSE.md)
 - [散步自动前进中 C 暂停](WALK.md#2026-10-21--自动前进时也能按-c-暂停)

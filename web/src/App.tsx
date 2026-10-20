@@ -1,3 +1,4 @@
+import { usePhysicalButtonFocus } from "./usePhysicalButtonFocus";
 import { CareReadingRegion } from "./CareReadingRegion";
 import { treasureReactionFor, treasureReactionMs, type TreasureReaction } from "./treasure-reaction";
 import { anchorServerClock, readServerClock } from "./serverClock";
@@ -188,6 +189,9 @@ export default function App() {
   const clock = useRef(anchorServerClock(now));
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  // Invalidate focus only for interruptions/authoritative replacements, not
+  // the player's own acknowledged hatch, game start or completion.
+  const physicalFocusEpoch = useRef(0);
   // Only automatic game steps admit C while writing. Other operations
   // remain locked; no general input queue or replay of uncertain writes.
   const [busyAction, setBusyAction] = useState("");
@@ -362,6 +366,8 @@ export default function App() {
   // Immutable lifecycle fields keep older services usable; the generation also
   // distinguishes restoring a backup of the same pet. Never key on revision.
   const careReadingKey = pet ? JSON.stringify([acceptedGeneration.current, pet.createdAt, pet.hatchedAt, pet.species]) : null;
+  usePhysicalButtonFocus(JSON.stringify([physicalFocusEpoch.current, page === "import-preview"]),
+    tools || help || reset || uncertain || unavailable || corrupt || clockAhead || !foreground || !windowFocused);
   useReadingViewport(readingRoot, careReadingDestination,
     page === "menu" ? '.care-menu [aria-current="true"]' :
       page === "journal" ? ".screen-journal [data-care-reading-start]" : "[data-care-reading-start]",
@@ -492,6 +498,7 @@ export default function App() {
     }
   }, [page, pet?.album, albumCategory]);
   const stopActivity = useCallback(() => {
+    physicalFocusEpoch.current++;
     audio.current?.cancel();
     recapDisplayEpoch.current++;
     setQueuedReturn(null);

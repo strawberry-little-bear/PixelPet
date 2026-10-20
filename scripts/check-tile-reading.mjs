@@ -137,8 +137,8 @@ try {
       await page.locator('.button-b').focus(); await page.keyboard.press('Enter');
       await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
       assert.equal(writes.length,selectWrites+1);
-      // A confirmed network write temporarily disables native keys; focus can
-      // leave B in Chrome. This batch does not change that shared focus policy.
+      assert(await page.locator(".button-b").evaluate(el => el === document.activeElement),
+        "confirmed tile selection must recover the disabled native B focus");
       assert((await page.locator('.tile-status').textContent()).includes('已选第 1 格'));
       await visibleFeedback(page, '.tile-message');
       const other = tiles.findIndex(v => v !== tiles[0]); await move(page,other); await key(page,'b');
