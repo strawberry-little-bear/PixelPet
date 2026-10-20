@@ -63,6 +63,36 @@ describe("three-key Tetris", () => {
     expect(document.querySelector(".game-abandon")).toBeTruthy(); await key("b");
     expect(actions().at(-1)?.kind).toBe("cancel-play"); expect(document.querySelector(".content-home")).toBeTruthy();
   });
+  it("explains all pause choices without running or writing and keeps the abandon confirmation", async () => {
+    saved.game = game(); await mount(); const before = structuredClone(saved);
+    const hints = ["B / C 继续下落", "旋转一次后继续下落", "放到底并固定", "再次确认前不会丢掉本局", "返回后仍暂停"];
+    for (let i = 0; i < hints.length; i++) {
+      expect(document.querySelector(".tetris-operation-hint")?.textContent).toContain(hints[i]);
+      await clock(1200); expect(saved).toEqual(before); expect(actions()).toHaveLength(0);
+      await key("a");
+    }
+    expect(document.querySelector(".tetris-operation-hint")?.textContent).toContain(hints[0]);
+    for (let i = 0; i < 3; i++) await key("a");
+    await key("b"); expect(document.querySelector(".game-abandon")).toBeTruthy();
+    expect(actions()).toHaveLength(0); expect(saved).toEqual(before);
+    await key("c"); expect(document.querySelector(".tetris-operation-hint")?.textContent).toContain(hints[0]);
+    await clock(2000); expect(actions()).toHaveLength(0);
+  });
+  it.each(["tetris-rotate", "tetris-drop"])("%s still requires B and explicitly resumes after its explanation", async kind => {
+    saved.game = game(); await mount(); await key("a"); if (kind === "tetris-drop") await key("a");
+    expect(actions()).toHaveLength(0); expect(document.querySelector(".tetris-operation-hint")).toBeTruthy();
+    await key("b"); expect(actions()).toMatchObject([{ kind, step: 0 }]);
+    expect(document.querySelector(".tetris-operation-hint")).toBeNull();
+    expect(saved.game!.tetris!.paused).toBe(false);
+    await clock(1050); expect(actions().at(-1)?.kind).toBe("tetris-step");
+  });
+  it("the explained rules visit returns paused without a hidden resume or reward", async () => {
+    saved.game = game(); await mount(); for (let i = 0; i < 4; i++) await key("a");
+    expect(document.querySelector(".tetris-operation-hint")?.textContent).toContain("返回后仍暂停");
+    await key("b"); expect(document.querySelector(".game-guide")).toBeTruthy();
+    await key("c"); expect(document.querySelector(".tetris-operation-hint")?.textContent).toContain("返回后仍暂停");
+    await clock(4000); expect(actions()).toHaveLength(0); expect(saved.careCount).toBe(0); expect(saved.economy!.coins).toBe(0);
+  });
   it("reloads a running session locally paused and persists pause before menu rotation", async () => {
     saved.game = game(); saved.game.tetris!.paused = false;
     await mount(); await clock(2000); expect(actions()).toHaveLength(0);

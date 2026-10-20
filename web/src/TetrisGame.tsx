@@ -11,6 +11,13 @@ const shapes = [
   [[0, 0], [1, 0], [1, 1], [2, 1]], [[0, 0], [0, 1], [1, 1], [2, 1]], [[2, 0], [0, 1], [1, 1], [2, 1]],
 ];
 export const tetrisOptions = ["继续拼搭", "顺时针旋转", "落到底", "放弃本局", "玩法说明"];
+const tetrisOperationHints = [
+  "B / C 继续下落，A 只切换选项。",
+  "B 顺时针旋转一次后继续下落；转不动则保持原位。",
+  "B 把当前积木直接放到底并固定，再继续下落。",
+  "B 打开放弃确认；再次确认前不会丢掉本局。",
+  "B 重看玩法；返回后仍暂停，等你手动继续。",
+];
 export function blockCells(p: Falling) {
   let cells = shapes[p.kind - 1].map(([x, y]) => [x, y]);
   for (let r = 0;r < (p.kind === 2 ? 0 : p.rotation);r++) {
@@ -57,6 +64,7 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
         {n.end ? <><span>消除 {n.lines} 行 · B / C 收好成绩</span><small>{n.lines >= 2 ? "计入陪伴 · 最多 6 金币" : "消除 2 行后完成才有奖励"}</small></> : <><ol aria-label="积木操作">{tetrisOptions.map((label, i) => <li key={label} aria-current={choice === i} className={choice === i ? "selected" : ""}>{choice === i ? "›" : "·"} {label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></>}
       </div>}
     </div>
+    {paused && !n.end && <p className="tetris-operation-hint" aria-live="polite" aria-atomic="true">{tetrisOperationHints[choice]}</p>}
     <div className={`tetris-companion ${collecting ? "collecting" : ""}`} data-motion={collecting ? "collecting" : "waiting"}><div className="tetris-pet"><PetArt index={pet.species} stage={growth.stage} accessory={pet.economy?.equipped.accessory} motion={collecting || n.end === "won" ? "celebrating" : "idle"} /></div><RoomDecoration id={pet.economy?.equipped.room} /><p>{collecting ? "这一排拼好啦，我帮你收起来！" : n.end ? "记住的是一起拼，不只是分数。" : paused ? "慢慢想，我们一起搭。" : "我帮你收积木，落点虚线在下面。"}</p></div>
   </section>;
 }
