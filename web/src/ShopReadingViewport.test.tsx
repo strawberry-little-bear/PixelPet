@@ -73,9 +73,11 @@ it.each(["a", "c"])("locates the quote then returns to the same item when %s can
   expect(document.querySelector(".shop-panel h3")?.textContent).toContain("嫩叶胸针");
   expect(document.querySelector(".shop-panel")?.getAttribute("data-confirm")).toBe("false"); expect(writes()).toHaveLength(0);
 });
-it.each(["poor", "sleeping", "daily"])("explicit B reveals %s decision without buying or claiming", async kind => {
+it.each(["poor", "sleeping", "daily", "wallet"])("explicit B reveals %s decision without buying or claiming", async kind => {
   await mount("baby", kind === "sleeping"); if (kind === "poor") { saved.economy!.coins = 0; await refresh(); }
-  if (kind === "daily") { saved.economy!.lastDailyAt = Date.now(); await refresh(); await directory(); } else await items();
+  if (kind === "daily") { saved.economy!.lastDailyAt = Date.now(); await refresh(); await directory(); }
+  else if (kind === "wallet") { shop.maxCoins = 100; saved.economy!.coins = 99; await refresh(); await directory(); }
+  else await items();
   const count = vi.mocked(window.scrollBy).mock.calls.length;
   await key("b"); expect(targets.at(-1)).toBe("decision"); expect(window.scrollBy).toHaveBeenCalledTimes(count + 1);
   expect(writes()).toHaveLength(0);

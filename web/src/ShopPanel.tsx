@@ -2,7 +2,7 @@ import { DailyRefresh } from "./DailyRefresh";
 import { PetScene } from "./PetScene";
 import { petGrowth } from "./growth";
 import { gameAllowance } from "./games";
-import { dailyClaimed, shopItems, shopSections, shopSlotNames } from "./shop";
+import { dailyClaimed, dailyWalletNotice, shopItems, shopSections, shopSlotNames } from "./shop";
 import type { ShopCategory } from "./shop";
 import type { PetState, Shop, ShopItem } from "./types";
 import "./shop.css";
@@ -39,7 +39,7 @@ export function ShopPanel({ pet, shop, page, category = null, confirm, now, noti
       {!category ? <>
         <div className="shop-sections" role="list" aria-label="商店分类">{shopSections.map((s, i) => <div key={s.id} role="listitem" aria-current={page === i ? "true" : undefined} data-section={s.id}><span>{page === i ? "▸" : "·"} {s.title}</span><small className="shop-quantity">{s.id === "daily" ? `+${shop.dailyCoins} 币` : `${shopItems(shop, pet, s.id).length} 件`}</small></div>)}</div>
         <p className="shop-section-note">{section.description}</p>
-        <div className="shop-decision" role="status">{section.id !== "daily" ? `B 查看${section.title}` : pet.sleeping ? "让它安心睡吧，起床后再操作。" : dailyClaimed(pet, now) ? "今日已领取 · 不必连续来" : `B 收下 ${shop.dailyCoins} 金币`}</div>
+        <div className="shop-decision" role="status">{section.id !== "daily" ? `B 查看${section.title}` : pet.sleeping ? "让它安心睡吧，起床后再操作。" : dailyClaimed(pet, now) ? "今日已领取 · 不必连续来" : dailyWalletNotice(pet, shop) || `B 收下 ${shop.dailyCoins} 金币`}</div>
         {section.id === "daily" && <DailyRefresh now={now} lastAt={e.lastDailyAt} />}
         <div className="shop-footer"><span>A 换分类 · C 回小窝</span><span>{allowance?.walletFull ? "钱包已满" : allowance?.available === null ? `今日游戏额度 ${allowance.daily} 币` : `今日游戏还可得 ${allowance?.available ?? "?"} 币`}</span></div>
       </> : item ? <>

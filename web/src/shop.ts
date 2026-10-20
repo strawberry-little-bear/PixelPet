@@ -21,3 +21,11 @@ export const utcDay = (ms: number) => Math.floor(ms / 86400000);
 export function dailyClaimed(pet: PetState, now: number) {
   return !!pet.economy?.lastDailyAt && utcDay(pet.economy.lastDailyAt) >= utcDay(now);
 }
+
+// Greetings are all-or-nothing, unlike capped game rewards. Missing legacy
+// caps must remain unknown; the server still decides every actual claim.
+export function dailyWalletNotice(pet: PetState, shop: Shop | null) {
+  const economy = pet.economy;
+  return economy && shop?.maxCoins !== undefined && economy.coins > shop.maxCoins - shop.dailyCoins
+    ? `钱包放不下本次 ${shop.dailyCoins} 金币；本次未领取，腾出空间后可再领。` : "";
+}

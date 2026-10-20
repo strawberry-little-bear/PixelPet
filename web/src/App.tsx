@@ -36,7 +36,7 @@ import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
 import { games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
 import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
-import { shopItems, shopSections } from "./shop";
+import { dailyWalletNotice, shopItems, shopSections } from "./shop";
 import type { ShopCategory } from "./shop";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -1689,6 +1689,7 @@ export default function App() {
         } else if (!shopCategory) {
           navigateShopReading(null, null, shopPage, "decision");
           if (dailyClaimed(pet, now)) setMessage("今天的问候已经收好啦，不必连续来。");
+          else if (dailyWalletNotice(pet, shop)) setMessage(dailyWalletNotice(pet, shop));
           else void act("daily");
         } else if (item) {
           if (pet.economy.owned?.includes(item.id)) {
