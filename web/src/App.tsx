@@ -1,3 +1,4 @@
+import { treasureReactionFor, treasureReactionMs, type TreasureReaction } from "./treasure-reaction";
 import { anchorServerClock, readServerClock } from "./serverClock";
 import { useTreasureViewport, type TreasureDestination } from "./useTreasureViewport";
 import { useReadingViewport } from "./useReadingViewport";
@@ -247,6 +248,8 @@ export default function App() {
   const [fishPage, setFishPage] = useState(0);
   const fishingEpoch = useRef(0);
   const [treasureSession, setTreasureSession] = useState("");
+  const [treasureReaction, setTreasureReaction] = useState<TreasureReaction | null>(null);
+  const treasureReactionSerial = useRef(0);
   const [treasureDestination, setTreasureDestination] = useState<TreasureDestination | null>(null);
   const [treasureCursor, setTreasureCursor] = useState(0);
   const [treasureChoice, setTreasureChoice] = useState(0);
@@ -477,7 +480,7 @@ export default function App() {
     fishingEpoch.current++;
     boardEpoch.current++;
     homeEchoEpoch.current++;
-    setWalkSession(""); setTreasureSession("");
+    setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
     setFishingSession("");
     setTetrisSession("");
     setSnakeSession("");
@@ -730,6 +733,11 @@ export default function App() {
     return () => clearInterval(timer);
   }, [page]);
   useEffect(() => {
+    if (!treasureReaction) return;
+    const timer = setTimeout(() => setTreasureReaction(null), treasureReactionMs);
+    return () => clearTimeout(timer);
+  }, [treasureReaction]);
+  useEffect(() => {
     if (!tileLink) return;
     const timer = setTimeout(() => setTileLink(null), 850);
     return () => clearTimeout(timer);
@@ -962,6 +970,7 @@ export default function App() {
     syncEpoch.current++;
     setCareFeedback(null);
     setCareOutcome(null);
+    setTreasureReaction(null);
     setHomeEcho(null);
     busyRef.current = true;
     setBusy(true);
@@ -1002,6 +1011,10 @@ export default function App() {
         && activeEpoch === fishingEpoch.current && performance.now() - actionStartedAt <= 1500
         && !document.hidden && gameWindowActive.current)
         audio.current?.bite();
+      if (kind === "treasure-dig" && page === "game" && treasureSession === pet?.game?.id
+        && activeBoardEpoch === boardEpoch.current && performance.now() - actionStartedAt <= 2000
+        && !document.hidden && gameWindowActive.current)
+        setTreasureReaction(treasureReactionFor(pet?.game, r.state.game, extra.tile, ++treasureReactionSerial.current));
       if (kind === "treasure-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current) setTreasureSession(r.state.game?.id ?? "");
       if (["treasure-resume", "treasure-dig"].includes(kind) && page === "game"
         && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current
@@ -1086,7 +1099,7 @@ export default function App() {
     if (tools || help || reset) {
       audio.current?.cancel();
       boardEpoch.current++;
-      walkEpoch.current++;setWalkSession(""); setTreasureSession("");
+      walkEpoch.current++;setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
       fishingEpoch.current++;
       setFishingSession("");
       setTetrisSession("");
@@ -1169,7 +1182,7 @@ export default function App() {
     const stop = () => {
       audio.current?.cancel();
       boardEpoch.current++;
-      walkEpoch.current++; setWalkSession(""); setTreasureSession("");
+      walkEpoch.current++; setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
       fishingEpoch.current++; setFishingSession("");
       setSnakeSession("");
       setTetrisSession("");
@@ -1202,7 +1215,7 @@ export default function App() {
     // Invalidate local run permission and any late automatic callback. Merely
     // reading does not persist a pause, step, reward or tutorial preference.
     boardEpoch.current++; fishingEpoch.current++; walkEpoch.current++;
-    setTetrisSession(""); setFishingSession(""); setWalkSession(""); setTreasureSession("");
+    setTetrisSession(""); setFishingSession(""); setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
     setPauseGuideSession(sessionKey); setGuidePage(0); setPage("pause-guide");
     setPauseReadingDestination({ sessionKey, target: "guide" });
   };
@@ -2266,7 +2279,7 @@ export default function App() {
                         {page === "journal" && (
                           <JournalPanel logs={pet.logs} cursor={journalCursor} />
                         )}
-                        {page === "game" && !abandoning && pet.game?.kind === "treasure" && <TreasureGame pet={pet} active={treasureSession === pet.game.id && !tools && !help && !reset} cursor={treasureCursor} choice={treasureChoice}/>}
+                        {page === "game" && !abandoning && pet.game?.kind === "treasure" && <TreasureGame pet={pet} active={treasureSession === pet.game.id && !tools && !help && !reset} cursor={treasureCursor} choice={treasureChoice} reaction={treasureReaction}/>}
                         {page === "game" && !abandoning && pet.game?.kind === "walk" && <WalkingGame pet={pet} active={walkSession===pet.game.id && !tools && !help && !reset} choice={walkChoice}/>}
                         {page === "game" && !abandoning && pet.game?.kind === "fishing" && <FishingGame pet={pet} active={fishingSession === pet.game.id && !tools && !help && !reset} choice={fishingChoice} />}
                         {page === "game" && !abandoning && pet.game?.kind === "tetris" && (

@@ -202,3 +202,59 @@ describe("explicit treasure viewport feedback", () => {
   expect(document.querySelector(".treasure-result")).toBeNull();
  });
 });
+
+
+describe("local accepted treasure reactions", () => {
+ const activity = () => document.querySelector(".treasure-companion")?.getAttribute("data-reaction");
+ it("does not replay on initial read, resume, elapsed time, polling or reload", async () => {
+  saved.game!.treasure!.paused=false;saved.game!.treasure!.opened=[0];
+  await mount();expect(activity()).toBe("quiet");await key("c");expect(activity()).toBe("quiet");
+  saved.game!.treasure!.opened.push(1);saved.game!.treasure!.step++;saved.revision++;
+  await clock(60000);expect(activity()).toBe("quiet");
+  cleanup();await mount();expect(activity()).toBe("quiet");expect(calls()).toHaveLength(1);
+ });
+ it("reacts only after saving, retains it across selection, and replaces its timer on the next dig", async () => {
+  await mount();await key("c");delayDig=true;await key("b");expect(activity()).toBe("quiet");
+  await act(async()=>release());expect(activity()).toBe("found");
+  expect(document.querySelector(".treasure-companion-note")?.textContent).toContain("小松果");
+  await clock(800);await key("a");expect(activity()).toBe("found");expect(calls()).toHaveLength(2);
+  delayDig=false;await key("b");expect(document.querySelector(".treasure-object")?.getAttribute("data-item")).toBe("3");
+  await clock(800);expect(activity()).toBe("found");await clock(800);expect(activity()).toBe("quiet");
+  expect(document.querySelector(".treasure-result")?.textContent).toContain("光滑石");
+ });
+ it("an empty terminal dig does not react to three unsearched revealed items", async () => {
+  saved.game!.treasure!.opened=[3,4,5,6,7];saved.game!.treasure!.step=5;
+  await mount();await key("c"); // Initial cursor is first unsearched (0); choose 8.
+  for(let i=0;i<3;i++)await key("a");await key("b");
+  expect(activity()).toBe("empty");expect(document.querySelector(".treasure-object")).toBeNull();
+  expect(document.querySelector(".treasure-companion-note")?.textContent).toContain("这里是空地");
+  expect(document.querySelector(".treasure-game")?.getAttribute("data-done")).toBe("true");
+  expect(screen.getAllByText("留在林间")).toHaveLength(3);
+ });
+ it("never invents a reaction for a rejected or late dig", async () => {
+  await mount();await key("c");failure="treasure-dig";await key("b");expect(activity()).toBe("quiet");
+  failure="";delayDig=true;const monotonic=vi.spyOn(performance,"now").mockReturnValue(0);
+  await key("b");monotonic.mockReturnValue(2001);await act(async()=>release());
+  expect(activity()).toBe("quiet");expect(document.querySelector(".treasure-result")?.textContent).toContain("小松果");
+ });
+ it.each(["hidden","blur","help","tools","pause","rules"])("%s stops the reaction without replaying on return",async reason=>{
+  await mount();await key("c");await key("b");expect(activity()).toBe("found");
+  if(reason==="hidden"){await hidden(true);await hidden(false)}
+  else if(reason==="blur"){await act(async()=>{fireEvent.blur(window);fireEvent.focus(window)})}
+  else if(reason==="help"){await act(async()=>fireEvent.click(screen.getByRole("button",{name:"玩法说明"})));await act(async()=>fireEvent.click(screen.getByRole("button",{name:"关闭"})))}
+  else if(reason==="tools"){await act(async()=>fireEvent.click(screen.getByRole("button",{name:"存档盒"})));await act(async()=>fireEvent.click(screen.getByRole("button",{name:"存档盒"})))}
+  else {await key("c");if(reason==="rules"){await key("a");await key("b");await key("c")}}
+  expect(activity()).toBe("quiet");await key("c");expect(activity()).toBe("quiet");
+ });
+ it.each(["hidden","blur","help"])("%s in flight suppresses late accepted reaction",async reason=>{
+  await mount();await key("c");delayDig=true;await key("b");
+  if(reason==="hidden")await hidden(true);
+  else if(reason==="blur")await act(async()=>fireEvent.blur(window));
+  else await act(async()=>fireEvent.click(screen.getByRole("button",{name:"玩法说明"})));
+  await act(async()=>release());
+  if(reason==="hidden")await hidden(false);
+  else if(reason==="blur")await act(async()=>fireEvent.focus(window));
+  else await act(async()=>fireEvent.click(screen.getByRole("button",{name:"关闭"})));
+  expect(activity()).toBe("quiet");await key("c");expect(activity()).toBe("quiet");
+ });
+});

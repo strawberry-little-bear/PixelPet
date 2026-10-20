@@ -2,7 +2,40 @@
 .treasure-game > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; font-size: .857143rem; }
 .treasure-game > header span { font-size: .714286rem; }
 .treasure-companion { display: flex; align-items: center; gap: 8px; }
-.treasure-companion > svg { width: 64px; height: 58px; flex-shrink: 0; }
+/* A fixed art box reserves space; short reactions never resize the grid. */
+.treasure-actor { position: relative; width: 88px; height: 80px; flex: 0 0 88px; }
+.treasure-actor > .pet-sprite { position: absolute; left: 8px; top: 0; width: 64px; height: 68px; }
+.treasure-ground { position: absolute; inset: 0; width: 88px; height: 80px; }
+.treasure-object { position: absolute; width: 24px; height: 24px; right: 0; bottom: 8px; }
+.treasure-companion-note { min-width: 0; flex: 1; }
+/* Use the rig's own pivots, never a generic human hand or a whole-body bounce.
+   The treasure motion excludes idle habits; only an accepted local dig starts it. */
+.treasure-companion:is([data-reaction=found],[data-reaction=empty]) :is(.tanuki-head,.rabbit-head,.cat-head,.bear-head,.frog-head,.dragon-head,.dog-head) {
+  animation: treasure-look 1600ms steps(4,end) both;
+}
+.treasure-companion:is([data-reaction=found],[data-reaction=empty]) :is(.tanuki-paw.paw-right,.rabbit-arm.paw-right,.cat-paw.paw-right,.bear-paw-right,.frog-hand-right,.dragon-hand-right,.dog-paw-right) {
+  animation: treasure-paw 1600ms steps(4,end) both;
+}
+.treasure-companion:is([data-reaction=found],[data-reaction=empty]) .bird-head { animation: treasure-peck 1600ms steps(4,end) both; }
+.treasure-companion:is([data-reaction=found],[data-reaction=empty]) .bird-wing.wing-right { animation: treasure-wing 1600ms steps(4,end) both; }
+.treasure-companion:is([data-reaction=found],[data-reaction=empty]) .dolphin-flipper.flipper-right { animation: treasure-fin 1600ms steps(4,end) both; }
+.treasure-companion:is([data-reaction=found],[data-reaction=empty]) .dolphin-head { animation: treasure-look 1600ms steps(4,end) both; }
+.treasure-companion:is([data-reaction=found],[data-reaction=empty]) .mushroom-cap { animation: treasure-cap 1600ms steps(4,end) both; }
+.treasure-companion:is([data-reaction=found],[data-reaction=empty]) .mushroom-arm.arm-right { animation: treasure-paw 1600ms steps(4,end) both; }
+.treasure-companion[data-reaction=found] .treasure-object { animation: treasure-uncover 1600ms steps(4,end) both; }
+@keyframes treasure-look { 0%,85%,100% { transform: none; } 20%,55% { transform: translateY(2px) rotate(3deg); } 70% { transform: translateY(-1px); } }
+@keyframes treasure-paw { 0%,80%,100% { transform: none; } 20%,50% { transform: translate(3px,4px) rotate(-12deg); } 35%,65% { transform: translate(-2px,3px) rotate(8deg); } }
+@keyframes treasure-peck { 0%,80%,100% { transform: none; } 20%,50% { transform: translate(2px,3px) rotate(9deg); } 35%,65% { transform: translateY(1px) rotate(3deg); } }
+@keyframes treasure-wing { 0%,80%,100% { transform: none; } 20%,60% { transform: rotate(-8deg); } 40% { transform: rotate(-3deg); } }
+@keyframes treasure-fin { 0%,80%,100% { transform: none; } 20%,50% { transform: translate(2px,2px) rotate(-12deg); } 35%,65% { transform: translate(-2px,1px) rotate(8deg); } }
+@keyframes treasure-cap { 0%,80%,100% { transform: none; } 20%,60% { transform: rotate(5deg); } 40% { transform: rotate(-3deg); } }
+@keyframes treasure-uncover { 0% { opacity: 0; transform: translateY(6px); } 40%,100% { opacity: 1; transform: none; } }
+.treasure-companion[data-paused=true] .treasure-actor * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .treasure-actor * { animation: none !important; } }
+@media (forced-colors: active) {
+  .treasure-ground path { fill: Canvas; stroke: GrayText; }
+  .treasure-object path { fill: Canvas; stroke: CanvasText; }
+}
 .treasure-companion > p { margin: 6px 0; }
 .treasure-grid { border: 1px solid #61784f; background: #a1b78b44; margin: 8px 0; padding: 5px; }
 .treasure-grid > [role=row] { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
