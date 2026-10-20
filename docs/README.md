@@ -61,6 +61,7 @@
 | 当前状态与时间 | [状态读数时间](STATUS_READING_TIME.md) · [显示时钟同步](APP_CLOCK_SYNC.md) · [此刻状态与成长参考](GROWTH_SNAPSHOT.md) |
 | 照顾前提示 | [菜单建议](CARE_MENU_ADVICE.md) · [效果与习惯条件](CARE_PREVIEW.md) · [服务端数值基准](CARE_BASE_EFFECT.md) · [整数边界读数](CARE_ROUNDING.md) |
 | 照顾后结果 | [即时成长／习惯回执](CARE_LEARNING_RECEIPT.md) · [反馈阅读时长](CARE_FEEDBACK_READING.md) · [反馈显示保护](CARE_FEEDBACK_SAFETY.md) · [回执与日记精度一致](CARE_AMOUNT_PRECISION.md) |
+| 睡眠中的照顾 | [主页／醒来照顾指引](SLEEP_CARE_GUIDANCE.md) · [本段休息进度](SLEEP_PROGRESS.md) |
 | 自然与休息成长 | [成长基准](GROWTH_BASIS.md) · [睡眠菜单基准](SLEEP_BASIS.md) · [睡眠确认提示](SLEEP_FEEDBACK_BASIS.md) |
 | 习惯与成年定型 | [微量习惯读数](HABIT_PRECISION.md) · [形态条件核对](FORM_CONDITIONS.md) · [永久定型依据](FORM_RECORD.md) |
 | 角色需求 | [鸟类翅膀／理羽表达](BIRD_NEED_CUES.md) · [三阶段外观说明](STAGE_LOOK_GUIDE.md) |

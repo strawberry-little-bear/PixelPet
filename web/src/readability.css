@@ -175,3 +175,12 @@
 @media (forced-colors: active) {
   .return-mode .return-panel > header, .return-mode .night .return-panel > header { background: Canvas; color: CanvasText; }
 }
+
+/* Saved sleep needs stay visible even while the bedtime receipt is showing.
+   This is read-only document flow, not an alert or an automatic wake action. */
+.sleep-home-guidance { border-top: 1px dashed #839567; margin-top: 8px; padding-top: 8px; }
+.sleep-home-guidance > strong { display: block; }
+.sleep-home-guidance .care-advice { margin: 4px 0; }
+@media (forced-colors: active) {
+  .sleep-home-guidance { border-color: CanvasText; }
+}

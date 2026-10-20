@@ -2269,6 +2269,10 @@ export default function App() {
                               growth={growth}
                               mood={echo ? experienceWords[echo] : message || mood}
                             />
+                            {pet.sleeping && <section className="sleep-home-guidance" aria-label="休息中的照顾提示">
+                              <strong>最近读取 · 正在休息</strong>
+                              <CareAdvice pet={pet} />
+                            </section>}
                             <CareOutcome feedback={careOutcome} readable />
                             <GameOutcome outcome={gameOutcome} />
                           </>
