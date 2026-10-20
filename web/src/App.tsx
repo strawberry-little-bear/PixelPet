@@ -350,7 +350,8 @@ export default function App() {
   // distinguishes restoring a backup of the same pet. Never key on revision.
   const careReadingKey = pet ? JSON.stringify([acceptedGeneration.current, pet.createdAt, pet.hatchedAt, pet.species]) : null;
   useReadingViewport(readingRoot, careReadingDestination,
-    page === "menu" ? '.care-menu [aria-current="true"]' : "[data-care-reading-start]",
+    page === "menu" ? '.care-menu [aria-current="true"]' :
+      page === "journal" ? ".screen-journal [data-care-reading-start]" : "[data-care-reading-start]",
     !!careReadingKey && careReadingDestination?.petKey === careReadingKey && careReadingDestination?.page === page &&
     !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
   // Only a newly acknowledged completion requests this one-shot position.
@@ -1646,9 +1647,9 @@ export default function App() {
       // and shortcuts on physical buttons still perform the original controls.
       if (e.target instanceof HTMLElement && e.target.matches(".return-panel,.care-reading-region") &&
         (e.key === "ArrowDown" || e.key === " ")) return;
-      // Enter on a care menu/result reading stop is not a care confirmation.
+      // Enter on a care or memory reading stop is not a confirmation/page turn.
       // Native activation on physical buttons and explicit A/B/C stay intact.
-      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading") && e.key === "Enter") return;
+      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region") && e.key === "Enter") return;
       const key = e.key.toLowerCase();
       // Enter/Space activate the focused physical key, just like clicking it.
       // In particular the import preview deliberately focuses safe C: never
@@ -2136,11 +2137,15 @@ export default function App() {
                             now={now}
                           />
                         )}
-                        {page === "park-album" && <ParkAlbum pet={pet} page={parkPage} />}
-                        {page === "fish-album" && <FishAlbum pet={pet} page={fishPage} />}
-                        {page === "album" && (
-                          albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} now={now} page={albumReading?.page ?? 0} missing={albumReading?.cursor.missing} category={albumCategory} />
-                        )}
+                        {page === "park-album" && <CareReadingRegion className="memory-reading-region" label="公园沿途发现阅读区">
+                          <ParkAlbum pet={pet} page={parkPage} />
+                        </CareReadingRegion>}
+                        {page === "fish-album" && <CareReadingRegion className="memory-reading-region" label="池塘鱼图鉴阅读区">
+                          <FishAlbum pet={pet} page={fishPage} />
+                        </CareReadingRegion>}
+                        {page === "album" && <CareReadingRegion className="memory-reading-region" label="永久纪念册阅读区">
+                          {albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} now={now} page={albumReading?.page ?? 0} missing={albumReading?.cursor.missing} category={albumCategory} />}
+                        </CareReadingRegion>}
                         {page === "return" && returnRecap && (
                           <ReturnPanel pet={pet} recap={returnRecap} page={returnPage} updated={returnUpdated} />
                         )}
@@ -2308,9 +2313,9 @@ export default function App() {
                             <small className="status-page-number">{statusPage + 1} / {statusPageCount}</small>
                           </CareReadingRegion>
                         )}
-                        {page === "journal" && (
+                        {page === "journal" && <CareReadingRegion className="memory-reading-region" label="成长日记阅读区">
                           <JournalPanel logs={pet.logs} cursor={journalCursor} />
-                        )}
+                        </CareReadingRegion>}
                         {page === "game" && !abandoning && pet.game?.kind === "treasure" && <TreasureGame pet={pet} active={treasureSession === pet.game.id && !tools && !help && !reset} cursor={treasureCursor} choice={treasureChoice} reaction={treasureReaction}/>}
                         {page === "game" && !abandoning && pet.game?.kind === "walk" && <WalkingGame pet={pet} active={walkSession===pet.game.id && !tools && !help && !reset} choice={walkChoice}/>}
                         {page === "game" && !abandoning && pet.game?.kind === "fishing" && <FishingGame pet={pet} active={fishingSession === pet.game.id && !tools && !help && !reset} choice={fishingChoice} />}

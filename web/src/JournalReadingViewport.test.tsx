@@ -40,7 +40,7 @@ it.each((["baby", "growing", "adult"] as const).flatMap(stage => [false, true].m
     for (let n = 0; n < 3; n++) {
       expect(document.querySelector(".screen-journal > p")?.textContent).toBe(saved.logs[n].text);
       expect(document.querySelectorAll(".screen-journal [data-care-reading-start]")).toHaveLength(1);
-      expect(document.querySelector("[data-care-reading-start]")?.tagName).toBe("TIME");
+      expect(document.querySelector(".screen-journal [data-care-reading-start]")?.tagName).toBe("TIME");
       await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(n + 2); expect(document.activeElement).toBe(focus);
     }
     await refresh(); await act(async () => { await vi.advanceTimersByTimeAsync(17000); });
@@ -52,7 +52,7 @@ it.each((["baby", "growing", "adult"] as const).flatMap(stage => [false, true].m
   });
 it.each([{ logs: [] }, { logs: null }, { logs: undefined }])("empty legacy logs ($logs) locate only the honest empty message", async ({ logs }) => {
   await mount(); saved.logs = logs as unknown as PetState["logs"]; await refresh(); await open();
-  expect(document.querySelector("[data-care-reading-start]")?.textContent).toContain("还没有日记");
+  expect(document.querySelector(".screen-journal [data-care-reading-start]")?.textContent).toContain("还没有日记");
   expect(document.querySelector(".screen-journal time")).toBeNull(); expect(window.scrollBy).toHaveBeenCalledTimes(1);
   await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(2);
   await key("b"); expect(document.querySelector(".home-caption")).toBeTruthy(); expect(window.scrollBy).toHaveBeenCalledTimes(2);
@@ -91,4 +91,19 @@ it("old service without growth or save-generation metadata keeps explicit-only r
   await mount(); delete saved.growth; generation = undefined; saved.schema = 1; await refresh();
   await open(); await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(2);
   await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(2); expect(writes()).toHaveLength(0);
+});
+
+it.each([false, true])("journal navigation targets the saved date/empty message, not the new hint (empty=%s)", async empty => {
+  vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function(this: HTMLElement) {
+    const top = this.matches(".screen-journal [data-care-reading-start]") ? -400 : -650;
+    const height = this.matches("[data-care-reading-start]") ? 80 : 0;
+    return { top, bottom: top + height, left: 0, right: 200, width: 200, height, x: 0, y: top, toJSON: () => ({}) };
+  });
+  await mount();
+  if (empty) { saved.logs = []; await refresh(); }
+  await open(); expect(window.scrollBy).toHaveBeenLastCalledWith({ top: -412, behavior: "instant" });
+  expect(document.querySelectorAll(".memory-reading-region [data-care-reading-start]")).toHaveLength(2);
+  await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(2);
+  expect(window.scrollBy).toHaveBeenLastCalledWith({ top: -412, behavior: "instant" });
+  expect(writes()).toHaveLength(0);
 });

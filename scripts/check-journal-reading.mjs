@@ -33,7 +33,7 @@ async function visible(page, selector) {
 }
 async function readable(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal page overflow');
-  assert.equal(await page.locator('[data-care-reading-start]').count(), 1, 'exactly one reading start');
+  assert.equal(await page.locator('.screen-journal [data-care-reading-start]').count(), 1, 'exactly one journal date/empty reading start');
   const problems = await page.locator('.content-journal').evaluate(el => {
     const area = el.getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), problems = [];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
