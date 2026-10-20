@@ -61,6 +61,9 @@
 .reading-mode .habit-rows > div { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; }
 .reading-mode .habit-rows span, .reading-mode .habit-rows b { width: auto; }
 .reading-mode .shop-preview { height: auto; min-height: 65px; }
+/* Override the more specific directory height too: a wrapped preview caption
+   must remain above the categories at enlarged root sizes. */
+.reading-mode .shop-panel[data-shop-category="directory"] .shop-preview { height: auto; }
 .reading-mode .shop-preview small { position: static; display: block; }
 .reading-mode .screen-journal { height: auto; min-height: 184px; }
 .reading-mode .lcd-top, .reading-mode .lcd-bottom { height: auto; min-height: 25px; padding: 4px 0; gap: 4px; font-size: .642857rem; line-height: 1.6; }

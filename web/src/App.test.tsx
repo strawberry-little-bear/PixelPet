@@ -865,13 +865,13 @@ describe("three-key shop and persistent equipment", () => {
     expect(mutations()).toHaveLength(0);
     await key("b");
     expect(saved.economy!.coins).toBe(10);
-    expect(screen.getByText("今日已领取 · 明天再来就好")).toBeTruthy();
+    expect(screen.getByText("今日已领取 · 不必连续来")).toBeTruthy();
     await key("b");
     expect(mutations()).toHaveLength(1);
     cleanup();
     await mount();
     await choose(9);
-    expect(screen.getByText("今日已领取 · 明天再来就好")).toBeTruthy();
+    expect(screen.getByText("今日已领取 · 不必连续来")).toBeTruthy();
     expect(mutations()).toHaveLength(1);
   });
   it("previews without a write, requires confirmation, A/C cancel in place, B buys once", async () => {

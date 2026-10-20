@@ -1,3 +1,4 @@
+import { DailyRefresh } from "./DailyRefresh";
 import { games, gameAllowance, guideSeen } from "./games";
 import type { GameInfo } from "./games";
 import type { Economy, Shop } from "./types";
@@ -20,8 +21,9 @@ export function ArcadePanel({ choice, economy, shop, now }: {
       <p>{game.controls}</p><p>{game.reward}</p>
     </div>
     <p className="arcade-quota">{allowance
-      ? `今日游戏额度剩 ${allowance.daily} / ${shop!.gameDailyLimit} 币 · UTC 日更新`
+      ? `今日游戏额度剩 ${allowance.daily} / ${shop!.gameDailyLimit} 币`
       : "当日额度待同步，暂不估算奖励"}</p>
+    {allowance && <DailyRefresh now={now} lastAt={economy?.lastGameAt} />}
     <small>{allowance?.walletFull ? "钱包已满，本局不会得币；仍可陪它玩。"
       : allowance?.daily === 0 ? "今日不再得币，仍可陪它玩，没有惩罚。"
         : allowance?.available !== null && allowance?.available !== undefined && allowance.available < allowance.daily ? `钱包还能收 ${allowance.available} 币；所有游戏共用额度。`
