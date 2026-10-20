@@ -1,0 +1,139 @@
+// Real untimed treasure completions: acknowledged page-local results, isolated HTTP/DB.
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import net from 'node:net';
+import { tmpdir } from 'node:os';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
+assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary');
+assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+const shared = async path => realpath(path).catch(() => resolve(path));
+assert.notEqual(await realpath(binary), await shared(join(root, 'bin/pixelpet')), 'Do not use shared binary, including symlinks');
+assert.notEqual(await realpath(web), await shared(join(root, 'web/dist')), 'Do not use shared web build, including symlinks');
+const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
+const dir = await mkdtemp(join(tmpdir(), 'pixelpet-game-outcome-')), results = [];
+const port = await new Promise((resolve, reject) => {
+  const socket = net.createServer(); socket.once('error', reject);
+  socket.listen(0, '127.0.0.1', () => { const p = socket.address().port; socket.close(e => e ? reject(e) : resolve(p)); });
+});
+const base = `http://127.0.0.1:${port}`, wait = ms => new Promise(r => setTimeout(r, ms));
+let server, browser, log = '', startupError;
+async function api(path, body) {
+  const res = await fetch(`${base}/api/${path}`, body === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  assert(res.ok, await res.clone().text()); return res.json();
+}
+async function key(page, k) { await page.locator(`.button-${k.toLowerCase()}`).tap(); }
+// Native document scrolling, including every line at double root font size.
+async function reachableLines(page, selector) {
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
+  await page.locator(selector).evaluate(el => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
+    while ((text = walker.nextNode())) {
+      if (!text.textContent.trim()) continue;
+      const range = document.createRange(); range.selectNodeContents(text);
+      const lines = Array.from(range.getClientRects(), r => ({top:r.top + scrollY,left:r.left,width:r.width,height:r.height}));
+      for (const line of lines) {
+        window.scrollTo({top:line.top - 12,behavior:'instant'});
+        const top = line.top - scrollY, hit = document.elementFromPoint(line.left + line.width / 2, top + line.height / 2);
+        if (line.left < -1 || line.left + line.width > innerWidth + 1 || top < 0 || top + line.height > innerHeight || !hit || !text.parentElement.contains(hit))
+          throw new Error('Result line is clipped or unreachable: ' + text.textContent);
+      }
+    }
+  });
+}
+try {
+  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`,
+    PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server.once('error', e => { startupError = e; });
+  server.stdout.on('data', data => { log += data; }); server.stderr.on('data', data => { log += data; });
+  let ready = false;
+  for (let i = 0; i < 100; i++) {
+    if (startupError) throw startupError; assert.equal(server.exitCode, null, log);
+    try { if ((await fetch(base + '/api/state')).ok) { ready = true; break; } } catch {}
+    await wait(100);
+  }
+  assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
+
+  const modes = [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 28 }, { width: 320, height: 380, font: 28 }];
+  for (const mode of modes) for (const exhausted of [false, true]) {
+    const at = Date.now();
+    const initial = await api('import', { schema: 1, species: 2, name: '把陪玩收好', createdAt: at - 3600000,
+      hatchedAt: at - 3600000, lastTick: at, sleeping: false, needs: { hunger: 70, mood: 70, energy: 80, clean: 80 }, careCount: 0, logs: [] });
+    const fixture = initial.state;
+    fixture.economy.lastGameAt = initial.serverTime;
+    fixture.economy.gameCoins = exhausted ? initial.shop.gameDailyLimit : 0;
+    fixture.economy.coins = 12;
+    await api('import', fixture);
+    const before = (await api('state')).state;
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
+      isMobile: mode.width === 320, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
+    await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.fontSize = `${font}px`; localStorage.setItem('pixelpet-guide-v1-treasure', 'seen');
+    }), mode.font);
+    const page = await context.newPage(), errors = [], writes = [];
+    const label = `${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
+    page.on('request', r => { if (r.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(r.url()).pathname)) writes.push({ path: new URL(r.url()).pathname, body: r.postDataJSON() }); });
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor();
+      assert.equal(await page.locator('.game-outcome').count(), 0);
+      for (const k of ['A', 'A', 'B']) await key(page, k);
+      for (let i = 0; i < 6; i++) await key(page, 'A');
+      await key(page, 'B'); await page.locator('.game-guide').waitFor(); await key(page, 'B');
+      await page.locator('.treasure-game').waitFor(); await key(page, 'C'); // deliberate resume
+      for (let i = 0; i < 6; i++) {
+        await key(page, 'B');
+        const hunt = (await api('state')).state.game.treasure;
+        if (hunt.opened.length >= 6 || hunt.opened.filter(tile => hunt.layout[tile] > 0).length === 3) break;
+      }
+      await page.locator('.treasure-game[data-done="true"]').waitFor();
+      const gameId = (await api('state')).state.game.id;
+      const finishResponse = page.waitForResponse(r => r.url() === `${base}/api/action` && r.request().postDataJSON().kind === 'treasure-finish');
+      await key(page, 'B'); const confirmed = await (await finishResponse).json();
+      const receipt = page.getByLabel('本页最近一次游戏结算'); await receipt.waitFor();
+      assert.equal(await receipt.locator('.game-outcome-message').innerText(), confirmed.message);
+      assert.equal(await receipt.locator('time').getAttribute('datetime'), new Date(confirmed.serverTime).toISOString());
+      assert.equal(confirmed.state.companion.recent.id, gameId);
+      assert.match(await receipt.innerText(), /本局共同游戏已记录；不代表本次兴趣或成长增加/);
+      assert(!confirmed.state.game);
+      if (exhausted) assert.equal(confirmed.state.economy.coins, before.economy.coins);
+      else assert(confirmed.state.economy.coins > before.economy.coins);
+      const text = await receipt.innerText(), count = writes.length;
+      // Let both the short message (4.2s) and care feedback (8s) expire in a real browser.
+      if (mode.width === 1200 && !exhausted) await wait(8500);
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await wait(250); assert.equal(await receipt.innerText(), text);
+      await reachableLines(page, '.game-outcome');
+      await page.screenshot({path:join(dir, `${label}.png`),fullPage:true});
+      // Status first page also carries exactly the acknowledged receipt.
+      await key(page, 'A'); for (let i = 0; i < 4; i++) await key(page, 'A'); await key(page, 'B');
+      await page.locator('.screen-status').waitFor(); assert.equal(await receipt.innerText(), text);
+      await reachableLines(page, '.game-outcome');
+      assert.equal(writes.length, count, 'reading/navigating the result must not write');
+      assert.equal(await page.locator('.physical-button').count(), 3);
+      assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
+      await page.reload(); await page.locator('.home-caption').waitFor();
+      assert.equal(await receipt.count(), 0, 'never reconstruct historical result from a read');
+      const reloaded = (await api('state')).state;
+      assert.equal(reloaded.economy.coins, confirmed.state.economy.coins);
+      assert.equal(reloaded.companion.recent.id, gameId);
+      assert.deepEqual(errors, []); results.push({exhausted,...mode,passed:true}); console.log('PASS', label);
+    } catch (error) {
+      await page.screenshot({path:join(dir, `${label}-failure.png`),fullPage:true}); throw error;
+    } finally { await context.close(); }
+  }
+  await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2));
+  console.log(JSON.stringify({groups:results.length,artifacts:dir,port}));
+} finally {
+  await browser?.close();
+  if (server && server.exitCode === null && server.signalCode === null) {
+    const closed = new Promise(resolve => server.once('exit', resolve)); server.kill('SIGTERM'); await closed;
+  }
+  await writeFile(join(dir, 'server.log'), log); console.log('Artifacts:', dir);
+}

@@ -1,0 +1,5 @@
+.game-outcome { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #839567; color: #50643e; text-align: left; overflow-wrap: anywhere; }
+.game-outcome h3 { margin: 0 0 4px; }
+.game-outcome > time, .game-outcome > small { display: block; }
+.game-outcome p { margin: 6px 0; white-space: pre-wrap; }
+@media (forced-colors: active) { .game-outcome { color: CanvasText; border-color: CanvasText; } }

@@ -70,6 +70,8 @@ import { AlbumDirectory, AlbumPanel, albumCategories, type AlbumCategory } from 
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import { CareOutcome } from "./CareOutcome";
+import { GameOutcome } from "./GameOutcome";
+import { completedGameOutcome, type GameOutcomeRecord } from "./game-outcome";
 import {
   petGrowth,
   stageNames,
@@ -208,6 +210,8 @@ export default function App() {
   // Keep the last received receipt readable after the short growth toast.
   // It is page-local history, never reconstructed from later need readings.
   const [careOutcome, setCareOutcome] = useState<Feedback | null>(null);
+  // Ordinary reads and care keep this last acknowledged game result unchanged.
+  const [gameOutcome, setGameOutcome] = useState<GameOutcomeRecord | null>(null);
   // A page-local visual window, independent of saved dates and server clock anchors.
   const [homeEcho, setHomeEcho] = useState<(GameExperience & { monotonicUntil: number }) | null>(null);
   const seenExperiences = useRef(new Set<string>());
@@ -473,6 +477,7 @@ export default function App() {
     setMessage("");
     setCareFeedback(null);
     setCareOutcome(null);
+    setGameOutcome(null);
     setHomeEcho(null);
     setEvolution(null);
     activeEvolution.current = null;
@@ -1002,6 +1007,8 @@ export default function App() {
         markUncertain();
         return false;
       }
+      const outcome = completedGameOutcome(kind, pet, r);
+      if (outcome) setGameOutcome(outcome);
       // Only this live pulse may announce its own wait -> bite transition.
       // Reads, resumes, restored games, late replies after an interruption and
       // repeated bite pulses are intentionally silent. Visual cues remain primary.
@@ -1719,6 +1726,7 @@ export default function App() {
       setEvolution(null);
       setCareFeedback(null);
       setCareOutcome(null);
+      setGameOutcome(null);
       setReturnRecap(null);
       setReturnPending(false);
       returnAttempt.current = "";
@@ -1751,6 +1759,7 @@ export default function App() {
       setEvolution(null);
       setCareFeedback(null);
       setCareOutcome(null);
+      setGameOutcome(null);
       setReturnRecap(null);
       setReturnPending(false);
       returnAttempt.current = "";
@@ -2196,6 +2205,7 @@ export default function App() {
                               mood={echo ? experienceWords[echo] : message || mood}
                             />
                             <CareOutcome feedback={careOutcome} />
+                            <GameOutcome outcome={gameOutcome} />
                           </>
                         )}
                         {page === "menu" && (
@@ -2279,6 +2289,7 @@ export default function App() {
                             <StatusReading at={pet.lastTick} />
                             <CareAdvice pet={pet} />
                             <CareOutcome feedback={careOutcome} />
+                            <GameOutcome outcome={gameOutcome} />
                             <div className="care-total">
                               收到过 {pet.careCount} 次温柔照顾 ♡
                             </div>
