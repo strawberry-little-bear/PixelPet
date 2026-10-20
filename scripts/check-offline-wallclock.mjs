@@ -1,5 +1,7 @@
 // Opt-in real wall-clock acceptance. Own servers/databases only; no mocked time,
 // browser heartbeats or direct database edits. Default wait: sixteen minutes.
+// --recorded-sleep starts an explicit current-version bedtime in all three
+// stages, then verifies the persisted session and immutable wake receipt.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -10,7 +12,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const binary = process.env.PIXELPET_TEST_BINARY;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY to a freshly built test binary.');
+assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'),
+  'Set absolute PIXELPET_TEST_BINARY to a freshly built, isolated test binary.');
+assert(process.argv.slice(2).every(arg => arg === '--recorded-sleep'), 'Only --recorded-sleep is supported.');
+const recordedSleep = process.argv.includes('--recorded-sleep');
 const waitMs = Number(process.env.PIXELPET_WALL_WAIT_MS ?? 16 * 60000);
 assert(Number.isSafeInteger(waitMs) && waitMs >= 16 * 60000 && waitMs <= 60 * 60000,
   'PIXELPET_WALL_WAIT_MS must be 16–60 real minutes (milliseconds); this is not a fast test.');
@@ -83,20 +88,38 @@ function verifySettlement(c, reply) {
   assert.deepEqual(after.growth.formRecord, before.growth.formRecord);
   for (const key of ['nutrition', 'play', 'clean', 'lastFeed', 'lastPlay', 'lastClean']) assert.equal(after.growth.care[key], before.growth.care[key]);
   for (const key of ['careCount', 'economy', 'companion', 'pond', 'park', 'game']) assert.deepEqual(after[key], before[key], `${c.label} ${key} gained offline rewards/actions`);
+  if (recordedSleep) {
+    const initial = before.sleepSession, current = after.sleepSession;
+    assert(initial && current, `${c.label}: active sleep session lost after restart`);
+    assert.equal(current.startedAt, c.bed.state.sleepSession.startedAt);
+    near(current.settledHours - initial.settledHours, hours, `${c.label} sleep settlement`);
+    near(current.energyRecovered - initial.energyRecovered, after.needs.energy - before.needs.energy, `${c.label} sleep recovery`);
+    near(current.restGain - initial.restGain, rest, `${c.label} sleep rest`);
+    near(current.growthPoints - initial.growthPoints, after.growth.points - before.growth.points, `${c.label} sleep growth`);
+  } else {
+    assert.equal(after.sleepSession, undefined, `${c.label}: invented a legacy bedtime`);
+  }
   return { hours, needs: after.needs, growth: after.growth.points - before.growth.points, rest };
 }
 try {
-  for (const stage of ['baby', 'growing', 'adult']) for (const sleeping of [false, true]) {
+  for (const stage of ['baby', 'growing', 'adult']) for (const sleeping of (recordedSleep ? [true] : [false, true])) {
     const c = { label: `${stage}-${sleeping ? 'sleep' : 'awake'}`, stage, sleeping, db: join(dir, `${stage}-${sleeping}.db`), ports: [], starts: 0, log: '' }; cases.push(c);
     await start(c); const now = Date.now(), age = { baby: 1, growing: 30, adult: 80 }[stage] * 3600000;
-    await api(c, 'import', { schema: 1, revision: 1, species: 2, name: '真实离开验收', createdAt: now - age, hatchedAt: now - age, lastTick: now, sleeping,
+    await api(c, 'import', { schema: 1, revision: 1, species: 2, name: '真实离开验收', createdAt: now - age, hatchedAt: now - age, lastTick: now, sleeping: recordedSleep ? false : sleeping,
       needs: { hunger: 60, mood: 80, clean: 65, energy: 40 }, careCount: 0, logs: [] });
+    if (recordedSleep) {
+      c.bed = await api(c, 'action', { kind: 'sleep', requestId: `wall-bed-${stage}` }, { 'X-PixelPet-Sleep-If': 'awake' });
+      assert(c.bed.state.sleeping && c.bed.state.sleepSession);
+      assert.equal(c.bed.state.sleepSession.startedAt, c.bed.state.lastTick);
+      for (const key of ['settledHours', 'energyRecovered', 'restGain', 'growthPoints']) assert.equal(c.bed.state.sleepSession[key], 0);
+      assert.equal(c.bed.careFeedback?.sleepSummary, undefined, 'Bedtime must not invent a completed sleep');
+    }
     c.baseline = await api(c, 'visit', {}); assert.equal(c.baseline.state.growth.stage, stage); assert(!c.baseline.returnRecap && !c.baseline.recapPending);
     await stop(c); c.stoppedAt = Date.now(); console.log('STOPPED', c.label, c.stoppedAt, c.db);
   }
   const started = performance.now(), wallStarted = Date.now(), callsBeforeWait = requests.length;
-  console.log(JSON.stringify({ phase: 'real-offline-wait', waitMs, startedAt: new Date(wallStarted).toISOString(), artifacts: dir, serversRunning: 0 }));
-  await writeFile(join(dir, 'waiting.json'), JSON.stringify({ waitMs, wallStarted, cases: cases.map(c => ({ label: c.label, db: c.db, stoppedAt: c.stoppedAt, baseline: c.baseline, ports: c.ports })) }, null, 2));
+  console.log(JSON.stringify({ phase: 'real-offline-wait', recordedSleep, waitMs, startedAt: new Date(wallStarted).toISOString(), artifacts: dir, serversRunning: 0 }));
+  await writeFile(join(dir, 'waiting.json'), JSON.stringify({ recordedSleep, waitMs, wallStarted, cases: cases.map(c => ({ label: c.label, db: c.db, stoppedAt: c.stoppedAt, bed: c.bed, baseline: c.baseline, ports: c.ports })) }, null, 2));
   await wait(waitMs);
   const elapsed = performance.now() - started, wallElapsed = Date.now() - wallStarted;
   assert(elapsed >= waitMs - 1, `Monotonic wait too short: ${elapsed}`);
@@ -110,24 +133,44 @@ try {
     verifySettlement(c, visit); assert(recap && visit.recapPending && !visit.recapClaimed);
     assert.equal(recap.from, c.baseline.serverTime); assert.equal(recap.to, visit.serverTime);
     assert.deepEqual(recap.before, snapshot(c.baseline.state)); assert.deepEqual(recap.after, snapshot(visit.state));
+    let wakeReply;
     if (c.sleeping) {
       const denied = await api(c, 'recap/read', { id: recap.id }); assert(denied.recapPending && !denied.recapClaimed);
       const wake = { kind: 'sleep', requestId: `wall-wake-${c.label}` };
       const headers = { 'X-PixelPet-Generation': visit.saveGeneration, 'X-PixelPet-Sleep-If': 'sleeping' };
       const woke = await api(c, 'action', wake, headers); assert.equal(woke.state.sleeping, false); assert.deepEqual(woke.returnRecap, recap);
-      const duplicate = await api(c, 'action', wake, headers); assert.equal(duplicate.state.sleeping, false); assert(!duplicate.returnRecap && !duplicate.recapPending && !duplicate.recapClaimed, 'Cached wake must not replay a recap notification');
+      wakeReply = woke;
+      if (recordedSleep) {
+        const summary = woke.careFeedback?.sleepSummary;
+        assert(summary, `${c.label}: missing acknowledged sleep summary`);
+        assert.equal(woke.state.sleepSession, undefined);
+        assert.equal(summary.startedAt, c.bed.state.sleepSession.startedAt);
+        assert.equal(summary.wokeAt, woke.state.lastTick);
+        assert.equal(summary.wokeAt, woke.careFeedback.effect.at);
+        near(summary.settledHours, (summary.wokeAt - summary.startedAt) / 3600000, `${c.label} entire sleep duration`);
+        near(summary.energyRecovered, woke.state.needs.energy - c.bed.state.needs.energy, `${c.label} entire sleep recovery`);
+        near(summary.restGain, summary.energyRecovered / c.baseline.careRules.growth.restEnergyPerHabit, `${c.label} entire sleep rest`);
+        near(summary.growthPoints, woke.state.growth.points - c.bed.state.growth.points, `${c.label} entire sleep growth`);
+        assert.equal(woke.careFeedback.points, 0, 'Waking itself must not grant growth');
+        assert.equal(woke.careFeedback.habitGain, 0, 'Waking itself must not grant a habit');
+        if (c.stage === 'adult') assert.equal(summary.growthPoints, 0);
+      } else assert.equal(woke.careFeedback?.sleepSummary, undefined, 'Legacy sleep must not fabricate history');
+      const duplicate = await api(c, 'action', wake, headers);
+      assert.deepEqual(duplicate.careFeedback, woke.careFeedback, 'Retry changed the acknowledged wake receipt');
+      assert.equal(duplicate.state.sleeping, false); assert(!duplicate.returnRecap && !duplicate.recapPending && !duplicate.recapClaimed, 'Cached wake must not replay a recap notification');
       const stillSaved = await api(c, 'state'); assert(stillSaved.recapPending); assert.deepEqual(stillSaved.returnRecap, recap);
     }
     const read = await api(c, 'recap/read', { id: recap.id }); assert(read.recapClaimed && !read.recapPending); assert.deepEqual(read.returnRecap, recap);
     const duplicate = await api(c, 'recap/read', { id: recap.id }); assert(!duplicate.recapClaimed && !duplicate.recapPending); assert.deepEqual(duplicate.returnRecap, recap);
     await stop(c); await start(c); const persisted = await api(c, 'visit', {});
     assert(!persisted.recapPending && !persisted.recapClaimed); assert.deepEqual(persisted.returnRecap, recap);
+    assert.equal(persisted.state.sleepSession, undefined);
     assert.equal(persisted.state.sleeping, false); assert.equal(persisted.saveGeneration, c.baseline.saveGeneration);
     assert.equal(persisted.state.careCount, c.baseline.state.careCount); assert.deepEqual(persisted.state.economy, c.baseline.state.economy);
-    results.push({ label: c.label, starts: c.starts, ports: c.ports, baseline: c.baseline, passive, visit, recap, settlement, persisted });
+    results.push({ label: c.label, starts: c.starts, ports: c.ports, bed: c.bed, baseline: c.baseline, wakeReply, passive, visit, recap, settlement, persisted });
     await stop(c); console.log('PASS', c.label, JSON.stringify(settlement));
   }
-  await writeFile(join(dir, 'results.json'), JSON.stringify({ waitMs, elapsed, wallElapsed, cases: results, requests }, null, 2));
+  await writeFile(join(dir, 'results.json'), JSON.stringify({ recordedSleep, waitMs, elapsed, wallElapsed, cases: results, requests }, null, 2));
   console.log(JSON.stringify({ groups: results.length, elapsed, wallElapsed, artifacts: dir, serversRunning: 0 }));
 } finally {
   await Promise.all(cases.map(stop));
