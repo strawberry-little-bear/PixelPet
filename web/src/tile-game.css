@@ -1,20 +1,22 @@
 .tile-game {
   color: #405132;
-  font-size: 9px;
-  line-height: 1.3;
+  font-size: .857143rem;
+  line-height: 1.6;
 }
 .tile-game header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 18px;
+  min-height: 18px;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 .tile-game header strong {
-  font-size: 11px;
+  font-size: inherit;
 }
 .tile-playfield {
   display: flex;
-  height: 127px;
+  min-height: 128px;
   align-items: center;
   gap: 4px;
 }
@@ -67,8 +69,8 @@
 .tile-companion {
   position: relative;
   flex: 1;
-  min-width: 53px;
-  height: 120px;
+  min-width: 0;
+  min-height: 120px;
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -90,8 +92,9 @@
   margin-top: -3px;
 }
 .tile-companion > small {
-  font-size: 7px;
-  white-space: nowrap;
+  font-size: inherit;
+  text-align: center;
+  overflow-wrap: anywhere;
   margin-top: 3px;
 }
 .tile-companion .room-decoration {
@@ -124,16 +127,15 @@
   height: 15px;
 }
 .tile-status {
-  font-size: 8px;
+  font-size: inherit;
   border-top: 1px dotted #7e987b66;
   padding-top: 3px;
 }
 .tile-message {
-  font-size: 8px;
+  font-size: inherit;
   margin: 3px 0 0;
   line-height: 1.4;
-  max-height: 23px;
-  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 @keyframes tile-thread {
   to {
@@ -176,4 +178,28 @@
     top: 55px;
     left: 20px;
   }
+}
+
+/* Untimed tiles may grow with text; never clip feedback to the real-time LCD. */
+.tile-status p { margin: 3px 0; }
+.tiles-mode .device-buttons {
+  position: sticky;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 3;
+  padding: 8px;
+  border: 1px solid #718660;
+  border-radius: 16px;
+  background: #d6e5b4;
+}
+@media (forced-colors: active) {
+  .tiles-mode .device-buttons { background: Canvas; border-color: ButtonText; }
+  .tile-board { forced-color-adjust: none; }
+  .tile-cell rect { fill: Canvas; stroke: CanvasText; }
+  .tile-cell.empty rect { fill: Canvas; stroke: GrayText; stroke-dasharray: 1 2; }
+  .tile-cell .tile-icon { color: CanvasText; }
+  .tile-cell .tile-icon path:not(:first-child) { fill: Canvas; }
+  .tile-cell.cursor rect { fill: Canvas; stroke: Highlight; stroke-width: 2; }
+  .tile-cell.picked rect { fill: Canvas; stroke: CanvasText; stroke-dasharray: 2 1; }
+  .tile-pick-mark { stroke: Highlight; }
+  .tile-link { stroke: LinkText; }
 }

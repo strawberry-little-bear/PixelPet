@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { PetArt } from "./PetArt";
 import { RoomDecoration } from "./EquipmentArt";
 import { petGrowth } from "./growth";
@@ -15,6 +16,9 @@ export const tileNames = [
   "蘑菇",
   "脚印",
 ];
+function tilePosition(index: number) {
+  return `第 ${index + 1} 格（${Math.floor(index / 4) + 1} 行 ${index % 4 + 1} 列）`;
+}
 export function nextTile(board: number[], cursor: number) {
   for (let step = 1; step <= 16; step++) {
     const next = (cursor + step + 16) % 16;
@@ -63,6 +67,7 @@ export function TileGame({
   message: string;
   now: number;
 }) {
+  const descriptionId = useId();
   const tiles = pet.game?.tiles;
   if (!tiles) return null;
   const growth = petGrowth(pet, now);
@@ -82,7 +87,11 @@ export function TileGame({
           viewBox="-6 -6 112 112"
           role="img"
           aria-label="四行四列图案棋盘，使用机身三键操作"
+          aria-describedby={descriptionId}
         >
+          <desc id={descriptionId}>
+            {tiles.board.map((value, index) => `${tilePosition(index)}：${tileNames[value]}`).join("；")}。
+          </desc>
           {tiles.board.map((value, i) => (
             <g
               key={i}
@@ -146,8 +155,8 @@ export function TileGame({
         </div>
       </div>
       <div className="tile-status" role="status">
-        第 {cursor + 1} 格 · {tileNames[tiles.board[cursor]]}
-        {tiles.pick >= 0 ? ` · 已选第 ${tiles.pick + 1} 格` : " · B 选中"}
+        <p>{tilePosition(cursor)}· {tileNames[tiles.board[cursor]]}</p>
+        <p>{tiles.pick >= 0 ? `已选${tilePosition(tiles.pick)}· ${tileNames[tiles.board[tiles.pick]]}` : "B 选中"}</p>
       </div>
       <p className="tile-message">
         {message || "同图案，最多拐两次弯；可绕棋盘外。"}

@@ -117,6 +117,60 @@ afterEach(() => {
 });
 
 describe("three-key pet tile matching", () => {
+  function feedbackGeometry() {
+    const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function(this: Element) {
+      const top = this.matches(".device-buttons") ? 500 : this.matches(".tile-board") ? -600 : -400;
+      return { top, bottom: top + 100, width: 200, height: 100, left: 0, right: 200, x: 0, y: top, toJSON: () => ({}) };
+    });
+    return scroll;
+  }
+  it("reveals explicit A/B/C feedback but preserves manual reading on state polling", async () => {
+    const scroll = feedbackGeometry();
+    saved.game = game(); await mount();
+    expect(scroll).not.toHaveBeenCalled();
+    await key("a"); expect(scroll).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".tile-status")?.textContent).toContain("第 2 格");
+    await key("b"); expect(scroll).toHaveBeenCalledTimes(2);
+    expect(document.querySelector(".tile-status")?.textContent).toContain("已选第 2 格");
+    await key("c"); expect(scroll).toHaveBeenCalledTimes(3);
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(scroll).toHaveBeenCalledTimes(3);
+    expect(actions().map(a => a.kind)).toEqual(["tile-pick", "tile-clear"]);
+  });
+  it("does not reveal rejected tile actions", async () => {
+    const scroll = feedbackGeometry(); saved.game = game(); await mount();
+    api.mockRejectedValueOnce(new RequestFailure("请重选", "rejected"));
+    await key("b"); expect(scroll).not.toHaveBeenCalled();
+  });
+  it("a late confirmed reply after leaving the window cannot replay a feedback jump", async () => {
+    const scroll = feedbackGeometry(); saved.game = game(); await mount();
+    let resolve!: (r: Result) => void;
+    api.mockImplementationOnce(() => new Promise<Result>(r => { resolve = r; }));
+    await key("b");
+    await act(async () => { fireEvent(window, new Event("blur")); });
+    saved.game.tiles!.pick = 0; saved.revision++;
+    await act(async () => { resolve(result()); });
+    expect(scroll).not.toHaveBeenCalled();
+    await act(async () => { fireEvent(window, new Event("focus")); });
+    expect(scroll).not.toHaveBeenCalled();
+  });
+
+  it("uses an untimed reading layout only while the tile board is visible", async () => {
+    const scroll = feedbackGeometry();
+    await mount();
+    await startTiles();
+    expect(document.querySelector(".device-stage.tiles-mode.reading-mode .tile-board")).toBeTruthy();
+    scroll.mockClear();
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    await key("c");
+    expect(document.querySelector(".game-abandon")).toBeTruthy();
+    expect(document.querySelector(".tiles-mode")).toBeNull();
+    await key("a");
+    expect(document.querySelector(".tiles-mode .tile-board")).toBeTruthy();
+    expect(scroll).toHaveBeenCalledTimes(1);
+  });
+
   it("selects a game without starting it, preserves the default star choice, and returns without a mutation", async () => {
     await mount();
     await selector();

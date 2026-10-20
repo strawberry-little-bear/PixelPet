@@ -27,6 +27,7 @@ import { FishingGame, FishAlbum } from "./FishingGame";
 import { fishCatalogFor, fishingMenu } from "./fishing";
 import { TetrisGame, tetrisOptions } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
+import { useTileViewport, type TileDestination } from "./useTileViewport";
 import { TileGame, nextTile } from "./TileGame";
 import { GameAllowance } from "./GuideReward";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
@@ -286,6 +287,7 @@ export default function App() {
   const [tileCursor, setTileCursor] = useState(0);
   const [tileLink, setTileLink] = useState<TileLink | null>(null);
   const tileLinkSequence = useRef(0);
+  const [tileDestination, setTileDestination] = useState<TileDestination | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
   const [shopPage, setShopPage] = useState(0);
   const [shopCategory, setShopCategory] = useState<ShopCategory | null>(null);
@@ -1099,6 +1101,14 @@ export default function App() {
         kind === "snake-finish" ||
         kind === "cancel-play"
       ) setSnakeSession("");
+      // Explicit, confirmed tile feedback only: snapshots and late replies must
+      // not pull a reader back to the board after a recovery or window change.
+      const tileKey = gameSessionKey(r.state.game);
+      if ((kind === "play-tiles" || (["tile-pick", "tile-clear"].includes(kind)
+        && page === "game" && tileKey === gameSessionKey(pet?.game)))
+        && tileKey && r.state.game?.tiles && activeBoardEpoch === boardEpoch.current
+        && !document.hidden && windowActive.current)
+        setTileDestination({ sessionKey: tileKey, target: kind === "play-tiles" ? "selection" : "feedback" });
       if (r.tileLink?.length && pet?.game?.tiles) {
         setTileLink({
           path:
@@ -1481,7 +1491,10 @@ export default function App() {
     }
     if (abandoning) {
       if (key === "B") void act("cancel-play").then(ok => { if (ok) setAbandonGame(null); });
-      else { setAbandonGame(null); setTetrisChoice(0); setFishingChoice(0); setWalkChoice(0); setTreasureChoice(0); }
+      else {
+        setAbandonGame(null); setTetrisChoice(0); setFishingChoice(0); setWalkChoice(0); setTreasureChoice(0);
+        if (pet.game?.kind === "tiles" && sessionKey) setTileDestination({ sessionKey, target: "selection" });
+      }
       return;
     }
     if (page === "game" && !abandoning && pet.game?.kind === "treasure" && pet.game.treasure) {
@@ -1589,9 +1602,10 @@ export default function App() {
       return;
     }
     if (page === "game" && !abandoning && pet.game?.kind === "tiles" && pet.game.tiles) {
-      if (key === "A")
+      if (key === "A") {
         setTileCursor((v) => nextTile(pet.game!.tiles!.board, v));
-      else if (key === "B") void act("tile-pick", { tile: tileCursor });
+        if (sessionKey) setTileDestination({ sessionKey, target: "selection" });
+      } else if (key === "B") void act("tile-pick", { tile: tileCursor });
       else if (pet.game.tiles.pick >= 0) void act("tile-clear");
       else setAbandonGame(sessionKey);
       return;
@@ -1948,6 +1962,9 @@ export default function App() {
       ? "A / C 继续  B 放弃确认"
       : "A 左转  B 右转  C 暂停";
   const treasure = pet?.game?.treasure;
+  const tileView = page === "game" && pet?.game?.kind === "tiles" && !!pet.game.tiles && !abandoning
+    && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset;
+  useTileViewport(readingRoot, tileDestination, sessionKey, tileView && foreground && windowFocused);
   const treasureView = page === "game" && pet?.game?.kind === "treasure" && !!treasure && !abandoning
     && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset;
   useTreasureViewport(readingRoot, treasureDestination, sessionKey, treasureView && foreground);
@@ -2015,7 +2032,7 @@ export default function App() {
 
   // Use the same reading decision for geometry and successful notices.
   const readingMode = page !== "game" || abandoning || uncertain || unavailable || corrupt
-    || treasure
+    || treasure || pet?.game?.kind === "tiles"
     || (snake && (snake.paused || snake.end || snakeSession !== pet?.game?.id))
     || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
     || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
@@ -2190,7 +2207,7 @@ export default function App() {
               </small>
             </div>
           </div>
-          <div className={`device-stage ${readingMode ? "reading-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""}`}>
+          <div className={`device-stage ${readingMode ? "reading-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""} ${tileView ? "tiles-mode" : ""}`}>
             <span className="device-orbit orbit-one">✧</span>
             <span className="device-orbit orbit-two">+</span>
             <div className="device-shadow" />

@@ -32,7 +32,7 @@
 ### 七款正式小游戏
 
 - [统一入口、接星星及七款说明／奖励条件](ARCADE.md)
-- [连连看](TILE_MATCH.md) · [贪吃蛇](SNAKE.md) · [俄罗斯方块](TETRIS.md)
+- [连连看及大字号选牌反馈](TILE_MATCH.md) · [贪吃蛇](SNAKE.md) · [俄罗斯方块](TETRIS.md)
 - [池塘钓鱼、鱼图鉴与本局钓获回看](FISHING.md) · [公园散步、沿途发现与本局回看](WALK.md)
 - [森林寻宝规则](TREASURE_RULES.md) · [寻宝小屏可见性](TREASURE_VIEWPORT.md) · [寻宝同步验收](TREASURE_SYNC.md)
 - [暂停中重看规则](PAUSE_GUIDE.md) · [重复进入的简洁开始卡](ARCADE.md#已交付更新于2026-10-20)
