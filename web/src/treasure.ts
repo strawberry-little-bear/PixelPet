@@ -10,13 +10,25 @@ export function nextTreasure(n: TreasureHunt, cursor: number) {
   }
   return cursor;
 }
+const treasureNeighbors = (index: number) => Array.from({ length: 9 }, (_, at) => at).filter(at =>
+  at !== index && Math.abs(Math.floor(at / 3) - Math.floor(index / 3)) <= 1 && Math.abs(at % 3 - index % 3) <= 1);
+
 export function treasureCell(n: TreasureHunt, index: number) {
   const opened = n.opened.includes(index);
   if (!opened && !treasureDone(n)) return { opened, item: 0, nearby: null };
   const item = n.layout[index];
   let nearby: number | null = null;
   if (opened && item === 0) {
-    nearby = n.layout.filter((item, at) => item > 0 && Math.abs(Math.floor(at / 3) - Math.floor(index / 3)) <= 1 && Math.abs(at % 3 - index % 3) <= 1).length;
+    nearby = treasureNeighbors(index).filter(at => n.layout[at] > 0).length;
   }
   return { opened, item, nearby };
+}
+
+// Only an acknowledged, already explored empty cell can supply a clue. The
+// range is geometric: never filter it by hidden objects or the current cursor.
+export function treasureClue(n: TreasureHunt) {
+  if (treasureDone(n)) return null;
+  const index = [...n.opened].reverse().find(at => n.layout[at] === 0);
+  if (index === undefined) return null;
+  return { index, nearby: treasureCell(n, index).nearby, neighbors: treasureNeighbors(index) };
 }

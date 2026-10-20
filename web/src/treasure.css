@@ -44,6 +44,8 @@
 .treasure-grid [role=gridcell][aria-selected=true] { border: 2px solid currentColor; padding: 2px; background: #c1d3a2; }
 .treasure-grid [data-opened=true] { background: #d4dfbb; border-style: solid; }
 .treasure-grid [data-revealed=true] { border-style: dotted; }
+.treasure-grid [data-clue-source=true] > small { font-weight: bold; text-decoration: underline; }
+.treasure-clue { margin: 6px 0; font-size: .857143rem; }
 .treasure-grid strong { font-size: 1.428571rem; line-height: 1.2; }
 .treasure-grid small { font-size: .642857rem; }
 .treasure-grid span { font-size: .714286rem; }

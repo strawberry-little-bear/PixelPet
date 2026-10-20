@@ -64,6 +64,52 @@ describe("untimed treasure presentation",()=>{
  ])("rejects malformed render-critical models",mutate=>{mutate(saved.game!.treasure!);expect(validCoreResponse(response())).toBe(false)});
 });
 
+describe("visible treasure clue range", () => {
+ const source = () => document.querySelector('[data-clue-source=true]');
+ it("labels every neighbor, including a found object, without leaking unopened items or adding controls", () => {
+  saved.game!.treasure!.opened=[3,0];
+  render(<TreasureGame pet={saved} active cursor={4} choice={0}/>);
+  expect(source()?.getAttribute("aria-label")).toContain("最近空地线索");
+  expect(source()?.textContent).toContain("线索");
+  expect(document.querySelector(".treasure-clue")?.textContent).toContain("4号格 · 数字 2");
+  expect(document.querySelector(".treasure-clue")?.textContent).toContain("含斜角及已找到的小物");
+  const neighbors=[...document.querySelectorAll('[data-clue-neighbor=true]')];
+  expect(neighbors).toHaveLength(5);
+  expect(neighbors[0].getAttribute("aria-label")).toContain("小松果，已找到");
+  expect(neighbors[0].getAttribute("aria-label")).toContain("在4号格线索范围内");
+  expect(neighbors[1].getAttribute("aria-label")).toContain("未探索");
+  expect(document.querySelector(".treasure-grid")?.textContent).not.toMatch(/轻羽毛|光滑石/);
+  expect(document.querySelectorAll("button,a,input,[role=button]")).toHaveLength(0);
+ });
+ it.each([[0],[0,1,2],[3,4,5,6,7,8]].map(opened=>({opened})))("does not mark a range without a source or at terminal reveal: $opened", ({opened}) => {
+  saved.game!.treasure!.opened=opened;
+  render(<TreasureGame pet={saved} active cursor={4} choice={0}/>);
+  expect(source()).toBeNull();expect(document.querySelector(".treasure-clue")).toBeNull();
+  expect(document.querySelectorAll('[data-clue-neighbor=true]')).toHaveLength(0);
+ });
+ it("keeps the source through A, pause, reload and finding an object, replacing only after an accepted empty dig", async () => {
+  saved.game!.treasure!.opened=[3];await mount();
+  expect(source()?.getAttribute("aria-label")).toMatch(/^4号格/);
+  await key("c");await key("a");await key("a"); // Select object 3, not a new empty clue.
+  expect(calls()).toHaveLength(1);expect(source()?.getAttribute("aria-label")).toMatch(/^4号格/);
+  await key("b");expect(document.querySelector(".treasure-result")?.textContent).toContain("光滑石");
+  expect(source()?.getAttribute("aria-label")).toMatch(/^4号格/);
+  await key("c");cleanup();await mount();
+  expect(document.querySelector(".treasure-pause")).toBeTruthy();expect(source()?.getAttribute("aria-label")).toMatch(/^4号格/);
+  await key("c");await key("a"); // Skip object 1 to object 2, then empty 5.
+  await key("a");delayDig=true;await key("b");
+  expect(source()?.getAttribute("aria-label")).toMatch(/^4号格/);
+  await act(async()=>release());expect(source()?.getAttribute("aria-label")).toMatch(/^5号格/);
+  expect(calls().filter(a=>a.kind==="treasure-dig")).toHaveLength(2);
+ });
+ it("never invents a clue for a rejected exploration or retries it", async () => {
+  await mount();await key("c");await key("a");await key("a");await key("a");
+  failure="treasure-dig";await key("b");await clock(20000);
+  expect(source()).toBeNull();expect(document.querySelector(".treasure-clue")).toBeNull();
+  expect(calls().filter(a=>a.kind==="treasure-dig")).toHaveLength(1);
+ });
+});
+
 describe("three-key treasure flow",()=>{
  it("never runs from a read or elapsed time; explicit resume then A selects and B digs",async()=>{
   saved.game!.treasure!.paused=false;await mount();await clock(60000);

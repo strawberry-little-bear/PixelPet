@@ -1,12 +1,13 @@
 import { TreasureCompanion } from "./TreasureCompanion";
 import type { TreasureReaction } from "./treasure-reaction";
 import type { PetState } from "./types";
-import { treasureCell, treasureDone, treasureFound, treasureItems, treasureMenu } from "./treasure";
+import { treasureClue, treasureCell, treasureDone, treasureFound, treasureItems, treasureMenu } from "./treasure";
 import "./treasure.css";
 
 export function TreasureGame({ pet, active, cursor, choice, reaction }: { pet: PetState; active: boolean; cursor: number; choice: number; reaction?: TreasureReaction | null }) {
   const n = pet.game?.treasure;
   if (!n) return null;
+  const clue = treasureClue(n);
   const done = treasureDone(n), paused = !done && (n.paused || !active);
   const label = (index: number) => {
     const view = treasureCell(n, index);
@@ -17,11 +18,14 @@ export function TreasureGame({ pet, active, cursor, choice, reaction }: { pet: P
     <TreasureCompanion pet={pet} paused={paused} done={done} reaction={reaction}/>
     {paused && <div className="treasure-pause"><strong>慢慢找，不计时</strong><ul>{treasureMenu.map((name, i) => <li key={name} aria-current={choice === i}>{choice === i ? "▸" : "　"} {name}</li>)}</ul><small>A 选择 · B 确认 · C 继续</small></div>}
     {n.opened.length > 0 && <p className="treasure-result" aria-live="polite">上次探索：{label(n.opened[n.opened.length - 1])}</p>}
-    <div className="treasure-grid" role="grid" aria-label="林地九格，只用 A / B / C 操作">
+    {clue && <p className="treasure-clue" id="treasure-clue">最近空地线索：{clue.index + 1}号格 · 数字 {clue.nearby}。标「邻」的格子都计入，含斜角及已找到的小物。</p>}
+    <div className="treasure-grid" role="grid" aria-label="林地九格，只用 A / B / C 操作" aria-describedby={clue ? "treasure-clue" : undefined}>
       {[0, 1, 2].map(row => <div key={row} role="row">{[0, 1, 2].map(col => {
         const index = row * 3 + col, view = treasureCell(n, index);
-        return <div key={index} role="gridcell" aria-label={label(index)} aria-selected={!done && cursor === index} data-opened={view.opened} data-revealed={done && !view.opened}>
-          <small>{index + 1}</small><strong aria-hidden="true">{!view.opened && !done ? "?" : view.item ? ["", "♧", "❧", "◆"][view.item] : view.opened ? view.nearby : "·"}</strong>
+        const source = clue?.index === index, neighbor = clue?.neighbors.includes(index) ?? false;
+        const clueLabel = source ? " · 最近空地线索" : neighbor ? ` · 在${clue!.index + 1}号格线索范围内` : "";
+        return <div key={index} role="gridcell" aria-label={label(index) + clueLabel} aria-selected={!done && cursor === index} data-opened={view.opened} data-revealed={done && !view.opened} data-clue-source={source} data-clue-neighbor={neighbor}>
+          <small>{index + 1}{source ? " · 线索" : neighbor ? " · 邻" : ""}</small><strong aria-hidden="true">{!view.opened && !done ? "?" : view.item ? ["", "♧", "❧", "◆"][view.item] : view.opened ? view.nearby : "·"}</strong>
           <span>{!view.opened && !done ? "未探索" : view.item ? treasureItems[view.item] : "空地"}</span>
           {done && view.item > 0 && !view.opened && <small>留在林间</small>}
         </div>;
