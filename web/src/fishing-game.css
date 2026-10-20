@@ -75,3 +75,15 @@
 @keyframes pond-fin { 50% { transform:rotate(-40deg); } }
 .pond-scene[data-motion="paused"] * { animation:none!important; }
 @media (prefers-reduced-motion:reduce) { .pond-scene *, .pond-scene .fishing-companion .pet-sprite * { animation:none!important; } }
+
+/* Paused / completed sessions only: normal document flow, never a fourth
+   control or a nested scroll box. Keep long names and doubled text readable. */
+.fishing-catches { margin-top:10px; padding-top:8px; border-top:1px solid #8e9d71; overflow-wrap:anywhere; }
+.fishing-catches h3 { margin:0 0 6px; }
+.fishing-catches ol { list-style:none; margin:0; padding:0; }
+.fishing-catches li { margin:8px 0; padding:6px; border:1px dashed #8e9d71; }
+.fishing-catches li > span { display:block; }
+.fishing-catches li > strong { display:block; }
+.fishing-catches-art { width:56px; height:36px; margin:4px 0; }
+.fishing-catches p { margin:4px 0; }
+.fishing-catches small { display:block; }

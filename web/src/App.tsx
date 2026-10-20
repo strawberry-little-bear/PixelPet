@@ -187,6 +187,11 @@ export default function App() {
   const clock = useRef(anchorServerClock(now));
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  // Only an automatic fishing pulse admits C while writing. Other operations
+  // remain locked; no general input queue or replay of uncertain writes.
+  const [busyAction, setBusyAction] = useState("");
+  const busyActionRef = useRef("");
+  const pendingFishingPause = useRef<{ id: string; generation?: string; epoch: number } | null>(null);
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState(false);
   const unavailableRef = useRef(false);
@@ -1023,6 +1028,9 @@ export default function App() {
     setHomeEcho(null);
     busyRef.current = true;
     setBusy(true);
+    busyActionRef.current = kind;
+    setBusyAction(kind);
+    let succeeded = false;
     const activeEpoch = fishingEpoch.current;
     const actionStartedAt = performance.now();
     const activeWalkEpoch = walkEpoch.current;
@@ -1131,6 +1139,7 @@ export default function App() {
       } else if (kind === "feed" || kind === "clean" || kind === "sleep") {
         setPage("home");
       }
+      succeeded = true;
       return true;
     } catch (e) {
       if (isClockAhead(e)) markClockAhead();
@@ -1143,7 +1152,24 @@ export default function App() {
       return false;
     } finally {
       busyRef.current = false;
+      busyActionRef.current = "";
+      setBusyAction("");
       setBusy(false);
+      if (kind === "fish-step") {
+        const pause = pendingFishingPause.current;
+        pendingFishingPause.current = null;
+        const game = acceptedPet.current?.game;
+        // Serialize the pause behind an acknowledged pulse, using its new step.
+        // Interruption epochs and generation/session checks forbid delayed
+        // writes after a blur, overlay, save replacement, or uncertain reply.
+        if (succeeded && pause && pause.epoch === fishingEpoch.current &&
+          pause.generation === acceptedGeneration.current && game?.id === pause.id &&
+          game.fishing && !game.fishing.paused && game.fishing.phase !== "done" &&
+          !clockAheadRef.current && !document.hidden && windowActive.current &&
+          !uncertainRef.current && !unavailableRef.current && !corruptRef.current) {
+          void act("fish-pause", { gameId: pause.id, step: game.fishing.step });
+        }
+      }
     }
   }
   useEffect(() => {
@@ -1252,6 +1278,10 @@ export default function App() {
     return () => {
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("blur", blur);
+      // A pulse may resolve after the component is gone; never write a queued
+      // pause from a disposed page (including StrictMode cleanup).
+      fishingEpoch.current++;
+      pendingFishingPause.current = null;
     };
   }, []);
 
@@ -1263,9 +1293,22 @@ export default function App() {
     setPauseGuideSession(sessionKey); setGuidePage(0); setPage("pause-guide");
     setPauseReadingDestination({ sessionKey, target: "guide" });
   };
+  const canPauseFishingPulse = (kind: string) => kind === "fish-step" && page === "game" &&
+    pet?.game?.kind === "fishing" && !!pet.game.id && fishingSession === pet.game.id &&
+    !!pet.game.fishing && !pet.game.fishing.paused && ["wait", "bite"].includes(pet.game.fishing.phase) &&
+    !tools && !help && !reset && !abandoning && !document.hidden && windowActive.current &&
+    !uncertainRef.current && !unavailableRef.current && !corruptRef.current;
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
-    if (busyRef.current) return;
+    if (busyRef.current) {
+      if (key === "C" && pet?.game?.id && canPauseFishingPulse(busyActionRef.current) && !pendingFishingPause.current) {
+        audio.current?.cancel();
+        fishingEpoch.current++;
+        pendingFishingPause.current = { id: pet.game.id, generation: acceptedGeneration.current, epoch: fishingEpoch.current };
+        setFishingSession(""); setFishingChoice(0);
+      }
+      return;
+    }
     if (uncertainRef.current || unavailableRef.current) {
       if (key === "B") void refresh();
       return;
@@ -1681,7 +1724,7 @@ export default function App() {
         (e.key === "ArrowDown" || e.key === " ")) return;
       // Enter on a care or memory reading stop is not a confirmation/page turn.
       // Native activation on physical buttons and explicit A/B/C stay intact.
-      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region,.sleep-home-guidance,.walk-discoveries") && e.key === "Enter") return;
+      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region,.sleep-home-guidance,.walk-discoveries,.fishing-catches") && e.key === "Enter") return;
       const key = e.key.toLowerCase();
       // Enter/Space activate the focused physical key, just like clicking it.
       // In particular the import preview deliberately focuses safe C: never
@@ -2468,7 +2511,7 @@ export default function App() {
                 {["A", "B", "C"].map((key, i) => (
                   <div className="button-unit" key={key}>
                     <button
-                      disabled={busy || checking || ((uncertain || unavailable) && key !== "B") || (clip !== null && key !== "C")}
+                      disabled={(busy && !(key === "C" && canPauseFishingPulse(busyAction))) || checking || ((uncertain || unavailable) && key !== "B") || (clip !== null && key !== "C")}
                       className={`physical-button button-${key.toLowerCase()} ${pressed === key ? "is-pressed" : ""}`}
                       aria-label={`${key} ${["选择", "确认", "返回"][i]}`}
                       onClick={() => controls.current(key)}

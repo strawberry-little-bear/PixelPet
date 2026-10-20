@@ -1,9 +1,10 @@
+import { CareReadingRegion } from "./CareReadingRegion";
 import { outingScenery } from "./outing";
 import { OutingCaption, OutingEncounterNote, OutingSky } from "./OutingScenery";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
 import { fishCatalog, fishCatalogFor, fishInfo, fishingCompanions, fishingMenu, fishingSpots, fishingWaitNotes } from "./fishing";
-import type { PetState } from "./types";
+import type { Fishing, PetState } from "./types";
 import "./fishing-game.css";
 
 export function FishArt({ id, hidden = false }: { id: string; hidden?: boolean; }) {
@@ -16,6 +17,28 @@ export function FishArt({ id, hidden = false }: { id: string; hidden?: boolean; 
       {!hidden && <><path d={fish.shape === "petal" ? "M22 8V2h5v3h5v6M22 27v7h7v-5" : "M18 11V5h10v6M19 27v5h8v-5"} /><path d="M20 17h8v6h-8z" fill="#e0d9ac" stroke="none" />{fish.shape === "striped" && <path d="M18 10v17m9-17v17m8-14v12" fill="none" stroke="#4e5d76" strokeWidth="3" />}{fish.shape === "rain" && <path d="M18 13l-2 4h4zm9 7l-2 4h4zm5-9l-2 4h4z" fill="#d7ecdf" stroke="none" />}{fish.shape === "spotted" && <path d="M17 12h3v3h-3zm10 10h3v3h-3zm5-9h3v3h-3z" fill="#594f38" stroke="none" />}<path d="M38 16h3v3h-3z" fill="#2f3e2b" stroke="none" /></>}
     </g>{hidden && <text x="28" y="25" textAnchor="middle" fontSize="16" fill="#e4e9c9">?</text>}
   </svg>;
+}
+
+// The ordered server catch list is distinct from cast numbers and the lifetime
+// album. Do not infer catches from candidate, lastFish or previous discoveries.
+export function FishingCatches({ fishing }: { fishing: Fishing }) {
+  const catches = fishing.catches ?? [];
+  return <CareReadingRegion className="fishing-catches" label="本次钓到的小鱼"
+    hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
+    <h3>本次钓到的小鱼 · {catches.length} 条</h3>
+    {catches.length === 0 ? <p>这次还没有钓到小鱼。慢慢等，不用每一竿都有收获。</p> : <ol>
+      {catches.map((id, index) => {
+        const fish = fishInfo(id);
+        return <li key={index}>
+          <span>第 {index + 1} 条</span>
+          <strong>{fish?.name ?? "小鱼详情尚未读到"}</strong>
+          {fish && <><div className="fishing-catches-art"><FishArt id={id} /></div><p>{fish.story}</p></>}
+        </li>;
+      })}
+    </ol>}
+    <p className="fishing-catches-note">{catches.length ? "钓到时已记入累计鱼图鉴，放弃也保留；" : "实际钓到才记入累计鱼图鉴；"}陪伴与金币仍需完成三竿并收好，按原条件结算。</p>
+    <small>按钓到的先后排列，不是竿次；本局结束后不保留这份清单，可去鱼图鉴回看累计发现。</small>
+  </CareReadingRegion>;
 }
 
 // Fixed scenery, deliberately independent of candidate, wait length and catch
@@ -72,7 +95,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
     <p className="fishing-status">{n.phase === "done" ? `三竿完成 · 发现 ${caughtCount} 条鱼，B / C 收好${n.outcome === "early" ? "；提前提竿，这一竿已用掉。" : ""}` : paused ? "等你回来，鱼漂和机会都留在原处。" : bite ? `咬钩提示还剩 ${Math.max(1, Math.ceil((10000 - n.elapsedMs) / 1000))} 秒 · B 提竿` : n.phase === "wait" ? "还没咬钩；鱼影只是风景，等「咬钩啦」再按 B。" : caught ? `${fish?.name}！${pet.pond?.fish?.find(d => d.id === n.lastFish)?.count === 1 ? "初次发现，已记入图鉴。" : "又见到它啦，图鉴次数已更新。"}` : n.outcome === "early" ? "提前提竿，这一竿已用掉。下一竿等咬钩提示再提。" : n.outcome === "missed" ? "小鱼游走了，慢慢来，不用每次都钓到。" : "选一个喜欢的地方，和它一起听水声。"}</p>
     <small className={`fishing-comment${waiting ? " fishing-wait-note" : ""}`}>{paused ? "没有离线钓鱼，也不补跑漏掉的节拍。" : bite ? companion.bite : caught ? fish?.story : waiting ? waitingNote : companion.waiting}</small>
     <small className="fishing-rule">{n.phase === "done" ? caughtCount ? "完成可计陪伴 · 3–6 币（共用今日额度）" : "至少钓到一条并完成三竿才计陪伴 / 金币" : "A 换钓点（收竿后）· B 抛竿 / 提竿 · C 暂停"}</small>
-    {(paused || n.phase === "done") && <><OutingEncounterNote pet={pet} /><OutingCaption scenery={scenery} /></>}
+    {(paused || n.phase === "done") && <><FishingCatches fishing={n} /><OutingEncounterNote pet={pet} /><OutingCaption scenery={scenery} /></>}
   </section>;
 }
 

@@ -220,3 +220,150 @@ describe("rain fish catalogue compatibility", () => {
     expect(api).not.toHaveBeenCalled();
   });
 });
+
+describe("native reading of this fishing session", () => {
+  const region = () => screen.getByRole("region", { name: "本次钓到的小鱼" });
+  function caughtSession(phase: "result" | "done" = "result") {
+    Object.assign(saved.game!.fishing!, { phase, casts: phase === "done" ? 3 : 2,
+      paused: true, waitMs: 32000, candidate: "moon-perch", outcome: "missed",
+      catches: ["reed-minnow"], lastFish: "" });
+    saved.pond!.fish = [{ id: "reed-minnow", count: 5, firstAt: Date.now(), lastAt: Date.now() }];
+  }
+  it.each(["result", "done"] as const)("reading keys do not resume or collect in %s; explicit controls still work", async phase => {
+    caughtSession(phase); await mount();
+    const area = region(); area.focus();
+    for (const k of ["ArrowDown", "ArrowUp", " ", "Enter"]) {
+      await act(async () => { fireEvent.keyDown(area, { key: k }); });
+    }
+    await clock(16000);
+    expect(calls()).toHaveLength(0);
+    expect(document.activeElement).toBe(area);
+    expect(region().textContent).toContain("青苇小鲦");
+    await key(phase === "done" ? "b" : "c");
+    expect(calls().map(a => a.kind)).toEqual([phase === "done" ? "fish-finish" : "fish-resume"]);
+    expect(screen.queryByRole("region", { name: "本次钓到的小鱼" })).toBeNull();
+  });
+  it("returns from the cumulative album still paused, and keeps the saved list after remount", async () => {
+    caughtSession(); await mount();
+    expect(region().textContent).toContain("1 条");
+    await key("a"); await key("b");
+    expect(screen.getByLabelText("池塘鱼图鉴")).toBeTruthy();
+    await key("c"); expect(region().textContent).toContain("青苇小鲦");
+    expect(calls()).toHaveLength(0);
+    cleanup(); await mount();
+    expect(region().textContent).toContain("青苇小鲦");
+    expect(saved.game!.fishing!.paused).toBe(true);
+    expect(calls()).toHaveLength(0);
+  });
+  it("does not reuse a previous session's list after abandon and a fresh start", async () => {
+    caughtSession(); await mount();
+    await key("a"); await key("a"); await key("b"); await key("b");
+    expect(calls().map(a => a.kind)).toEqual(["cancel-play"]);
+    expect(screen.queryByRole("region", { name: "本次钓到的小鱼" })).toBeNull();
+    cleanup(); saved.game = { id: "fedcba9876543210fedcba9876543210", kind: "fishing",
+      startedAt: Date.now(), round: 0, score: 0, lastBeat: -1,
+      fishing: { ...baseFishing(), paused: true } };
+    await mount();
+    expect(region().textContent).toContain("还没有钓到小鱼");
+    expect(region().textContent).not.toContain("青苇小鲦");
+    expect(saved.pond!.fish![0].count).toBe(5);
+  });
+});
+
+
+describe("pause while a fishing pulse is in flight", () => {
+  async function pendingPulse() {
+    await mount(); await key("b");
+    const normal = api.getMockImplementation()!;
+    let resolve!: (value: Awaited<ReturnType<typeof request>>) => void;
+    let reject!: (error: unknown) => void;
+    api.mockImplementation((...args) => args[0] === "action" && (args[1] as { kind: string }).kind === "fish-step"
+      ? new Promise((yes, no) => { resolve = yes; reject = no; }) : normal(...args));
+    await clock(1100);
+    return { normal, resolve, reject };
+  }
+  it("accepts C during an automatic write, stops locally, then saves once with the acknowledged step", async () => {
+    const pulse = await pendingPulse();
+    expect(screen.getByRole("button", { name: "C 返回" }).hasAttribute("disabled")).toBe(false);
+    expect(screen.getByRole("button", { name: "B 确认" }).hasAttribute("disabled")).toBe(true);
+    await key("c"); await key("c");
+    expect(screen.getByText("池塘已暂停")).toBeTruthy();
+    expect(calls().map(a => a.kind)).toEqual(["fish-cast", "fish-step"]);
+    await clock(5000);
+    await act(async () => { pulse.resolve(await pulse.normal("action", calls()[1])); });
+    expect(calls().map(a => a.kind)).toEqual(["fish-cast", "fish-step", "fish-pause"]);
+    expect(calls()[2]).toMatchObject({ gameId: id, step: 2 });
+    expect(saved.game!.fishing!.paused).toBe(true);
+    await clock(5000); expect(calls()).toHaveLength(3);
+  });
+  it("keeps a wait-to-bite reply paused instead of restoring local run permission", async () => {
+    const pulse = await pendingPulse(); await key("c");
+    saved.game!.fishing!.elapsedMs = 31000;
+    await act(async () => { pulse.resolve(await pulse.normal("action", calls()[1])); });
+    expect(saved.game!.fishing!.phase).toBe("bite");
+    expect(saved.game!.fishing!.paused).toBe(true);
+    expect(screen.getByText("池塘已暂停")).toBeTruthy();
+    expect(screen.queryByText("咬钩啦！按 B 提竿")).toBeNull();
+    await clock(12000); expect(calls().map(a => a.kind)).toEqual(["fish-cast", "fish-step", "fish-pause"]);
+  });
+  it("handles a physical click in the gap before React paints the automatic busy state", async () => {
+    await mount(); await key("b");
+    const normal = api.getMockImplementation()!;
+    let resolve!: (value: Awaited<ReturnType<typeof request>>) => void;
+    api.mockImplementation((...args) => args[0] === "action" && (args[1] as { kind: string }).kind === "fish-step"
+      ? new Promise(yes => { resolve = yes; }) : normal(...args));
+    const button = screen.getByRole("button", { name: "C 返回" });
+    await act(async () => {
+      vi.advanceTimersByTime(1050);
+      // No React flush between the pulse taking the ref lock and this click.
+      expect(button.hasAttribute("disabled")).toBe(false);
+      fireEvent.click(button);
+    });
+    expect(screen.getByText("池塘已暂停")).toBeTruthy();
+    await act(async () => { resolve(await normal("action", calls()[1])); });
+    expect(calls().map(a => a.kind)).toEqual(["fish-cast", "fish-step", "fish-pause"]);
+  });
+  it("does not queue C behind an explicitly requested cast", async () => {
+    await mount(); const normal = api.getMockImplementation()!;
+    let resolve!: (value: Awaited<ReturnType<typeof request>>) => void;
+    api.mockImplementation((...args) => args[0] === "action" ? new Promise(yes => { resolve = yes; }) : normal(...args));
+    await key("b"); await key("c");
+    expect(screen.getByRole("button", { name: "C 返回" }).hasAttribute("disabled")).toBe(true);
+    await act(async () => { resolve(await normal("action", calls()[0])); });
+    expect(calls().map(a => a.kind)).toEqual(["fish-cast"]);
+  });
+  it.each(["generation", "session", "already-paused", "unmount"])("discards deferred pause when %s changes", async change => {
+    const pulse = await pendingPulse(); await key("c");
+    expect(screen.getByText("池塘已暂停")).toBeTruthy();
+    await act(async () => {
+      const reply = await pulse.normal("action", calls()[1]);
+      if (change === "generation") reply.saveGeneration = "fedcba9876543210fedcba9876543210";
+      if (change === "session") reply.state.game!.id = "fedcba9876543210fedcba9876543210";
+      if (change === "already-paused") reply.state.game!.fishing!.paused = true;
+      if (change === "unmount") cleanup();
+      pulse.resolve(reply);
+    });
+    await clock(5000);
+    expect(calls().map(a => a.kind)).toEqual(["fish-cast", "fish-step"]);
+  });
+  it.each(["rejected", "unknown"] as const)("does not send a deferred pause after a %s pulse", async outcome => {
+    const pulse = await pendingPulse(); await key("c");
+    expect(screen.getByText("池塘已暂停")).toBeTruthy();
+    await act(async () => { pulse.reject(new RequestFailure("步进未确认", outcome)); });
+    await clock(5000);
+    expect(calls().map(a => a.kind)).toEqual(["fish-cast", "fish-step"]);
+  });
+  it.each(["blur", "help", "hidden"])("does not send a deferred pause after %s interrupts the pending pulse", async interruption => {
+    const pulse = await pendingPulse(); await key("c");
+    expect(screen.getByText("池塘已暂停")).toBeTruthy();
+    await act(async () => {
+      if (interruption === "blur") window.dispatchEvent(new Event("blur"));
+      else if (interruption === "help") fireEvent.click(screen.getByRole("button", { name: "玩法说明" }));
+      else { vi.spyOn(document, "hidden", "get").mockReturnValue(true); document.dispatchEvent(new Event("visibilitychange")); }
+    });
+    await act(async () => { pulse.resolve(await pulse.normal("action", calls()[1])); });
+    await clock(5000);
+    expect(calls().map(a => a.kind)).toEqual(["fish-cast", "fish-step"]);
+    expect(screen.getByText("池塘已暂停")).toBeTruthy();
+  });
+});
