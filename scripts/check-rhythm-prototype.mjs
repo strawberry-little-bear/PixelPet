@@ -86,6 +86,32 @@ try {
   assert.equal((await (await post(raceBase, {kind:'resume',id:raceState.id,requestId:3})).json()).state.observations.length,0);
   results.push('HTTP: same-origin/JSON/body limits/no game API/stale cue and reordered pause-resume');
 
+  // Reproduce an input task that runs after a real stall but before the next RAF.
+  // Synchronous DOM dispatch is intentional ordering control, not physical-device input.
+  for (const via of ['keyboard', 'button']) for (const letter of ['A', 'B']) {
+    const { page: stalled, requests: sent, context: isolated } = await open(base,
+      via === 'button' ? { viewport: { width: 320, height: 740 }, hasTouch: true, isMobile: true } : {});
+    await key(stalled, 'C'); await idle(stalled); await active(stalled);
+    await stalled.evaluate(({ via, letter }) => {
+      const until = performance.now() + 1101;
+      while (performance.now() < until) {} // Real main-thread block; no clock mocking.
+      if (via === 'button') document.querySelector(`[data-key="${letter}"]`).click();
+      else document.dispatchEvent(new KeyboardEvent('keydown', { key: letter, bubbles: true }));
+    }, { via, letter });
+    await idle(stalled);
+    await stalled.screenshot({ path: join(dir, `stale-${via}-${letter}.png`), fullPage: true });
+    assert.equal(sent.filter(r => r.body?.kind === 'answer').length, 0, 'stale input must pause before sending an answer');
+    await paused(stalled); assert.equal(await stalled.locator('#round').textContent(), '0 / 12');
+    assert.match(await stalled.locator('#status').textContent(), /页面停顿/);
+    const count = sent.length; await wait(250); assert.equal(sent.length, count, 'no stale input replay');
+    await key(stalled, 'C'); await idle(stalled); await active(stalled);
+    await key(stalled, 'A'); await stalled.waitForFunction(() => document.querySelector('#round').textContent === '1 / 12');
+    await idle(stalled); await key(stalled, 'C'); await paused(stalled);
+    assert.equal(sent.filter(r => r.body?.kind === 'answer').length, 1, 'only the fresh manual answer is recorded');
+    await isolated.close();
+    results.push(`Stale ${via} ${letter}: real 1101ms stall, input before RAF pauses without observation; explicit resume and fresh answer work`);
+  }
+
   const {page, context, requests} = await open(base);
   await readable(page); await page.screenshot({path:join(dir,'desktop-paused.png'),fullPage:true});
   await key(page,'B'); await idle(page);

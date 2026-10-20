@@ -89,6 +89,14 @@ async function pause(message = '已暂停，回来后按 B / C 明确继续。')
   } catch { if (mine === epoch) { pendingPause = true; reason = '暂停未确认，本地已停。按 B / C 手动核对，旧输入不会自动重发。'; } }
   finally { if (mine === epoch) { busy = false; render(); if (!document.hidden && !$('pause').hidden) focusTarget('#pause'); } }
 }
+// Recheck at the input boundary too: queued input can run before the next RAF.
+// Use exactly the same neutral stop conditions as painting, never spend a stale cue.
+function cueStopReason(measured, gap) {
+  if (document.hidden || gap > 1000) return '页面停顿，本拍中性暂停；请手动继续。';
+  const now = anchor.epoch + measured - anchor.measured;
+  return now > state.cue.deadline - rtt / 2
+    ? '本拍已停止提示，未回应不判失误；请手动继续。' : '';
+}
 async function press(key) {
   if (document.hidden) return;
   if (key === 'C' && (!suspended || (busy && pendingKind === 'resume'))) { await pause(); return; }
@@ -106,7 +114,9 @@ async function press(key) {
     return;
   }
   if (!anchor) return;
-  const now = anchor.epoch + performance.now() - anchor.measured;
+  const measured = performance.now(), stopped = cueStopReason(measured, measured - lastFrame);
+  if (stopped) { await pause(stopped); return; }
+  const now = anchor.epoch + measured - anchor.measured;
   if (now < state.cue.target) { reason = '还在预告，等到「现在回应」再按；没有消耗本拍。'; render(); return; }
   await send('answer', { sequence: state.cue.sequence, key });
 }
@@ -125,18 +135,16 @@ let lastFrame = performance.now();
 function tick() {
   const measured = performance.now(), gap = measured - lastFrame; lastFrame = measured;
   if (!suspended && !busy && state?.status === 'playing' && anchor) {
-    if (document.hidden || gap > 1000) void pause('页面停顿，本拍中性暂停；请手动继续。');
+    const stopped = cueStopReason(measured, gap);
+    if (stopped) void pause(stopped);
     else {
       const now = anchor.epoch + measured - anchor.measured, cue = state.cue;
-      if (now > cue.deadline - rtt / 2) void pause('本拍已停止提示，未回应不判失误；请手动继续。');
-      else {
-        const active = now >= cue.target;
-        document.body.classList.toggle('active', active);
-        $('phase').textContent = active ? '现在回应 · 这是本地估计提示' : '准备 · 先看方向，稍后再回应';
-        const pct = Math.min(100, Math.max(0, (now - (cue.target - 1800)) / 1800 * 100));
-        $('progress').setAttribute('aria-valuenow', String(Math.round(pct)));
-        $('progress').firstElementChild.style.width = `${pct}%`;
-      }
+      const active = now >= cue.target;
+      document.body.classList.toggle('active', active);
+      $('phase').textContent = active ? '现在回应 · 这是本地估计提示' : '准备 · 先看方向，稍后再回应';
+      const pct = Math.min(100, Math.max(0, (now - (cue.target - 1800)) / 1800 * 100));
+      $('progress').setAttribute('aria-valuenow', String(Math.round(pct)));
+      $('progress').firstElementChild.style.width = `${pct}%`;
     }
   }
   requestAnimationFrame(tick);
