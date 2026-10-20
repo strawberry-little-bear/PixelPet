@@ -330,3 +330,55 @@ describe("pause while an automatic walking step is in flight", () => {
   expect(document.querySelector(".walk-pause")).toBeTruthy();
  });
 });
+
+describe("discoveries do not hide the next obstacle's action feedback", () => {
+ it("keeps boundary feedback with timing, without duplicating ordinary timing", () => {
+  const pet = fixture(), n = pet.game!.walking!;
+  Object.assign(n, { beat: 6, paused: false, pose: "", poseUntil: 0 });
+  const { rerender } = render(<WalkingGame pet={pet} active choice={0} />);
+  expect(document.querySelector(".walk-find")?.textContent).toContain("这一处走过啦");
+  expect(document.querySelector(".walk-action-note")?.textContent).toContain("近 3 步再按");
+  n.beat = 7; rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(document.querySelector(".walk-action-note")).toBeNull();
+  expect(document.querySelector(".walk-find")?.textContent).toContain("近 3 步再按");
+ });
+ it.each([24, 48].flatMap(beat => [
+  { beat, species: 2, obstacle: "rock", pose: "jump", action: "跳跃", input: "A" },
+  { beat, species: 2, obstacle: "branch", pose: "duck", action: "蹲下", input: "B" },
+  { beat, species: 3, obstacle: "rock", pose: "jump", action: "跃水", input: "A" },
+  { beat, species: 3, obstacle: "branch", pose: "duck", action: "下潜", input: "B" },
+ ] as const))("keeps discovery and saved timing together at $beat / $species / $obstacle", ({ beat, species, obstacle, pose, action, input }) => {
+  const pet = fixture(), n = pet.game!.walking!; pet.species = species;
+  Object.assign(n, { beat, paused: false, pose, poseUntil: beat + 3 }); n.route.fill(obstacle);
+  const { rerender } = render(<WalkingGame pet={pet} active choice={0} />);
+  const feedback = () => document.querySelector(".walk-action-note")?.textContent;
+  const discovery = parkCatalog.find(item => item.id === n.souvenirs[beat / 24 - 1])!.name;
+  expect(document.querySelector(".walk-find")?.textContent).toContain(`发现了${discovery}`);
+  expect(feedback()).toBe(`动作会先结束 · 近 3 步再按 ${input} ${action}。`);
+  Object.assign(n, { beat: beat + 3, poseUntil: beat + 6 }); rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(document.querySelector(".walk-find")?.textContent).toContain(`发现了${discovery}`);
+  expect(feedback()).toBe(`${action}可覆盖本处 · 不必连按。`);
+  n.pose = pose === "jump" ? "duck" : "jump"; rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(feedback()).toBe(`现在按 ${input} ${action} · 动作保持 3 步。`);
+  n.paused = true; rerender(<WalkingGame pet={pet} active choice={0} />); expect(feedback()).toBeUndefined();
+  n.paused = false; rerender(<WalkingGame pet={pet} active={false} choice={0} />); expect(feedback()).toBeUndefined();
+  n.beat = 72; rerender(<WalkingGame pet={pet} active choice={0} />); expect(feedback()).toBeUndefined();
+  expect(document.querySelector(".walk-find")?.textContent).toContain("发现了落花");
+  expect(api).not.toHaveBeenCalled();
+ });
+ it("waits for the saved action while a discovery is visible, and removes action advice on pause", async () => {
+  saved.game!.walking!.beat = 27; await mount(); await key("c");
+  const normal = api.getMockImplementation()!; let accept!: () => Promise<void>;
+  api.mockImplementation((...args) => args[0] === "action" && (args[1] as {kind: string}).kind === "walk-jump"
+   ? new Promise(resolve => { accept = async () => resolve(await normal(...args)); }) : normal(...args));
+  await key("a");
+  expect(document.querySelector(".walk-action-note")?.textContent).toBe("现在按 A 跃水 · 动作保持 3 步。");
+  expect(saved.game!.walking!.pose).toBe("");
+  await act(async () => { await accept(); });
+  expect(document.querySelector(".walk-action-note")?.textContent).toBe("跃水可覆盖本处 · 不必连按。");
+  expect(document.querySelector(".walk-find")?.textContent).toContain("发现了银杏叶");
+  await key("c"); expect(document.querySelector(".walk-action-note")).toBeNull();
+  expect(document.querySelector(".walk-pause")).toBeTruthy();
+  expect(calls().filter(a => a.kind === "walk-jump")).toHaveLength(1);
+ });
+});

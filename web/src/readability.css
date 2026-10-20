@@ -12,7 +12,7 @@
   .companion-rows { font-size: 10px; line-height: 15px; gap: 1px; }
   .companion-rules, .companion-since { font-size: 9px; line-height: 13px; }
   .walking-game .walk-warning { font-size: 12px; line-height: 18px; }
-  .walking-game .walk-find, .walking-game > small { font-size: 10px; line-height: 15px; }
+  .walking-game .walk-find, .walking-game .walk-action-note, .walking-game > small { font-size: 10px; line-height: 15px; }
   .walking-game .walk-method { margin-top: 3px; }
   .walk-pause > div { display: grid; gap: 0; font-size: 11px; line-height: 18px; text-align: left; }
   .walk-pause > div > span { min-width: 124px; padding: 0 5px; }
@@ -205,4 +205,14 @@
 .home-care-guidance .care-advice { margin: 4px 0; }
 @media (forced-colors: active) {
   .home-care-guidance { border-color: CanvasText; }
+}
+
+/* Reserve the event/timing row throughout a running walk. Do not let a find
+   resize the shell or push the reward note into the LCD key legend. Phones
+   already have the taller 284px viewport; paused readers keep natural height. */
+@media (min-width: 701px) {
+  .device-stage:not(.reading-mode):has(.walking-game) { height: 576px; }
+  .device-stage:not(.reading-mode):has(.walking-game) .device { height: 540px; }
+  .device-stage:not(.reading-mode):has(.walking-game) .screen-bezel { height: 308px; flex-shrink: 0; }
+  .device-stage:not(.reading-mode):has(.walking-game) .lcd-content { height: 228px; }
 }

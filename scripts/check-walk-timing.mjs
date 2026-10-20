@@ -17,7 +17,7 @@ const port = socket.address().port;
 await new Promise(r => socket.close(r));
 const base = `http://127.0.0.1:${port}`, wait = ms => new Promise(r => setTimeout(r, ms));
 let server, browser, log = '', startupError;
-const results = [];
+const results = [], runningHeights = new WeakMap();
 async function api(path, data) {
   const response = await fetch(`${base}/api/${path}`, data === undefined ? {} : {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data),
@@ -30,10 +30,15 @@ async function key(page, letter) {
   await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
 }
 async function readable(page) {
+  if (!await page.locator('.device-stage.reading-mode').count()) {
+    const height = await page.locator('.device').evaluate(el => el.getBoundingClientRect().height);
+    if (runningHeights.has(page)) assert(Math.abs(height - runningHeights.get(page)) < 1, 'find changed the running shell height');
+    else runningHeights.set(page, height);
+  }
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   const clipped = await page.locator('.walking-game').evaluate(el => {
-    const errors = [];
-    for (const part of el.querySelectorAll('header strong, header span, .walk-warning, .walk-find, .walk-method')) {
+    const errors = [], footer = el.closest('.lcd').querySelector('.lcd-bottom').getBoundingClientRect();
+    for (const part of el.querySelectorAll('header strong, header span, .walk-warning, .walk-find, .walk-action-note, :scope > small')) {
       const walker = document.createTreeWalker(part, NodeFilter.SHOW_TEXT);
       while (walker.nextNode()) {
         const text = walker.currentNode; if (!text.textContent.trim()) continue;
@@ -41,6 +46,7 @@ async function readable(page) {
         for (const box of range.getClientRects()) {
           if (!box.width || !box.height) continue;
           const bounds = part.getBoundingClientRect();
+          if (box.bottom > footer.top + 1) errors.push('footer overlap: ' + text.textContent);
           if (box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1) errors.push(text.textContent);
           for (let parent = part; parent; parent = parent.parentElement) {
             const style = getComputedStyle(parent), b = parent.getBoundingClientRect();
@@ -67,11 +73,27 @@ async function required(page) {
   assert(match, warning); return match[1].toLowerCase();
 }
 async function hint(page, part) {
-  const actual = await page.locator('.walk-find').textContent();
+  const actual = await page.locator(await page.locator('.walk-action-note').count() ? '.walk-action-note' : '.walk-find').textContent();
   assert(actual.includes(part), `${actual} does not include ${part}`); await readable(page);
+}
+async function discoveryFeedback(page, milestone, expected, label) {
+  const shown = await page.locator('.walking-game').evaluate(el => ({
+    beat: Number(el.querySelector('header span').textContent.split('/')[0]),
+    warning: el.querySelector('.walk-warning').textContent,
+    discovery: el.querySelector('.walk-find').textContent,
+    action: el.querySelector('.walk-action-note')?.textContent,
+    actionFont: el.querySelector('.walk-action-note') && getComputedStyle(el.querySelector('.walk-action-note')).fontSize,
+  }));
+  assert(shown.beat >= milestone && shown.beat < milestone + 4, JSON.stringify(shown));
+  assert.match(shown.discovery, /^发现了.+！已留在沿途发现。$/);
+  assert(shown.action?.includes(expected), `discovery must not hide ${expected}: ${JSON.stringify(shown)}`);
+  await readable(page);
+  await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
+  return shown;
 }
 async function paused(page) {
   await page.locator('.walk-pause').waitFor();
+  assert.equal(await page.locator('.walk-action-note').count(), 0, 'paused game must not give timed action advice');
   assert(!(await page.locator('.walk-find').textContent()).includes('现在按'));
   await readable(page);
 }
@@ -93,7 +115,7 @@ try {
       needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
     await api('action', { kind: 'play-walk' });
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height },
-      hasTouch: true, isMobile: mode.width < 700, reducedMotion: 'reduce' });
+      hasTouch: true, isMobile: mode.width < 700, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
     const page = await context.newPage(), writes = [], errors = [];
     try {
       await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
@@ -121,18 +143,33 @@ try {
       await key(page, 'c'); await hint(page, '可覆盖本处'); await atBeat(page, 12);
       assert.equal((await api('state')).state.game.walking.cleared, 1, 'timely action did not clear second obstacle');
       // Play the rest from the visible warning only. Never inspect hidden route or souvenirs to select an action.
-      const acted = new Set([0, 1]), deadline = Date.now() + 100000; let resumes = 0;
+      const acted = new Set([0, 1]), probed = new Set(), discoveries = [], deadline = Date.now() + 100000; let resumes = 0;
       while (await beat(page) < 72 && Date.now() < deadline) {
         if (await page.locator('.walk-pause').count()) {
           assert(++resumes <= 5, 'host repeatedly suspended'); await key(page, 'c');
         }
         const current = await beat(page), obstacle = Math.floor(current / 6);
+        for (const milestone of [24, 48]) {
+          if (current >= milestone && current < milestone + 3 && !probed.has(milestone)) {
+            const right = await required(page);
+            // Early correct input at the first find; wrong input at the second.
+            // Both must retain the discovery AND say when to try the current obstacle.
+            await key(page, milestone === 24 ? right : right === 'a' ? 'b' : 'a');
+            discoveries.push(await discoveryFeedback(page, milestone,
+              milestone === 24 ? '动作会先结束' : '近 3 步再按', `${mode.name}-find-${milestone}-early`));
+            probed.add(milestone);
+          }
+        }
         if (current < 72 && 6 - current % 6 <= 3 && !acted.has(obstacle)) {
           await key(page, await required(page)); acted.add(obstacle);
+          if (current === 27 || current === 51) discoveries.push(await discoveryFeedback(page, current - 3,
+            '可覆盖本处', `${mode.name}-find-${current - 3}-covered`));
         }
         await wait(120);
       }
       assert.equal(await beat(page), 72); await readable(page);
+      assert.deepEqual([...probed], [24, 48]); assert.equal(discoveries.length, 4, 'both finds must show timely saved feedback');
+      assert.equal(await page.locator('.walk-action-note').count(), 0);
       const done = (await api('state')).state; assert.equal(done.game.walking.cleared, 11);
       assert.equal(done.careCount, 0); assert.equal(done.economy.coins, 0);
       await page.screenshot({ path: join(dir, `${mode.name}-done.png`), fullPage: true });
@@ -143,9 +180,9 @@ try {
       assert(!settled.game); assert.equal(settled.careCount, 1); assert.equal(settled.economy.coins, 5); assert.equal(settled.park.walks, 1);
       assert.equal(settled.park.finds.reduce((sum, item) => sum + item.count, 0), 3);
       assert.equal(writes.filter(w => w.kind === 'walk-step').length, 72);
-      assert.equal(writes.filter(w => w.kind === 'walk-jump' || w.kind === 'walk-duck').length, 13);
+      assert.equal(writes.filter(w => w.kind === 'walk-jump' || w.kind === 'walk-duck').length, 15);
       assert.equal(writes.filter(w => w.kind === 'walk-finish').length, 1);
-      assert.deepEqual(errors, []); results.push({ mode: mode.name, first, second, firstPause, secondPause, resumes, writes, cleared: 11, coins: settled.economy.coins });
+      assert.deepEqual(errors, []); results.push({ mode: mode.name, first, second, firstPause, secondPause, resumes, discoveries, runningHeight: runningHeights.get(page), writes, cleared: 11, coins: settled.economy.coins });
     } catch (error) {
       await page.screenshot({ path: join(dir, `${mode.name}-failure.png`), fullPage: true }).catch(() => {}); throw error;
     } finally { await context.close(); }
