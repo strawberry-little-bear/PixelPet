@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useBoardCollection } from "./useBoardCollection";
 import { PetArt } from "./PetArt";
 import { RoomDecoration } from "./EquipmentArt";
 import { petGrowth } from "./growth";
@@ -29,15 +29,7 @@ export function blockCells(p: Falling) {
 }
 export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: number; active: boolean; choice: number ;}) {
   const n = pet.game?.tetris;
-  const lastLines = useRef(n?.lines ?? 0);
-  const [collecting, setCollecting] = useState(false);
-  useEffect(() => {
-    if (!n || n.lines <= lastLines.current) return;
-    lastLines.current = n.lines;
-    setCollecting(true);
-    const timer = setTimeout(() => setCollecting(false), 900);
-    return () => clearTimeout(timer);
-  }, [n?.lines]);
+  const collecting = useBoardCollection(n?.lines ?? 0, active && !n?.paused);
   if (!n) return null;
   const paused = n.paused || !active;
   const growth = petGrowth(pet, now);

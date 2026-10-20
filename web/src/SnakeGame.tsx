@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useBoardCollection } from "./useBoardCollection";
 import { RoomDecoration } from "./EquipmentArt";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
@@ -7,15 +7,7 @@ import "./snake-game.css";
 
 export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: number; active: boolean; turn: number; }) {
   const snake = pet.game?.snake;
-  const lastEaten = useRef(snake?.eaten ?? 0);
-  const [collecting, setCollecting] = useState(false);
-  useEffect(() => {
-    if (!snake || snake.eaten <= lastEaten.current) return;
-    lastEaten.current = snake.eaten;
-    setCollecting(true);
-    const timer = setTimeout(() => setCollecting(false), 900);
-    return () => clearTimeout(timer);
-  }, [snake?.eaten]);
+  const collecting = useBoardCollection(snake?.eaten ?? 0, active && !snake?.paused);
   if (!snake) return null;
   const ended = !!snake.end;
   const paused = !active || snake.paused;

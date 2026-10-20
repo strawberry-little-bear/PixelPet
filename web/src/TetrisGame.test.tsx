@@ -121,7 +121,7 @@ describe("three-key Tetris", () => {
     expect(actions().at(-1)).toMatchObject({ kind: "tetris-finish", gameId: id, step: 0 });
   });
   it("renders next piece, ghost landing and equipped pet without initial fake collection", () => {
-    saved.game = game(); const view = render(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
+    saved.game = game(); saved.game.tetris!.paused = false; const view = render(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
     expect(view.getByRole("img", { name: "下一块 I" })).toBeTruthy();
     expect(view.container.querySelectorAll(".active-block")).toHaveLength(4);
     expect(view.container.querySelectorAll(".ghost-block")).toHaveLength(4);
@@ -129,7 +129,7 @@ describe("three-key Tetris", () => {
     expect(view.container.querySelector(".tetris-companion")?.getAttribute("data-motion")).toBe("waiting");
   });
   it("celebrates only a newly saved line clear, then returns to waiting", async () => {
-    saved.game = game(); const view = render(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
+    saved.game = game(); saved.game.tetris!.paused = false; const view = render(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
     saved = structuredClone(saved); saved.game!.tetris!.lines = 2; view.rerender(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
     expect(view.container.querySelector(".tetris-companion")?.getAttribute("data-motion")).toBe("collecting");
     await clock(1000); expect(view.container.querySelector(".tetris-companion")?.getAttribute("data-motion")).toBe("waiting");

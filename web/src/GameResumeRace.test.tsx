@@ -29,12 +29,14 @@ function applyAction(body: unknown) {
   if (saved.game?.tetris || a.kind === "snake-step") n.step++;
   saved.revision++;
 }
-function delayAction(kind: string) {
+function delayAction(kind: string, collect = false) {
   let deliver!: () => void;
   api.mockImplementation(async (path, body) => {
     if (path !== "action") return result();
     applyAction(body);
     if ((body as { kind: string }).kind !== kind) return result();
+    if (collect && saved.game?.snake) saved.game.snake.eaten++;
+    if (collect && saved.game?.tetris) saved.game.tetris.lines++;
     const reply = result();
     return new Promise<Result>(resolve => { deliver = () => resolve(reply); });
   });
@@ -104,5 +106,28 @@ describe.each(["tetris-rotate", "tetris-drop"])("local pause before %s", kind =>
     await mount("tetris", false); await select(kind);
     expect(actions().map(a => a.kind)).toEqual(["tetris-pause", kind]);
     await clock(1100); expect(actions().at(-1)?.kind).toBe("tetris-step");
+  });
+});
+
+
+describe.each(["snake", "tetris"] as const)("%s collection feedback interruption", kind => {
+  it.each(interruptions)("does not replay a late saved collection after %s", async interruption => {
+    await mount(kind); await key("c"); const deliver = delayAction(`${kind}-step`, true);
+    await clock(1100); expect(actions().filter(a => a.kind === `${kind}-step`)).toHaveLength(1);
+    const restore = await interrupt(interruption); await deliver(); await restore();
+    expect(document.querySelector(`.${kind}-companion`)?.getAttribute("data-motion")).toBe("waiting");
+    expect(document.querySelector(`.${kind}-game header`)?.textContent).toContain("1/8");
+    expect(document.querySelector(`.${kind}-overlay`)).toBeTruthy();
+    await clock(2000); expect(actions().filter(a => a.kind === `${kind}-step`)).toHaveLength(1);
+    expect(saved.careCount).toBe(0);
+  });
+  it.each(interruptions)("clears a foreground collection immediately on %s", async interruption => {
+    await mount(kind); await key("c"); const deliver = delayAction(`${kind}-step`, true);
+    await clock(1100); await deliver();
+    expect(document.querySelector(`.${kind}-companion`)?.getAttribute("data-motion")).toBe("collecting");
+    const restore = await interrupt(interruption);
+    expect(document.querySelector(`.${kind}-companion`)?.getAttribute("data-motion")).toBe("waiting");
+    await restore(); expect(document.querySelector(`.${kind}-companion`)?.getAttribute("data-motion")).toBe("waiting");
+    expect(actions().filter(a => a.kind === `${kind}-step`)).toHaveLength(1);
   });
 });
