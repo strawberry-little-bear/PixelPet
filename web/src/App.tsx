@@ -187,11 +187,12 @@ export default function App() {
   const clock = useRef(anchorServerClock(now));
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
-  // Only an automatic fishing pulse admits C while writing. Other operations
+  // Only automatic game steps admit C while writing. Other operations
   // remain locked; no general input queue or replay of uncertain writes.
   const [busyAction, setBusyAction] = useState("");
   const busyActionRef = useRef("");
   const pendingFishingPause = useRef<{ id: string; generation?: string; epoch: number } | null>(null);
+  const pendingBoardPause = useRef<{ kind: "snake" | "tetris"; id: string; generation?: string; epoch: number } | null>(null);
   const pendingWalkPause = useRef<{ id: string; generation?: string; epoch: number } | null>(null);
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState(false);
@@ -1156,6 +1157,21 @@ export default function App() {
       busyActionRef.current = "";
       setBusyAction("");
       setBusy(false);
+      if (kind === "snake-step" || kind === "tetris-step") {
+        const pause = pendingBoardPause.current;
+        pendingBoardPause.current = null;
+        const game = acceptedPet.current?.game;
+        const board = pause?.kind === "snake" ? game?.snake : game?.tetris;
+        // Only the acknowledged automatic step may carry a pause intent. An
+        // ended board still needs a new keypress to collect, never this old C.
+        if (succeeded && pause && kind === `${pause.kind}-step` && pause.epoch === boardEpoch.current &&
+          pause.generation === acceptedGeneration.current && game?.id === pause.id && game.kind === pause.kind &&
+          board && !board.paused && !board.end && !clockAheadRef.current &&
+          !document.hidden && windowActive.current && !uncertainRef.current &&
+          !unavailableRef.current && !corruptRef.current) {
+          void act(`${pause.kind}-pause`, { gameId: pause.id, step: board.step });
+        }
+      }
       if (kind === "walk-step") {
         const pause = pendingWalkPause.current;
         pendingWalkPause.current = null;
@@ -1299,6 +1315,8 @@ export default function App() {
       pendingFishingPause.current = null;
       walkEpoch.current++;
       pendingWalkPause.current = null;
+      boardEpoch.current++;
+      pendingBoardPause.current = null;
     };
   }, []);
 
@@ -1320,6 +1338,15 @@ export default function App() {
     !!pet.game.walking && !pet.game.walking.paused && pet.game.walking.beat < 72 &&
     !tools && !help && !reset && !abandoning && !document.hidden && windowActive.current &&
     !clockAheadRef.current && !uncertainRef.current && !unavailableRef.current && !corruptRef.current;
+  const canPauseBoardStep = (kind: string) => {
+    const game = pet?.game;
+    if (!game || page !== "game" || tools || help || reset || abandoning || document.hidden || !windowActive.current ||
+      clockAheadRef.current || uncertainRef.current || unavailableRef.current || corruptRef.current) return false;
+    return (kind === "snake-step" && game.kind === "snake" && snakeSession === game.id &&
+      !!game.snake && !game.snake.paused && !game.snake.end) ||
+      (kind === "tetris-step" && game.kind === "tetris" && tetrisSession === game.id &&
+      !!game.tetris && !game.tetris.paused && !game.tetris.end);
+  };
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
     if (busyRef.current) {
@@ -1333,6 +1360,13 @@ export default function App() {
         walkEpoch.current++;
         pendingWalkPause.current = { id: pet.game.id, generation: acceptedGeneration.current, epoch: walkEpoch.current };
         setWalkSession(""); setWalkChoice(0);
+      } else if (key === "C" && pet?.game?.id && (pet.game.kind === "snake" || pet.game.kind === "tetris") &&
+        canPauseBoardStep(busyActionRef.current) && !pendingBoardPause.current) {
+        audio.current?.cancel();
+        boardEpoch.current++;
+        pendingBoardPause.current = { kind: pet.game.kind, id: pet.game.id, generation: acceptedGeneration.current, epoch: boardEpoch.current };
+        setSnakeSession(""); setTetrisSession(""); setTetrisChoice(0);
+        snakeTurn.current = 0; setQueuedTurn(0);
       }
       return;
     }
@@ -2538,7 +2572,7 @@ export default function App() {
                 {["A", "B", "C"].map((key, i) => (
                   <div className="button-unit" key={key}>
                     <button
-                      disabled={(busy && !(key === "C" && (canPauseFishingPulse(busyAction) || canPauseWalkingStep(busyAction)))) || checking || ((uncertain || unavailable) && key !== "B") || (clip !== null && key !== "C")}
+                      disabled={(busy && !(key === "C" && (canPauseFishingPulse(busyAction) || canPauseWalkingStep(busyAction) || canPauseBoardStep(busyAction)))) || checking || ((uncertain || unavailable) && key !== "B") || (clip !== null && key !== "C")}
                       className={`physical-button button-${key.toLowerCase()} ${pressed === key ? "is-pressed" : ""}`}
                       aria-label={`${key} ${["选择", "确认", "返回"][i]}`}
                       onClick={() => controls.current(key)}

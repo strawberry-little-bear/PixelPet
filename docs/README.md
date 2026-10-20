@@ -72,6 +72,7 @@
 - [阅读页成功通知不遮字／按键](READING_NOTICES.md)
 - [物理键盘回归](PHYSICAL_KEYBOARD.md) · [可选提示音容错](AUDIO_SAFETY.md)
 - [窗口失焦暂停](WINDOW_PAUSE.md) · [回窗同步](WINDOW_RETURN_SYNC.md)
+- [蛇／方块自动节拍中 C 暂停](BOARD_PULSE_PAUSE.md)
 - [散步自动前进中 C 暂停](WALK.md#2026-10-21--自动前进时也能按-c-暂停)
 - [长名字换行布局](NAME_LAYOUT.md) · [大字号图鉴阅读](COLLECTION_READING_VIEWPORT.md)
 - [成长／状态阅读视口](CARE_READING_VIEWPORT.md) · [暂停页阅读视口](PAUSE_READING_VIEWPORT.md)
