@@ -1,0 +1,6 @@
+.status-reading { border-top: 1px dashed #839567; margin: 8px 0; padding-top: 8px; line-height: 1.6; overflow-wrap: anywhere; }
+.status-reading strong, .status-reading time { display: block; }
+.status-reading p { margin: 4px 0; }
+@media (forced-colors: active) {
+  .status-reading { border-color: CanvasText; }
+}

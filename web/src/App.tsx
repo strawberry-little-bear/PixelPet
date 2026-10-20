@@ -11,6 +11,7 @@ import { JournalPanel } from "./JournalPanel";
 import { nextJournal, reconcileJournal, startJournal } from "./journal";
 import { stageLook } from "./stageLooks";
 import { StatusGuide, statusPageCount, validCareRules } from "./StatusGuide";
+import { StatusReading } from "./StatusReading";
 import type { CareRules } from "./types";
 import { CarePreview } from "./CarePreview";
 import { TreasureGame } from "./TreasureGame";
@@ -2248,6 +2249,7 @@ export default function App() {
                                 <b>{Math.round(pet.needs[n.key])}</b>
                               </div>
                             ))}
+                            <StatusReading at={pet.lastTick} />
                             <CareAdvice pet={pet} />
                             <CareOutcome feedback={careOutcome} />
                             <div className="care-total">
