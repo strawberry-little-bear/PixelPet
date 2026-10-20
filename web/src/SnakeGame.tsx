@@ -20,10 +20,11 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
   const ended = !!snake.end;
   const paused = !active || snake.paused;
   const growth = petGrowth(pet, now);
+  const directions = ["右", "下", "左", "上"];
   return <section className="snake-game" aria-label="果园贪吃蛇">
     <header><strong>果园贪吃蛇</strong><span>果子 {snake.eaten}/8</span></header>
     <div className="snake-field">
-      <svg viewBox="0 0 144 120" role="img" aria-label={`果园棋盘，已吃 ${snake.eaten} 颗果子，朝${["右", "下", "左", "上"][snake.direction]}`} shapeRendering="crispEdges">
+      <svg viewBox="0 0 144 120" role="img" aria-label={`果园棋盘，已吃 ${snake.eaten} 颗果子，朝${directions[snake.direction]}`} shapeRendering="crispEdges">
         <defs><pattern id="snake-grid" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#8f9f74" strokeWidth=".4" /></pattern></defs>
         <rect width="144" height="120" fill="url(#snake-grid)" />
         {snake.body.map((p, i) => <g key={i} transform={`translate(${p.x * 12} ${p.y * 12})`}>
@@ -34,6 +35,15 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
       </svg>
       {(paused || ended) && <div className="snake-overlay" role="status"><strong>{ended ? snake.end === "won" ? "果篮装满啦！" : "休息一下再来" : "果园已暂停"}</strong><span>{ended ? `吃到 ${snake.eaten} 颗 · B / C 收好成绩` : "A / C 继续 · B 放弃确认"}</span><small>{ended ? snake.eaten >= 3 ? "计入陪伴 · 最多 6 金币" : "吃到 3 颗后完成才有奖励" : "刷新、离开不补跑"}</small></div>}
     </div>
+    {paused && !ended && <section className="snake-steering-guide" aria-label="继续后的转弯方向">
+      <strong>蛇头现在朝{directions[snake.direction]}</strong>
+      <p>继续后：</p>
+      <ul>
+        <li>A 左转：朝{directions[(snake.direction + 3) % 4]}</li>
+        <li>B 右转：朝{directions[(snake.direction + 1) % 4]}</li>
+      </ul>
+      <small>按蛇头朝向转弯，不是屏幕的左右。</small>
+    </section>}
     <div className={`snake-companion ${collecting ? "collecting" : ""}`} data-motion={collecting ? "collecting" : "waiting"}><div className="snake-pet"><PetArt index={pet.species} stage={growth.stage} accessory={pet.economy?.equipped.accessory} motion={snake.end === "won" || collecting ? "celebrating" : "idle"} /></div><RoomDecoration id={pet.economy?.equipped.room} /><p>{collecting ? "甜甜的果子，我收好啦！" : ended ? "这次的果子我帮你收好。" : paused ? "等你准备好，我们再出发。" : `我帮你装果子！${turn < 0 ? "下一步左转" : turn > 0 ? "下一步右转" : "沿着方向前进"}`}</p></div>
   </section>;
 }

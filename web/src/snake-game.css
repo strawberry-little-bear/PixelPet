@@ -12,3 +12,9 @@
 .snake-companion p { font-size: 9px; margin: 0; }
 .snake-companion .room-decoration { width: 20px; height: 24px; flex-shrink: 0; }
 .snake-companion.collecting p { font-weight: bold; }
+
+/* This reminder is only mounted while paused, never over the live board. */
+.snake-steering-guide { margin: 6px 0; padding: 5px 0; border-block: 1px dashed currentColor; }
+.snake-steering-guide p, .snake-steering-guide ul { margin: 3px 0; }
+.snake-steering-guide ul { list-style: none; padding: 0; }
+.snake-steering-guide small { display: block; }
