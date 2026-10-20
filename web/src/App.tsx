@@ -1904,12 +1904,20 @@ export default function App() {
                         ? "A 下一条　 B / C 返回"
                         : "C 返回小窝";
 
-  // Persistent errors must not float across recovery text or the three keys.
-  // Keep import previews and ordinary gameplay notices in their existing layer.
+  // Use the same reading decision for geometry and successful notices.
+  const readingMode = page !== "game" || abandoning || uncertain || unavailable || corrupt
+    || treasure
+    || (snake && (snake.paused || snake.end || snakeSession !== pet?.game?.id))
+    || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
+    || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
+    || (fishing && (fishing.paused || fishing.phase === "done" || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)));
+  // Persistent recovery errors stay above the device. Successful reading
+  // feedback belongs below it, so expiry cannot shift the device or cover keys.
   const recoveryVisible = uncertain || unavailable || (corrupt && !(page === "import-preview" && pendingImport));
+  const readingNotice = !recoveryVisible && readingMode && !error;
   const notice = (message || error) && (
     <div
-      className={`toast ${error ? "error" : ""} ${recoveryVisible ? "recovery-notice" : ""}`}
+      className={`toast ${error ? "error" : ""} ${recoveryVisible ? "recovery-notice" : readingNotice ? "reading-notice" : ""}`}
       role={error ? "alert" : "status"}
     >
       {error ? <Cloud size={17} /> : <Check size={17} />}
@@ -2073,13 +2081,7 @@ export default function App() {
               </small>
             </div>
           </div>
-          <div className={`device-stage ${page !== "game" || abandoning || uncertain || unavailable || corrupt
-            || treasure
-            || (snake && (snake.paused || snake.end || snakeSession !== pet?.game?.id))
-            || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
-            || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
-            || (fishing && (fishing.paused || fishing.phase === "done" || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)))
-            ? "reading-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""}`}>
+          <div className={`device-stage ${readingMode ? "reading-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""}`}>
             <span className="device-orbit orbit-one">✧</span>
             <span className="device-orbit orbit-two">+</span>
             <div className="device-shadow" />
@@ -2568,6 +2570,7 @@ export default function App() {
             </div>
           </aside>
         </section>
+        {readingNotice && notice}
         <section
           className="collection"
           aria-label={corrupt || clockAhead ? "十位原创小伙伴展示" : "十位原创小伙伴，使用 A 键选择"}
@@ -2611,7 +2614,7 @@ export default function App() {
           本地小窝，安心陪伴
         </span>
       </footer>
-      {!recoveryVisible && notice}
+      {!recoveryVisible && !readingNotice && notice}
       {(help || reset) && (
         <div
           className="modal-backdrop"
