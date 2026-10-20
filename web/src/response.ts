@@ -102,6 +102,28 @@ function validFishingResponse(value: unknown): boolean {
     n.catches.every(id => fishCatalog.some(fish => fish.id === id))));
 }
 
+// Cosmetics and shop data are optional on legacy servers, but supplied models
+// are read directly by outfit previews, ownership checks and purchase quotes.
+// A nil Go slice means no belongings/catalog, not a damaged supplied array.
+// Prices, catalog IDs, ownership consistency and reward caps stay server-owned.
+function validEconomy(value: unknown): boolean {
+  if (value == null) return true;
+  if (!record(value) || !record(value.equipped)) return false;
+  const equipped = value.equipped;
+  return ["coins", "gameCoins"].every(key => count(value[key])) &&
+    ["lastDailyAt", "lastGameAt"].every(key => timestamp(value[key])) &&
+    (value.owned == null || (Array.isArray(value.owned) && value.owned.every(id => typeof id === "string"))) &&
+    ["accessory", "room"].every(key => typeof equipped[key] === "string") &&
+    ["wallpaper", "floor"].every(key => equipped[key] === undefined || typeof equipped[key] === "string");
+}
+function validShop(value: unknown): boolean {
+  return value == null || (record(value) && count(value.dailyCoins) && count(value.gameDailyLimit) &&
+    (value.maxCoins === undefined || count(value.maxCoins)) &&
+    (value.catalog == null || (Array.isArray(value.catalog) && value.catalog.every(item => record(item) &&
+      ["id", "name", "description"].every(key => typeof item[key] === "string") &&
+      ["accessory", "room", "wallpaper", "floor"].includes(item.slot as string) && count(item.price)))));
+}
+
 // Feedback is optional on old servers. If provided, its base fields are used
 // directly by the short success text. Optional effect receipts retain their own
 // local guard; missing/bad effect metadata does not make safe feedback unusable.
@@ -149,7 +171,7 @@ export function validCoreResponse(value: unknown): value is Result {
     count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
-    count(state.careCount) && validGameResponse(state.game) && validTreasureResponse(state.game) && validFishingResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond) && validPark(state.park) &&
+    count(state.careCount) && validEconomy(state.economy) && validShop(value.shop) && validGameResponse(state.game) && validTreasureResponse(state.game) && validFishingResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond) && validPark(state.park) &&
     validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>

@@ -19,7 +19,7 @@ export function ShopPanel({ pet, shop, page, category = null, confirm, now, noti
   const item = items[page];
   const section = category ? shopSections.find(s => s.id === category)! : shopSections[page] || shopSections[0];
   const growth = petGrowth(pet, now);
-  const owned = !!item && !!e?.owned.includes(item.id);
+  const owned = !!item && !!e?.owned?.includes(item.id);
   const worn = !!item && itemEquipped(pet, item);
   const preview = { accessory: "", room: "", ...e?.equipped, ...(item ? { [item.slot]: item.id } : {}) };
   const allowance = gameAllowance(e, shop, now);

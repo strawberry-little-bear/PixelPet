@@ -14,7 +14,7 @@ export const shopSections = [
 export type ShopCategory = Exclude<(typeof shopSections)[number]["id"], "daily">;
 export function shopItems(shop: Shop | null, pet: PetState, category: ShopCategory) {
   return (shop?.catalog ?? []).filter(item => category === "all" ||
-    (category === "owned" ? pet.economy?.owned.includes(item.id) : item.slot === category));
+    (category === "owned" ? pet.economy?.owned?.includes(item.id) : item.slot === category));
 }
 export const shopSlotNames = { accessory: "宠物装扮", room: "小窝摆件", wallpaper: "墙纸", floor: "地板" };
 export const utcDay = (ms: number) => Math.floor(ms / 86400000);

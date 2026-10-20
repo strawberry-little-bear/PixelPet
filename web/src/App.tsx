@@ -1514,7 +1514,7 @@ export default function App() {
           if (dailyClaimed(pet, now)) setMessage("今天的问候已经收好啦，不必连续来。");
           else void act("daily");
         } else if (item) {
-          if (pet.economy.owned.includes(item.id)) {
+          if (pet.economy.owned?.includes(item.id)) {
             navigateShopReading(shopCategory, item.id, shopPage, "decision");
             void act("equip", { item: item.id });
           } else if (pet.economy.coins < item.price) {

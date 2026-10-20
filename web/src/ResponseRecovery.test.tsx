@@ -25,6 +25,9 @@ const damagedFishing = (r: Result, catches: unknown) => ({ ...r, state: { ...r.s
     round: 0, score: 0, lastBeat: -1, fishing: { spot: 0, casts: 0, catches, phase: "ready", step: 0,
       waitMs: 0, elapsedMs: 0, candidate: "", lastPulseAt: r.serverTime, paused: true } } } });
 const corruptions = [
+  ["missing cosmetic equipment", (r: Result) => ({ ...r, state: { ...r.state, economy: { coins: 30, lastDailyAt: 0, lastGameAt: 0, gameCoins: 0, owned: [], equipped: null } } })],
+  ["object ownership", (r: Result) => ({ ...r, state: { ...r.state, economy: { coins: 30, lastDailyAt: 0, lastGameAt: 0, gameCoins: 0, owned: {}, equipped: { accessory: "", room: "" } } } })],
+  ["null catalog item", (r: Result) => ({ ...r, shop: { dailyCoins: 10, gameDailyLimit: 30, catalog: [null] } })],
   ["damaged tiles model", (r: Result) => ({ ...r, state: { ...r.state, game: { id: "0123456789abcdef0123456789abcdef", kind: "tiles", startedAt: r.serverTime, round: 0, score: 0, lastBeat: -1, tiles: { board: null, pick: -1, pairs: 0, shuffles: 0 } } } })],
   ["damaged snake model", (r: Result) => ({ ...r, state: { ...r.state, game: { id: "0123456789abcdef0123456789abcdef", kind: "snake", startedAt: r.serverTime, round: 0, score: 0, lastBeat: -1, snake: { body: null } } } })],
   ["damaged tetris model", (r: Result) => ({ ...r, state: { ...r.state, game: { id: "0123456789abcdef0123456789abcdef", kind: "tetris", startedAt: r.serverTime, round: 0, score: 0, lastBeat: -1, tetris: { board: null } } } })],
