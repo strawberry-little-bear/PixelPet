@@ -1125,7 +1125,11 @@ export default function App() {
         && tileKey && r.state.game?.tiles && activeBoardEpoch === boardEpoch.current
         && !document.hidden && windowActive.current)
         setTileDestination({ sessionKey: tileKey, target: kind === "play-tiles" ? "selection" : "feedback" });
-      if (r.tileLink?.length && pet?.game?.tiles) {
+      // A saved pair still applies after interruption, but its transient link
+      // belongs only to the uninterrupted action in this game session.
+      if (kind === "tile-pick" && page === "game" && r.tileLink?.length && pet?.game?.tiles
+        && (!r.state.game || tileKey === gameSessionKey(pet.game))
+        && activeBoardEpoch === boardEpoch.current && !document.hidden && windowActive.current) {
         setTileLink({
           path:
             r.state.game?.tiles &&
@@ -1232,6 +1236,7 @@ export default function App() {
   useEffect(() => {
     if (tools || help || reset) {
       audio.current?.cancel();
+      setTileLink(null);
       boardEpoch.current++;
       walkEpoch.current++;setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
       fishingEpoch.current++;
@@ -1315,6 +1320,7 @@ export default function App() {
   useEffect(() => {
     const stop = () => {
       audio.current?.cancel();
+      setTileLink(null);
       boardEpoch.current++;
       walkEpoch.current++; setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
       fishingEpoch.current++; setFishingSession("");
@@ -1623,7 +1629,7 @@ export default function App() {
         if (sessionKey) setTileDestination({ sessionKey, target: "selection" });
       } else if (key === "B") void act("tile-pick", { tile: tileCursor });
       else if (pet.game.tiles.pick >= 0) void act("tile-clear");
-      else setAbandonGame(sessionKey);
+      else { setTileLink(null); setAbandonGame(sessionKey); }
       return;
     }
     if (page === "shop") {

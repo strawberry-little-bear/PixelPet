@@ -60,6 +60,74 @@ function legal(board, a, b) {
   }
   return false;
 }
+// Synthetic interruption boundaries, not a real OS/mobile background test.
+async function interrupt(page, kind, active = false) {
+  if (kind === 'abandon') {
+    if (active) assert.equal(await page.locator('.collected-tile').count(), 1);
+    await key(page, 'c'); await page.locator('.game-abandon').waitFor();
+    await key(page, 'a'); await page.locator('.tile-board').waitFor();
+    assert.equal(await page.locator('.collected-tile,.tile-link,.tile-companion[data-motion="collecting"]').count(), 0);
+    return;
+  }
+  const wasCollecting = await page.evaluate(kind => {
+    const collecting = !!document.querySelector('.collected-tile');
+    if (kind === 'blur') window.dispatchEvent(new Event('blur'));
+    else if (kind === 'hidden') {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    } else document.querySelector(kind === 'help' ? '[aria-label="玩法说明"]' : '.backup-button').click();
+    return collecting;
+  }, kind);
+  if (active) assert(wasCollecting, 'interruption must occur during collection, not after its timeout');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(await page.locator('.collected-tile,.tile-link,.tile-companion[data-motion="collecting"]').count(), 0,
+    'interruption clears collection before its ordinary 850ms expiry');
+  await page.evaluate(kind => {
+    if (kind === 'blur') window.dispatchEvent(new Event('focus'));
+    else if (kind === 'hidden') {
+      delete document.hidden; document.dispatchEvent(new Event('visibilitychange'));
+    } else document.querySelector(kind === 'help' ? '[aria-label="关闭"]' : '.backup-button').click();
+  }, kind);
+}
+async function observeCollection(page) {
+  await page.evaluate(() => {
+    window.tileFeedbackObserver?.disconnect(); window.tileCollectionSeen = false;
+    window.tileFeedbackObserver = new MutationObserver(() => {
+      if (document.querySelector('.collected-tile,.tile-link,.tile-companion[data-motion="collecting"]')) window.tileCollectionSeen = true;
+    });
+    window.tileFeedbackObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
+  });
+}
+async function delayedMatch(page, kind, pairs) {
+  let release, acknowledge, reject;
+  const gate = new Promise(r => { release = r; });
+  const committed = new Promise((resolve, fail) => { acknowledge = resolve; reject = fail; });
+  const handler = async route => {
+    try {
+      const response = await route.fetch();
+      const payload = await response.json();
+      assert(response.ok(), JSON.stringify(payload)); assert(payload.tileLink?.length);
+      assert.equal(payload.state.game.tiles.pairs, pairs);
+      acknowledge(payload); await gate; await route.fulfill({ response });
+    } catch (e) { reject(e); }
+  };
+  await page.route('**/api/action', handler);
+  try {
+    await observeCollection(page);
+    await page.locator('.button-b:not(:disabled)').tap();
+    const confirmed = await committed;
+    assert.equal(+(await page.locator('.tile-game').getAttribute('data-pairs')), pairs - 1);
+    assert.equal((await api('state')).state.game.tiles.pairs, pairs, 'write must precede released acknowledgment');
+    await interrupt(page, kind);
+    const scrollCalls = await page.evaluate(() => window.tileViewportCalls); release();
+    await page.waitForFunction(pairs => +document.querySelector('.tile-game')?.dataset.pairs === pairs && !document.querySelector('.button-b')?.disabled, pairs);
+    assert.equal(await page.evaluate(() => window.tileCollectionSeen), false, `late collection replay after ${kind}`);
+    // Native anchoring can move scrollY when the saved result wraps differently.
+    assert.equal(await page.evaluate(() => window.tileViewportCalls), scrollCalls, 'no stale programmatic viewport reveal');
+    assert.deepEqual(await board(page), confirmed.state.game.tiles.board);
+    assert.equal(await page.locator('.collected-tile,.tile-link').count(), 0);
+  } finally { release(); await page.unroute('**/api/action', handler); }
+}
 async function inspect(page) {
   return page.locator('.tile-game').evaluate(el => {
     const lcd = document.querySelector('.lcd-content').getBoundingClientRect(), issues = [];
@@ -115,10 +183,18 @@ try {
     const context = await browser.newContext({ viewport: {width:mode.width,height:mode.height}, hasTouch:true,
       forcedColors: mode.contrast ? 'active' : 'none', reducedMotion:'reduce' });
     try {
-      const page = await context.newPage(), errors = [], writes = [];
+      const page = await context.newPage(), errors = [], writes = [], actionWrites = [];
       page.on('pageerror', e => errors.push(String(e)));
-      page.on('request', r => { if (r.method() === 'POST') writes.push(new URL(r.url()).pathname); });
-      await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; }), mode.font);
+      page.on('request', r => {
+        if (r.method() !== 'POST') return;
+        const path = new URL(r.url()).pathname; writes.push(path);
+        if (path === '/api/action') actionWrites.push(r.postDataJSON());
+      });
+      await page.addInitScript(font => {
+        const originalScrollBy = window.scrollBy.bind(window); window.tileViewportCalls = 0;
+        window.scrollBy = (...args) => { window.tileViewportCalls++; return originalScrollBy(...args); };
+        document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; });
+      }, mode.font);
       await page.goto(base); await page.locator('.home-caption').waitFor();
       for (const k of ['a','a','b','a','b','b']) await key(page,k);
       await page.locator('.tile-board').waitFor();
@@ -165,19 +241,60 @@ try {
       assert.deepEqual(await board(page),tiles);
       assert.equal((await api('state')).state.economy.coins,before.economy.coins);
       // Complete the genuine random board through the same three physical keys.
+      const completionActions = actionWrites.length;
+      const activeKinds = mode.name === 'desktop-large' ? ['blur','abandon'] : mode.width > 700 ? ['blur','hidden'] : ['help','tools'];
       for (let pair=0;pair<8;pair++) {
         const values = await board(page); let match;
         for (let a=0;a<16 && !match;a++) for(let b=a+1;b<16;b++) {
           if(values[a] && values[a] === values[b] && legal(values,a,b)) { match=[a,b]; break; }
         }
         assert(match,'server must preserve a playable board');
-        await move(page,match[0]); await key(page,'b'); await move(page,match[1]); await key(page,'b');
-        if(pair<7) { await visibleFeedback(page, '.tile-message'); assert.deepEqual((await inspect(page)).clipped,[]); }
+        await move(page,match[0]); await key(page,'b'); await move(page,match[1]);
+        const matchWrites = actionWrites.length;
+        if (pair >= 1 && pair <= 4) await delayedMatch(page, ['blur', 'hidden', 'help', 'tools'][pair - 1], pair + 1);
+        else {
+          await key(page,'b');
+          if (pair >= 5 && pair < 7) {
+            await page.locator('.collected-tile').waitFor();
+            await interrupt(page, activeKinds[pair - 5], true);
+            assert.equal(await page.locator('.collected-tile,.tile-link').count(), 0);
+          }
+        }
+        assert.equal(actionWrites.length, matchWrites + 1, 'no retry or pause action from a tile interruption');
+        if(pair<7) {
+          // Check an ordinary live match before testing interruptions. Returning
+          // from a window/modal leaves reading to the player, not a stale reveal.
+          if (pair === 0) {
+            await visibleFeedback(page, '.tile-message');
+            await page.locator('.collected-tile').waitFor({ state: 'hidden' });
+          }
+          assert.deepEqual((await inspect(page)).clipped,[]);
+          const state = (await api('state')).state;
+          assert.equal(state.game.tiles.pairs, pair + 1);
+          assert.equal(state.economy.coins,before.economy.coins); assert.equal(state.careCount,before.careCount);
+          if (pair === 4) {
+            await page.screenshot({path:join(artifacts,mode.name+'-late-feedback.png'),fullPage:true});
+            // Explicit scripted reading, not an automatic reveal after interruption.
+            await page.locator('.tile-message').evaluate(el => {
+              el.scrollIntoView({ block: 'start', behavior: 'instant' }); window.scrollBy({ top: -12, behavior: 'instant' });
+            });
+            await visibleFeedback(page, '.tile-message');
+            await page.screenshot({path:join(artifacts,mode.name+'-read-message.png'),fullPage:false});
+            await page.reload(); await page.locator('.tile-board').waitFor();
+            assert.equal(await page.locator('.collected-tile,.tile-link').count(),0);
+            assert.equal(+(await page.locator('.tile-game').getAttribute('data-pairs')),5);
+          }
+        }
       }
+      assert.deepEqual(actionWrites.slice(completionActions).map(a => a.kind), Array(16).fill('tile-pick'));
       await page.locator('.content-home').waitFor();
       const after = (await api('state')).state;
       assert(!after.game); assert.equal(after.economy.coins,before.economy.coins+6);
       assert.equal(after.careCount,before.careCount+1); assert.deepEqual(errors,[]);
+      await page.reload(); await page.locator('.content-home').waitFor();
+      const reread = (await api('state')).state;
+      assert.equal(reread.economy.coins, after.economy.coins); assert.equal(reread.careCount, after.careCount);
+      results.at(-1).feedback = { delayed: ['blur','hidden','help','tools'], active: activeKinds, pairs: 8, coins: 6, care: 1 };
       await writeFile(join(artifacts,'results.json'),JSON.stringify(results,null,2));
     } finally { await context.close(); }
   }

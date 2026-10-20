@@ -263,6 +263,97 @@ describe("three-key pet tile matching", () => {
     expect(saved.game!.tiles!.pick).toBe(-1);
     expect(saved.game!.tiles!.pairs).toBe(1);
   });
+  function confirmedPair(): Result {
+    saved.game!.tiles!.board[0] = saved.game!.tiles!.board[1] = 0;
+    saved.game!.tiles!.pick = -1;
+    saved.game!.tiles!.pairs++;
+    saved.revision++;
+    return { ...result(), tileLink: [{ x: 1, y: 1 }, { x: 2, y: 1 }] };
+  }
+  const interruptions = ["blur", "hidden", "help", "tools"] as const;
+  async function interrupt(kind: typeof interruptions[number]) {
+    if (kind === "blur") {
+      await act(async () => { fireEvent(window, new Event("blur")); });
+      return async () => { await act(async () => { fireEvent(window, new Event("focus")); }); };
+    }
+    if (kind === "hidden") {
+      const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+      await act(async () => { fireEvent(document, new Event("visibilitychange")); });
+      return async () => {
+        hidden.mockReturnValue(false);
+        await act(async () => { fireEvent(document, new Event("visibilitychange")); });
+      };
+    }
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: kind === "help" ? "玩法说明" : /存档盒/ }));
+    });
+    return async () => {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: kind === "help" ? "关闭" : /存档盒/ }));
+      });
+    };
+  }
+  function noCollection() {
+    expect(document.querySelector(".tile-link")).toBeNull();
+    expect(document.querySelector(".collected-tile")).toBeNull();
+    expect(document.querySelector('.tile-companion[data-motion="collecting"]')).toBeNull();
+  }
+  it.each(interruptions)("keeps a delayed saved pair without replaying collection after %s and return", async kind => {
+    saved.game = game(); saved.game.tiles!.pick = 0;
+    await mount(); await key("a");
+    let resolve!: (r: Result) => void;
+    api.mockImplementationOnce(() => new Promise<Result>(r => { resolve = r; }));
+    await key("b");
+    const confirmed = confirmedPair(); // Committed already, acknowledgment still in transit.
+    expect(document.querySelector('.tile-game[data-pairs="0"]')).toBeTruthy();
+    noCollection();
+    const resume = await interrupt(kind); await resume();
+    await act(async () => { resolve(confirmed); });
+    expect(document.querySelector('.tile-game[data-pairs="1"]')).toBeTruthy();
+    expect(document.querySelectorAll(".tile-cell.empty")).toHaveLength(2);
+    noCollection();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    noCollection();
+    expect(actions().map(a => a.kind)).toEqual(["tile-pick"]);
+    expect(saved.game.tiles!.pairs).toBe(1);
+    expect(saved.economy!.coins).toBe(0); expect(saved.careCount).toBe(0);
+  });
+  it.each(interruptions)("clears an active collection at %s without replaying on return", async kind => {
+    saved.game = game(); saved.game.tiles!.pick = 0;
+    await mount(); await key("a");
+    api.mockImplementationOnce(async () => confirmedPair());
+    await key("b");
+    expect(document.querySelector(".collected-tile")).toBeTruthy();
+    const resume = await interrupt(kind);
+    noCollection();
+    await resume(); noCollection();
+    expect(document.querySelector('.tile-game[data-pairs="1"]')).toBeTruthy();
+    expect(actions().map(a => a.kind)).toEqual(["tile-pick"]);
+  });
+  it("does not replay collection when C opens abandon confirmation and A returns", async () => {
+    saved.game = game(); saved.game.tiles!.pick = 0;
+    await mount(); await key("a");
+    api.mockImplementationOnce(async () => confirmedPair()); await key("b");
+    expect(document.querySelector(".collected-tile")).toBeTruthy();
+    await key("c"); expect(document.querySelector(".game-abandon")).toBeTruthy();
+    await key("a");
+    expect(document.querySelector('.tile-game[data-pairs="1"]')).toBeTruthy(); noCollection();
+    expect(actions().map(a => a.kind)).toEqual(["tile-pick"]);
+    expect(saved.game.tiles!.pairs).toBe(1);
+  });
+  it("still collects an uninterrupted delayed pair only after acknowledgment", async () => {
+    saved.game = game(); saved.game.tiles!.pick = 0;
+    await mount(); await key("a");
+    let resolve!: (r: Result) => void;
+    api.mockImplementationOnce(() => new Promise<Result>(r => { resolve = r; }));
+    await key("b"); noCollection();
+    const confirmed = confirmedPair();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); resolve(confirmed); });
+    expect(document.querySelector(".tile-link")).toBeTruthy();
+    expect(document.querySelector(".collected-tile")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(850); }); noCollection();
+    expect(actions()).toHaveLength(1);
+  });
   it("animates only a server-confirmed link and then clears its timer while keeping equipment", async () => {
     saved.game = game();
     saved.game.tiles!.pick = 0;
