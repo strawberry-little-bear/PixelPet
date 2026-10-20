@@ -16,6 +16,14 @@ const cases = [
   { kind: "content", needs: {}, text: "眯眯眼、轻轻动动翅膀，有你在真好" },
   { kind: "quiet", needs: { mood: 60, energy: 44 }, text: "收拢小翅，想和你安静待一会儿" },
 ] as const;
+const calmBird = {
+  baby: { content: "小翅还裹着绒绒，和你待着真安心", quiet: "小翅收进绒绒里，想安静挨着你" },
+  growing: { content: "小翅舒展开啦，想和你看看云朵", quiet: "试翼也可以慢慢来，先收翅歇一会儿" },
+  adult: { content: "羽翼舒舒服服，停在你身边也很好", quiet: "收好羽翼，今天想安静停一会儿" },
+};
+function expected(cue: typeof cases[number], stage: "baby" | "growing" | "adult") {
+  return cue.kind === "content" || cue.kind === "quiet" ? calmBird[stage][cue.kind] : cue.text;
+}
 function pet(needs: Partial<Needs> = {}, stage: GrowthStage = "baby"): PetState {
   return { schema: 12, revision: 1, species: 1, name: "云朵雀", createdAt: Date.now() - 2000,
     hatchedAt: Date.now() - 1000, lastTick: Date.now(), sleeping: false, careCount: 0, logs: [],
@@ -27,7 +35,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 it.each(cases)("describes the bird's $kind gesture without changing need priority or save data", cue => {
   const bird = pet(cue.needs), before = structuredClone(bird);
   const common = petNeed({ ...bird, species: 2 })!;
-  expect(petNeed(bird)).toEqual({ kind: cue.kind, urgent: common.urgent, text: cue.text });
+  expect(petNeed(bird)).toEqual({ kind: cue.kind, urgent: common.urgent, text: expected(cue, "baby") });
   expect(common.kind).toBe(cue.kind);
   expect(petNeed(bird)?.text).not.toMatch(/手|爪|鳍|耳|菌盖/);
   expect(petNeed(bird)).toEqual(petNeed(bird));
@@ -40,7 +48,7 @@ describe.each(["baby", "growing", "adult"] as const)("bird need presentation at 
     api.mockResolvedValue({ state: saved, serverTime: Date.now(), saveGeneration: "a".repeat(32), message: "" });
     await act(async () => { render(<App />); });
     const caption = document.querySelector(".growth-feedback strong");
-    expect(caption?.textContent).toContain(cue.text);
+    expect(caption?.textContent).toContain(expected(cue, stage));
     expect(document.querySelector(`.bird-${stage}.gesture-${cue.kind}`)).toBeTruthy();
     expect(document.querySelectorAll(".pet-scene .bird-wing")).toHaveLength(2);
     const description = document.querySelector(".pet-scene")?.getAttribute("aria-label");

@@ -1,3 +1,4 @@
+import { homeVoice } from "./homeVoice";
 import type { PetState } from "./types";
 
 export type NeedKind = "hungry" | "tired" | "dirty" | "playful" | "content" | "quiet";
@@ -103,5 +104,5 @@ export function petNeed(pet: PetState | null): NeedSignal | null {
   const needed = bodyNeed(pet);
   const kind = needed?.kind ?? (mood <= 60
     ? (energy >= 45 ? "playful" : "quiet") : "content");
-  return { kind, text: (pet.species === 1 ? birdMessages : pet.species === 3 ? dolphinMessages : pet.species === 4 ? mushroomMessages : pet.species === 5 ? bearMessages : pet.species === 6 ? frogMessages : pet.species === 8 ? dragonMessages : pet.species === 9 ? dogMessages : messages)[kind], urgent: needed?.urgent ?? false };
+  return { kind, text: homeVoice(pet.species, pet.growth?.stage, kind) ?? (pet.species === 1 ? birdMessages : pet.species === 3 ? dolphinMessages : pet.species === 4 ? mushroomMessages : pet.species === 5 ? bearMessages : pet.species === 6 ? frogMessages : pet.species === 8 ? dragonMessages : pet.species === 9 ? dogMessages : messages)[kind], urgent: needed?.urgent ?? false };
 }
