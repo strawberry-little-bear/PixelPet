@@ -1,6 +1,9 @@
 package game
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 // SleepSession accumulates only the existing settlements after an explicit
 // bedtime. Persisting it, rather than subtracting client snapshots, preserves
@@ -42,4 +45,30 @@ func (s State) validSleepSession() bool {
 		math.Abs(r.RestGain-r.EnergyRecovered/restEnergyPerHabit) <= eps && r.RestGain <= s.Growth.Care.Rest+eps &&
 		r.GrowthPoints <= s.Growth.Points+eps &&
 		r.GrowthPoints <= r.SettledHours*(growthBasePerHour+growthComfortPerHour)+r.RestGain*restPointsPerHabit+eps
+}
+
+// Keep one factual wake entry in the existing recent diary. This is not a new
+// reward or a durable copy of the response receipt: ordinary reads never call
+// it, and the diary still trims to its existing thirty-entry limit.
+func sleepDiary(session *SleepSession, wokeAt int64) string {
+	if session == nil {
+		return "早安！这段休息没有完整记录，未估算恢复量；下次明确入睡后会记录。"
+	}
+	amount := func(n float64) string {
+		// Canonicalize only sub-nanounit float dust at display half-steps.
+		// Equivalent settlement partitions must not print 14.32 vs 14.33
+		// for the same 14.325 gain; the stored amounts are never changed.
+		rounded := math.Round(n*100+1e-7) / 100
+		if n > 0 && rounded == 0 {
+			return "<0.01"
+		}
+		return fmt.Sprintf("%.2f", rounded)
+	}
+	text := fmt.Sprintf("早安！本段休息实际结算 %s 小时，恢复体力 +%s，休息习惯 +%s，期间成长 +%s 点（含自然成长，非起床奖励）。",
+		amount(session.SettledHours), amount(session.EnergyRecovered), amount(session.RestGain), amount(session.GrowthPoints))
+	unsettled := float64(wokeAt-session.StartedAt)/3600000 - session.SettledHours
+	if unsettled > 1e-7 {
+		text += fmt.Sprintf("受单次结算上限影响，另有 %s 小时未计入，不再补算。", amount(unsettled))
+	}
+	return text
 }

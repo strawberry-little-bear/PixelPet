@@ -202,7 +202,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	if s.Sleeping && a.Kind != "sleep" && a.Kind != "rename" {
 		return "", errors.New("它正在睡觉，先把它叫醒吧")
 	}
-	var msg string
+	var msg, diary string
 	switch a.Kind {
 	case "daily", "buy", "equip":
 		var err error
@@ -242,6 +242,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			s.sharedMemory("goodnight", now)
 			msg = "晚安，小伙伴。睡着时体力会慢慢恢复。"
 		} else {
+			diary = sleepDiary(s.SleepSession, now.UnixMilli())
 			s.SleepSession = nil
 			msg = "早安！今天也一起慢慢长大吧。"
 		}
@@ -363,7 +364,10 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	default:
 		return "", errors.New("不认识这个操作")
 	}
-	s.Log(now, msg)
+	if diary == "" {
+		diary = msg
+	}
+	s.Log(now, diary)
 	return msg, nil
 }
 

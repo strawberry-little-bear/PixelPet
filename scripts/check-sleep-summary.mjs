@@ -1,17 +1,16 @@
 // Real Chrome + HTTP/SQLite on a private port/database/build only.
 // Short real sleeps test accumulation; simulated hour/cap boundaries live in Go tests.
 import assert from 'node:assert/strict';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import net from 'node:net';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary)); assert(web && isAbsolute(web));
-assert.notEqual(resolve(binary), join(root, 'bin/pixelpet'));
-assert.notEqual(resolve(web), join(root, 'web/dist'));
+const { binary, web } = await isolatedTestBuilds();
+console.log(JSON.stringify({ testBuilds: { binary, web } }));
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-sleep-summary-'));
 const port = await new Promise((resolve, reject) => {
@@ -25,7 +24,7 @@ async function api(path, body) {
   assert(r.ok, await r.clone().text()); return r.json();
 }
 async function seed(stage, full) {
-  const now = Date.now(), age = (stage === 'adult' ? 80 : 1) * 3600000;
+  const now = Date.now(), age = ({ baby: 1, growing: 25, adult: 80 }[stage]) * 3600000;
   return api('import', { schema: 1, revision: 1, species: 2, name: '好梦伙伴', createdAt: now - age, hatchedAt: now - age,
     lastTick: now, sleeping: false, needs: { hunger: 80, mood: 80, clean: 90, energy: full ? 100 : 40 }, careCount: 0, logs: [] });
 }
@@ -38,6 +37,22 @@ async function sleep(page) {
   const reply = page.waitForResponse(r => new URL(r.url()).pathname === '/api/action' && r.request().postDataJSON()?.kind === 'sleep');
   await key(page, 'B'); const r = await reply; assert(r.ok());
   const result = await r.json(); await key(page, 'C'); return result;
+}
+// Read saved text using only the established A/B/C journal navigation. This
+// does not reconstruct the response receipt or infer a past sleep from totals.
+async function diary(page, entry, label) {
+  await key(page, 'A'); for (let i = 0; i < 5; i++) await key(page, 'A');
+  await key(page, 'B'); await page.locator('.screen-journal').waitFor();
+  for (let i = 0; i < 30; i++) {
+    if (await page.locator('.screen-journal > p').innerText() === entry.text) break;
+    await key(page, 'A');
+  }
+  assert.equal(await page.locator('.screen-journal > p').innerText(), entry.text);
+  assert.equal(await page.locator('.screen-journal > time').getAttribute('datetime'), new Date(entry.at).toISOString());
+  assert((await page.locator('.journal-note').innerText()).includes('最近 30 条'));
+  await readable(page, '.screen-journal');
+  await page.screenshot({ path: join(dir, `diary-${label}.png`), fullPage: true });
+  await key(page, 'C'); await page.locator('.content-home').waitFor();
 }
 async function readable(page, selector = '.sleep-summary') {
   const panel = page.locator(selector);
@@ -80,8 +95,9 @@ try {
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
   for (const { width, font } of [{ width: 1200, font: 14 }, { width: 320, font: 28 }]) {
-    for (const stage of ['baby', 'adult']) {
+    for (const stage of ['baby', 'growing', 'adult']) {
       const initial = await seed(stage, stage === 'adult');
+      assert.equal(initial.state.growth.stage, stage);
       const context = await browser.newContext({ viewport: { width, height: 700 }, hasTouch: true,
         isMobile: width < 700, reducedMotion: 'reduce', forcedColors: font === 28 ? 'active' : 'none' });
       const page = await context.newPage(), errors = [], writes = [];
@@ -107,7 +123,7 @@ try {
         close(summary.energyRecovered, wake.state.needs.energy - bed.state.needs.energy);
         close(summary.restGain, wake.state.growth.care.rest - bed.state.growth.care.rest);
         close(summary.growthPoints, wake.state.growth.points - bed.state.growth.points);
-        if (stage === 'baby') assert(summary.energyRecovered > second.state.sleepSession.energyRecovered);
+        if (stage !== 'adult') assert(summary.energyRecovered > second.state.sleepSession.energyRecovered);
         else { assert.equal(summary.growthPoints, 0); assert.equal(wake.state.growth.form, initial.state.growth.form); }
         await page.locator('.sleep-summary').waitFor(); await readable(page);
         assert(await page.locator('.sleep-summary').evaluate((el, font) => parseFloat(getComputedStyle(el).fontSize) >= font * .85, font));
@@ -122,7 +138,11 @@ try {
         await page.screenshot({ path: join(dir, `sleep-${width}-${stage}-viewport.png`) });
         await page.reload(); await page.locator('.home-caption').waitFor();
         assert.equal(await page.locator('.sleep-summary').count(), 0, 'Reload rebuilt old receipt from state');
-        assert.deepEqual(errors, []); results.push({ width, font, stage, summary, passed: true });
+        const entry = wake.state.logs[0];
+        assert(entry.text.includes('本段休息') && entry.text.includes('非起床奖励'));
+        await diary(page, entry, `${width}-${stage}`);
+        assert.equal(writes.length, 2, 'Journal repeated care');
+        assert.deepEqual(errors, []); results.push({ width, font, stage, summary, diaryAfterReload: true, passed: true });
       } finally { await context.close(); }
     }
   }
@@ -196,12 +216,15 @@ try {
         await page.locator('.sleep-summary-unavailable').screenshot({ path: join(dir, `untracked-${width}-${source}-wake.png`) });
         await page.reload(); await page.locator('.home-caption').waitFor();
         assert.equal(await page.locator('.sleep-summary-unavailable').count(), 0);
+        assert(wake.state.logs[0].text.includes('没有完整记录'));
+        assert(!wake.state.logs[0].text.includes('+'));
+        await diary(page, wake.state.logs[0], `${width}-${source}-untracked`);
         const nextBed = await sleep(page); assert(nextBed.state.sleepSession);
         const nextWake = await sleep(page); assert(nextWake.careFeedback.sleepSummary);
         await page.locator('.sleep-summary').waitFor();
         assert.equal(await page.locator('.sleep-summary-unavailable').count(), 0);
         assert.equal(writes.length, 3); assert.deepEqual(errors, []);
-        results.push({ kind: 'untracked-sleep-real-import', width, font, source, passed: true });
+        results.push({ kind: 'untracked-sleep-real-import', width, font, source, diaryAfterReload: true, passed: true });
       } finally { await context.close(); }
     }
   }

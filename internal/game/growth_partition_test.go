@@ -122,7 +122,7 @@ func assertPartitionState(t *testing.T, got, want State) {
 	logs := append([]Log(nil), got.Logs...)
 	for i, l := range logs {
 		if l.Text != want.Logs[i].Text {
-			t.Fatalf("log differs at %d", i)
+			t.Fatalf("log differs at %d: got %q want %q", i, l.Text, want.Logs[i].Text)
 		}
 		if l.At != want.Logs[i].At {
 			if l.At != got.Growth.GrowingAt && l.At != got.Growth.AdultAt || math.Abs(float64(l.At-want.Logs[i].At)) > 1 {
