@@ -1245,10 +1245,14 @@ footer i {
 }
 .screen-journal .journal-note, .screen-journal .journal-trimmed { line-height: 1.6; }
 .screen-journal .journal-trimmed { border-left: 2px solid currentColor; padding-left: 6px; }
+.star-game { color: #405132; font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere; }
+.star-game :is(.star-position, .star-method) { margin: 8px 0 0; }
 .game-score {
+  flex-wrap: wrap;
+  gap: 4px 10px;
   display: flex;
   justify-content: space-between;
-  font: 9px var(--mono);
+  font: inherit;
 }
 .game-lanes {
   display: flex;
@@ -1291,7 +1295,7 @@ footer i {
   animation: star-fall 0.9s linear infinite;
 }
 .game-message {
-  font-size: 9px;
+  font-size: .857143rem;
   text-align: center;
   line-height: 1.8;
   color: #718354;
@@ -1988,3 +1992,6 @@ footer i {
 .export-feedback { overflow-wrap:anywhere; }
 .tools-menu .export-feedback[role="alert"], .modal .export-feedback[role="alert"] { color:#8b3b2e; }
 @media (forced-colors:active) { .tools-menu .export-feedback, .modal .export-feedback { color:CanvasText; } }
+
+/* Reading typography must not shrink the decorative star to body-text size. */
+.reading-mode .star-game .falling-star { font-size: 26px; }

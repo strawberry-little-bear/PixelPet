@@ -28,6 +28,7 @@ import { FishingGame, FishAlbum } from "./FishingGame";
 import { fishCatalogFor, fishingMenu } from "./fishing";
 import { TetrisGame, tetrisOptions } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
+import { StarsGame } from "./StarsGame";
 import { useTileViewport, type TileDestination } from "./useTileViewport";
 import { TileGame, nextTile } from "./TileGame";
 import { GameAllowance } from "./GuideReward";
@@ -2055,7 +2056,7 @@ export default function App() {
 
   // Use the same reading decision for geometry and successful notices.
   const readingMode = page !== "game" || abandoning || uncertain || unavailable || corrupt
-    || treasure || pet?.game?.kind === "tiles"
+    || treasure || pet?.game?.kind === "tiles" || (pet?.game && !pet.game.kind)
     || (snake && (snake.paused || snake.end || snakeSession !== pet?.game?.id))
     || (blocks && (blocks.paused || blocks.end || tetrisSession !== pet?.game?.id))
     || (walking && (walking.paused || walking.beat === 72 || walkSession !== pet?.game?.id))
@@ -2553,40 +2554,7 @@ export default function App() {
                           />
                         )}
                         {page === "game" && !abandoning && pet.game && !pet.game.kind && (
-                          <div className="star-game">
-                            <div className="game-score">
-                              ROUND {pet.game.round + 1}/5{" "}
-                              <span>★ {pet.game.score}</span>
-                            </div>
-                            <div className="game-lanes">
-                              {[0, 1, 2].map((i) => (
-                                <div
-                                  key={i}
-                                  className={`game-lane ${i === lane ? "lane-selected" : ""}`}
-                                >
-                                  <span
-                                    className={`falling-star ${target === i ? "visible" : ""}`}
-                                  >
-                                    ★
-                                  </span>
-                                  {lane === i ? (
-                                    <PetArt
-                                      index={index}
-                                      stage={growth.stage}
-                                      accessory={
-                                        pet.economy?.equipped.accessory
-                                      }
-                                    />
-                                  ) : (
-                                    <span className="lane-dot">·</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            <div className="game-message">
-                              {message || "移到星星下面，按 B 接住！"}
-                            </div>
-                          </div>
+                          <StarsGame pet={pet} now={now} lane={lane} target={target} message={message} />
                         )}
                         {page === "game" && !abandoning && gameRewardReading && <section className="session-allowance" aria-label="本局奖励提示">
                           <strong>本局奖励提示</strong>

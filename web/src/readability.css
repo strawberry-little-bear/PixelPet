@@ -56,7 +56,8 @@
 
 /* Reading normally uses document flow. The two-page return recap below is
    intentionally bounded, so changing pages cannot stretch the device. Keep
-   running game geometry fixed; non-game / paused / result screens opt in. */
+   timed running boards fixed; non-game / paused / result screens and untimed
+   three-key boards opt in. */
 .device-stage.reading-mode { height: auto; min-height: 552px; padding: 12px 0; }
 .reading-mode .device { height: auto; min-height: 516px; padding-bottom: 38px; }
 .reading-mode .shell-brand, .reading-mode .device-model, .reading-mode .device-buttons { flex-shrink: 0; }

@@ -1,0 +1,30 @@
+import { PetArt } from "./PetArt";
+import { petGrowth } from "./growth";
+import type { PetState } from "./types";
+
+const positions = ["左边", "中间", "右边"];
+export function StarsGame({ pet, now, lane, target, message }: {
+  pet: PetState; now: number; lane: number; target: number; message: string;
+}) {
+  if (!pet.game || pet.game.kind) return null;
+  return (
+    <section className="star-game" aria-label="接星星">
+      <header className="game-score">
+        <strong>第 {pet.game.round + 1} / 5 轮</strong>
+        <span>已接住 {pet.game.score} 颗</span>
+      </header>
+      <div className="game-lanes" role="img" aria-label={`星星在${positions[target]}；伙伴在${positions[lane]}`}>
+        {[0, 1, 2].map(i => (
+          <div key={i} className={`game-lane ${i === lane ? "lane-selected" : ""}`}>
+            <span className={`falling-star ${target === i ? "visible" : ""}`} aria-hidden="true">★</span>
+            {lane === i ? <PetArt index={pet.species} stage={petGrowth(pet, now).stage}
+              accessory={pet.economy?.equipped.accessory} /> : <span className="lane-dot" aria-hidden="true">·</span>}
+          </div>
+        ))}
+      </div>
+      <p className="star-position">伙伴：{positions[lane]}</p>
+      <p className="star-method">移到亮星下面就能按 B，不必等落到底。每个节拍只接一次，接空也算一轮；等待不扣轮次。</p>
+      <div className="game-message">{message || "移到星星下面，按 B 接住！"}</div>
+    </section>
+  );
+}
