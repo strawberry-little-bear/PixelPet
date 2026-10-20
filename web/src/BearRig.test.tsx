@@ -250,10 +250,10 @@ describe("independently drawn bear", () => {
         }
       },
     } as PetState;
-    const { container, rerender } = render(<SnakeGame pet={pet} active turn={0} />);
+    const { container, rerender } = render(<SnakeGame pet={pet} now={pet.lastTick} active turn={0} />);
     expect(container.querySelector(`.snake-pet .bear-${stage}.rig-motion-idle`)).not.toBeNull();
     const next = { ...pet, game: { ...pet.game!, snake: { ...pet.game!.snake!, eaten: 1 } } };
-    act(() => rerender(<SnakeGame pet={next} active turn={0} />));
+    act(() => rerender(<SnakeGame pet={next} now={next.lastTick} active turn={0} />));
     expect(container.querySelector(`.snake-companion.collecting .bear-${stage}.rig-motion-celebrating`)).not.toBeNull();
     expect(container.querySelectorAll(".bear-paw")).toHaveLength(2);
     expect(container.querySelector('.bear-rig .equipped-accessory[data-item="star-badge"]')).not.toBeNull();

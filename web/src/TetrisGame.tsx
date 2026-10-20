@@ -20,7 +20,7 @@ export function blockCells(p: Falling) {
   }
   return cells.map(([x, y]) => ({ x: x + p.x, y: y + p.y }));
 }
-export function TetrisGame({ pet, active, choice }: { pet: PetState; active: boolean; choice: number ;}) {
+export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: number; active: boolean; choice: number ;}) {
   const n = pet.game?.tetris;
   const lastLines = useRef(n?.lines ?? 0);
   const [collecting, setCollecting] = useState(false);
@@ -33,7 +33,7 @@ export function TetrisGame({ pet, active, choice }: { pet: PetState; active: boo
   }, [n?.lines]);
   if (!n) return null;
   const paused = n.paused || !active;
-  const growth = petGrowth(pet, Date.now());
+  const growth = petGrowth(pet, now);
   const cells = n.active ? blockCells(n.active) : [];
   let ghost = n.active ? { ...n.active } : undefined;
   if (ghost) {

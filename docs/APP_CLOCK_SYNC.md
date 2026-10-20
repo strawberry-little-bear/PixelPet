@@ -71,3 +71,7 @@ node scripts/check-app-clock.mjs --jump-after-load
 ## 后续：回窝短回应
 
 上面显示校时两批明确排除的本地临时回应，现已单独改为同源的performance截止时间；不使用serverTime锚点、不改存档时间或12秒规则。问题复现、边界和独立验收见[HOME_ECHO_CLOCK.md](HOME_ECHO_CLOCK.md)。
+
+## 后续：局内陪伴造型
+
+贪吃蛇／方块组件剩余的 `petGrowth(pet, Date.now())` 已改为显式接收 App 的校准 `now`。仅影响响应缺失成长记录时的兼容预览；正常保存记录优先、原校时算法与成长结算不变。复现边界、三阶段与刷新／真实步进验收见 [GAME_COMPANION_CLOCK.md](GAME_COMPANION_CLOCK.md)。

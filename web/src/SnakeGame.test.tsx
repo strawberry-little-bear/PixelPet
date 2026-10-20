@@ -89,7 +89,7 @@ describe("three-key realtime snake", () => {
   });
   it("renders stage-specific equipped pet and permanent snake memory", () => {
     saved.game = snakeGame(); saved.game.snake!.eaten = 8; saved.game.snake!.end = "won";
-    render(<SnakeGame pet={saved} active={false} turn={0} />);
+    render(<SnakeGame pet={saved} now={saved.lastTick} active={false} turn={0} />);
     expect(document.querySelector(".snake-pet .rabbit-rig")).toBeTruthy();
     expect(document.querySelector('.snake-pet [data-item="leaf-pin"]')).toBeTruthy();
     expect(document.querySelector(".snake-overlay")?.textContent).toContain("装满");

@@ -5,7 +5,7 @@ import { petGrowth } from "./growth";
 import type { PetState } from "./types";
 import "./snake-game.css";
 
-export function SnakeGame({ pet, active, turn }: { pet: PetState; active: boolean; turn: number; }) {
+export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: number; active: boolean; turn: number; }) {
   const snake = pet.game?.snake;
   const lastEaten = useRef(snake?.eaten ?? 0);
   const [collecting, setCollecting] = useState(false);
@@ -19,7 +19,7 @@ export function SnakeGame({ pet, active, turn }: { pet: PetState; active: boolea
   if (!snake) return null;
   const ended = !!snake.end;
   const paused = !active || snake.paused;
-  const growth = petGrowth(pet, Date.now());
+  const growth = petGrowth(pet, now);
   return <section className="snake-game" aria-label="果园贪吃蛇">
     <header><strong>果园贪吃蛇</strong><span>果子 {snake.eaten}/8</span></header>
     <div className="snake-field">

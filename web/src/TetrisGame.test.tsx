@@ -91,7 +91,7 @@ describe("three-key Tetris", () => {
     expect(actions().at(-1)).toMatchObject({ kind: "tetris-finish", gameId: id, step: 0 });
   });
   it("renders next piece, ghost landing and equipped pet without initial fake collection", () => {
-    saved.game = game(); const view = render(<TetrisGame pet={saved} active choice={0} />);
+    saved.game = game(); const view = render(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
     expect(view.getByRole("img", { name: "下一块 I" })).toBeTruthy();
     expect(view.container.querySelectorAll(".active-block")).toHaveLength(4);
     expect(view.container.querySelectorAll(".ghost-block")).toHaveLength(4);
@@ -99,8 +99,8 @@ describe("three-key Tetris", () => {
     expect(view.container.querySelector(".tetris-companion")?.getAttribute("data-motion")).toBe("waiting");
   });
   it("celebrates only a newly saved line clear, then returns to waiting", async () => {
-    saved.game = game(); const view = render(<TetrisGame pet={saved} active choice={0} />);
-    saved = structuredClone(saved); saved.game!.tetris!.lines = 2; view.rerender(<TetrisGame pet={saved} active choice={0} />);
+    saved.game = game(); const view = render(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
+    saved = structuredClone(saved); saved.game!.tetris!.lines = 2; view.rerender(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
     expect(view.container.querySelector(".tetris-companion")?.getAttribute("data-motion")).toBe("collecting");
     await clock(1000); expect(view.container.querySelector(".tetris-companion")?.getAttribute("data-motion")).toBe("waiting");
   });
@@ -143,9 +143,9 @@ describe("three-key Tetris", () => {
 
 it("uses the same 消除 wording for the live header and final result", () => {
   saved.game = game(); saved.game.tetris!.lines = 3;
-  const view = render(<TetrisGame pet={saved} active={false} choice={0} />);
+  const view = render(<TetrisGame pet={saved} now={saved.lastTick} active={false} choice={0} />);
   expect(document.querySelector(".tetris-game header")?.textContent).toContain("消除 3/8");
   saved.game.tetris!.end = "stacked";
-  view.rerender(<TetrisGame pet={saved} active={false} choice={0} />);
+  view.rerender(<TetrisGame pet={saved} now={saved.lastTick} active={false} choice={0} />);
   expect(document.querySelector(".tetris-overlay")?.textContent).toContain("消除 3 行");
 });

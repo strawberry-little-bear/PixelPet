@@ -2315,12 +2315,13 @@ export default function App() {
                         {page === "game" && !abandoning && pet.game?.kind === "walk" && <WalkingGame pet={pet} active={walkSession===pet.game.id && !tools && !help && !reset} choice={walkChoice}/>}
                         {page === "game" && !abandoning && pet.game?.kind === "fishing" && <FishingGame pet={pet} active={fishingSession === pet.game.id && !tools && !help && !reset} choice={fishingChoice} />}
                         {page === "game" && !abandoning && pet.game?.kind === "tetris" && (
-                          <TetrisGame key={pet.game.id} pet={pet} active={tetrisSession === pet.game.id && !tools && !help && !reset} choice={tetrisChoice} />
+                          <TetrisGame key={pet.game.id} pet={pet} now={now} active={tetrisSession === pet.game.id && !tools && !help && !reset} choice={tetrisChoice} />
                         )}
                         {page === "game" && !abandoning && pet.game?.kind === "snake" && (
                           <SnakeGame
                             key={pet.game.id}
                             pet={pet}
+                            now={now}
                             active={snakeSession === pet.game.id && !tools && !help && !reset}
                             turn={queuedTurn}
                           />
