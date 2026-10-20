@@ -1,6 +1,7 @@
 import { GrowthTrack } from "./GrowthTrack";
 import { GrowthSnapshot } from "./GrowthSnapshot";
 import { GrowthBasis } from "./GrowthBasis";
+import { sleepGrowthGuidance } from "./sleepGuidance";
 import { CompanionPanel } from "./CompanionPanel";
 import { PetArt, petRigClass } from "./PetArt";
 import { FormEmblem, GrowthOutfit } from "./GrowthOutfit";
@@ -162,9 +163,8 @@ export function GrowthPanel({
             <br />
             饱食 ≤70 喂食、清洁 ≤65 洗澡才记入。
             <br />
-            {g.stage === "adult"
-              ? "成年后不再加成长点，休息按恢复记录。"
-              : "休息按体力恢复积累，每 28 点 +0.25。"}
+            {g.stage === "adult" && "成年后不再加成长点；"}
+            <span className="habit-rest-guide">{sleepGrowthGuidance(pet && !pet.growth ? undefined : g, rules)}</span>
           </small>
         </>
       ) : page === 3 ? <CompanionPanel companion={companion} /> : page === 4 ? (
