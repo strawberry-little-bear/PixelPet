@@ -219,6 +219,8 @@ export default function App() {
   const homeEchoEpoch = useRef(0);
   const recapDisplayEpoch = useRef(0);
   const [foreground, setForeground] = useState(() => !document.hidden);
+  // Focus tracks presence, separately from visible reading time.
+  const [windowFocused, setWindowFocused] = useState(true);
   const [clip, setClip] = useState<MotionClip | null>(null);
   const clipRef = useRef<MotionClip | null>(null);
   const clipSequence = useRef(0);
@@ -264,10 +266,11 @@ export default function App() {
   const [walkChoice,setWalkChoice] = useState(0);
   const [parkPage,setParkPage] = useState(0);
   const walkEpoch = useRef(0);
+  // Observed window focus gates visits as well as local game permission.
   // A late accepted response may update the board, but cannot restore local
   // permission to run after backgrounding or opening a non-game panel.
   const boardEpoch = useRef(0);
-  const gameWindowActive = useRef(true);
+  const windowActive = useRef(true);
   const [tetrisSession, setTetrisSession] = useState("");
   const [tetrisChoice, setTetrisChoice] = useState(0);
   const [snakeSession, setSnakeSession] = useState("");
@@ -660,7 +663,7 @@ export default function App() {
     return true;
   }, [apply, stopActivity, discardImport]);
   const refresh = useCallback(async function readCurrent() {
-    if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden) return;
+    if (busyRef.current || readInFlight.current === syncEpoch.current || document.hidden || !windowActive.current) return;
     returnReadPending.current = false;
     const epoch = syncEpoch.current;
     const recovering = uncertainRef.current;
@@ -717,24 +720,41 @@ export default function App() {
     };
     const windowFocus = (event: Event) => {
       // Moving focus between physical keys is not returning to the window.
-      if (event.target === event.currentTarget) returned();
+      if (event.target !== event.currentTarget) return;
+      // Update synchronously: returned() can start a read before React renders.
+      windowActive.current = true;
+      setWindowFocused(true);
+      returned();
+    };
+    const left = () => {
+      setForeground(false);
+      audio.current?.cancel();
+      recapDisplayEpoch.current++;
+      homeEchoEpoch.current++;
+      setHomeEcho(null);
+    };
+    const windowBlur = (event: Event) => {
+      if (event.target !== event.currentTarget) return;
+      windowActive.current = false;
+      setWindowFocused(false);
+      recapDisplayEpoch.current++;
+      // Visible reading timers keep their established behavior. Only presence
+      // and automatic recap presentation treat this window blur as leaving.
     };
     const visibility = () => {
       setForeground(!document.hidden);
-      if (document.hidden) {
-        audio.current?.cancel();
-        recapDisplayEpoch.current++;
-        homeEchoEpoch.current++;
-        setHomeEcho(null);
-      } else returned();
+      if (document.hidden) left();
+      else returned();
     };
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("focus", windowFocus);
+    window.addEventListener("blur", windowBlur);
     return () => {
       returnReadPending.current = false;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("focus", windowFocus);
+      window.removeEventListener("blur", windowBlur);
     };
   }, [refresh]);
   useEffect(() => {
@@ -843,7 +863,7 @@ export default function App() {
   useEffect(() => {
     if (!queuedReturn) return;
     if (
-      queuedReturn.epoch !== recapDisplayEpoch.current || !foreground || document.hidden ||
+      queuedReturn.epoch !== recapDisplayEpoch.current || !foreground || !windowFocused || !windowActive.current || document.hidden ||
       page !== "home" || tools || help || reset || uncertain || unavailable || corrupt ||
       !pet?.hatchedAt || pet.sleeping || pet.game || returnRecap?.id !== queuedReturn.id
     ) {
@@ -855,7 +875,7 @@ export default function App() {
     setReturnReading({ id: queuedReturn.id, page: 0, updated: false });
     navigateReturnReading(queuedReturn.id, 0);
     setPage("return");
-  }, [queuedReturn, page, tools, help, reset, uncertain, unavailable, corrupt, pet?.hatchedAt, pet?.sleeping, pet?.game, returnRecap?.id, busy, evolution, clip, foreground]);
+  }, [queuedReturn, page, tools, help, reset, uncertain, unavailable, corrupt, pet?.hatchedAt, pet?.sleeping, pet?.game, returnRecap?.id, busy, evolution, clip, foreground, windowFocused]);
   useEffect(() => {
     if (
       uncertain || unavailable || corrupt ||
@@ -870,7 +890,10 @@ export default function App() {
       tools ||
       help ||
       reset ||
+      !foreground ||
+      !windowFocused ||
       document.hidden ||
+      !windowActive.current ||
       returnAttempt.current === returnRecap.id
     )
       return;
@@ -883,7 +906,7 @@ export default function App() {
       .then((r) => {
         if (!acceptCurrentRead(r)) { markUncertain(); return; }
         if (
-          displayEpoch === recapDisplayEpoch.current && !document.hidden &&
+          displayEpoch === recapDisplayEpoch.current && !document.hidden && windowActive.current &&
           r.state.hatchedAt > 0 && r.recapClaimed &&
           r.returnRecap?.id === returnRecap.id &&
           !r.state.sleeping &&
@@ -915,6 +938,8 @@ export default function App() {
     markUncertain,
     returnRecap,
     returnPending,
+    foreground,
+    windowFocused,
     page,
     busy,
     clip,
@@ -1026,15 +1051,15 @@ export default function App() {
         && beforeFish?.phase === "wait" && !beforeFish.paused
         && afterFish?.phase === "bite" && !afterFish.paused
         && activeEpoch === fishingEpoch.current && performance.now() - actionStartedAt <= 1500
-        && !document.hidden && gameWindowActive.current)
+        && !document.hidden && windowActive.current)
         audio.current?.bite();
       if (kind === "treasure-dig" && page === "game" && treasureSession === pet?.game?.id
         && activeBoardEpoch === boardEpoch.current && performance.now() - actionStartedAt <= 2000
-        && !document.hidden && gameWindowActive.current)
+        && !document.hidden && windowActive.current)
         setTreasureReaction(treasureReactionFor(pet?.game, r.state.game, extra.tile, ++treasureReactionSerial.current));
-      if (kind === "treasure-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current) setTreasureSession(r.state.game?.id ?? "");
+      if (kind === "treasure-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden && windowActive.current) setTreasureSession(r.state.game?.id ?? "");
       if (["treasure-resume", "treasure-dig"].includes(kind) && page === "game"
-        && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current
+        && activeBoardEpoch === boardEpoch.current && !document.hidden && windowActive.current
         && pet?.game?.id && r.state.game?.id === pet.game.id && r.state.game.treasure) {
         setTreasureDestination({ sessionKey: pet.game.id, target: treasureDone(r.state.game.treasure)
           ? "done" : kind === "treasure-dig" ? "result" : "selection" });
@@ -1043,13 +1068,13 @@ export default function App() {
       const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
       if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
         setHomeEcho({ ...experience, monotonicUntil: performance.now() + 12000 });
-      if (kind === "walk-resume" && activeWalkEpoch === walkEpoch.current && !document.hidden && gameWindowActive.current) setWalkSession(r.state.game?.id ?? "");
+      if (kind === "walk-resume" && activeWalkEpoch === walkEpoch.current && !document.hidden && windowActive.current) setWalkSession(r.state.game?.id ?? "");
       if (["walk-pause","walk-finish","cancel-play"].includes(kind)) {setWalkSession("");setWalkChoice(0);}
-      if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden && gameWindowActive.current) setFishingSession(r.state.game?.id ?? "");
+      if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden && windowActive.current) setFishingSession(r.state.game?.id ?? "");
       if (["fish-pause", "fish-finish", "cancel-play"].includes(kind)) { setFishingSession(""); setFishingChoice(0); }
-      if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind) && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current) setTetrisSession(r.state.game?.id ?? "");
+      if (["tetris-resume", "tetris-rotate", "tetris-drop"].includes(kind) && activeBoardEpoch === boardEpoch.current && !document.hidden && windowActive.current) setTetrisSession(r.state.game?.id ?? "");
       if (["tetris-pause", "tetris-finish", "cancel-play"].includes(kind)) { setTetrisSession(""); setTetrisChoice(0); }
-      if (kind === "snake-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden && gameWindowActive.current) setSnakeSession(r.state.game?.id ?? "");
+      if (kind === "snake-resume" && activeBoardEpoch === boardEpoch.current && !document.hidden && windowActive.current) setSnakeSession(r.state.game?.id ?? "");
       if (
         kind === "snake-pause" ||
         kind === "snake-finish" ||
@@ -1127,22 +1152,22 @@ export default function App() {
   }, [tools, help, reset]);
   useEffect(() => {
     const n = pet?.game?.walking;
-    if(page!=="game" || !n || n.paused || n.beat===72 || walkSession!==pet.game?.id || busy || (document.hidden || !gameWindowActive.current) || tools || help || reset || abandoning)return;
+    if(page!=="game" || !n || n.paused || n.beat===72 || walkSession!==pet.game?.id || busy || (document.hidden || !windowActive.current) || tools || help || reset || abandoning)return;
     const epoch = walkEpoch.current;
     const timer=setTimeout(()=>{
       if (epoch !== walkEpoch.current) return;
-      if(document.hidden || !gameWindowActive.current){walkEpoch.current++;setWalkSession("");return;}
+      if(document.hidden || !windowActive.current){walkEpoch.current++;setWalkSession("");return;}
       void act("walk-step",{step:n.step}).then(ok=>{if(!ok){walkEpoch.current++;setWalkSession("");void refresh();}});
     },Math.max(80,1050-(readServerClock(clock.current)-n.lastPulseAt)));
     return ()=>clearTimeout(timer);
   },[pet?.game,walkSession,page,busy,tools,help,reset,abandoning]);
   useEffect(() => {
     const n = pet?.game?.fishing;
-    if (page !== "game" || !n || n.paused || !["wait", "bite"].includes(n.phase) || fishingSession !== pet.game?.id || busy || (document.hidden || !gameWindowActive.current) || tools || help || reset || abandoning) return;
+    if (page !== "game" || !n || n.paused || !["wait", "bite"].includes(n.phase) || fishingSession !== pet.game?.id || busy || (document.hidden || !windowActive.current) || tools || help || reset || abandoning) return;
     const epoch = fishingEpoch.current;
     const timer = setTimeout(() => {
       if (epoch !== fishingEpoch.current) return;
-      if (document.hidden || !gameWindowActive.current) { fishingEpoch.current++; setFishingSession(""); return; }
+      if (document.hidden || !windowActive.current) { fishingEpoch.current++; setFishingSession(""); return; }
       void act("fish-step", { step: n.step }).then(ok => {
         if (!ok) {
           fishingEpoch.current++;
@@ -1155,11 +1180,11 @@ export default function App() {
   }, [pet?.game, fishingSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
     const n = pet?.game?.tetris;
-    if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || (document.hidden || !gameWindowActive.current) || tools || help || reset || abandoning) return;
+    if (page !== "game" || !n || n.paused || n.end || tetrisSession !== pet.game?.id || busy || (document.hidden || !windowActive.current) || tools || help || reset || abandoning) return;
     const epoch = boardEpoch.current;
     const timer = setTimeout(() => {
       if (epoch !== boardEpoch.current) return;
-      if (document.hidden || !gameWindowActive.current) { boardEpoch.current++; setTetrisSession(""); return; }
+      if (document.hidden || !windowActive.current) { boardEpoch.current++; setTetrisSession(""); return; }
       void act("tetris-step", { step: n.step }).then(ok => {
         if (!ok) { setTetrisSession(""); void refresh(); }
       });
@@ -1170,7 +1195,7 @@ export default function App() {
     const n = pet?.game?.snake;
     if (
       page !== "game" || !n || n.paused || n.end ||
-      snakeSession !== pet.game?.id || busy || (document.hidden || !gameWindowActive.current) ||
+      snakeSession !== pet.game?.id || busy || (document.hidden || !windowActive.current) ||
       tools || help || reset || abandoning
     ) return;
     // The server applies at most one cell and verifies the expected step.
@@ -1178,7 +1203,7 @@ export default function App() {
     const epoch = boardEpoch.current;
     const timer = setTimeout(() => {
       if (epoch !== boardEpoch.current) return;
-      if (document.hidden || !gameWindowActive.current) {
+      if (document.hidden || !windowActive.current) {
         boardEpoch.current++;
         setSnakeSession("");
         return;
@@ -1211,20 +1236,13 @@ export default function App() {
       // Element focus changes can bubble in synthetic/embedded environments.
       // Invalidate synchronously, before an already-due game callback can run.
       if (event.target !== event.currentTarget) return;
-      gameWindowActive.current = false;
       stop();
-    };
-    const focus = (event: Event) => {
-      if (event.target === event.currentTarget) gameWindowActive.current = true;
-      // Returning never grants permission to resume an old local session.
     };
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("blur", blur);
-    window.addEventListener("focus", focus);
     return () => {
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("blur", blur);
-      window.removeEventListener("focus", focus);
     };
   }, []);
 
@@ -1421,7 +1439,7 @@ export default function App() {
           else if (!n.paused && (kind === "tetris-rotate" || kind === "tetris-drop")) {
             const epoch = boardEpoch.current;
             void act("tetris-pause", { step: n.step }).then(ok => {
-              if (ok && epoch === boardEpoch.current && !document.hidden && gameWindowActive.current) void act(kind, { step: n.step + 1 });
+              if (ok && epoch === boardEpoch.current && !document.hidden && windowActive.current) void act(kind, { step: n.step + 1 });
             });
           } else void act(kind, { step: n.step });
         }
