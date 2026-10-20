@@ -6,13 +6,12 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY');
-assert(web && isAbsolute(web), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+const { binary, web } = await isolatedTestBuilds();
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-care-growth-journey-'));
 const port = await new Promise((resolve, reject) => {
@@ -50,6 +49,30 @@ async function threeKeys(page) {
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
+}
+async function readable(page) {
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal page overflow');
+  assert.equal(await page.locator('.screen-journal [data-care-reading-start]').count(), 1, 'exactly one journal date/empty reading start');
+  const problems = await page.locator('.content-journal').evaluate(el => {
+    const area = el.getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), problems = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
+    while ((text = walker.nextNode())) {
+      if (!text.textContent.trim()) continue;
+      const range = document.createRange(); range.selectNodeContents(text);
+      for (const box of range.getClientRects()) {
+        if (!box.width || !box.height) continue;
+        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
+        for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+          const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
+          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) problems.push('clipped: ' + text.textContent);
+        }
+      }
+    }
+    return problems;
+  });
+  assert.deepEqual(problems, [], 'reading text clipped or overlaps footer');
+  assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
+  assert.equal(await page.locator('.physical-button').count(), 3);
 }
 // Begin from a real new save/hatch, then explicitly construct its near-threshold
 // history. These care totals are test inputs, not proof of days of prior play.
@@ -110,6 +133,26 @@ try {
       assert.equal(writes.filter(write => write.path === '/api/action').length, count, 'reload replayed care');
       assert.equal(await page.locator('[data-motion="celebrating"]').count(), 0, 'reload replayed evolution');
     }
+    // Read the exact persisted action entry after a refresh/import, through
+    // the original physical keys. No click targets or synthetic receipt replay.
+    async function diary(entry, snapshot) {
+      const current = (await api('state')).state;
+      const index = current.logs.findIndex(log => log.at === entry.at && log.text === entry.text);
+      assert(index >= 0, 'acknowledged diary missing from authoritative save');
+      assert(entry.text.includes('本次成长 +') && entry.text.includes('不含操作前的时间成长'));
+      const count = writes.filter(write => write.path === '/api/action').length;
+      await choose(page, 5); await page.locator('.screen-journal').waitFor();
+      for (let i = 0; i < index; i++) await key(page, 'a');
+      assert.equal(await page.locator('.screen-journal > p').innerText(), entry.text);
+      assert.equal(await page.locator('.screen-journal > time').getAttribute('datetime'), new Date(entry.at).toISOString());
+      await readable(page);
+      const end = page.locator('.journal-note'); await end.scrollIntoViewIfNeeded();
+      const box = await end.boundingBox(), height = await page.evaluate(() => innerHeight);
+      assert(box && box.y >= -1 && box.y + box.height <= height + 1, 'diary end unreachable');
+      if (snapshot) await page.screenshot({ path: join(dir, `${label}-${snapshot}-diary.png`), fullPage: true });
+      await key(page, 'c'); await scene(page, current.growth.stage, current.sleeping ? 'sleeping' : 'idle', current.growth.stage === 'adult' ? form : undefined);
+      assert.equal(writes.filter(write => write.path === '/api/action').length, count, 'reading replayed care');
+    }
     try {
       await page.goto(base); await scene(page, 'baby', 'idle'); await threeKeys(page);
       const awakeStart = (await api('visit', {})).state;
@@ -135,6 +178,7 @@ try {
       await page.locator('.care-milestone').scrollIntoViewIfNeeded();
       assert((await page.locator('.care-milestone').innerText()).includes('这次照顾推动进入成长期'));
       await threeKeys(page); await reload('growing');
+      await diary(grown.logs[0], form === 'gentle' ? 'growing' : undefined);
       // Skip the untested multi-day interval explicitly, preserving this very
       // pet's real just-earned milestone/meal. No backdating of the server clock.
       const approaching = await api('backup'); approaching.growth.points = 71.95;
@@ -157,6 +201,7 @@ try {
       assert((await page.locator('.care-milestone').innerText()).includes(`这次照顾推动进入成年期 · ${forms[form]}已定型`));
       if (form === 'gentle') await page.screenshot({ path: join(dir, `${label}-milestone.png`), fullPage: true });
       await threeKeys(page); await reload('adult');
+      await diary(adult.logs[0], form === 'gentle' ? 'adult' : undefined);
       const locked = immutableAdult(adult), careCount = adult.careCount;
       // Replay the exact real HTTP request, with its generation guard and id.
       const replay = await api('action', bath.body, { 'X-PixelPet-Generation': bath.headers['x-pixelpet-generation'] });
@@ -172,6 +217,7 @@ try {
       near(secondMeal.result.careFeedback.effect.after.hunger - secondMeal.result.careFeedback.effect.before.hunger, 20, 'cooldown meal');
       assert.deepEqual(immutableAdult(secondMeal.result.state), locked);
       await scene(page, 'adult', 'eating', form); await key(page, 'c'); await scene(page, 'adult', 'idle', form);
+      await reload('adult'); await diary(secondMeal.result.state.logs[0], form === 'gentle' ? 'cooldown' : undefined);
       const sleep = await care(3, 'sleep'); assert(sleep.result.state.sleeping);
       assert.equal(sleep.result.careFeedback.milestone, undefined); await scene(page, 'adult', 'sleeping', form);
       await wait(300); await reload('adult', 'sleeping');
@@ -190,6 +236,7 @@ try {
       // The portable backup is restored unchanged into the same isolated server.
       const backup = await api('backup'), restored = await api('import', backup);
       assert.deepEqual(immutableAdult(restored.state), locked); await reload('adult');
+      await diary(adult.logs[0]); // Earlier care survives subsequent sleep and portable restore.
       await choose(page, 6); await page.locator('.growth-panel[data-growth-page="0"]').waitFor();
       assert((await page.locator('.growth-panel').innerText()).includes(forms[form]));
       await key(page, 'b'); await key(page, 'b'); // Page 3: frozen form evidence, not today's habits.

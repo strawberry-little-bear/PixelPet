@@ -104,5 +104,6 @@ func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedbac
 			f.Milestone = &CareMilestone{Stage: "adult", At: g.AdultAt, Form: g.Form}
 		}
 	}
+	s.recordCareDiary(message, f)
 	return message, f, nil
 }
