@@ -143,12 +143,23 @@ async function press(key) {
   if (now < state.cue.target) { reason = '还在预告，等到「现在回应」再按；没有消耗本拍。'; render(); return; }
   await send('answer', { sequence: state.cue.sequence, key });
 }
-for (const button of document.querySelectorAll('[data-key]')) button.addEventListener('click', () => void press(button.dataset.key));
+const buttons = [...document.querySelectorAll('[data-key]')];
+for (const button of buttons) button.addEventListener('click', () => void press(button.dataset.key));
 document.addEventListener('keydown', event => {
-  if (event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
-  const key = event.key.toUpperCase();
+  // Scope native activation to our three actual buttons. Enter/Space elsewhere
+  // retain browser behavior, rather than becoming another global game shortcut.
+  const nativeKey = buttons.includes(event.target) && (event.key === 'Enter' || event.key === ' ')
+    ? event.target.dataset.key : null;
+  if (nativeKey) event.preventDefault(); // Cancel native clicks, including held/IME/modifier activation.
+  if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.altKey || event.metaKey) return;
+  const key = nativeKey ?? event.key.toUpperCase();
   if (!['A', 'B', 'C'].includes(key)) return;
   event.preventDefault(); void press(key);
+});
+document.addEventListener('keyup', event => {
+  // Chrome may still click on Space release after repeated keydowns. The action
+  // already ran on the first down; never turn that release into another input.
+  if (event.key === ' ' && buttons.includes(event.target)) event.preventDefault();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) void pause('离开页面已暂停；回来不自动继续。'); });
 window.addEventListener('blur', event => { if (event.target === window) void pause('窗口失焦已暂停；回来不自动继续。'); });

@@ -92,6 +92,49 @@ try {
   assert.equal((await (await post(raceBase, {kind:'resume',id:raceState.id,requestId:3})).json()).state.observations.length,0);
   results.push('HTTP: same-origin/JSON/body limits/no game API/stale cue and reordered pause-resume');
 
+  // Playwright sends browser keyboard input, including repeat:true while held.
+  // Capture actual protocol writes: one held native key must not toggle C or
+  // turn restart/selection/Space release into a second action after a reply.
+  for (const native of ['Enter', 'Space']) {
+    const { page: p, requests: writes, context: isolated } = await open(base);
+    const kinds = () => writes.filter(r => r.body).map(r => r.body.kind);
+    await p.locator('[data-key="A"]').focus();
+    await p.keyboard.down(native);
+    await p.waitForFunction(() => document.querySelector('#selection').textContent.includes('从头重开'));
+    await p.keyboard.down(native); await p.keyboard.up(native);
+    assert.match(await p.locator('#selection').textContent(), /从头重开/);
+    await p.locator('[data-key="B"]').focus();
+    await p.keyboard.down(native); await paused(p);
+    await p.keyboard.down(native); await wait(100); await p.keyboard.up(native); await wait(100);
+    assert.deepEqual(kinds(), ['create', 'restart'], 'held B/release must not resume after restart');
+    await p.locator('[data-key="C"]').focus();
+    await p.keyboard.down(native); await idle(p);
+    assert.equal(await p.locator('#pause').isVisible(), false, 'native C acts on first down');
+    for (let i = 0; i < 3; i++) { await p.keyboard.down(native); await wait(100); }
+    await p.keyboard.up(native); await wait(100);
+    assert.deepEqual(kinds(), ['create', 'restart', 'resume'], 'held C/release must not toggle pause');
+    await p.keyboard.down(native); await paused(p);
+    for (let i = 0; i < 3; i++) { await p.keyboard.down(native); await wait(100); }
+    await p.keyboard.up(native); await wait(100);
+    assert.deepEqual(kinds(), ['create', 'restart', 'resume', 'pause'], 'pause must stay paused until a distinct press');
+    await p.keyboard.press(native); await idle(p); await active(p);
+    await p.locator('[data-key="A"]').focus();
+    await p.keyboard.down(native);
+    await p.waitForFunction(() => document.querySelector('#round').textContent === '1 / 12');
+    await idle(p); await active(p); // A new live cue must not consume the still-held key.
+    for (let i = 0; i < 3; i++) { await p.keyboard.down(native); await wait(80); }
+    await p.keyboard.up(native); await wait(100);
+    assert.equal(writes.filter(r => r.body?.kind === 'answer').length, 1);
+    await key(p, 'C'); await paused(p);
+    const before = kinds();
+    await p.locator('h1').evaluate(el => { el.tabIndex = -1; el.focus(); });
+    await p.keyboard.press(native); await wait(100);
+    assert.deepEqual(kinds(), before, 'native Enter/Space outside keys must not play');
+    await p.screenshot({ path: join(dir, `native-${native}-paused.png`), fullPage: true });
+    await isolated.close();
+    results.push(`Focused ${native}: A selection, B restart, C pause/resume and live A respond once per press; held repeats/release and unrelated focus never add writes`);
+  }
+
   // Reproduce an input task that runs after a real stall but before the next RAF.
   // Synchronous DOM dispatch is intentional ordering control, not physical-device input.
   for (const via of ['keyboard', 'button']) for (const letter of ['A', 'B']) {

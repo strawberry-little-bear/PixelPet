@@ -41,7 +41,18 @@ async function client(networkMs = 0) {
   };
   const advance = async (ms, paint = true) => { now += ms; if (paint) frame(); await settle(); };
   const active = async () => { await press('C'); for (let i = 0; i < 3; i++) await advance(600); assert.match(element('phase').textContent, /现在回应/); };
-  return { press, advance, active, commands, element, state: () => state };
+  const keyboard = async (type, key, targetKey, options = {}) => {
+    let prevented = false;
+    const target = buttons.find(button => button.dataset.key === targetKey) ?? element('unrelated');
+    events.get(type)?.({ key, target, ...options, preventDefault() { prevented = true; } });
+    // Model the native button default separately; Chrome checks cover actual defaults.
+    if (!prevented && buttons.includes(target) &&
+      ((type === 'keydown' && key === 'Enter') || (type === 'keyup' && key === ' ')))
+      events.get(`click-${targetKey}`)();
+    await settle();
+    return prevented;
+  };
+  return { press, advance, active, keyboard, commands, element, state: () => state };
 }
 for (const via of ['keyboard', 'button']) for (const key of ['A', 'B']) {
   test(`${via} ${key} after a long frame gap pauses before any answer, even before next paint`, async () => {
@@ -93,4 +104,49 @@ for (const networkMs of [0, 100]) test(`the exact existing cutoff stays inclusiv
   for (let i = 0; i < 3; i++) await c.advance(500);
   await c.advance(networkMs ? 200 : 300, false); await c.press('A');
   assert.equal(c.state().observations.length, 1); assert.equal(c.commands.at(-1).kind, 'answer');
+});
+
+for (const key of ['Enter', ' ']) test(`focused C ${JSON.stringify(key)} activates once per press, not on repeats or release`, async () => {
+  const c = await client();
+  assert.equal(await c.keyboard('keydown', key, 'C'), true);
+  assert.equal(c.state().status, 'playing');
+  for (let i = 0; i < 3; i++) {
+    assert.equal(await c.keyboard('keydown', key, 'C', { repeat: true }), true);
+    assert.equal(c.state().status, 'playing');
+  }
+  await c.keyboard('keyup', key, 'C');
+  assert.deepEqual(c.commands.map(x => x.kind), ['create', 'resume']);
+  await c.keyboard('keydown', key, 'C');
+  await c.keyboard('keyup', key, 'C');
+  assert.deepEqual(c.commands.map(x => x.kind), ['create', 'resume', 'pause']);
+});
+for (const key of ['Enter', ' ']) test(`focused A/B ${JSON.stringify(key)} retain selection/confirmation, with no release double action`, async () => {
+  const c = await client();
+  await c.keyboard('keydown', key, 'A');
+  await c.keyboard('keydown', key, 'A', { repeat: true });
+  await c.keyboard('keyup', key, 'A');
+  assert.match(c.element('selection').textContent, /从头重开/);
+  await c.keyboard('keydown', key, 'B');
+  await c.keyboard('keydown', key, 'B', { repeat: true });
+  await c.keyboard('keyup', key, 'B');
+  assert.equal(c.state().status, 'paused');
+  assert.deepEqual(c.commands.map(x => x.kind), ['create', 'restart']);
+});
+for (const options of [{ isComposing: true }, { keyCode: 229 }, { ctrlKey: true }, { altKey: true }, { metaKey: true }])
+  test(`IME/modifier guard also suppresses native focused-button activation: ${JSON.stringify(options)}`, async () => {
+    const c = await client();
+    for (const key of ['Enter', ' ']) {
+      await c.keyboard('keydown', key, 'C', options);
+      await c.keyboard('keyup', key, 'C', options);
+    }
+    await c.keyboard('keydown', 'C', undefined, options);
+    assert.deepEqual(c.commands.map(x => x.kind), ['create']);
+  });
+test('Enter/Space outside the three buttons keep native behavior; letter repeat stays inert', async () => {
+  const c = await client();
+  for (const key of ['Enter', ' ']) for (const type of ['keydown', 'keyup'])
+    assert.equal(await c.keyboard(type, key), false);
+  await c.keyboard('keydown', 'C', undefined, { repeat: true });
+  assert.deepEqual(c.commands.map(x => x.kind), ['create']);
+  await c.press('C'); assert.equal(c.state().status, 'playing');
 });
