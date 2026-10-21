@@ -11,3 +11,5 @@
 @media (forced-colors: active) {
   .care-outcome { color: CanvasText; border-color: CanvasText; }
 }
+
+.care-outcome-embedded { margin-top: 10px; padding-top: 8px; border-top: 1px dotted currentColor; }

@@ -7,7 +7,7 @@ import { games } from "./games";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
 import { RequestFailure } from "./requestFailure";
-import type { PetState, Result } from "./types";
+import type { CareFeedback, PetState, Result } from "./types";
 vi.mock("./api", () => ({ request: vi.fn() }));
 const api = vi.mocked(request), id = "0123456789abcdef0123456789abcdef", at = Date.parse("2026-10-20T06:00:00Z");
 const terminalActions = { stars: "catch", tiles: "tile-pick", snake: "snake-finish", tetris: "tetris-finish", fishing: "fish-finish", walk: "walk-finish", treasure: "treasure-finish" };
@@ -122,12 +122,24 @@ it.each(games)("App captures $id through its final three-key action (mocked term
   expect(writes()).toHaveLength(1); expect(writes()[0][1]).toMatchObject({kind:terminalActions[game.id],gameId:id});
   expect(outcome()?.textContent).toContain(game.title); expect(outcome()?.textContent).toContain("本局共同游戏已记录");
 });
-it("ordinary care keeps the last game result, but an uncertain write clears it before recovery", async () => {
-  await mount(); await key("b"); const text = outcome()?.textContent; expect(text).toBeTruthy();
+it("new care starts a fresh receipt window and removes the old game result", async () => {
+  await mount(); await key("b"); expect(outcome()).toBeTruthy();
   await key("a"); await key("b"); await key("c"); // feed, skip care motion
-  expect(outcome()?.textContent).toBe(text);
+  expect(outcome()).toBeNull();
   fail = "unknown"; await key("a"); await key("b"); expect(outcome()).toBeNull();
   fail = ""; await key("b"); expect(outcome()).toBeNull();
+});
+
+it("combines a completed game's care details inside its single primary receipt", () => {
+  const feedback: CareFeedback = {
+    kind: "snake-finish", reason: "credited", points: .25, habit: "play", habitGain: 1,
+    effect: { at, before: { hunger: 60, mood: 70, clean: 80, energy: 50 }, after: { hunger: 60, mood: 75, clean: 80, energy: 50 } },
+  };
+  const completed = { kind: "snake" as const, at, message: "服务端最终结算", shared: true };
+  render(<GameOutcome outcome={completed} careFeedback={feedback} />);
+  expect(screen.getAllByLabelText("本页最近一次游戏结算")).toHaveLength(1);
+  expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("本局照顾变化 · 陪玩");
+  expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("本次成长：+0.25 点");
 });
 it("a subsequent accepted completion replaces, rather than appends to, the page receipt", async () => {
   await mount(); await key("b"); expect(outcome()).toBeTruthy();

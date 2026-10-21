@@ -1,8 +1,10 @@
 import { games } from "./games";
 import type { GameOutcomeRecord } from "./game-outcome";
+import type { CareFeedback } from "./types";
+import { CareOutcome } from "./CareOutcome";
 import "./game-outcome.css";
 
-export function GameOutcome({ outcome }: { outcome: GameOutcomeRecord | null }) {
+export function GameOutcome({ outcome, careFeedback = null }: { outcome: GameOutcomeRecord | null; careFeedback?: CareFeedback | null }) {
   if (!outcome) return null;
   return <section className="game-outcome" aria-label="本页最近一次游戏结算">
     <h3>本页最近一次结算 · {games.find(g => g.id === outcome.kind)?.title}</h3>
@@ -14,5 +16,6 @@ export function GameOutcome({ outcome }: { outcome: GameOutcomeRecord | null }) 
       : outcome.shared === false ? "本局未新增共同游戏记录；以本次结算说明的条件为准。"
       : "这份回复未提供共同游戏记录，不作推测。"}</p>
     <small>上方是服务端已确认的结算原文，不是当前额度或下一局预测；兴趣记录可从成长手册查看。本页暂存，刷新后不保留。</small>
+    <CareOutcome feedback={careFeedback} embedded />
   </section>;
 }

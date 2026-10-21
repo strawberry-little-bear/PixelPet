@@ -1058,6 +1058,9 @@ export default function App() {
     syncEpoch.current++;
     setCareFeedback(null);
     setCareOutcome(null);
+    // A new acknowledged action starts a fresh receipt window. The previous
+    // game result is no longer the primary explanation on the home/status page.
+    setGameOutcome(null);
     setTreasureReaction(null); setStarsReaction(null);
     setHomeEcho(null);
     busyRef.current = true;
@@ -2478,8 +2481,11 @@ export default function App() {
                               <strong>最近读取 · 正在休息</strong>
                               <CareAdvice pet={pet} />
                             </CareReadingRegion>}
-                            <CareOutcome feedback={careOutcome} readable />
-                            <GameOutcome outcome={gameOutcome} />
+                            {gameOutcome ? (
+                              <GameOutcome outcome={gameOutcome} careFeedback={careOutcome} />
+                            ) : (
+                              <CareOutcome feedback={careOutcome} readable />
+                            )}
                           </>
                         )}
                         {page === "menu" && (
@@ -2563,8 +2569,11 @@ export default function App() {
                             ))}
                             <StatusReading at={pet.lastTick} />
                             <CareAdvice pet={pet} />
-                            <CareOutcome feedback={careOutcome} />
-                            <GameOutcome outcome={gameOutcome} />
+                            {gameOutcome ? (
+                              <GameOutcome outcome={gameOutcome} careFeedback={careOutcome} />
+                            ) : (
+                              <CareOutcome feedback={careOutcome} />
+                            )}
                             <div className="care-total">
                               收到过 {pet.careCount} 次温柔照顾 ♡
                             </div>

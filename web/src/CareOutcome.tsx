@@ -57,15 +57,15 @@ function milestoneText(f: CareFeedback): string | null {
   return null;
 }
 
-export function CareOutcome({ feedback, readable = false }: { feedback: CareFeedback | null; readable?: boolean }) {
+export function CareOutcome({ feedback, readable = false, embedded = false }: { feedback: CareFeedback | null; readable?: boolean; embedded?: boolean }) {
   if (!feedback || !validEffect(feedback.effect)) return null;
   const { before, after, at } = feedback.effect;
   const learning = learningSummary(feedback);
   const milestone = learning ? milestoneText(feedback) : null;
   const action = feedback.kind === "feed" ? "喂食" : feedback.kind === "clean" ? "洗澡" :
     feedback.kind === "sleep" ? feedback.reason === "awake" ? "起床" : "入睡" : "陪玩";
-  const outcome = <section className="care-outcome" aria-label="上次操作的即时变化">
-    <h3>本页上次已确认 · {action}</h3>
+  const outcome = <section className={`care-outcome${embedded ? " care-outcome-embedded" : ""}`} aria-label="上次操作的即时变化">
+    <h3>{embedded ? "本局照顾变化" : "本页上次已确认"} · {action}</h3>
     <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
       year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
     })}（本地时间）</time>
