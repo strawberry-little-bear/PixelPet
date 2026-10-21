@@ -119,3 +119,37 @@ describe("status guide three-key navigation and accepted snapshots", () => {
     await key("a"); expect(guide()?.textContent).toContain("详细速率尚未读到"); expect(writes()).toHaveLength(0);
   });
 });
+
+describe("共同生活回顾", () => {
+  it("uses only saved history and keeps the companion summary readable", async () => {
+    const at = Date.parse("2026-10-20T08:00:00Z");
+    const current = structuredClone(pet("adult"));
+    current.createdAt = at;
+    current.careCount = 4;
+    current.album = { since: at, legacy: false, entries: [
+      { kind: "hatch", at, source: "shared" },
+      { kind: "tetris", at: at + 1, source: "shared" },
+      { kind: "walk", at: at + 2, source: "shared" },
+    ] };
+    current.pond = { since: at, fish: [{ id: "reed-minnow", firstAt: at, lastAt: at, count: 2 }] };
+    current.park = { since: at, walks: 1, lastWalkAt: at, finds: [{ id: "leaf", firstAt: at, lastAt: at, count: 1 }] };
+    current.companion = { since: at, interests: [{ kind: "tetris", points: 2, lastAt: at }] };
+    const { container } = render(<StatusGuide pet={current} rules={rules} now={at + 2 * 86400000} />);
+    expect(container.querySelector(".life-summary")?.textContent).toContain("3");
+    expect(container.querySelector(".life-summary")?.textContent).toContain("4");
+    expect(container.querySelector(".life-summary")?.textContent).toContain("永久纪念");
+    expect(container.querySelector(".life-summary")?.textContent).toContain("游戏记忆");
+    expect(container.querySelector(".life-summary")?.textContent).toContain("2");
+    expect(container.querySelector(".life-summary")?.textContent).toContain("俄罗斯方块");
+    expect(container.querySelector(".life-summary")?.textContent).toContain("不补写旧历史");
+  });
+
+  it("does not invent history for a legacy pet", () => {
+    const { container } = render(<StatusGuide pet={pet()} rules={null} now={Date.now()} />);
+    const summary = container.querySelector(".life-summary")?.textContent ?? "";
+    expect(summary).toContain("永久纪念");
+    expect(summary).toContain("还没有保存的共同游戏经历");
+    expect(summary).toContain("0");
+    expect(summary).not.toContain("游戏记忆3");
+  });
+});

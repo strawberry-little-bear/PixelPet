@@ -1,4 +1,5 @@
 import type { CareRules, PetState } from "./types";
+import { LifeSummary } from "./LifeSummary";
 import "./status-guide.css";
 
 export const statusPageCount = 2;
@@ -13,7 +14,7 @@ export function validCareRules(value: unknown): value is CareRules {
     [v.awake, v.sleeping].every(rates => rates && needLabels.every(([key]) => typeof rates[key] === "number" && Number.isFinite(rates[key])));
 }
 
-export function StatusGuide({ pet, rules }: { pet: PetState; rules: CareRules | null }) {
+export function StatusGuide({ pet, rules, now = Date.now() }: { pet: PetState; rules: CareRules | null; now?: number }) {
   const rates = rules?.[pet.sleeping ? "sleeping" : "awake"];
   return <section className="status-guide" aria-label="时间与状态说明">
     <h3>时间与状态</h3>
@@ -33,5 +34,6 @@ export function StatusGuide({ pet, rules }: { pet: PetState; rules: CareRules | 
     <p>{pet.growth?.stage === "adult"
       ? "成年形态已固定，状态仍会变化；照顾还可以留下习惯与共同经历。"
       : "保持舒适有助成长；不必为了成长反复照顾，习惯只按实际效果和间隔记录。"}</p>
+    <LifeSummary pet={pet} now={now} />
   </section>;
 }

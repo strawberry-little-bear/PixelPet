@@ -1,0 +1,11 @@
+.life-summary { margin-top: 14px; padding-top: 10px; border-top: 1px dashed currentColor; }
+.life-summary h3 { margin: 0 0 8px; }
+.life-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin: 8px 0; }
+.life-summary-grid > div { min-width: 0; display: grid; gap: 2px; text-align: center; }
+.life-summary-grid strong { font-size: 1.05em; }
+.life-summary-grid span { overflow-wrap: anywhere; }
+.life-summary p { margin: 8px 0; }
+.life-summary small { display: block; line-height: 1.35; }
+@media (max-width: 380px) {
+  .life-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; }
+}
