@@ -50,6 +50,7 @@
 .fishing-pause ol { list-style:none; margin:2px 0; padding:0; width:120px; font-size:10px; }
 .fishing-pause li { padding:1px 6px; }
 .fishing-pause li.selected { background:#63784c; color:#eef0d1; }
+.fishing-pause-hint { width:min(190px, 100%); margin:3px 0; font-size:8px; line-height:1.35; overflow-wrap:anywhere; }
 .fishing-pause small { font-size:8px; }
 .fishing-status { font-size:10px; margin:5px 0 2px; font-weight:bold; }
 .fishing-comment { display:block; font-size:9px; min-height:27px; }

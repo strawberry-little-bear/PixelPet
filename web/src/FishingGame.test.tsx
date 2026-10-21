@@ -469,6 +469,9 @@ describe("paused fishing instructions match the selected operation", () => {
     Object.assign(saved.game!.fishing!, { phase, paused, casts: phase === "ready" ? 0 : 1 });
     render(<FishingGame pet={saved} active={active} choice={0} />);
     expect(document.querySelector(".fishing-rule")?.textContent).toBe(expected);
+    expect(document.querySelector(".fishing-pause-hint")?.textContent).toBe(expected);
+    expect(document.querySelector(".fishing-pause-hint")?.getAttribute("aria-live")).toBe("polite");
+    expect(document.querySelector(".fishing-pause-hint")?.getAttribute("aria-atomic")).toBe("true");
     expect(screen.getByText("A 选择 · B 确认 · C 继续")).toBeTruthy();
     expect(document.querySelector(".fishing-rule")?.textContent).not.toContain("C 暂停");
   });
@@ -481,16 +484,18 @@ describe("paused fishing instructions match the selected operation", () => {
     saved.game!.fishing!.paused = true;
     render(<FishingGame pet={saved} active={false} choice={choice} />);
     expect(document.querySelector(".fishing-rule")?.textContent).toBe(expected);
+    expect(document.querySelector(".fishing-pause-hint")?.textContent).toBe(expected);
     expect(document.querySelectorAll(".fishing-game :is(button,a,input,[role=button])")).toHaveLength(0);
   });
   it("updates advice through A/B/C without casting, reeling, resuming or saving while browsing", async () => {
     saved.game!.fishing!.paused = true; await mount();
     const rule = () => document.querySelector(".fishing-rule")?.textContent;
-    expect(rule()).toContain("不会自动抛竿");
-    await key("a"); expect(rule()).toContain("累计鱼图鉴");
+    const hint = () => document.querySelector(".fishing-pause-hint")?.textContent;
+    expect(rule()).toContain("不会自动抛竿"); expect(hint()).toContain("不会自动抛竿");
+    await key("a"); expect(rule()).toContain("累计鱼图鉴"); expect(hint()).toContain("累计鱼图鉴");
     await key("b"); expect(document.querySelector(".fish-album")).toBeTruthy();
-    await key("c"); expect(rule()).toContain("不会自动抛竿");
-    await key("a"); await key("a"); expect(rule()).toContain("先打开确认页");
+    await key("c"); expect(rule()).toContain("不会自动抛竿"); expect(hint()).toContain("不会自动抛竿");
+    await key("a"); await key("a"); expect(rule()).toContain("先打开确认页"); expect(hint()).toContain("先打开确认页");
     await key("b"); expect(screen.getByText(/实际钓到的鱼仍保留/)).toBeTruthy();
     await key("c"); expect(rule()).toContain("不会自动抛竿");
     await clock(10000); expect(calls()).toHaveLength(0);
