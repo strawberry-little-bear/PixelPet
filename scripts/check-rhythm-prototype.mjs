@@ -64,7 +64,13 @@ try {
   browser = await chromium.launch({ channel: 'chrome', headless: true });
   const base = await start();
   // HTTP boundary checks, including actual out-of-order delivery in a second server.
-  const post = (url, input, origin = url) => fetch(url + '/lab/command', { method:'POST', headers:{Origin:origin,'Content-Type':'application/json'}, body:typeof input === 'string' ? input : JSON.stringify(input) });
+  const leases = new Map();
+  const post = async (url, input, origin = url) => {
+    const response = await fetch(url + '/lab/command', { method:'POST', headers:{Origin:origin,'Content-Type':'application/json'},
+      body:typeof input === 'string' ? input : Array.isArray(input) ? JSON.stringify(input) : JSON.stringify({lease:leases.get(url + input.id),...input}) });
+    if (response.ok) { const r = await response.clone().json(); leases.set(url + r.state.id, r.lease); }
+    return response;
+  };
   assert.equal((await fetch(base + '/api/state')).status, 404);
   assert.equal((await post(base, {kind:'create'}, 'https://example.invalid')).status, 403);
   assert.equal((await post(base, '{')).status, 400);
@@ -134,15 +140,25 @@ try {
   assert.match(await page.locator('#status').textContent(), /12 次观测已完成/);
   assert.equal(await page.locator('#observations li').count(),12);
   await readable(page); await page.screenshot({path:join(dir,'desktop-complete.png'),fullPage:true});
+  const completeObservations = await page.locator('#observations').textContent();
+  const savedId = await page.evaluate(()=>sessionStorage.getItem('pixelpet.rhythm.session.v1'));
+  await page.reload(); await idle(page);
+  await page.waitForFunction(()=>document.querySelector('#round').textContent==='12 / 12');
+  assert.equal(await page.locator('#observations').textContent(),completeObservations);
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('pixelpet.rhythm.session.v1')),savedId);
+  assert.match(await page.locator('#direction').textContent(),/本次观测完成/);
+  results.push('Completed refresh keeps all 12 observations, with no implicit restart or rewards');
   await key(page,'B'); await paused(page); assert.equal(await page.locator('#round').textContent(),'0 / 12');
   await key(page,'A'); assert.match(await page.locator('#selection').textContent(), /从头重开/);
   await key(page,'B'); await paused(page); assert.match(await page.locator('#selection').textContent(), /继续练习/);
   await key(page,'C'); await idle(page); await page.reload(); await paused(page);
   assert.equal(await page.locator('#round').textContent(),'0 / 12');
-  assert.deepEqual(await page.evaluate(() => [localStorage.length,sessionStorage.length]),[0,0]);
+  assert.deepEqual(await page.evaluate(() => [localStorage.length,sessionStorage.length]),[0,1]);
+  assert.equal(requests.filter(r=>r.body?.kind==='create').length,1);
+  assert.equal(requests.at(-1).body.kind,'recover');
   assert.equal((await context.cookies()).length,0);
   assert(requests.every(r => new URL(r.url).origin === base && !r.url.includes('/api/')));
-  results.push('Desktop: preview/held key/12 real-time cues/restart/refresh/three keys/no storage or production API');
+  results.push('Desktop: preview/held key/12 real-time cues/restart/refresh/three keys/lab pointer only/no production API');
 
   for (const [label,up,down,jitter] of [['100ms',50,50,0],['300ms asymmetric',250,50,0],['300ms jitter',40,60,200],['800ms',400,400,0]]) {
     const b = await start(up,down,jitter), {page:p,requests:rs} = await open(b);
@@ -175,7 +191,7 @@ try {
   await p.evaluate(() => window.dispatchEvent(new Event('offline'))); await paused(p);
   const disconnected = rs.length; await wait(700); assert.equal(rs.length,disconnected,'no retry while offline');
   await ctx.setOffline(false); await wait(500); assert.equal(rs.length,disconnected,'no auto reconnect');
-  await key(p,'C'); await paused(p); assert.match(await p.locator('#status').textContent(), /重新核对暂停/);
+  await key(p,'C'); await paused(p); assert.match(await p.locator('#status').textContent(), /核对本局观测并暂停/);
   await key(p,'C'); await idle(p); await key(p,'C'); await paused(p);
   assert.equal(rs.filter(r=>r.body?.kind==='answer').length,before,'never resend old answer');
   results.push('Delayed replies: C cancels resume/answer; simulated blur/visibility; offline and manual recovery without retry');
@@ -195,13 +211,54 @@ try {
   await paused(p); assert.match(await p.locator('#status').textContent(), /页面停顿/);
   results.push('Real 1100ms main-thread stall produces neutral pause, no catch-up');
 
-  // A delayed initial create must stay paused even if hidden before it replies.
+  // Drop an acknowledgement only AFTER the real lab has accepted one answer.
+  const {page:lost,requests:lostRequests}=await open(base);
+  await key(lost,'C'); await idle(lost); await active(lost);
+  await lost.route('**/lab/command',async route=>{
+    if(route.request().postDataJSON().kind==='answer') { await route.fetch(); await route.abort('failed'); }
+    else await route.continue();
+  });
+  await key(lost,'A'); await paused(lost);
+  await lost.waitForFunction(()=>document.querySelector('#round').textContent==='1 / 12');
+  assert.equal(lostRequests.filter(r=>r.body?.kind==='answer').length,1);
+  await lost.unroute('**/lab/command'); await lost.reload(); await paused(lost);
+  assert.equal(await lost.locator('#round').textContent(),'1 / 12');
+  assert.equal(lostRequests.filter(r=>r.body?.kind==='answer').length,1);
+  const stable=lostRequests.length; await wait(2100); assert.equal(lostRequests.length,stable);
+  await lost.screenshot({path:join(dir,'recovery-lost-answer.png'),fullPage:true});
+  results.push('Real accepted answer with dropped acknowledgement: one observation survives refresh, no answer retry or auto-resume');
+
+  // Transient recovery failure preserves the pointer and waits for a human key.
+  await lost.route('**/lab/command',async route=>{ await route.abort('failed'); });
+  await lost.reload(); await lost.waitForFunction(()=>document.querySelector('#status').textContent.includes('连接未确认'));
+  const failedRecovery=lostRequests.length; await wait(1200); assert.equal(lostRequests.length,failedRecovery);
+  assert.equal(lostRequests.filter(r=>r.body?.kind==='create').length,1);
+  await lost.unroute('**/lab/command'); await key(lost,'C'); await paused(lost);
+  assert.equal(await lost.locator('#round').textContent(),'1 / 12');
+  assert.equal(lostRequests.at(-1).body.kind,'recover');
+  results.push('Failed refresh recovery waits without creation/retry; explicit C recovers to paused, not playing');
+
+  // A server restart/eviction is represented by a well-formed unknown pointer.
+  await lost.evaluate(()=>sessionStorage.setItem('pixelpet.rhythm.session.v1','00000000-0000-4000-8000-000000000000'));
+  await lost.reload(); await lost.waitForFunction(()=>document.querySelector('#status').textContent.includes('旧观测无法恢复'));
+  assert.equal(await lost.evaluate(()=>sessionStorage.getItem('pixelpet.rhythm.session.v1')),null);
+  const expired=lostRequests.length; await wait(800); assert.equal(lostRequests.length,expired);
+  await key(lost,'B'); await paused(lost); assert.equal(await lost.locator('#round').textContent(),'0 / 12');
+  assert.equal(lostRequests.at(-1).body.kind,'create');
+  results.push('Unknown/expired lab pointer explains loss, clears only the pointer, and requires explicit B for a new paused practice');
+
+  // A delayed recovery must stay paused even if blurred before it replies.
   const {page:init} = await open(base);
   await init.route('**/lab/command',async route=>{ await wait(300); await route.continue(); });
   await init.reload({waitUntil:'domcontentloaded'});
   await init.evaluate(() => window.dispatchEvent(new Event('blur'))); await paused(init);
   assert.equal(await init.locator('#round').textContent(),'0 / 12');
-  results.push('Delayed create during blur remains a usable paused session');
+  results.push('Delayed recovery during blur remains a usable paused session');
+  await init.evaluate(()=>sessionStorage.removeItem('pixelpet.rhythm.session.v1'));
+  await init.reload({waitUntil:'domcontentloaded'});
+  await init.evaluate(()=>window.dispatchEvent(new Event('blur'))); await paused(init);
+  assert.equal(await init.locator('#round').textContent(),'0 / 12');
+  results.push('Delayed initial create during blur also remains paused, never auto-starts');
 
   for(const options of [
     {label:'mobile-touch',viewport:{width:390,height:844},hasTouch:true,isMobile:true},
@@ -209,7 +266,7 @@ try {
     {label:'reduced-motion',viewport:{width:1000,height:850},reducedMotion:'reduce'},
     {label:'forced-colors',viewport:{width:1000,height:850},forcedColors:'active'},
   ]) {
-    const {label,double,...opts}=options, {page:m}=await open(base,opts);
+    const {label,double,...opts}=options, {page:m,requests:mobileRequests}=await open(base,opts);
     if(double) await m.evaluate(()=>document.documentElement.style.fontSize='32px');
     await readable(m);
     const press = k => opts.hasTouch ? m.locator(`[data-key="${k}"]`).tap() : key(m,k);
@@ -226,7 +283,15 @@ try {
     assert(await m.locator('#selection').evaluate(el=>{const r=el.getBoundingClientRect(),k=document.querySelector('.keys').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&(getComputedStyle(document.querySelector('.keys')).position!=='fixed'||r.bottom<=k.top);}), 'pause selection visible without test scrolling');
     await readable(m);
     await m.screenshot({path:join(dir,`${label}.png`),fullPage:true});
-    results.push(`${label}: three-key input, readable text, no horizontal overflow, reachable keys`);
+    const mobileId=await m.evaluate(()=>sessionStorage.getItem('pixelpet.rhythm.session.v1'));
+    if(double) await m.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize='32px'));
+    await m.reload(); await paused(m);
+    assert.equal(await m.locator('#round').textContent(),'1 / 12');
+    assert.equal(await m.evaluate(()=>sessionStorage.getItem('pixelpet.rhythm.session.v1')),mobileId);
+    assert.equal(mobileRequests.filter(r=>r.body?.kind==='create').length,1);
+    assert.equal(mobileRequests.at(-1).body.kind,'recover');
+    await readable(m); await m.screenshot({path:join(dir,`${label}-recovered.png`),fullPage:true});
+    results.push(`${label}: three-key input, same-session paused refresh, readable text, no horizontal overflow, reachable keys`);
   }
   assert.deepEqual(errors,[],'browser page errors');
   await writeFile(join(dir,'results.json'),JSON.stringify({results,errors,notes:'Synthetic loopback delays and automated input; no physical-phone, OS-background, audio, or fairness claim.'},null,2));

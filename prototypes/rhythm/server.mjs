@@ -39,25 +39,36 @@ const server = createServer(async (req, res) => {
     await wait(up + (index % 2 ? jitter : 0));
     const now = Date.now();
     for (const [id, value] of sessions) if (now - value.touched > 10 * 60000) sessions.delete(id);
-    let state, lastRequest = 0;
+    let state, lastRequest = 0, lease;
     if (input.kind === 'create') {
       if (sessions.size >= 32) { send(429, { error: 'Lab session limit. Restart the lab server.' }); return; }
       state = createSession(randomUUID());
+      lease = randomUUID();
     } else {
       const stored = sessions.get(input.id);
-      if (!stored) { send(409, { error: '原型会话已失效，请刷新；不会恢复旧拍。' }); return; }
-      // A later pause must dominate an earlier in-flight resume/answer even
-      // when synthetic jitter delivers them out of order. Cue sequence alone
-      // cannot cancel a resume which has not created its cue yet.
-      if (!Number.isSafeInteger(input.requestId) || input.requestId <= stored.lastRequest) {
-        send(409, { error: '旧请求已被后续操作取代。' }); return;
+      if (!stored) { send(410, { code: 'session_expired', error: '原型会话已失效；可明确新建暂停练习，不恢复旧拍。' }); return; }
+      if (input.kind === 'recover') {
+        // Recover only pauses: never retry an answer/resume/restart. A new
+        // page gets a fresh lease so even a high-numbered old request cannot
+        // act after recovery. Already accepted observations remain untouched.
+        state = command(stored.state, { kind: 'pause' }, now);
+        lease = randomUUID();
+      } else {
+        if (input.lease !== stored.lease) {
+          send(409, { code: 'lease_replaced', error: '本页已被另一页面的核对取代，请手动核对暂停。' }); return;
+        }
+        // A later pause dominates an earlier in-flight resume/answer within
+        // this lease, including alternating synthetic upstream jitter.
+        if (!Number.isSafeInteger(input.requestId) || input.requestId <= stored.lastRequest) {
+          send(409, { error: '旧请求已被后续操作取代。' }); return;
+        }
+        lastRequest = input.requestId; lease = stored.lease;
+        try { state = command(stored.state, input, now); }
+        catch (error) { send(409, { error: error.message }); return; }
       }
-      lastRequest = input.requestId;
-      try { state = command(stored.state, input, now); }
-      catch (error) { send(409, { error: error.message }); return; }
     }
-    sessions.set(state.id, { state, touched: now, lastRequest });
-    const reply = { state, serverTime: Date.now(), simulation: { up, down, jitter } };
+    sessions.set(state.id, { state, touched: now, lastRequest, lease });
+    const reply = { state, lease, serverTime: Date.now(), simulation: { up, down, jitter } };
     await wait(down + (index % 2 ? 0 : jitter));
     send(200, reply);
   } catch { if (!res.headersSent) send(500, { error: '原型连接中断，请手动重新核对。' }); else res.end(); }

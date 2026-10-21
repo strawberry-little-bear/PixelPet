@@ -1,6 +1,18 @@
 // A standalone diagnostic client. No imports from the production game and no
-// storage, audio, database, service worker, or game API calls.
+// audio, database, service worker, or game API calls. Session storage holds
+// only a same-tab lab-session pointer, never observations or timing authority.
 const $ = id => document.getElementById(id);
+const sessionKey = 'pixelpet.rhythm.session.v1';
+function savedSession() {
+  try {
+    const value = sessionStorage.getItem(sessionKey);
+    return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ? value : null;
+  } catch { return null; }
+}
+function rememberSession(id) {
+  try { if (id) sessionStorage.setItem(sessionKey, id); else sessionStorage.removeItem(sessionKey); } catch { /* Storage is optional; server state remains authoritative. */ }
+}
+let savedId = savedSession(), lease = null, needsRecovery = false;
 let state = null, anchor = null, busy = false, epoch = 0, selected = 0;
 let pendingKind = null, requestId = 0;
 let suspended = true, pendingPause = false, reason = '按 B 或 C 开始独立练习。', rtt = 0;
@@ -11,7 +23,8 @@ const render = () => {
   $('round').textContent = `${state?.observations.length ?? 0} / 12`;
   $('status').textContent = busy ? '正在核对本拍… C 仍可暂停' : reason;
   $('pause').hidden = playing || !state || state.status === 'done';
-  $('selection').textContent = selected === 0 ? '▶ 继续练习' : '▶ 从头重开（清空本局观测）';
+  $('selection').textContent = needsRecovery ? '▶ 核对本局并暂停（不重发输入）' : selected === 0 ? '▶ 继续练习' : '▶ 从头重开（清空本局观测）';
+  $('pause-help').textContent = needsRecovery ? 'A 不操作 · B / C 手动核对' : 'A 切换继续 / 重开 · B 确认 · C 继续';
   $('symbol').textContent = playing ? state.cue.key === 'A' ? '●' : '▲' : '◇';
   $('direction').textContent = playing ? state.cue.key === 'A' ? '左侧 · A' : '右侧 · B' : state?.status === 'done' ? '本次观测完成' : '已暂停';
   if (!playing) $('phase').textContent = state?.status === 'done' ? 'B 重开独立练习；不会收取奖励。' : '回来后须明确继续，不补跑旧拍。';
@@ -38,14 +51,15 @@ function arrivalLabel(value) { return { early: '早到', inside: '窗口内', la
 async function request(input) {
   const sent = performance.now();
   const response = await fetch('/lab/command', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...input, requestId: ++requestId }), signal: AbortSignal.timeout(7000) });
+    body: JSON.stringify({ ...input, lease, requestId: ++requestId }), signal: AbortSignal.timeout(7000) });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || '连接未确认');
+  if (!response.ok) throw Object.assign(new Error(result.error || '连接未确认'), { code: result.code });
   const received = performance.now();
   return { ...result, rtt: received - sent, received };
 }
 function accept(result) {
-  state = result.state; rtt = result.rtt;
+  state = result.state; rtt = result.rtt; lease = result.lease;
+  savedId = state.id; rememberSession(savedId); needsRecovery = false; pendingPause = false;
   // Midpoint is an estimate, not a latency proof. Asymmetric/jittery transport
   // remains deliberately observable, never an authority for awarding anything.
   anchor = { epoch: result.serverTime + result.rtt / 2, measured: result.received };
@@ -54,7 +68,7 @@ async function send(kind, extra = {}) {
   if (busy) return;
   const mine = ++epoch; pendingKind = kind; busy = true; render();
   try {
-    const result = await request({ kind, id: state?.id, ...extra });
+    const result = await request({ kind, id: state?.id ?? savedId, ...extra });
     if (mine !== epoch) return;
     accept(result);
     if (result.rtt > maxRtt && state.status === 'playing') {
@@ -62,15 +76,23 @@ async function send(kind, extra = {}) {
       pendingPause = true;
     } else {
       suspended = state.status !== 'playing';
-      reason = state.status === 'done' ? '12 次观测已完成，不是正式成绩。' : suspended ? '按 B / C 明确继续。' : '跟着提示回应 A / B；C 暂停。';
+      if (state.status === 'done') reason = '12 次观测已完成，不是正式成绩。';
+      else if (!suspended) reason = '跟着提示回应 A / B；C 暂停。';
+      else reason = kind === 'recover' ? '已核对本局观测并暂停，旧拍不重放；按 B / C 明确继续。' : '按 B / C 明确继续。';
     }
   } catch (error) {
     if (mine !== epoch) return;
-    suspended = true; pendingPause = true; reason = `连接未确认，已停止提示：${error.message}。按 B / C 手动核对，不自动重发输入。`;
+    suspended = true; pendingPause = true; needsRecovery = true;
+    reason = `连接未确认，已停止提示：${error.message}。按 B / C 手动核对，不自动重发输入。`;
+    if (error.code === 'session_expired') {
+      state = null; savedId = null; lease = null; anchor = null; rememberSession(null);
+      pendingPause = false; needsRecovery = false;
+      reason = '实验会话已失效（闲置或服务重启），旧观测无法恢复。按 B / C 新建暂停练习，不会自动开局。';
+    }
   } finally {
     if (mine === epoch) { busy = false; render(); if (!document.hidden) { if (!suspended) focusCue(); else if (kind !== 'create' && !$('pause').hidden) focusTarget('#pause'); } }
   }
-  if (mine === epoch && pendingPause && state && navigator.onLine) {
+  if (mine === epoch && kind !== 'recover' && pendingPause && state && navigator.onLine) {
     // One neutral pause, never a retry of the answer. If it fails, manual B/C
     // is required; there is no background reconnect or retry loop.
     pendingPause = false;
@@ -86,7 +108,7 @@ async function pause(message = '已暂停，回来后按 B / C 明确继续。')
     const result = await request({ kind: 'pause', id: state.id });
     if (mine !== epoch) return;
     accept(result); pendingPause = false;
-  } catch { if (mine === epoch) { pendingPause = true; reason = '暂停未确认，本地已停。按 B / C 手动核对，旧输入不会自动重发。'; } }
+  } catch { if (mine === epoch) { pendingPause = true; needsRecovery = true; reason = '暂停未确认，本地已停。按 B / C 手动核对，旧输入不会自动重发。'; } }
   finally { if (mine === epoch) { busy = false; render(); if (!document.hidden && !$('pause').hidden) focusTarget('#pause'); } }
 }
 // Recheck at the input boundary too: queued input can run before the next RAF.
@@ -101,7 +123,8 @@ async function press(key) {
   if (document.hidden) return;
   if (key === 'C' && (!suspended || (busy && pendingKind === 'resume'))) { await pause(); return; }
   if (busy) return;
-  if (!state) { if (key !== 'A') await send('create'); return; }
+  if (!state) { if (key !== 'A') await send(savedId ? 'recover' : 'create'); return; }
+  if (needsRecovery) { if (key !== 'A') await send('recover'); return; }
   if (state.status === 'done') {
     if (key === 'B') { selected = 0; await send('restart'); }
     return;
@@ -149,4 +172,4 @@ function tick() {
   }
   requestAnimationFrame(tick);
 }
-render(); requestAnimationFrame(tick); void send('create');
+render(); requestAnimationFrame(tick); void send(savedId ? 'recover' : 'create');

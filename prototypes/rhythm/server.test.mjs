@@ -10,8 +10,9 @@ async function lab(t, jitter = 0) {
   let output='', stderr=''; child.stdout.on('data',d=>output+=d); child.stderr.on('data',d=>stderr+=d);
   for(let i=0;i<100&&!output.includes('\n');i++) { assert.equal(child.exitCode,null,stderr); await wait(20); }
   assert(output.includes('\n'),'lab startup'); const base=JSON.parse(output.split('\n')[0]).url;
-  const post = (input, extra={}) => fetch(base+'/lab/command',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',...extra},body:typeof input === 'string'?input:JSON.stringify(input)});
-  const state = async input => { const res=await post(input); assert.equal(res.status,200,await res.clone().text()); return (await res.json()).state; };
+  const leases = new Map();
+  const post = (input, extra={}) => fetch(base+'/lab/command',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',...extra},body:typeof input === 'string'?input:JSON.stringify({lease:leases.get(input.id),...input})});
+  const state = async input => { const res=await post(input); assert.equal(res.status,200,await res.clone().text()); const reply=await res.json(); leases.set(reply.state.id,reply.lease); return reply.state; };
   return {base,post,state};
 }
 test('loopback lab serves only static allowlist; same-origin JSON and bounded body required',async t=>{
@@ -38,7 +39,7 @@ test('HTTP sequence, request ordering and invalid command cannot consume observa
   assert.equal((await post({kind:'answer',id:s.id,requestId:2,key:'A',sequence:1})).status,409);
   s=await state({kind:'pause',id:s.id,requestId:3}); assert.equal(s.status,'paused');
   assert.equal(s.observations.length,1);
-  assert.equal((await post({kind:'resume',id:'missing',requestId:4})).status,409);
+  assert.equal((await post({kind:'resume',id:'missing',requestId:4})).status,410);
 });
 test('later pause overtakes resume with real alternating upstream jitter',async t=>{
   const {post,state}=await lab(t,80), s=await state({kind:'create'});
