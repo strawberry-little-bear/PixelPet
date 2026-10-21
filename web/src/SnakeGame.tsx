@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useBoardCollection } from "./useBoardCollection";
 import { RoomDecoration } from "./EquipmentArt";
 import { PetArt } from "./PetArt";
@@ -6,6 +7,7 @@ import type { PetState } from "./types";
 import "./snake-game.css";
 
 export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: number; active: boolean; turn: number; }) {
+  const descriptionId = useId(), gridId = useId();
   const snake = pet.game?.snake;
   const collecting = useBoardCollection(snake?.eaten ?? 0, active && !snake?.paused);
   if (!snake) return null;
@@ -16,9 +18,16 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
   return <section className="snake-game" aria-label="果园贪吃蛇">
     <header><strong>果园贪吃蛇</strong><span>果子 {snake.eaten}/8</span></header>
     <div className="snake-field">
-      <svg viewBox="0 0 144 120" role="img" aria-label={`果园棋盘，已吃 ${snake.eaten} 颗果子，朝${directions[snake.direction]}`} shapeRendering="crispEdges">
-        <defs><pattern id="snake-grid" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#8f9f74" strokeWidth=".4" /></pattern></defs>
-        <rect width="144" height="120" fill="url(#snake-grid)" />
+      <svg viewBox="0 0 144 120" role="img" aria-label={`果园棋盘，已吃 ${snake.eaten} 颗果子，朝${directions[snake.direction]}`} aria-describedby={descriptionId} shapeRendering="crispEdges">
+        <desc id={descriptionId}>
+          棋盘 10 行 12 列，行从上到下、列从左到右，均从 1 开始。
+          {ended ? "本局已结束。" : paused ? "当前暂停。" : "当前前进。"}
+          蛇头：{snake.body[0].y + 1} 行 {snake.body[0].x + 1} 列，朝{directions[snake.direction]}。
+          其余蛇身由头至尾：{snake.body.slice(1).map(p => `${p.y + 1} 行 ${p.x + 1} 列`).join("；") || "无"}。
+          {snake.end === "won" ? "果篮已满。" : `果子：${snake.food.y + 1} 行 ${snake.food.x + 1} 列。`}
+        </desc>
+        <defs><pattern id={gridId} width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#8f9f74" strokeWidth=".4" /></pattern></defs>
+        <rect width="144" height="120" fill={`url(#${gridId})`} />
         {snake.body.map((p, i) => <g key={i} transform={`translate(${p.x * 12} ${p.y * 12})`}>
           <rect x="1" y="1" width="10" height="10" rx="2" fill={i ? "#687f4a" : "#3b5634"} />
           {i === 0 && <g transform={`rotate(${snake.direction * 90} 6 6)`}><rect x="8" y="2" width="2" height="2" fill="#e9dfbd" /><rect x="8" y="8" width="2" height="2" fill="#e9dfbd" /></g>}

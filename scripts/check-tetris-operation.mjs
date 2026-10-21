@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedTestBuilds } from './browser-test-builds.mjs';
+import { inspectBoardDescription } from './inspect-board-description.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds();
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
@@ -30,6 +31,7 @@ async function key(page, letter) {
   await page.keyboard.press(letter);
 }
 async function inspect(page, mode, choice) {
+  const board = await inspectBoardDescription(page, "tetris", (await api("state")).state.game.tetris);
   const note = page.locator('.tetris-operation-hint'); await note.waitFor();
   assert.match(await note.textContent(), new RegExp(hints[choice]));
   assert.equal(await note.getAttribute('aria-live'), 'polite');
@@ -59,7 +61,7 @@ async function inspect(page, mode, choice) {
   }))) assert(box.width >= 44 && box.height >= 44);
   await note.scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(dir, `${mode.name}-choice-${choice}.png`), fullPage: true });
-  results.push({ mode: mode.name, choice, text: await note.textContent(), layout });
+  results.push({ mode: mode.name, choice, text: await note.textContent(), layout, board });
 }
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`,
@@ -107,6 +109,7 @@ try {
       assert.deepEqual(writes.map(w => w.kind), ['tetris-rotate', 'tetris-pause']);
       assert(rotated.paused); assert.equal(rotated.active.rotation, (before.game.tetris.active.rotation + 1) % 4);
       assert.deepEqual(rotated.board, before.game.tetris.board); assert.equal(rotated.pieces, 0);
+      const rotatedBoard = await inspectBoardDescription(page, "tetris", rotated);
       // Drop really locks one piece and resumes, without awarding care or coins.
       await key(page, 'a'); await key(page, 'a'); await key(page, 'b');
       await page.locator('.tetris-operation-hint').waitFor({ state: 'detached' });
@@ -115,12 +118,14 @@ try {
       assert.equal(dropped.game.tetris.pieces, 1); assert.equal(dropped.game.tetris.board.filter(Boolean).length, 4);
       assert(dropped.game.tetris.paused); assert.equal(dropped.economy.coins, 0); assert.equal(dropped.careCount, 0);
       assert.deepEqual(writes.map(w => w.kind), ['tetris-rotate', 'tetris-pause', 'tetris-drop', 'tetris-pause']);
+      const droppedBoard = await inspectBoardDescription(page, "tetris", dropped.game.tetris);
       // Cancel discard, refresh and C from the drop selection retain existing mappings.
       for (let i = 0; i < 3; i++) await key(page, 'a');
       await key(page, 'b'); await page.locator('.game-abandon').waitFor(); await key(page, 'c');
       await page.locator('.tetris-operation-hint').waitFor(); assert.equal(writes.length, 4);
       await page.reload(); await page.locator('.tetris-operation-hint').waitFor(); await wait(1200);
       assert.deepEqual((await api('state')).state.game, dropped.game); assert.equal(writes.length, 4);
+      assert.deepEqual(await inspectBoardDescription(page, 'tetris', dropped.game.tetris), droppedBoard);
       await key(page, 'a'); await key(page, 'a'); await key(page, 'c');
       await page.locator('.tetris-operation-hint').waitFor({ state: 'detached' });
       await key(page, 'c'); await page.locator('.tetris-operation-hint').waitFor();
@@ -130,7 +135,7 @@ try {
       const after = (await api('state')).state;
       assert(!after.game); assert.equal(after.economy.coins, 0); assert.equal(after.careCount, 0);
       assert.deepEqual(writes.map(w => w.kind), ['tetris-rotate', 'tetris-pause', 'tetris-drop', 'tetris-pause', 'tetris-resume', 'tetris-pause', 'cancel-play']);
-      assert.deepEqual(errors, []); journeys.push({ mode: mode.name, writes, coins: after.economy.coins, careCount: after.careCount });
+      assert.deepEqual(errors, []); journeys.push({ mode: mode.name, rotatedBoard, droppedBoard, writes, coins: after.economy.coins, careCount: after.careCount });
     } finally { await context.close(); }
   }
   await writeFile(join(dir, 'results.json'), JSON.stringify({ results, journeys }, null, 2));

@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedTestBuilds } from './browser-test-builds.mjs';
+import { inspectBoardDescription } from './inspect-board-description.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds();
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
@@ -31,6 +32,7 @@ async function key(page, letter) {
 async function inspect(page, mode, tag, heading) {
   const guide = page.getByRole('region', { name: '继续后的转弯方向' });
   await guide.waitFor();
+  const board = await inspectBoardDescription(page, "snake", (await api("state")).state.game.snake);
   const text = await guide.textContent();
   assert(text.includes(`蛇头现在朝${directions[heading]}`));
   assert(text.includes(`A 左转：朝${directions[(heading + 3) % 4]}`));
@@ -62,7 +64,7 @@ async function inspect(page, mode, tag, heading) {
   }))) assert(rect.width >= 44 && rect.height >= 44);
   await guide.scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(dir, `${mode.name}-${tag}.png`), fullPage: true });
-  results.push({ mode: mode.name, tag, heading, text, layout });
+  results.push({ mode: mode.name, tag, heading, text, layout, board });
 }
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`,
@@ -107,11 +109,13 @@ try {
         held = { releasePromise: new Promise(r => { release = r; }), release };
         await key(page, 'c'); await page.locator('.snake-overlay').waitFor({ state: 'hidden' });
         assert.equal(await page.locator('.snake-steering-guide').count(), 0);
+        const previousDescription = await page.locator(".snake-field desc").textContent();
         await key(page, turn < 0 ? 'a' : 'b');
         for (let i = 0; !held.result && i < 120; i++) await wait(25);
         assert(held.result, 'automatic step did not arrive'); assert.equal(held.request.turn, turn);
         const heading = (turn * move + 4) % 4;
         assert.equal(held.result.state.game.snake.direction, heading);
+        assert.equal(await page.locator(".snake-field desc").textContent(), previousDescription, "unacknowledged movement changed the board description");
         // Pause during a real persisted step whose acknowledgement is held in transit.
         await key(page, 'c');
         held.release(); held = null;
@@ -129,6 +133,7 @@ try {
         assert.equal(writes.length, written, 'reminder, cancel confirmation or reload sent an action');
         assert.equal((await api('state')).state.game.snake.direction, heading);
         assert.deepEqual((await api('state')).state.game, before.game);
+        await inspectBoardDescription(page, "snake", before.game.snake);
       }
       assert.deepEqual(writes.map(w => w.kind), Array.from({ length: 3 }, () => ['snake-resume', 'snake-step', 'snake-pause']).flat());
       // B still means abandon confirmation while paused, not a right turn.
