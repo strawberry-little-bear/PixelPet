@@ -1160,6 +1160,26 @@ describe("real completed-game home echoes", () => {
   });
 });
 
+describe("quiet companion moments", () => {
+  it("offers a no-pressure A/B/C interaction without writing or changing the save", async () => {
+    await mount();
+    await choose(12);
+    expect(document.querySelector(".quiet-moment")).toBeTruthy();
+    expect(screen.getByText("摸摸它")).toBeTruthy();
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
+    const before = structuredClone(saved);
+    await key("b");
+    expect(screen.getByText("它眨了眨眼，把这份温柔收好了。")).toBeTruthy();
+    expect(api.mock.calls.filter(([path]) => path === "action")).toHaveLength(0);
+    expect(saved).toEqual(before);
+    await key("a");
+    expect(screen.getByText("陪它发呆")).toBeTruthy();
+    expect(screen.getByText("阳光慢慢挪过屏幕，谁也不用急。")).toBeTruthy();
+    await key("c");
+    expect(document.querySelector(".content-home")).toBeTruthy();
+  });
+});
+
 describe("keyboard reading and focus safety", () => {
   it("prevents native repeated activation on the three physical keys", async () => {
     await mount();

@@ -7,7 +7,7 @@ import type { GrowthStage, PetState, Result } from "./types";
 
 vi.mock("./api", () => ({ request: vi.fn() }));
 const api = vi.mocked(request);
-const kinds = ["feed", "arcade", "clean", "sleep", "status", "journal", "growth", "return", "album", "shop", "fish-album", "park-album"];
+const kinds = ["feed", "arcade", "clean", "sleep", "status", "journal", "growth", "return", "album", "shop", "fish-album", "park-album", "moment"];
 let saved: PetState, generation: string | undefined;
 const response = (): Result => ({ state: structuredClone(saved), message: "", serverTime: Date.now(), saveGeneration: generation });
 const writes = () => api.mock.calls.filter(([path]) => !["state", "visit"].includes(path));
@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 it.each((["baby", "growing", "adult"] as const).flatMap(stage => [false, true].map(sleeping => ({ stage, sleeping }))))
-  ("$stage sleeping=$sleeping A/B entry, twelve choices and wrapping locate the actual selection without care or focus changes", async ({ stage, sleeping }) => {
+  ("$stage sleeping=$sleeping A/B entry, thirteen choices and wrapping locate the actual selection without care or focus changes", async ({ stage, sleeping }) => {
     await mount(stage, sleeping); const before = structuredClone(saved), preferences = JSON.stringify(localStorage);
     const focus = document.querySelector<HTMLButtonElement>(".button-c")!; focus.focus(); expect(window.scrollBy).not.toHaveBeenCalled();
     await key("a");
@@ -43,10 +43,10 @@ it.each((["baby", "growing", "adult"] as const).flatMap(stage => [false, true].m
       expect(document.querySelector('.care-menu [aria-current="true"] .menu-number')?.textContent).toBe(String(n + 1).padStart(2, "0"));
       expect(window.scrollBy).toHaveBeenCalledTimes(n + 1); await key("a"); expect(document.activeElement).toBe(focus);
     }
-    expect(previewKind()).toBe("feed"); expect(window.scrollBy).toHaveBeenCalledTimes(13);
-    await key("c"); expect(document.querySelector(".home-caption")).toBeTruthy(); expect(window.scrollBy).toHaveBeenCalledTimes(13);
-    await key("b"); expect(previewKind()).toBe("feed"); expect(window.scrollBy).toHaveBeenCalledTimes(14);
-    await refresh(); await act(async () => { await vi.advanceTimersByTimeAsync(17000); }); expect(window.scrollBy).toHaveBeenCalledTimes(14);
+    expect(previewKind()).toBe("feed"); expect(window.scrollBy).toHaveBeenCalledTimes(14);
+    await key("c"); expect(document.querySelector(".home-caption")).toBeTruthy(); expect(window.scrollBy).toHaveBeenCalledTimes(14);
+    await key("b"); expect(previewKind()).toBe("feed"); expect(window.scrollBy).toHaveBeenCalledTimes(15);
+    await refresh(); await act(async () => { await vi.advanceTimersByTimeAsync(17000); }); expect(window.scrollBy).toHaveBeenCalledTimes(15);
     before.revision = saved.revision; expect(saved).toEqual(before); expect(writes()).toHaveLength(0); expect(JSON.stringify(localStorage)).toBe(preferences);
   });
 it("ordinary updates of needs, sleep and habits change previews without relocating an ongoing read", async () => {

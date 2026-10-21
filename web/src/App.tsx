@@ -74,6 +74,7 @@ import { albumView, nextAlbum, previousAlbum, reconcileAlbum, startAlbum } from 
 import { AlbumDirectory, AlbumPanel, albumCategories, type AlbumCategory } from "./AlbumPanel";
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
+import { QuietMoment } from "./QuietMoment";
 import { CareOutcome } from "./CareOutcome";
 import { GameOutcome } from "./GameOutcome";
 import { completedGameOutcome, type GameOutcomeRecord } from "./game-outcome";
@@ -116,6 +117,7 @@ type Page =
   | "shop"
   | "fish-album"
   | "park-album"
+  | "moment"
   | "import-preview";
 const items = [
   {
@@ -165,6 +167,7 @@ const items = [
   },
   { label: "池塘鱼图鉴", hint: "看看真正遇见过的小鱼", icon: Waves, kind: "fish-album" },
   { label: "公园沿途发现", hint:"收藏散步中真正遇见的事物", icon:Sprout, kind:"park-album" },
+  { label: "陪它一会儿", hint: "不为奖励，只陪它发发呆", icon: Heart, kind: "moment" },
 ];
 const needs = [
   { key: "hunger", label: "饱食", icon: Utensils, color: "orange" },
@@ -183,6 +186,8 @@ export default function App() {
   const [pet, setPet] = useState<PetState | null>(null);
   const [careRules, setCareRules] = useState<CareRules | null>(null);
   const [statusPage, setStatusPage] = useState(0);
+  const [quietMomentChoice, setQuietMomentChoice] = useState(0);
+  const [quietMomentReplied, setQuietMomentReplied] = useState(false);
   const [page, setPage] = useState<Page>("choose");
   const [chosen, setChosen] = useState(0);
   const [selected, setSelected] = useState(0);
@@ -1735,6 +1740,14 @@ export default function App() {
       }
       return;
     }
+    if (page === "moment") {
+      if (key === "A") {
+        setQuietMomentChoice(value => (value + 1) % 3);
+        setQuietMomentReplied(false);
+      } else if (key === "B") setQuietMomentReplied(true);
+      else if (key === "C") setPage("home");
+      return;
+    }
     if (page === "return") {
       if (!returnRecap) { setPage("home"); return; }
       if (key === "A" || (key === "B" && returnPage < returnPageCount - 1)) {
@@ -1792,6 +1805,10 @@ export default function App() {
           return;
         }
         setPage("arcade"); navigateArcadeReading("arcade");
+      } else if (item.kind === "moment") {
+        setQuietMomentChoice(0);
+        setQuietMomentReplied(false);
+        setPage("moment");
       } else if (item.kind === "return") {
         if (returnRecap) {
           setReturnReading({ id: returnRecap.id, page: 0, updated: false });
@@ -2098,7 +2115,9 @@ export default function App() {
                       ? "A 上一页  B 下一页  C 返回"
                       : page === "journal"
                         ? "A 较早　 B 较新　 C 返回"
-                        : "C 返回小窝";
+                        : page === "moment"
+                          ? "A 换回应　 B 陪一会儿　 C 返回"
+                          : "C 返回小窝";
 
   // Use the same reading decision for geometry and successful notices.
   const readingMode = page !== "game" || abandoning || uncertain || unavailable || corrupt
@@ -2529,6 +2548,7 @@ export default function App() {
                             <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} rules={careRules} />
                           </CareReadingRegion>
                         )}
+                        {page === "moment" && <QuietMoment pet={pet} choice={quietMomentChoice} replied={quietMomentReplied} />}
                         {page === "growth" && (
                           <GrowthPanel
                             pet={pet}

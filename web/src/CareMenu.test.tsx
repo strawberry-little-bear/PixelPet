@@ -24,9 +24,9 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("three-key care explanations", () => {
-  it("opens, browses all twelve hints, wraps, and cancels without writes", async () => {
+  it("opens, browses all thirteen hints, wraps, and cancels without writes", async () => {
     await mount(); await key("b");
-    const kinds = ["feed", "arcade", "clean", "sleep", "status", "journal", "growth", "return", "album", "shop", "fish-album", "park-album"];
+    const kinds = ["feed", "arcade", "clean", "sleep", "status", "journal", "growth", "return", "album", "shop", "fish-album", "park-album", "moment"];
     for (const kind of kinds) {
       expect(preview().getAttribute("data-care-preview")).toBe(kind);
       expect(preview().textContent!.length).toBeGreaterThan(10);

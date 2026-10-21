@@ -1,0 +1,12 @@
+.quiet-moment-reading { height: 100%; }
+.quiet-moment { min-height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 2px 8px 10px; }
+.quiet-moment > header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding-bottom: 5px; border-bottom: 1px dashed currentColor; font-size: 9px; }
+.quiet-moment > header small { font: 8px var(--mono); opacity: .7; }
+.quiet-moment-pet { height: 92px; width: 130px; position: relative; margin: 8px 0 5px; }
+.quiet-moment-pet .pet-sprite { position: absolute; width: 100%; height: 100%; left: 0; top: 0; }
+.quiet-moment > strong { font-size: 11px; }
+.quiet-moment > p { max-width: 260px; margin: 7px 0 4px; font-size: 10px; line-height: 1.7; }
+.quiet-moment-note { max-width: 260px; margin-top: 3px; font-size: 8px; line-height: 1.5; opacity: .75; }
+.quiet-moment[data-replied="true"] .quiet-moment-pet { animation: quiet-moment-breathe 900ms ease both; }
+@keyframes quiet-moment-breathe { 0% { transform: translateY(2px) scale(.98); } 55% { transform: translateY(-2px) scale(1.02); } 100% { transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .quiet-moment[data-replied="true"] .quiet-moment-pet { animation: none; } }
