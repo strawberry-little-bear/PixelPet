@@ -338,7 +338,7 @@ describe("treasure finish explains the saved result, not the revealed map", () =
   saved.game!.treasure!.opened=opened;
   render(<TreasureGame pet={saved} active cursor={0} choice={0}/>);
   expect(document.querySelector(".treasure-status")?.textContent).toContain(reason);
-  expect(document.querySelector(".treasure-status")?.textContent).toContain(`实际找到 ${found} 件，B / C 收好`);
+  expect(document.querySelector(".treasure-status")?.textContent).toContain(`实际找到 ${found} 件，A 暂不操作 · B / C 收好`);
   const rule=document.querySelector(".treasure-game > small")?.textContent;
   expect(rule).toContain(`本局基础 ${base} 币＝3 币探索 + ${found} 币发现`);
   expect(rule).toContain("每日额度和钱包上限");

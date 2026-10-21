@@ -94,7 +94,7 @@ describe("three-key pond and explicit pause", () => {
     failure = "fish-cast"; await mount(); await key("b"); await clock(5000); expect(calls().map(a => a.kind)).toEqual(["fish-cast"]); expect(screen.getByText("本次钓鱼没有保存")).toBeTruthy(); failure = ""; await key("b"); await clock(1100); expect(calls().at(-1)?.kind).toBe("fish-step");
   });
   it("finishes only on B/C, never another cast or abandonment", async () => {
-    Object.assign(saved.game!.fishing!, { phase: "done", casts: 3, catches: ["reed-minnow"], outcome: "missed" }); await mount(); await clock(3000); await key("a"); expect(calls()).toHaveLength(0); await key("c"); expect(calls()).toEqual([expect.objectContaining({ kind: "fish-finish", gameId: id, step: 0 })]);
+    Object.assign(saved.game!.fishing!, { phase: "done", casts: 3, catches: ["reed-minnow"], outcome: "missed" }); await mount(); await clock(3000); await key("a"); expect(calls()).toHaveLength(0); expect(document.querySelector(".fishing-status")?.textContent).toContain("A 暂不操作"); await key("c"); expect(calls()).toEqual([expect.objectContaining({ kind: "fish-finish", gameId: id, step: 0 })]);
   });
   it("opens fish records directly from home through the same three keys", async () => {
     delete saved.game; await mount(); await key("a"); for (let i = 0;i < 10;i++)await key("a"); await key("b"); expect(document.querySelector(".fish-album")).toBeTruthy(); await key("b"); expect(document.querySelector('[aria-current="true"] .fish-art')?.classList.contains("fish-round")).toBe(true); await key("c"); expect(document.querySelector(".content-home")).toBeTruthy(); expect(calls()).toHaveLength(0);

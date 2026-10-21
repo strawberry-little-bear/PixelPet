@@ -33,7 +33,7 @@ import { useTileViewport, type TileDestination } from "./useTileViewport";
 import { TileGame, nextTile } from "./TileGame";
 import { GameAllowance } from "./GuideReward";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
-import { gameStartInstruction, games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
+import { gameFinishInstruction, gameStartInstruction, games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
 import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { dailyWalletNotice, shopItems, shopSections } from "./shop";
@@ -1575,7 +1575,8 @@ export default function App() {
     if (page === "game" && !abandoning && pet.game?.kind === "treasure" && pet.game.treasure) {
       const n = pet.game.treasure;
       if (treasureDone(n)) {
-        if (key !== "A") void act("treasure-finish", { step: n.step });
+        if (key === "A") setMessage("本局已经结束，A 暂不操作；按 B 或 C 收好本局发现。");
+        else void act("treasure-finish", { step: n.step });
       } else if (n.paused || treasureSession !== pet.game.id) {
         if (key === "A") setTreasureChoice(v => (v + 1) % treasureMenu.length);
         else if (key === "C" || treasureChoice === 0) void act("treasure-resume", { step: n.step });
@@ -1594,7 +1595,10 @@ export default function App() {
     }
     if(page==="game" && !abandoning && pet.game?.kind==="walk" && pet.game.walking) {
       const n=pet.game.walking;
-      if(n.beat===72) {if(key!=="A")void act("walk-finish",{step:n.step});}
+      if(n.beat===72) {
+        if (key === "A") setMessage("本局已经结束，A 暂不操作；按 B 或 C 收好本局发现。");
+        else void act("walk-finish",{step:n.step});
+      }
       else if(n.paused || walkSession!==pet.game.id) {
         if(key==="A")setWalkChoice(v=>(v+1)%walkMenu.length);
         else if(key==="C" || walkChoice===0)void act("walk-resume",{step:n.step});
@@ -1614,7 +1618,8 @@ export default function App() {
       const n = pet.game.fishing;
       const paused = n.paused || (["wait", "bite"].includes(n.phase) && fishingSession !== pet.game.id);
       if (n.phase === "done") {
-        if (key !== "A") void act("fish-finish", { step: n.step });
+        if (key === "A") setMessage("本局已经结束，A 暂不操作；按 B 或 C 收好本局发现。");
+        else void act("fish-finish", { step: n.step });
       } else if (paused) {
         if (key === "A") setFishingChoice(v => (v + 1) % fishingMenu.length);
         else if (key === "C" || fishingChoice === 0) void act("fish-resume", { step: n.step });
@@ -1636,7 +1641,8 @@ export default function App() {
     if (page === "game" && !abandoning && pet.game?.kind === "tetris" && pet.game.tetris) {
       const n = pet.game.tetris;
       if (n.end) {
-        if (key !== "A") void act("tetris-finish", { step: n.step });
+        if (key === "A") setMessage("本局已经结束，A 暂不操作；按 B 或 C 收好本局成绩。");
+        else void act("tetris-finish", { step: n.step });
       } else if (n.paused || tetrisSession !== pet.game.id) {
         if (key === "A") setTetrisChoice(v => (v + 1) % tetrisOptions.length);
         else if (key === "B" && tetrisChoice === 4) openPauseGuide();
@@ -1661,7 +1667,8 @@ export default function App() {
     if (page === "game" && !abandoning && pet.game?.kind === "snake" && pet.game.snake) {
       const n = pet.game.snake;
       if (n.end) {
-        if (key !== "A") void act("snake-finish", { step: n.step });
+        if (key === "A") setMessage("本局已经结束，A 暂不操作；按 B 或 C 收好本局成绩。");
+        else void act("snake-finish", { step: n.step });
       } else if (n.paused || snakeSession !== pet.game.id) {
         snakeTurn.current = 0;
         setQueuedTurn(0);
@@ -2059,10 +2066,10 @@ export default function App() {
   const echo = homeEcho && page === "home" && !clip && !evolution && !tools && !help && !reset && !document.hidden && performance.now() < homeEcho.monotonicUntil && !pet?.sleeping && !["hungry", "tired", "dirty"].includes(need?.kind ?? "") ? homeEcho.kind : undefined;
   const motion = sceneMotion(pet?.sleeping ?? false, clip);
   const blocks = pet?.game?.tetris;
-  const tetrisHint = blocks?.end ? "B / C 收好成绩" : blocks?.paused || tetrisSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 左移  B 右移  C 操作 / 暂停";
+  const tetrisHint = blocks?.end ? gameFinishInstruction(games[3]) : blocks?.paused || tetrisSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 左移  B 右移  C 操作 / 暂停";
   const snake = pet?.game?.snake;
   const snakeHint = snake?.end
-    ? "B / C 收好成绩"
+    ? gameFinishInstruction(games[2])
     : snake?.paused || snakeSession !== pet?.game?.id
       ? "A / C 继续  B 放弃确认"
       : "A 左转  B 右转  C 暂停";
@@ -2073,11 +2080,11 @@ export default function App() {
   const treasureView = page === "game" && pet?.game?.kind === "treasure" && !!treasure && !abandoning
     && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset;
   useTreasureViewport(readingRoot, treasureDestination, sessionKey, treasureView && foreground);
-  const treasureHint = treasure && treasureDone(treasure) ? "B / C 收好发现" : treasure?.paused || treasureSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 选格  B 探索  C 暂停";
+  const treasureHint = treasure && treasureDone(treasure) ? gameFinishInstruction(games[6]) : treasure?.paused || treasureSession !== pet?.game?.id ? "A 选择  B 确认  C 继续" : "A 选格  B 探索  C 暂停";
   const walking=pet?.game?.walking;
-  const walkHint=walking?.beat===72?"B / C 收好发现":walking?.paused || walkSession!==pet?.game?.id?"A 选择  B 确认  C 继续":"A 跳跃  B 蹲下  C 暂停";
+  const walkHint=walking?.beat===72?gameFinishInstruction(games[5]):walking?.paused || walkSession!==pet?.game?.id?"A 选择  B 确认  C 继续":"A 跳跃  B 蹲下  C 暂停";
   const fishing = pet?.game?.fishing;
-  const fishingHint = fishing?.phase === "done" ? "B / C 收好发现" : fishing?.paused || (["wait", "bite"].includes(fishing?.phase ?? "") && fishingSession !== pet?.game?.id) ? "A 选择  B 确认  C 继续" : "A 换钓点  B 抛 / 提竿  C 暂停";
+  const fishingHint = fishing?.phase === "done" ? gameFinishInstruction(games[4]) : fishing?.paused || (["wait", "bite"].includes(fishing?.phase ?? "") && fishingSession !== pet?.game?.id) ? "A 选择  B 确认  C 继续" : "A 换钓点  B 抛 / 提竿  C 暂停";
   // Keep reward context out of live boards. A refreshed session is locally
   // paused even when the last server snapshot still says it was running.
   const gameRewardReading = gameAwaitingFinish(pet?.game)

@@ -56,6 +56,6 @@ describe("Tetris pause operation consequences", () => {
     const pet = fixture(); pet.game!.tetris!.end = end; delete pet.game!.tetris!.active;
     const view = render(<TetrisGame pet={pet} now={now} active={false} choice={2} />);
     expect(view.container.querySelector(".tetris-operation-hint")).toBeNull();
-    expect(view.container.querySelector(".tetris-overlay")?.textContent).toContain("B / C 收好成绩");
+    expect(view.container.querySelector(".tetris-overlay")?.textContent).toContain("A 暂不操作 · B / C 收好本局成绩");
   });
 });

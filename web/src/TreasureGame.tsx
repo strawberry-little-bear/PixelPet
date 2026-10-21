@@ -36,7 +36,7 @@ export function TreasureGame({ pet, active, cursor, choice, reaction }: { pet: P
         </div>;
       })}</div>)}
     </div>
-    <p className="treasure-status" aria-live="polite">{done ? `探索结束 · ${found === 3 ? "三件已找齐" : "六次已用完"} · 实际找到 ${found} 件，B / C 收好。` : paused ? "刷新、离开或查看规则后，手动继续。" : `${label(cursor)} · B 探索`}</p>
+    <p className="treasure-status" aria-live="polite">{done ? `探索结束 · ${found === 3 ? "三件已找齐" : "六次已用完"} · 实际找到 ${found} 件，A 暂不操作 · B / C 收好本局发现。` : paused ? "刷新、离开或查看规则后，手动继续。" : `${label(cursor)} · B 探索`}</p>
     <small className="treasure-rule">{done
       ? `本局基础 ${3 + found} 币＝3 币探索 + ${found} 币发现；收好时受每日额度和钱包上限限制。揭示不算找到，B / C 收好才计陪伴与金币。`
       : "空格数字＝周围八格的小物总数。六次或找齐结束；收好后 3–6 币共用每日额度。"}</small>

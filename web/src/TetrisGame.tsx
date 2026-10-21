@@ -65,7 +65,7 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
       <aside className="tetris-side"><span>下一块</span><svg viewBox="0 0 40 24" role="img" aria-label={`下一块 ${pieceNames[n.next - 1]}`} shapeRendering="crispEdges">{blockCells({ kind: n.next, rotation: 0, x: 0, y: 0 }).map((p, i) => <rect key={i} x={p.x * 9 + 1} y={p.y * 9 + 1} width="7" height="7" fill="#526d3e" />)}</svg><small>目标 8 行</small><small>2 行起结算<br />最多 6 金币</small><small>A 左 · B 右<br />C 操作 / 暂停</small></aside>
       {(paused || n.end) && <div className="tetris-overlay" role="status">
         <strong>{n.end ? n.end === "won" ? "积木花园拼好啦！" : "歇一歇再来" : "积木已暂停"}</strong>
-        {n.end ? <><span>消除 {n.lines} 行 · B / C 收好成绩</span><small>{n.lines >= 2 ? "计入陪伴 · 最多 6 金币" : "消除 2 行后完成才有奖励"}</small></> : <><ol aria-label="积木操作">{tetrisOptions.map((label, i) => <li key={label} aria-current={choice === i} className={choice === i ? "selected" : ""}>{choice === i ? "›" : "·"} {label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></>}
+        {n.end ? <><span>消除 {n.lines} 行 · A 暂不操作 · B / C 收好本局成绩</span><small>{n.lines >= 2 ? "计入陪伴 · 最多 6 金币" : "消除 2 行后完成才有奖励"}</small></> : <><ol aria-label="积木操作">{tetrisOptions.map((label, i) => <li key={label} aria-current={choice === i} className={choice === i ? "selected" : ""}>{choice === i ? "›" : "·"} {label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></>}
       </div>}
     </div>
     {paused && !n.end && <p className="tetris-operation-hint" aria-live="polite" aria-atomic="true">{tetrisOperationHints[choice]}</p>}

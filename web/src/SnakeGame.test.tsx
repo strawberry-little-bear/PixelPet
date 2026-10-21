@@ -83,7 +83,7 @@ describe("three-key realtime snake", () => {
   it("collects terminal results only via B/C and shows short-round reward rules", async () => {
     saved.game = snakeGame(); saved.game.snake!.end = "wall"; await mount();
     expect(document.querySelector(".snake-overlay")?.textContent).toContain("3 颗");
-    await key("a"); expect(actions()).toHaveLength(0);
+    await key("a"); expect(actions()).toHaveLength(0); expect(document.querySelector(".snake-overlay")?.textContent).toContain("A 暂不操作");
     await key("b"); expect(actions().at(-1)).toMatchObject({ kind: "snake-finish", step: 0, gameId: id });
     expect(document.querySelector(".content-home")).toBeTruthy();
   });

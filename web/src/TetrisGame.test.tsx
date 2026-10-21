@@ -117,7 +117,7 @@ describe("three-key Tetris", () => {
   it("only sends finish for an ended game and does not replay it at mount", async () => {
     saved.game = game(); saved.game.tetris!.end = "won"; saved.game.tetris!.lines = 8; delete saved.game.tetris!.active;
     await mount(); await clock(2000); expect(actions()).toHaveLength(0);
-    await key("a"); expect(actions()).toHaveLength(0); await key("b");
+    await key("a"); expect(actions()).toHaveLength(0); expect(document.querySelector(".tetris-overlay")?.textContent).toContain("A 暂不操作"); await key("b");
     expect(actions().at(-1)).toMatchObject({ kind: "tetris-finish", gameId: id, step: 0 });
   });
   it("renders next piece, ghost landing and equipped pet without initial fake collection", () => {

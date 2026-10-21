@@ -62,6 +62,12 @@ export type GameInfo = (typeof games)[number];
 // Keep the guide language aligned with what B actually does for each game.
 // Stars and tiles start immediately; fishing enters its ready state; the
 // remaining games deliberately open paused so a refresh cannot auto-run them.
+export function gameFinishInstruction(game: GameInfo): string {
+  return ["snake", "tetris"].includes(game.id)
+    ? "A 暂不操作 · B / C 收好本局成绩"
+    : "A 暂不操作 · B / C 收好本局发现";
+}
+
 export function gameStartLabel(game: GameInfo): string {
   return game.id === "stars" || game.id === "tiles" ? "开始"
     : game.id === "fishing" ? "进入准备"

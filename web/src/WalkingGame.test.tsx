@@ -83,7 +83,7 @@ describe("three-key walking",()=>{
   expect(screen.queryByRole("region",{name:"本次沿途发现"})).toBeNull();
   expect(document.querySelector(".content-home")).toBeTruthy();
  });
- it("offers explicit B/C settlement at the end, A never submits",async()=>{saved.game!.walking!.beat=72;await mount();await clock(5000);await key("a");expect(calls()).toHaveLength(0);await key("c");expect(calls()).toEqual([expect.objectContaining({kind:"walk-finish",gameId:id,step:0})]);expect(document.querySelector(".content-home")).toBeTruthy()});
+ it("offers explicit B/C settlement at the end, A never submits",async()=>{saved.game!.walking!.beat=72;await mount();await clock(5000);await key("a");expect(calls()).toHaveLength(0);expect(document.querySelector(".walk-warning")?.textContent).toContain("A 暂不操作");await key("c");expect(calls()).toEqual([expect.objectContaining({kind:"walk-finish",gameId:id,step:0})]);expect(document.querySelector(".content-home")).toBeTruthy()});
  it("opens park records from the permanent home menu without writing",async()=>{delete saved.game;await mount();await key("a");for(let i=0;i<11;i++)await key("a");await key("b");expect(document.querySelector(".park-album")).toBeTruthy();await key("b");await key("c");expect(calls()).toHaveLength(0)});
 });
 describe("home response after a newly discovered park item",()=>{

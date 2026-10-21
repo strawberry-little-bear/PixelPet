@@ -53,7 +53,7 @@ describe("paused snake relative steering reminder", () => {
     const state = pet(2); state.game!.snake!.end = end;
     const view = render(<SnakeGame pet={state} now={now} active={false} turn={0} />);
     expect(view.queryByRole("region", { name: "继续后的转弯方向" })).toBeNull();
-    expect(view.getByText(/B \/ C 收好成绩/)).toBeTruthy();
+    expect(view.getByText(/A 暂不操作 · B \/ C 收好本局成绩/)).toBeTruthy();
   });
 
   it("follows a new authoritative heading without mutating game state", () => {
