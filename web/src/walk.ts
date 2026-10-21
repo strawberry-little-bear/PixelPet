@@ -22,6 +22,18 @@ export const walkingCompanions = [
  "脚掌交替，收爪越石，低耳通过树枝。",
 ];
 
+/** Explain only the selected pause operation; never inspect future route/finds. */
+export function walkPauseHint(walking: Walking, choice: number): string {
+ const hints = [
+  `B / C 从第 ${walking.beat + 1} 步继续自动前进，不补走离开期间的路。`,
+  "B 查看永久沿途图鉴；本局已遇见的清单在下方，返回仍暂停。",
+  "B 先打开放弃确认；已遇见的发现保留，未完成不发奖励。",
+  "B 回看已保存的风景手记；返回仍暂停，不会生成新发现。",
+  "B 重看本局两页玩法；返回仍暂停，等你手动继续。",
+ ];
+ return hints[choice] ?? hints[0];
+}
+
 /** Only explain the current visible obstacle and acknowledged pose. No local
  * clock, history reconstruction, hidden route preview or automatic input. */
 export function walkingTimingHint(walking: Walking, dolphin: boolean): string {
