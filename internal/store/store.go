@@ -28,6 +28,18 @@ type Store struct {
 	db *sql.DB
 	mu sync.Mutex
 }
+type WalkGameReceipt struct {
+	Cleared          int `json:"cleared"`
+	Total            int `json:"total"`
+	RouteCoins       int `json:"routeCoins"`
+	PerformanceCoins int `json:"performanceCoins"`
+	AwardedCoins     int `json:"awardedCoins"`
+}
+
+type GameReceipt struct {
+	Walk *WalkGameReceipt `json:"walk,omitempty"`
+}
+
 type Result struct {
 	CareRules      game.CareRules     `json:"careRules"`
 	SaveGeneration string             `json:"saveGeneration"`
@@ -37,6 +49,7 @@ type Result struct {
 	Message        string             `json:"message"`
 	ServerTime     int64              `json:"serverTime"`
 	CareFeedback   *game.CareFeedback `json:"careFeedback,omitempty"`
+	GameReceipt    *GameReceipt       `json:"gameReceipt,omitempty"`
 	ReturnRecap    *ReturnRecap       `json:"returnRecap,omitempty"`
 	RecapPending   bool               `json:"recapPending"`
 	RecapClaimed   bool               `json:"recapClaimed,omitempty"`
@@ -178,6 +191,16 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	message := ""
 	var feedback *game.CareFeedback
 	var tileLink []game.TilePoint
+	var walkReceipt *WalkGameReceipt
+	var walkBeforeCoins int
+	var walkFinishing bool
+	if a != nil && a.Kind == "walk-finish" && state.Game != nil && state.Game.Kind == "walk" && state.Game.Walking != nil {
+		walkFinishing = true
+		walkReceipt = &WalkGameReceipt{Cleared: state.Game.Walking.Cleared, Total: 12, RouteCoins: 3, PerformanceCoins: state.Game.Walking.Cleared / 4}
+		if state.Economy != nil {
+			walkBeforeCoins = state.Economy.Coins
+		}
+	}
 	if a != nil {
 		tileLink = state.TileLink(*a)
 		message, feedback, err = state.ApplyWithFeedback(*a, now)
@@ -188,6 +211,9 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 		changed = true
+		if walkFinishing && state.Game == nil && walkReceipt != nil && state.Economy != nil {
+			walkReceipt.AwardedCoins = max(0, state.Economy.Coins-walkBeforeCoins)
+		}
 	}
 	if imported != nil || reset {
 		if imported != nil {
@@ -288,7 +314,11 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 	}
-	result := Result{CareRules: game.CareRuleBook(), SaveGeneration: generation, TileLink: tileLink, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
+	var receipt *GameReceipt
+	if walkReceipt != nil {
+		receipt = &GameReceipt{Walk: walkReceipt}
+	}
+	result := Result{CareRules: game.CareRuleBook(), SaveGeneration: generation, TileLink: tileLink, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, GameReceipt: receipt, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
 	if a != nil && a.RequestID != "" {
 		encoded, _ := json.Marshal(result)
 		if _, err = tx.Exec("INSERT INTO requests(id,body) VALUES(?,?)", a.RequestID, string(encoded)); err != nil {

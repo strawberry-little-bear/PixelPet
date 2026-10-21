@@ -50,6 +50,23 @@ it.each(games)("captures $id only after its own final action, without guessing s
   expect(outcome()?.textContent).toContain("未提供共同游戏记录");
   expect(outcome()?.querySelector("button,a,input,[role=button]")).toBeNull(); expect(outcome()?.hasAttribute("aria-live")).toBe(false);
 });
+it("keeps and renders a validated walking reward breakdown", () => {
+  const before = fixture(); before.game!.kind = "walk"; delete before.game!.snake;
+  before.game!.walking = { route: Array<"rock">(12).fill("rock"), souvenirs: ["leaf", "shell", "flower"], beat: 72, step: 4, cleared: 8, pose: "", poseUntil: 0, lastPulseAt: at, lastInputAt: 0, paused: true };
+  const after = structuredClone(before); delete after.game;
+  const r = { ...result(after), gameReceipt: { walk: { cleared: 8, total: 12, routeCoins: 3, performanceCoins: 2, awardedCoins: 1 } } };
+  const receipt = completedGameOutcome("walk-finish", before, r);
+  expect(receipt?.gameReceipt).toEqual(r.gameReceipt);
+  render(<GameOutcome outcome={receipt} />);
+  expect(outcome()?.textContent).toContain("路线完成奖励：+3 金币");
+  expect(outcome()?.textContent).toContain("灵活表现奖励：+2 金币（避开 8 / 12 处障碍）");
+  expect(outcome()?.textContent).toContain("本次实际到账：+1 金币");
+  expect(outcome()?.querySelector("button,a,input,[role=button]")).toBeNull();
+  const invalid = { ...r, gameReceipt: { walk: { ...r.gameReceipt.walk, awardedCoins: -1 } } };
+  expect(completedGameOutcome("walk-finish", before, invalid)?.gameReceipt).toBeUndefined();
+  const inconsistent = { ...r, gameReceipt: { walk: { ...r.gameReceipt.walk, total: 11 } } };
+  expect(completedGameOutcome("walk-finish", before, inconsistent)?.gameReceipt).toBeUndefined();
+});
 it.each([true, false])("separates shared memory from coins and habit credit (recorded=%s)", recorded => {
   const before = fixture(), after = structuredClone(before); delete after.game;
   after.companion = { since: at - 1000, interests: [], recent: { kind: "snake", id: recorded ? id : "old-session", at } };

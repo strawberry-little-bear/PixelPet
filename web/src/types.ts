@@ -92,6 +92,14 @@ export type CareFeedback = {
 export type CareActionEffects = { feed: Needs; clean: Needs };
 export type GrowthRuleBasis = { basePerHour: number; comfortPerHour: number; restEnergyPerHabit: number; restPointsPerHabit: number };
 export type CareRules = { needTolerance?: number; awake: Needs; sleeping: Needs; maxOfflineHours: number; actions?: CareActionEffects; growth?: GrowthRuleBasis };
+export type WalkGameReceipt = {
+  cleared: number;
+  total: number;
+  routeCoins: number;
+  performanceCoins: number;
+  awardedCoins: number;
+};
+export type GameReceipt = { walk?: WalkGameReceipt };
 export type Result = {
   careRules?: CareRules;
   saveGeneration?: string;
@@ -99,6 +107,7 @@ export type Result = {
   message: string;
   serverTime: number;
   careFeedback?: CareFeedback;
+  gameReceipt?: GameReceipt;
   tileLink?: TilePoint[];
   shop?: Shop;
   returnRecap?: ReturnRecap;

@@ -2,4 +2,8 @@
 .game-outcome h3 { margin: 0 0 4px; }
 .game-outcome > time, .game-outcome > small { display: block; }
 .game-outcome p { margin: 6px 0; white-space: pre-wrap; }
+.walk-reward-breakdown { margin: 8px 0; padding: 7px 8px; border: 1px solid #9aae7d; background: rgba(224, 239, 196, .45); overflow-wrap: anywhere; }
+.walk-reward-breakdown strong, .walk-reward-breakdown small { display: block; }
+.walk-reward-breakdown p { margin: 4px 0; }
+@media (max-width: 700px) { .walk-reward-breakdown { padding: 6px; } }
 @media (forced-colors: active) { .game-outcome { color: CanvasText; border-color: CanvasText; } }
