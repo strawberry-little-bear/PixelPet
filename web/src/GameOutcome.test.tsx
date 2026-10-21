@@ -158,6 +158,18 @@ it("combines a completed game's care details inside its single primary receipt",
   expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("本局照顾变化 · 陪玩");
   expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("本次成长：+0.25 点");
 });
+it("keeps embedded care details compact because the game receipt already owns the timestamp and explanation", () => {
+  const feedback: CareFeedback = {
+    kind: "snake-finish", reason: "credited", points: .25, habit: "play", habitGain: 1,
+    effect: { at, before: { hunger: 60, mood: 70, clean: 80, energy: 50 }, after: { hunger: 60, mood: 75, clean: 80, energy: 50 } },
+  };
+  render(<GameOutcome outcome={{ kind: "snake", at, message: "服务端最终结算", shared: true }} careFeedback={feedback} />);
+  const receipt = screen.getByLabelText("本页最近一次游戏结算");
+  expect(receipt.querySelector(".care-outcome-compact")?.textContent).toContain("心情 70.00 → 75.00（+5.00）");
+  expect(receipt.querySelector(".care-outcome-compact")?.querySelectorAll("[data-need]")).toHaveLength(4);
+  expect(receipt.querySelector(".care-outcome-embedded > time")).toBeNull();
+  expect(receipt.querySelectorAll("time")).toHaveLength(1);
+});
 it("a subsequent accepted completion replaces, rather than appends to, the page receipt", async () => {
   await mount(); await key("b"); expect(outcome()).toBeTruthy();
   saved.game = fixture().game; saved.game!.id = "another-session"; saved.revision++; await poll();

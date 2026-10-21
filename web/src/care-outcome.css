@@ -6,6 +6,9 @@
 .care-outcome dd { margin: 0; display: flex; flex-wrap: wrap; gap: 0 8px; justify-content: space-between; min-width: 0; }
 .care-outcome dd strong { font-weight: 600; }
 .care-outcome p { margin: 6px 0; }
+.care-outcome-compact { display: flex; flex-wrap: wrap; gap: 3px 10px; margin: 6px 0; }
+.care-outcome-compact span { min-width: 0; }
+.care-outcome-compact strong { font-weight: 600; }
 .care-learning { margin: 8px 0; padding: 6px 0; border-block: 1px dotted currentColor; }
 .care-learning > strong, .care-learning > span, .care-learning > small { display: block; }
 @media (forced-colors: active) {

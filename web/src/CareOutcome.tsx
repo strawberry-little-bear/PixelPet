@@ -66,15 +66,19 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
     feedback.kind === "sleep" ? feedback.reason === "awake" ? "起床" : "入睡" : "陪玩";
   const outcome = <section className={`care-outcome${embedded ? " care-outcome-embedded" : ""}`} aria-label="上次操作的即时变化">
     <h3>{embedded ? "本局照顾变化" : "本页上次已确认"} · {action}</h3>
-    <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
+    {!embedded && <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
       year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
-    })}（本地时间）</time>
-    <dl>
+    })}（本地时间）</time>}
+    {embedded ? <div className="care-outcome-compact" aria-label="本局照顾后的状态变化">
+      {needLabels.map(([key, label]) => <span key={key} data-need={key}>
+        <strong>{label}</strong> {fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}（{change(after[key] - before[key])}）
+      </span>)}
+    </div> : <dl>
       {needLabels.map(([key, label]) => <div key={key} data-need={key}>
         <dt>{label}</dt>
         <dd><span>{fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}</span><strong>{change(after[key] - before[key])}</strong></dd>
       </div>)}
-    </dl>
+    </dl>}
     {learning && <div className="care-learning" role="group" aria-label="本次成长与习惯">
       <strong>本次成长：+{careAmount(feedback.points)} 点</strong>
       <span>{learning.habit}</span>
@@ -85,9 +89,9 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
       <strong>{milestone}</strong>
       <small>这是本次已确认的阶段变化，不含操作前的自然成长；之后读取不会改写这条回执。</small>
     </div>}
-    {feedback.kind === "sleep" && <p>入睡和起床不立即恢复体力；睡着期间才逐步恢复，到满为止。</p>}
-    <small>以上仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>
-    <SleepSummary feedback={feedback} />
+    {!embedded && feedback.kind === "sleep" && <p>入睡和起床不立即恢复体力；睡着期间才逐步恢复，到满为止。</p>}
+    {!embedded && <small>以上仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>}
+    {!embedded && <SleepSummary feedback={feedback} />}
   </section>;
   // Home has no surrounding reading region. Status already has its own stop,
   // so opt in only at home and never expose an empty stop for invalid metadata.
