@@ -154,7 +154,7 @@ export function TileGame({
           <small>{link ? "这对我收好啦！" : "我帮你收图案"}</small>
         </div>
       </div>
-      <div className="tile-status" role="status">
+      <div className="tile-status" role="status" aria-live="polite" aria-atomic="true">
         <p>{tilePosition(cursor)}· {tileNames[tiles.board[cursor]]}</p>
         <p>{tiles.pick >= 0 ? `已选${tilePosition(tiles.pick)}· ${tileNames[tiles.board[tiles.pick]]}` : "B 选中"}</p>
       </div>

@@ -22,7 +22,10 @@ it("describes all sixteen visible cells, including empty positions, without reve
 });
 it("keeps current and selected pattern names and coordinates readable together", () => {
   render(view());
-  expect(screen.getByRole("status").textContent).toContain("第 4 格（1 行 4 列）· 嫩叶");
+  const status = screen.getByRole("status");
+  expect(status.getAttribute("aria-live")).toBe("polite");
+  expect(status.getAttribute("aria-atomic")).toBe("true");
+  expect(status.textContent).toContain("第 4 格（1 行 4 列）· 嫩叶");
   expect(screen.getByRole("status").textContent).toContain("已选第 15 格（4 行 3 列）· 脚印");
 });
 it("an unpicked board explains B rather than retaining an old selection", () => {
