@@ -46,3 +46,5 @@
 .shop-preview .pet-scene *, .shop-preview .pet-scene *::before, .shop-preview .pet-scene *::after { animation:none !important; transition:none !important; }
 
 .shop-sync-note { border-left: 2px solid currentColor; padding-left: 6px; }
+
+.shop-purchase-details { display:block; margin-top:.3em; font-weight:normal; }

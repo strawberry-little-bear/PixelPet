@@ -14,6 +14,34 @@ const pet = (): PetState => ({ schema: 4, revision: 1, species: 2, name: "草莓
 const shop: Shop = { maxCoins: 1000000, dailyCoins: 10, gameDailyLimit: 30, catalog: [{ id: "leaf-pin", name: "嫩叶胸针", slot: "accessory", price: 12, description: "一小片春天" }] };
 afterEach(cleanup);
 describe("shop rules and saved visual equipment", () => {
+  it.each(["accessory", "room", "wallpaper", "floor"] as const)("explains the affordable %s purchase before committing, without mutating the preview", slot => {
+    const p = pet(); p.economy!.owned = []; p.economy!.coins = 30;
+    const catalog = { ...shop, catalog: [{ ...shop.catalog[0], slot }] };
+    const before = JSON.stringify(p);
+    const props = { pet: p, shop: catalog, category: "all" as const, page: 0, now };
+    const { rerender } = render(<ShopPanel {...props} confirm={false} />);
+    expect(screen.queryByText(/购买后剩/)).toBeNull();
+    rerender(<ShopPanel {...props} confirm />);
+    expect(screen.getByRole("status").textContent).toContain("按当前余额，购买后剩 18 金币。");
+    expect(screen.getByRole("status").textContent).toContain("仅购买，不会自动使用；购买成功后，再按 B 使用。");
+    expect(screen.getByText("仅预览 · 未购买")).toBeTruthy();
+    expect(document.querySelectorAll("button,a,input,[role=button]")).toHaveLength(0);
+    expect(JSON.stringify(p)).toBe(before);
+    p.economy!.coins = 12;
+    rerender(<ShopPanel {...props} confirm />);
+    expect(screen.getByRole("status").textContent).toContain("购买后剩 0 金币");
+    rerender(<ShopPanel {...props} confirm={false} />);
+    expect(screen.queryByText(/购买后剩/)).toBeNull();
+  });
+  it.each(["sleeping", "owned", "insufficient"])("does not promise a purchase for an unavailable %s confirmation", reason => {
+    const p = pet(); p.economy!.owned = []; p.economy!.coins = 30;
+    if (reason === "sleeping") p.sleeping = true;
+    if (reason === "owned") p.economy!.owned = ["leaf-pin"];
+    if (reason === "insufficient") p.economy!.coins = 11;
+    render(<ShopPanel pet={p} shop={shop} category="all" page={0} now={now} confirm />);
+    expect(screen.queryByText(/购买后剩/)).toBeNull();
+    expect(screen.queryByText(/仅购买，不会自动使用/)).toBeNull();
+  });
   it("uses UTC boundaries rather than the browser's local date, with no catchup", () => {
     const p = pet();
     expect(dailyClaimed(p, now)).toBe(true);

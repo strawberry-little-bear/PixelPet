@@ -45,7 +45,12 @@ export function ShopPanel({ pet, shop, page, category = null, confirm, now, noti
       </> : item ? <>
         <h3>{item.name}<span>{owned ? "已拥有" : `${item.price} 金币`}</span></h3>
         <p>{item.description}</p>
-        <div className="shop-decision" role="status">{pet.sleeping ? "让它安心睡吧，起床后再操作。" : confirm ? `确认花 ${item.price} 金币购买「${item.name}」？` : owned ? worn ? "使用中 · B 收起来" : "B 使用 · 不再扣金币" : e.coins < item.price ? `还差 ${item.price - e.coins} 金币，慢慢来。` : "B 购买 · 下一步确认"}</div>
+        <div className="shop-decision" role="status">{pet.sleeping ? "让它安心睡吧，起床后再操作。" : confirm ? `确认花 ${item.price} 金币购买「${item.name}」？` : owned ? worn ? "使用中 · B 收起来" : "B 使用 · 不再扣金币" : e.coins < item.price ? `还差 ${item.price - e.coins} 金币，慢慢来。` : "B 购买 · 下一步确认"}
+          {confirm && !pet.sleeping && !owned && e.coins >= item.price && <>
+            <span className="shop-purchase-details">按当前余额，购买后剩 {e.coins - item.price} 金币。</span>
+            <span className="shop-purchase-details">仅购买，不会自动使用；购买成功后，再按 B 使用。</span>
+          </>}
+        </div>
         <div className="shop-footer"><span>{confirm ? "A / C 取消 · B 确认" : `${page + 1} / ${items.length} · A 下一件`}</span><span>{shopSlotNames[item.slot]}</span></div>
       </> : <>
         <h3>这里还空着呢</h3><p>{category === "owned" ? "还没有买过物品。去其他分类试试，喜欢再买，不用着急。" : "这个分类暂时没有物品。"}</p>

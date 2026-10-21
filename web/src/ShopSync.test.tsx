@@ -98,7 +98,9 @@ describe("shop selection and purchase intent during authoritative updates", () =
   });
   it("keeps a compatible quote across cloned reads and an affordable balance change", async () => {
     await mount(); await open("all"); await key("b");
+    expect(document.querySelector(".shop-decision")?.textContent).toContain("购买后剩 88 金币");
     saved.economy!.coins = 50; await sync(); expect(confirmed()).toBe(true);
+    expect(document.querySelector(".shop-decision")?.textContent).toContain("购买后剩 38 金币");
     expect(document.querySelector('.shop-sync-note')).toBeNull(); await key("b");
     expect(saved.economy!.coins).toBe(38); expect(mutations()).toHaveLength(1);
   });

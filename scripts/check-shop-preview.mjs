@@ -82,6 +82,38 @@ async function caption(page, expected, mode) {
   assert.deepEqual(layout.clips, []); assert(!layout.overflow);
   assert(layout.font >= mode.font * .85);
 }
+async function purchaseDetails(page, coins, mode) {
+  const status = page.locator('.shop-decision');
+  const expected = `按当前余额，购买后剩 ${coins - 12} 金币。`;
+  assert((await status.textContent()).includes(expected));
+  assert((await status.ariaSnapshot()).includes('仅购买，不会自动使用；购买成功后，再按 B 使用。'));
+  let lines = 0;
+  for (const note of await page.locator('.shop-purchase-details').all()) {
+    const result = await note.evaluate(el => {
+      const range = document.createRange(); range.selectNodeContents(el);
+      const count = range.getClientRects().length, issues = [];
+      for (let i = 0; i < count; i++) {
+        let box = range.getClientRects()[i];
+        window.scrollBy({ top: box.top - 12, behavior: 'instant' });
+        box = range.getClientRects()[i];
+        const dock = document.querySelector('.device-buttons').getBoundingClientRect();
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        if (box.left < -1 || box.right > innerWidth + 1 || box.top < 8 ||
+            box.bottom > Math.min(innerHeight, dock.top) - 8 || !hit || !el.contains(hit)) issues.push(i);
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          const css = getComputedStyle(p), bounds = p.getBoundingClientRect();
+          if (/hidden|clip/.test(css.overflowY) && (box.top < bounds.top - 2 || box.bottom > bounds.bottom + 2)) issues.push(i);
+        }
+      }
+      return { count, issues, font: parseFloat(getComputedStyle(el).fontSize), overflow: document.documentElement.scrollWidth > innerWidth + 1 };
+    });
+    assert.deepEqual(result.issues, []); assert(!result.overflow); assert(result.font >= mode.font * .85);
+    lines += result.count;
+  }
+  assert(lines >= 2);
+  await page.screenshot({ path: join(dir, `${mode.name}-purchase-confirm.png`), fullPage: true });
+  return lines;
+}
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`,
     PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -140,7 +172,10 @@ try {
       await key(page, 'a'); await key(page, 'b'); await caption(page, '仅预览 · 未购买', mode);
       const beforePreview = (await api('state')).state.economy;
       await key(page, 'b'); assert.equal(await page.locator('.shop-panel').getAttribute('data-confirm'), 'true');
-      await key(page, 'c'); assert.deepEqual((await api('state')).state.economy, beforePreview);
+      const purchaseLines = await purchaseDetails(page, funded.economy.coins, mode);
+      await key(page, 'a'); assert.deepEqual((await api('state')).state.economy, beforePreview);
+      assert.equal(await page.locator('.shop-purchase-details').count(), 0);
+      await key(page, 'b'); await key(page, 'c'); assert.deepEqual((await api('state')).state.economy, beforePreview);
       await key(page, 'b'); await key(page, 'b');
       if (mode.lostKind === 'buy') {
         await page.locator('.save-recovery').waitFor(); assert(lost); assert.equal(pendingCaption, '仅预览 · 未购买');
@@ -192,7 +227,7 @@ try {
       assert.equal(await page.locator('.physical-button').count(), 3);
       assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
       assert.deepEqual(errors, []);
-      results.push({ mode: mode.name, pendingCaption, writes, earned: earned.economy.coins, coins: persisted.economy.coins, gameId });
+      results.push({ mode: mode.name, purchaseLines, pendingCaption, writes, earned: earned.economy.coins, coins: persisted.economy.coins, gameId });
     } catch (error) {
       await page.screenshot({ path: join(dir, `${mode.name}-failure.png`), fullPage: true }).catch(() => {});
       throw error;
