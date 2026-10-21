@@ -1174,7 +1174,7 @@ describe("keyboard reading and focus safety", () => {
     await key("b"); expect(document.querySelector(".care-menu")).not.toBeNull();
     expect(document.querySelector('[aria-current="true"].care-item')?.textContent).toContain("吃点东西");
   });
-  it("keeps help focus inside its dialog and restores the trigger on escape", async () => {
+  it("keeps help focus inside its dialog and restores the machine C key on escape", async () => {
     await mount();
     const trigger = screen.getByRole("button", { name: "玩法说明" }); trigger.focus();
     await act(async () => { fireEvent.click(trigger); });
@@ -1185,7 +1185,7 @@ describe("keyboard reading and focus safety", () => {
     await act(async () => { fireEvent.keyDown(document.activeElement!, { key: "Tab" }); });
     expect(document.activeElement).toBe(close);
     await act(async () => { fireEvent.keyDown(close, { key: "Escape" }); });
-    expect(screen.queryByRole("dialog")).toBeNull(); expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole("dialog")).toBeNull(); expect(document.activeElement).toBe(document.querySelector(".physical-button.button-c"));
     expect(document.querySelector(".care-menu")).toBeNull();
   });
   it("opts reading pages into reflow without adding LCD buttons", async () => {
@@ -1198,7 +1198,7 @@ describe("keyboard reading and focus safety", () => {
 });
 
 describe("reset focus restoration", () => {
-  it("returns to the persistent save-box trigger, not its removed menu item", async () => {
+  it("returns to the machine C key after closing reset confirmation", async () => {
     await mount();
     const tools = screen.getByRole("button", { name: /存档盒/ });
     await act(async () => { fireEvent.click(tools); });
@@ -1206,7 +1206,38 @@ describe("reset focus restoration", () => {
     await act(async () => { fireEvent.click(reset); });
     expect(screen.getByRole("dialog")).toBeTruthy();
     await act(async () => { fireEvent.keyDown(document.activeElement!, { key: "Escape" }); });
-    expect(screen.queryByRole("dialog")).toBeNull(); expect(document.activeElement).toBe(tools);
+    expect(screen.queryByRole("dialog")).toBeNull(); expect(document.activeElement).toBe(document.querySelector(".physical-button.button-c"));
     expect(api.mock.calls.filter(([path]) => path === "reset")).toHaveLength(0);
+  });
+
+  it("lets C cancel reset confirmation without changing the save", async () => {
+    await mount();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /存档盒/ })); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /重新开始/ })); });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await key("c");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(api.mock.calls.filter(([path]) => path === "reset")).toHaveLength(0);
+    expect(saved.name).toBe("草莓兔");
+  });
+
+  it("keeps the hidden backup input out of the tab order while the save box is closed", async () => {
+    await mount();
+    const input = screen.getByLabelText("导入存档文件") as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    expect(input.tabIndex).toBe(-1);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /存档盒/ })); });
+    expect(input.disabled).toBe(false);
+    expect(input.tabIndex).toBe(0);
+  });
+
+  it("keeps A/B/C shortcuts active while an ordinary external button has focus", async () => {
+    await mount();
+    await key("a");
+    const tools = screen.getByRole("button", { name: /存档盒/ });
+    tools.focus();
+    await key("c");
+    expect(document.querySelector(".care-menu")).toBeNull();
+    expect(document.querySelector(".physical-button.button-c")).toBeTruthy();
   });
 });

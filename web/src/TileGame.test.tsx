@@ -553,17 +553,15 @@ describe("three-key pet tile matching", () => {
     expect(api.mock.calls.filter((c) => c[0] === "recap/read")).toHaveLength(1);
     expect(document.querySelector(".return-panel")).toBeTruthy();
   });
-  it("can browse the selector asleep but a rejected start never wakes the pet", async () => {
+  it("blocks the arcade entry while asleep without waking or starting a game", async () => {
     saved.sleeping = true;
     await mount();
     await selector();
-    await key("a");
-    await key("b");
-    await key("b");
     expect(saved.sleeping).toBe(true);
     expect(saved.game).toBeUndefined();
-    expect(document.querySelector(".game-guide")).toBeTruthy();
-    expect(screen.getByText("先起床再玩吧")).toBeTruthy();
+    expect(document.querySelector(".arcade-panel")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("正在睡觉");
+    expect(actions().filter(action => action.kind.startsWith("play"))).toHaveLength(0);
   });
 });
 

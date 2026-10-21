@@ -2,13 +2,13 @@ import { abandonProgress } from "./abandon-progress";
 import { DailyRefresh } from "./DailyRefresh";
 import { GuideReward } from "./GuideReward";
 import type { GuideRewardContext } from "./GuideReward";
-import { games, gameAllowance, guideSeen } from "./games";
+import { gameStartInstruction, gameStartLabel, games, gameAllowance, guideSeen } from "./games";
 import type { GameInfo } from "./games";
 import type { Economy, PetState, Shop } from "./types";
 import "./arcade.css";
 
-export function ArcadePanel({ choice, economy, shop, now }: {
-  choice: number; economy?: Economy; shop: Shop | null; now: number;
+export function ArcadePanel({ choice, economy, shop, now, sleeping = false }: {
+  choice: number; economy?: Economy; shop: Shop | null; now: number; sleeping?: boolean;
 }) {
   const game = games[choice] ?? games[0];
   const allowance = gameAllowance(economy, shop, now);
@@ -27,14 +27,14 @@ export function ArcadePanel({ choice, economy, shop, now }: {
       ? `今日游戏额度剩 ${allowance.daily} / ${shop!.gameDailyLimit} 币`
       : "当日额度待同步，暂不估算奖励"}</p>
     {allowance && <DailyRefresh now={now} lastAt={economy?.lastGameAt} />}
-    <small>{allowance?.walletFull ? "钱包已满，本局不会得币；仍可陪它玩。"
+    <small>{sleeping ? "它正在睡觉，先按 C 返回并叫醒它；醒来后再一起玩。" : allowance?.walletFull ? "钱包已满，本局不会得币；仍可陪它玩。"
       : allowance?.daily === 0 ? "今日不再得币，仍可陪它玩，没有惩罚。"
         : allowance?.available !== null && allowance?.available !== undefined && allowance.available < allowance.daily ? `钱包还能收 ${allowance.available} 币；所有游戏共用额度。`
           : "所有游戏共用额度；B 进入，不立即开局。"}</small>
   </section>;
 }
 
-export function GameGuide({ game, page, review = false, paused = false, ...rewardContext }: GuideRewardContext & { game: GameInfo; page: number; review?: boolean; paused?: boolean; }) {
+export function GameGuide({ game, page, review = false, paused = false, sleeping = false, ...rewardContext }: GuideRewardContext & { game: GameInfo; page: number; review?: boolean; paused?: boolean; sleeping?: boolean; }) {
   const seen = guideSeen(game.id);
   if (seen && !review && !paused) return <section className="game-guide game-quick-start" aria-label={`${game.title}开始准备`} data-guide={game.id}>
     <header>准备再玩 · {game.title}</header>
@@ -42,7 +42,7 @@ export function GameGuide({ game, page, review = false, paused = false, ...rewar
     <p>{game.controls}</p>
     <GuideReward game={game} {...rewardContext} />
     <p>{game.id === "stars" || game.id === "tiles" ? "按 B 才开局，不会自动操作。" : game.id === "fishing" ? "开局后按 B 手动抛竿，不会自动开始等待。" : "开局后保持暂停，按画面提示手动继续。"}</p>
-    <small>A 重看规则 · B 开始 · C 返回选游戏</small>
+    <small>A 重看规则 · {sleeping ? "B 暂不可开始" : gameStartInstruction(game, seen)} · C 返回选游戏</small>
   </section>;
   return <section className="game-guide" aria-label={`${game.title}玩法说明`} data-guide={game.id}>
     <header>{paused ? "本局玩法" : seen ? "再看玩法" : "第一次一起玩"} · {game.title}<small>{page + 1} / 2</small></header>
@@ -54,7 +54,7 @@ export function GameGuide({ game, page, review = false, paused = false, ...rewar
     </ul>
     {page === 0 ? <p className="guide-reward">{game.duration}</p> : <GuideReward game={game} {...rewardContext} />}
     {paused && <p className="guide-paused-note">只读本局规则；返回仍保持暂停，按暂停画面提示手动继续。</p>}
-    <small>{paused ? "A / B 翻页 · C 返回暂停" : `A 翻页 · B ${seen ? "开始" : "跳过说明，开始"} · C 返回选游戏`}</small>
+    <small>{paused ? "A / B 翻页 · C 返回暂停" : `A 翻页 · ${sleeping ? "B 暂不可开始" : gameStartInstruction(game, seen)} · C 返回选游戏`}</small>
   </section>;
 }
 

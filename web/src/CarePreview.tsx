@@ -63,17 +63,19 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
     : "已经干干净净的；暂时不用洗澡。"];
 
   const effect = feeding ? "补充饱食，让心情变好，也会稍微弄脏。" : "恢复清洁，也让心情轻松些。";
+  const nominalGain = feeding ? rules?.actions?.feed?.hunger ?? 20 : 0;
+  const clamped = feeding && nominalGain > 0 && need + nominalGain > 100;
   // The server checks need before cooldown. Keep that same priority even when
   // both would prevent a habit credit. Missing legacy growth is not evidence
   // of a new reward; let the next authoritative response supply its history.
-  if (careNeed(need, config.habitAt, rules) > config.habitAt) return [effect, feeding
+  if (careNeed(need, config.habitAt, rules) > config.habitAt) return [effect, ...(clamped ? ["本次最多补到 100，超过上限的部分不增加；仍会稍微弄脏。"] : []), feeding
     ? "饱食已满足；饱食 ≤70 时喂食才记习惯，本次不记。"
     : "清洁已满足；清洁 ≤65 时洗澡才记习惯，本次不记。"];
   if (!pet.growth) return [effect, "成长记录尚未读到；是否记习惯，以照顾后的结果为准。"];
   const last = feeding ? pet.growth.care.lastFeed : pet.growth.care.lastClean;
   if (last > 0 && pet.lastTick - last < interval) return [effect,
     "同类习惯还在 30 分钟间隔内；照顾仍能改善状态，本次暂不记习惯。"];
-  return [effect, pet.growth.stage === "adult"
+  return [effect, ...(clamped ? ["本次最多补到 100，超过上限的部分不增加；仍会稍微弄脏。"] : []), pet.growth.stage === "adult"
     ? "符合记录习惯的条件；成年后只记习惯，形态不变。"
     : "符合记录习惯的条件；习惯 +1、成长 +0.25，临近成年时成长封顶。"];
 }

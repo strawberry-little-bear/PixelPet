@@ -29,6 +29,15 @@ describe("read-only care preview", () => {
     expect(carePreview(p, kind).join("")).toContain(text);
   });
 
+  it("explains the capped food effect when hunger is close to full", () => {
+    const p = pet();
+    p.needs.hunger = 95;
+    const text = carePreview(p, "feed").join("");
+    expect(text).toContain("最多补到 100");
+    expect(text).toContain("超过上限的部分不增加");
+    expect(text).toContain("仍会稍微弄脏");
+  });
+
   it.each(["feed", "clean"] as const)("matches %s cooldown inclusivity and keeps need priority", kind => {
     const p = pet(), field = kind === "feed" ? "lastFeed" : "lastClean";
     for (const [ago, credited] of [[0, false], [30 * 60000 - 1, false], [30 * 60000, true], [31 * 60000, true]] as const) {

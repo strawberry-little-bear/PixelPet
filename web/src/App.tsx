@@ -34,7 +34,7 @@ import { useTileViewport, type TileDestination } from "./useTileViewport";
 import { TileGame, nextTile } from "./TileGame";
 import { GameAllowance } from "./GuideReward";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
-import { games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
+import { gameStartInstruction, games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
 import type { TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { dailyWalletNotice, shopItems, shopSections } from "./shop";
@@ -1039,7 +1039,12 @@ export default function App() {
     document.addEventListener("keydown", trap, true);
     return () => {
       document.removeEventListener("keydown", trap, true);
-      if (previous?.isConnected) previous.focus();
+      // The tools menu is outside the three-key surface. Returning focus to
+      // that removed/ordinary button makes keyboard A/B/C appear dead, so
+      // resume from the physical C key where the LCD shortcut is unambiguous.
+      const fallback = document.querySelector<HTMLButtonElement>(".physical-button.button-c");
+      if (fallback?.isConnected) fallback.focus({ preventScroll: true });
+      else if (previous?.isConnected) previous.focus();
       modalReturnFocus.current = null;
     };
   }, [help, reset]);
@@ -1418,7 +1423,14 @@ export default function App() {
       if (key === "B") void refresh();
       return;
     }
-    if (tools || help || reset) return;
+    if (tools || help || reset) {
+      if (key === "C") {
+        setHelp(false);
+        setReset(false);
+        if (tools) setTools(false);
+      }
+      return;
+    }
     if (clipRef.current) {
       if (key === "C") {
         beep();
@@ -1497,6 +1509,7 @@ export default function App() {
         const next = (arcadeChoice + 1) % games.length;
         setArcadeChoice(next); navigateArcadeReading("arcade", next);
       } else if (key === "C") setPage("home");
+      else if (pet.sleeping) setError("它正在睡觉，先从菜单选「起床啦」，醒来后再一起玩。");
       else { setGuidePage(0); setGuideReview(false); setPage("game-guide"); navigateArcadeReading("game-guide"); }
       return;
     }
@@ -1518,6 +1531,7 @@ export default function App() {
         navigateArcadeReading("game-guide");
       }
       else if (key === "C") { setPage("arcade"); navigateArcadeReading("arcade"); }
+      else if (pet.sleeping) setError("它正在睡觉，先从菜单选「起床啦」，醒来后再一起玩。");
       else {
         const game = games[arcadeChoice];
         void act(game.startAction).then(ok => { if (ok) rememberGuide(game.id); });
@@ -1770,6 +1784,10 @@ export default function App() {
     if (page === "menu") {
       const item = items[selected];
       if (item.kind === "arcade") {
+        if (pet.sleeping) {
+          setError("它正在睡觉，先从菜单选「起床啦」，醒来后再一起玩。");
+          return;
+        }
         setPage("arcade"); navigateArcadeReading("arcade");
       } else if (item.kind === "return") {
         if (returnRecap) {
@@ -1820,14 +1838,17 @@ export default function App() {
         e.defaultPrevented || e.isComposing || e.keyCode === 229 ||
         e.metaKey || e.ctrlKey || e.altKey
       ) return;
+      const key = e.key.toLowerCase();
       if (
         e.target instanceof HTMLElement &&
         (e.target.isContentEditable ||
-          ["INPUT", "TEXTAREA", "SELECT", "A"].includes(e.target.tagName) ||
-          (e.target.tagName === "BUTTON" &&
-            !e.target.classList.contains("physical-button")))
+          ["INPUT", "TEXTAREA", "SELECT", "A"].includes(e.target.tagName))
       )
         return;
+      // Keep native Enter/Space activation on external buttons, while letter
+      // shortcuts remain available after a tool button has lost the overlay.
+      if (e.target instanceof HTMLButtonElement &&
+        !e.target.classList.contains("physical-button") && ["enter", " "].includes(key)) return;
       // Only a focused native reading region opts out of Down/Space shortcuts.
       // Held keys and Shift+Space keep their browser scroll behavior; letters
       // and shortcuts on physical buttons still perform the original controls.
@@ -1836,7 +1857,6 @@ export default function App() {
       // Enter on a care or memory reading stop is not a confirmation/page turn.
       // Native activation on physical buttons and explicit A/B/C stay intact.
       if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region,.sleep-home-guidance,.walk-discoveries,.fishing-catches") && e.key === "Enter") return;
-      const key = e.key.toLowerCase();
       // Enter/Space activate the focused physical key, just like clicking it.
       // In particular the import preview deliberately focuses safe C: never
       // turn that native activation into the global B/confirm shortcut.
@@ -2020,9 +2040,9 @@ export default function App() {
     || (walking && (walking.paused || walkSession !== pet?.game?.id))
     || (fishing && (fishing.paused || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)));
   const gameNavHint = page === "pause-guide" ? "A / B 翻页  C 返回暂停" : page === "arcade"
-    ? "A 换游戏  B 进入  C 返回"
+    ? pet?.sleeping ? "A 换游戏  B 暂不可开始  C 返回" : "A 换游戏  B 进入  C 返回"
     : page === "game-guide"
-      ? guideSeen(games[arcadeChoice].id) && !guideReview ? "A 重看规则  B 开始  C 返回选择" : "A 翻页  B 开始  C 返回选择"
+      ? pet?.sleeping ? "A 翻页  B 暂不可开始  C 返回选择" : `A 翻页  ${gameStartInstruction(games[arcadeChoice], guideSeen(games[arcadeChoice].id) && !guideReview)}  C 返回选择`
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A 上一页  B 下一页  C 返回" : "";
   const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"
       : uncertain || unavailable ? checking ? "正在读取 · 不重做操作" : "B 读取存档 · 不重做操作"
@@ -2189,6 +2209,8 @@ export default function App() {
         type="file"
         accept=".json,application/json"
         aria-label="导入存档文件"
+        disabled={!tools}
+        tabIndex={tools ? 0 : -1}
         onChange={(e) => void importFile(e.target.files?.[0])}
       />
       <main>
@@ -2337,10 +2359,11 @@ export default function App() {
                             economy={pet.economy}
                             shop={shop}
                             now={now}
+                            sleeping={pet.sleeping}
                           />
                         )}
                         {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused economy={pet.economy} shop={shop} now={now} />}
-                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} economy={pet.economy} shop={shop} now={now} />}
+                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} sleeping={pet.sleeping} economy={pet.economy} shop={shop} now={now} />}
                         {abandoning && <AbandonGame game={pet.game} />}
                         {page === "shop" && (
                           <ShopPanel
@@ -2816,7 +2839,7 @@ export default function App() {
                   </p>
                   <p>
                     <kbd>B</kbd>
-                    <span>确认选择；小游戏说明中，A 翻页重看，B 跳过并开始。</span>
+                    <span>确认选择；小游戏说明中，A 翻页重看，B 按各游戏提示进入开始、准备或暂停。</span>
                   </p>
                   <p>
                     <kbd>C</kbd>

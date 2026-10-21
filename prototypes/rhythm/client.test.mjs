@@ -130,7 +130,13 @@ for (const key of ['Enter', ' ']) test(`focused A/B ${JSON.stringify(key)} retai
   await c.keyboard('keydown', key, 'B', { repeat: true });
   await c.keyboard('keyup', key, 'B');
   assert.equal(c.state().status, 'paused');
+  assert.match(c.element('selection').textContent, /清空本局 0 次观测/);
+  assert.deepEqual(c.commands.map(x => x.kind), ['create'], 'held B must not confirm its own prompt');
+  await c.keyboard('keydown', key, 'B');
+  await c.keyboard('keydown', key, 'B', { repeat: true });
+  await c.keyboard('keyup', key, 'B');
   assert.deepEqual(c.commands.map(x => x.kind), ['create', 'restart']);
+  assert.equal(c.state().status, 'paused');
 });
 for (const options of [{ isComposing: true }, { keyCode: 229 }, { ctrlKey: true }, { altKey: true }, { metaKey: true }])
   test(`IME/modifier guard also suppresses native focused-button activation: ${JSON.stringify(options)}`, async () => {

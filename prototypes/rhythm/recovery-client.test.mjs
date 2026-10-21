@@ -42,7 +42,11 @@ async function client({ server = {}, storage = new Map(), blocked = false } = {}
   const press = async key => { events.get('keydown')({ key, preventDefault() {} }); await settle(); };
   const advance = async ms => { now += ms; frame(); await settle(); };
   const answer = async () => { for (let i = 0; i < 3; i++) await advance(600); await press(server.state.cue.key); };
-  return { commands, storage, server, failures, press, answer, element, advance };
+  const interrupt = async type => {
+    if (type === 'visibilitychange') document.hidden = true;
+    events.get(type)({ target: window }); await settle(); document.hidden = false;
+  };
+  return { commands, storage, server, failures, press, answer, element, advance, interrupt };
 }
 test('same-tab refresh recovers one acknowledged answer, stays paused and stores only a pointer', async () => {
   const c = await client(); await c.press('C'); await c.answer(); const before = structuredClone(c.server.state);
@@ -55,11 +59,12 @@ test('same-tab refresh recovers one acknowledged answer, stays paused and stores
   await next.press('C'); assert.equal(next.server.state.sequence, before.sequence + 1); assert.equal(next.server.state.status, 'playing');
   assert.equal(next.commands[1].lease, next.server.lease);
 });
-test('recovery retains completed observations; only explicit B restarts', async () => {
+test('recovery retains completed observations; only explicitly confirmed B restarts', async () => {
   const c = await client(); await c.press('C'); for (let i = 0; i < 12; i++) await c.answer();
   const next = await client(c); assert.equal(next.element('round').textContent, '12 / 12');
   assert.equal(next.server.state.status, 'done'); assert.deepEqual(next.commands.map(x => x.kind), ['recover']);
   await next.press('A'); await next.press('C'); assert.equal(next.commands.length, 1);
+  await next.press('B'); assert.deepEqual(next.commands.map(x => x.kind), ['recover']);
   await next.press('B'); assert.deepEqual(next.commands.map(x => x.kind), ['recover', 'restart']);
   assert.equal(next.server.state.status, 'paused'); assert.equal(next.server.state.observations.length, 0);
 });
@@ -106,4 +111,58 @@ test('failed neutral pause requires manual recovery, not replay or automatic res
   const n = c.commands.length; await c.advance(5000); assert.equal(c.commands.length, n, 'lost recovery reply has no retry loop');
   await c.press('C'); assert.equal(c.commands.at(-1).kind, 'recover'); assert.equal(c.server.state.status, 'paused');
   await c.press('C'); assert.equal(c.commands.at(-1).kind, 'resume'); assert.equal(c.server.state.observations.length, 0);
+});
+
+
+async function openRestartWithOneObservation(c) {
+  await c.press('C'); await c.answer(); await c.press('C');
+  await c.press('A'); await c.press('B');
+}
+for (const cancel of ['A', 'C']) test(`restart confirmation: ${cancel} cancels without any write or lost observation`, async () => {
+  const c = await client(); await openRestartWithOneObservation(c);
+  assert.match(c.element('selection').textContent, /清空本局 1 次观测/);
+  assert.match(c.element('pause-help').textContent, /A \/ C 取消.*B 确认重开/);
+  const before = structuredClone(c.server.state), writes = c.commands.length;
+  await c.press(cancel); await c.advance(5000);
+  assert.deepEqual(c.server.state, before); assert.equal(c.commands.length, writes);
+  assert.equal(c.element('pause').hidden, false); assert.match(c.element('status').textContent, /已取消重开/);
+  await c.press('C'); assert.equal(c.commands.at(-1).kind, 'resume');
+  assert.equal(c.server.state.observations.length, 1);
+});
+test('restart confirmation: only a separate B clears observations once and stays paused', async () => {
+  const c = await client(); await openRestartWithOneObservation(c);
+  assert.equal(c.commands.filter(x => x.kind === 'restart').length, 0);
+  await c.press('B'); assert.equal(c.commands.filter(x => x.kind === 'restart').length, 1);
+  assert.equal(c.server.state.observations.length, 0); assert.equal(c.server.state.status, 'paused');
+  await c.advance(5000); assert.equal(c.commands.filter(x => x.kind === 'resume').length, 1);
+});
+test('restart confirmation: completed results also require confirmation and cancel retains all twelve', async () => {
+  const c = await client(); await c.press('C'); for (let i = 0; i < 12; i++) await c.answer();
+  assert.equal(c.server.state.status, 'done'); const before = structuredClone(c.server.state);
+  await c.press('B'); assert.equal(c.element('pause').hidden, false);
+  assert.match(c.element('selection').textContent, /清空本局 12 次观测/);
+  await c.press('C'); assert.deepEqual(c.server.state, before); assert.equal(c.element('pause').hidden, true);
+  await c.press('B'); await c.press('B'); assert.equal(c.server.state.observations.length, 0);
+  assert.equal(c.server.state.status, 'paused'); assert.equal(c.commands.filter(x => x.kind === 'restart').length, 1);
+});
+test('restart confirmation: refresh discards the prompt, not saved observations', async () => {
+  const c = await client(); await openRestartWithOneObservation(c); const next = await client(c);
+  assert.equal(next.server.state.observations.length, 1); assert.equal(next.server.state.status, 'paused');
+  assert.match(next.element('selection').textContent, /继续练习/);
+  assert.deepEqual(next.commands.map(x => x.kind), ['recover']);
+});
+for (const event of ['blur', 'offline', 'visibilitychange']) test(`restart confirmation: ${event} cancels stale consent before later B`, async () => {
+  const c = await client(); await openRestartWithOneObservation(c); await c.interrupt(event);
+  assert.equal(c.server.state.observations.length, 1); assert.doesNotMatch(c.element('selection').textContent, /清空本局 1 次/);
+  await c.press('B'); assert.equal(c.commands.at(-1).kind, 'resume');
+  assert.equal(c.commands.filter(x => x.kind === 'restart').length, 0);
+});
+test('restart confirmation: lost restart acknowledgement recovers without replaying destructive input', async () => {
+  const c = await client(); await openRestartWithOneObservation(c);
+  c.failures.push({ kind: 'restart', after: true }, { kind: 'pause', before: true }); await c.press('B');
+  assert.equal(c.server.state.observations.length, 0); assert.equal(c.server.state.status, 'paused');
+  const writes = c.commands.length; await c.advance(5000); assert.equal(c.commands.length, writes);
+  await c.press('B'); assert.equal(c.commands.at(-1).kind, 'recover');
+  assert.equal(c.commands.filter(x => x.kind === 'restart').length, 1);
+  assert.equal(c.server.state.status, 'paused');
 });

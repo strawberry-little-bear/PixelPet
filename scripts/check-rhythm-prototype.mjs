@@ -106,7 +106,11 @@ try {
     await p.locator('[data-key="B"]').focus();
     await p.keyboard.down(native); await paused(p);
     await p.keyboard.down(native); await wait(100); await p.keyboard.up(native); await wait(100);
-    assert.deepEqual(kinds(), ['create', 'restart'], 'held B/release must not resume after restart');
+    assert.deepEqual(kinds(), ['create'], 'held B/release must not confirm its own restart prompt');
+    assert.match(await p.locator('#selection').textContent(), /清空本局 0 次观测/);
+    await p.keyboard.down(native); await paused(p);
+    await p.keyboard.down(native); await p.keyboard.up(native); await wait(100);
+    assert.deepEqual(kinds(), ['create', 'restart'], 'separate B confirms once; held repeats/release must not resume');
     await p.locator('[data-key="C"]').focus();
     await p.keyboard.down(native); await idle(p);
     assert.equal(await p.locator('#pause').isVisible(), false, 'native C acts on first down');
@@ -191,9 +195,17 @@ try {
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('pixelpet.rhythm.session.v1')),savedId);
   assert.match(await page.locator('#direction').textContent(),/本次观测完成/);
   results.push('Completed refresh keeps all 12 observations, with no implicit restart or rewards');
-  await key(page,'B'); await paused(page); assert.equal(await page.locator('#round').textContent(),'0 / 12');
+  const completedWrites = requests.filter(r => r.body).length;
+  await key(page,'B'); await paused(page); assert.match(await page.locator('#selection').textContent(), /清空本局 12 次观测/);
+  assert.equal(await page.locator('#observations').textContent(), completeObservations);
+  await readable(page); await page.screenshot({path:join(dir,'desktop-complete-restart-confirm.png'),fullPage:true});
+  await key(page,'C'); assert.equal(await page.locator('#pause').isVisible(), false);
+  assert.equal(requests.filter(r => r.body).length, completedWrites);
+  assert.equal(await page.locator('#round').textContent(), '12 / 12');
+  await key(page,'B'); await key(page,'B'); await paused(page); assert.equal(await page.locator('#round').textContent(),'0 / 12');
   await key(page,'A'); assert.match(await page.locator('#selection').textContent(), /从头重开/);
-  await key(page,'B'); await paused(page); assert.match(await page.locator('#selection').textContent(), /继续练习/);
+  await key(page,'B'); await key(page,'B'); await paused(page); assert.match(await page.locator('#selection').textContent(), /继续练习/);
+  results.push('Completed twelve observations survive opening/cancelling restart; only a separate B clears once to paused');
   await key(page,'C'); await idle(page); await page.reload(); await paused(page);
   assert.equal(await page.locator('#round').textContent(),'0 / 12');
   assert.deepEqual(await page.evaluate(() => [localStorage.length,sessionStorage.length]),[0,1]);
@@ -281,6 +293,33 @@ try {
   assert.equal(lostRequests.at(-1).body.kind,'recover');
   results.push('Failed refresh recovery waits without creation/retry; explicit C recovers to paused, not playing');
 
+  // A confirmed restart can be saved even if its acknowledgement is lost.
+  const {page:reset,requests:resetWrites} = await open(base);
+  await key(reset,'C'); await idle(reset); await active(reset);
+  await key(reset,(await reset.locator('#direction').textContent()).includes('A')?'A':'B');
+  await reset.waitForFunction(()=>document.querySelector('#round').textContent==='1 / 12');
+  await idle(reset); await key(reset,'C'); await paused(reset);
+  await key(reset,'A'); await key(reset,'B');
+  await reset.evaluate(()=>window.dispatchEvent(new Event('blur'))); await paused(reset);
+  assert.equal(await reset.locator('#round').textContent(),'1 / 12');
+  assert.match(await reset.locator('#selection').textContent(),/继续练习/);
+  await key(reset,'A'); await key(reset,'B');
+  let acceptedReset;
+  await reset.route('**/lab/command',async route=>{
+    const kind=route.request().postDataJSON().kind;
+    if(kind==='restart') { const response=await route.fetch({maxRetries:0}); acceptedReset=await response.json(); return route.abort('failed'); }
+    if(kind==='pause') return route.abort('failed');
+    await route.continue();
+  });
+  await key(reset,'B'); await reset.waitForFunction(()=>document.querySelector('#status').textContent.includes('暂停未确认'));
+  assert.equal(acceptedReset.state.observations.length,0); assert.equal(acceptedReset.state.status,'paused');
+  const failedResetWrites=resetWrites.filter(r=>r.body).length; await wait(800);
+  assert.equal(resetWrites.filter(r=>r.body).length,failedResetWrites);
+  await reset.unroute('**/lab/command'); await key(reset,'B'); await paused(reset);
+  assert.equal(resetWrites.at(-1).body.kind,'recover'); assert.equal(await reset.locator('#round').textContent(),'0 / 12');
+  assert.equal(resetWrites.filter(r=>r.body?.kind==='restart').length,1);
+  results.push('Interrupted consent is cancelled; confirmed saved restart with lost reply/failed neutral pause requires manual recovery, never restart replay');
+
   // A server restart/eviction is represented by a well-formed unknown pointer.
   await lost.evaluate(()=>sessionStorage.setItem('pixelpet.rhythm.session.v1','00000000-0000-4000-8000-000000000000'));
   await lost.reload(); await lost.waitForFunction(()=>document.querySelector('#status').textContent.includes('旧观测无法恢复'));
@@ -326,6 +365,18 @@ try {
     assert(await m.locator('#selection').evaluate(el=>{const r=el.getBoundingClientRect(),k=document.querySelector('.keys').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&(getComputedStyle(document.querySelector('.keys')).position!=='fixed'||r.bottom<=k.top);}), 'pause selection visible without test scrolling');
     await readable(m);
     await m.screenshot({path:join(dir,`${label}.png`),fullPage:true});
+    const beforeConfirm = mobileRequests.filter(r => r.body).length;
+    await press('A'); await press('B'); await paused(m);
+    assert.match(await m.locator('#selection').textContent(), /清空本局 1 次观测/);
+    await readable(m); await m.locator('#pause').evaluate(el => {
+      const range = document.createRange(); range.selectNodeContents(el);
+      const rects = [...range.getClientRects()];
+      if (rects.some(r => r.width && (r.left < -1 || r.right > innerWidth + 1))) throw new Error('confirmation text clipped');
+    });
+    await m.screenshot({path:join(dir,`${label}-restart-confirm.png`),fullPage:true});
+    await press('A'); assert.equal(await m.locator('#round').textContent(), '1 / 12');
+    assert.equal(mobileRequests.filter(r => r.body).length, beforeConfirm, 'opening and cancelling confirmation must be read-only');
+    await press('A'); await press('B'); // Refresh while confirmation is open.
     const mobileId=await m.evaluate(()=>sessionStorage.getItem('pixelpet.rhythm.session.v1'));
     if(double) await m.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize='32px'));
     await m.reload(); await paused(m);

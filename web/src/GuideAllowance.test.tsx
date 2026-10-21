@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
 import { GameGuide } from "./ArcadePanel";
-import { games, rememberGuide } from "./games";
+import { gameStartInstruction, games, rememberGuide } from "./games";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
 import type { Economy, PetState, Shop } from "./types";
@@ -26,7 +26,8 @@ for (const game of games) for (const mode of ["first", "quick", "paused"] as con
     expect(document.querySelector(".guide-reward")?.textContent).toBe(`基础规则：${game.reward}`);
     expect(note().textContent).toBe("当前游戏额度为 0；当前不能得币，仍可陪玩。");
     expect(screen.getByText(mode === "paused" ? "A / B 翻页 · C 返回暂停" : mode === "quick"
-      ? "A 重看规则 · B 开始 · C 返回选游戏" : "A 翻页 · B 跳过说明，开始 · C 返回选游戏")).toBeTruthy();
+      ? `A 重看规则 · ${gameStartInstruction(game, true)} · C 返回选游戏`
+      : `A 翻页 · ${gameStartInstruction(game, false)} · C 返回选游戏`)).toBeTruthy();
     expect(document.querySelector("button,a,input,[role=button]")).toBeNull();
     expect(note().hasAttribute("aria-live")).toBe(false);
     expect(e).toEqual(before); expect(api).not.toHaveBeenCalled();

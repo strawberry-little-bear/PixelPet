@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
 import { ArcadePanel } from "./ArcadePanel";
-import { gameAllowance, games, guideSeen, rememberGuide } from "./games";
+import { gameAllowance, gameStartInstruction, games, guideSeen, rememberGuide } from "./games";
 import type { GameInfo } from "./games";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
@@ -218,7 +218,7 @@ describe("playtest feedback: compact repeat entry", () => {
     rememberGuide(info.id); await mount(); await select(index); await key("b");
     expect(document.querySelector(".game-quick-start")?.textContent).toContain(info.title);
     expect(document.querySelector(".guide-steps")).toBeNull();
-    expect(screen.getByText("A 重看规则 · B 开始 · C 返回选游戏")).toBeTruthy();
+    expect(screen.getByText(`A 重看规则 · ${gameStartInstruction(info, true)} · C 返回选游戏`)).toBeTruthy();
     expect(actions()).toHaveLength(0);
     if (info.id === "fishing") expect(screen.getByText("开局后按 B 手动抛竿，不会自动开始等待。")).toBeTruthy();
     await key("a");
@@ -239,6 +239,16 @@ describe("playtest feedback: compact repeat entry", () => {
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
   });
+  it("does not offer a start action while the pet is sleeping", async () => {
+    saved.sleeping = true;
+    await mount();
+    await select(0);
+    await key("b");
+    expect(document.querySelector(".game-guide")).toBeNull();
+    expect(actions().filter(action => action.kind.startsWith("play"))).toHaveLength(0);
+    expect(screen.getByRole("alert").textContent).toContain("正在睡觉");
+  });
+
   it("keeps a rejected repeat start on the compact card for an explicit retry", async () => {
     rememberGuide("walk"); failStart = true; await mount(); await select(5); await key("b"); await key("b");
     expect(document.querySelector(".game-quick-start")).toBeTruthy(); expect(saved.game).toBeUndefined();

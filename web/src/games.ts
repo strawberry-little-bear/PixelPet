@@ -58,6 +58,20 @@ export const games = [
  },
 ] as const;
 export type GameInfo = (typeof games)[number];
+
+// Keep the guide language aligned with what B actually does for each game.
+// Stars and tiles start immediately; fishing enters its ready state; the
+// remaining games deliberately open paused so a refresh cannot auto-run them.
+export function gameStartLabel(game: GameInfo): string {
+  return game.id === "stars" || game.id === "tiles" ? "开始"
+    : game.id === "fishing" ? "进入准备"
+      : "进入暂停";
+}
+
+export function gameStartInstruction(game: GameInfo, seen: boolean): string {
+  const action = gameStartLabel(game);
+  return seen ? `B ${action}` : `跳过说明，${action}`;
+}
 const guideKey = (id: GameInfo["id"]) => `pixelpet-guide-v1-${id}`;
 export function guideSeen(id: GameInfo["id"]): boolean {
   try { return localStorage.getItem(guideKey(id)) === "seen"; } catch { return false; }
