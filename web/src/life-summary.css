@@ -25,3 +25,11 @@
 @media (max-width: 380px) {
   .life-summary-experience-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
 }
+
+.life-summary-games { margin: 10px 0; padding: 8px; border: 1px dashed currentColor; border-radius: 2px; }
+.life-summary-games > strong { display: block; }
+.life-summary-games ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 10px; margin: 7px 0 5px; padding: 0; list-style: none; }
+.life-summary-games li { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
+.life-summary-games li span { overflow-wrap: anywhere; }
+.life-summary-games li b { flex: 0 0 auto; }
+.life-summary-games small { display: block; line-height: 1.35; }

@@ -1,4 +1,5 @@
 import { interestSummary } from "./companion";
+import { games } from "./games";
 import { albumMemories, memoryWords } from "./AlbumPanel";
 import type { Memory, PetState } from "./types";
 import "./life-summary.css";
@@ -29,6 +30,11 @@ export function lifeSummary(pet: PetState, now: number) {
   const completedWalks = Number.isSafeInteger(pet.park?.walks) ? Math.max(0, pet.park?.walks ?? 0) : 0;
   const fishCaught = (pet.pond?.fish ?? []).reduce((total, fish) =>
     total + (Number.isSafeInteger(fish.count) ? Math.max(0, fish.count) : 0), 0);
+  const gameStats = games.map(game => ({
+    id: game.id,
+    title: game.title,
+    count: memories.filter(entry => entry.kind === game.id).length,
+  }));
   return {
     daysTogether,
     careCount: Number.isFinite(pet.careCount) ? Math.max(0, Math.floor(pet.careCount)) : 0,
@@ -39,6 +45,7 @@ export function lifeSummary(pet: PetState, now: number) {
     walkSteps: completedWalks * walkLength,
     fishCaught,
     fishSpecies: pet.pond?.fish?.length ?? 0,
+    gameStats,
     interest: pet.companion ? interestSummary(pet.companion) : "还没有保存的共同游戏经历，玩喜欢的就好。",
     recentMemory: recentMemory(pet),
   };
@@ -65,6 +72,15 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
         <div data-stat="fish-species"><b>{summary.fishSpecies}</b><span>已识鱼种</span></div>
       </div>
       <small>只统计已经保存的经历：散步按每次完整路线 72 步计算；钓获来自鱼图鉴次数。</small>
+    </section>
+    <section className="life-summary-games" aria-label="各游戏共同经历">
+      <strong>各游戏收好次数</strong>
+      <ul>
+        {summary.gameStats.map(game => <li key={game.id} data-game-stat={game.id}>
+          <span>{game.title}</span><b>{game.count}</b>
+        </li>)}
+      </ul>
+      <small>只计算已经完成并收好的正式游戏；中途放弃、未完成的进度不会补算。</small>
     </section>
     {summary.recentMemory && <section className="life-summary-memory" aria-label="最近保存的回忆">
       <strong>最近保存的回忆</strong>

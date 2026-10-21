@@ -128,8 +128,10 @@ describe("共同生活回顾", () => {
     current.careCount = 4;
     current.album = { since: at, legacy: false, entries: [
       { kind: "hatch", at, source: "shared" },
-      { kind: "tetris", at: at + 1, source: "shared" },
-      { kind: "walk", at: at + 2, source: "shared" },
+      { kind: "stars", at: at + 1, source: "shared", score: 5 },
+      { kind: "perfect-stars", at: at + 1, source: "shared", score: 5 },
+      { kind: "tetris", at: at + 2, source: "shared" },
+      { kind: "walk", at: at + 3, source: "shared" },
     ] };
     current.pond = { since: at, fish: [{ id: "reed-minnow", firstAt: at, lastAt: at, count: 2 }] };
     current.park = { since: at, walks: 1, lastWalkAt: at, finds: [{ id: "leaf", firstAt: at, lastAt: at, count: 1 }] };
@@ -145,7 +147,12 @@ describe("共同生活回顾", () => {
     expect(container.querySelector('[data-stat="walk-steps"]')?.textContent).toContain("72");
     expect(container.querySelector('[data-stat="fish-caught"]')?.textContent).toContain("2");
     expect(container.querySelector('[data-stat="fish-species"]')?.textContent).toContain("1");
+    expect(container.querySelector('[data-game-stat="stars"]')?.textContent).toContain("1");
+    expect(container.querySelector('[data-game-stat="tetris"]')?.textContent).toContain("1");
+    expect(container.querySelector('[data-game-stat="walk"]')?.textContent).toContain("1");
+    expect(container.querySelector('[data-game-stat="fishing"]')?.textContent).toContain("0");
     expect(container.querySelector(".life-summary-experiences")?.textContent).toContain("只统计");
+    expect(container.querySelector(".life-summary-games")?.textContent).toContain("正式游戏");
     expect(container.querySelector(".life-summary-memory")?.textContent).toContain("公园里走过的第一条小路");
     expect(container.querySelector(".life-summary-memory time")?.textContent).toBe("2026/10/20");
     expect(container.querySelector(".life-summary")?.textContent).toContain("不补写旧历史");
@@ -159,6 +166,8 @@ describe("共同生活回顾", () => {
     expect(summary).toContain("0");
     expect(container.querySelector('[data-stat="walk-steps"]')?.textContent).toContain("0");
     expect(container.querySelector('[data-stat="fish-caught"]')?.textContent).toContain("0");
+    expect(container.querySelector('[data-game-stat="stars"]')?.textContent).toContain("0");
+    expect(container.querySelector('[data-game-stat="treasure"]')?.textContent).toContain("0");
     expect(container.querySelector(".life-summary-memory")).toBeNull();
     expect(summary).not.toContain("游戏记忆3");
   });
