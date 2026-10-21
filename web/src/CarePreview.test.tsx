@@ -2,7 +2,7 @@ import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CarePreview, carePreview } from "./CarePreview";
 import { emptyGrowth } from "./growth";
-import type { GrowthStage, PetState } from "./types";
+import type { CareRules, GrowthStage, PetState } from "./types";
 
 const now = 2_000_000_000_000;
 function pet(stage: GrowthStage = "baby"): PetState {
@@ -29,13 +29,22 @@ describe("read-only care preview", () => {
     expect(carePreview(p, kind).join("")).toContain(text);
   });
 
-  it("explains the capped food effect when hunger is close to full", () => {
+  it("explains the remaining food room and the real side effect near full", () => {
     const p = pet();
     p.needs.hunger = 95;
-    const text = carePreview(p, "feed").join("");
-    expect(text).toContain("最多补到 100");
-    expect(text).toContain("超过上限的部分不增加");
-    expect(text).toContain("仍会稍微弄脏");
+    const rules = { actions: { feed: { hunger: 20, mood: 3, clean: -3 } } } as unknown as CareRules;
+    const text = carePreview(p, "feed", rules).join("");
+    expect(text).toContain("最多补 5 点到 100");
+    expect(text).toContain("清洁会下降 3 点");
+    expect(text).toContain("饱食达到 96 后不能喂食");
+  });
+
+  it("keeps the near-cap explanation on the executable side of the 96 boundary", () => {
+    const near = pet(); near.needs.hunger = 95.999999;
+    expect(carePreview(near, "feed").join("")).toContain("饱食达到 96 后不能喂食");
+    const full = pet(); full.needs.hunger = 96;
+    expect(carePreview(full, "feed").join("")).toContain("暂时不能喂食");
+    expect(carePreview(full, "feed").join("")).not.toContain("最多补");
   });
 
   it.each(["feed", "clean"] as const)("matches %s cooldown inclusivity and keeps need priority", kind => {
