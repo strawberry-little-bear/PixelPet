@@ -1,0 +1,20 @@
+{
+  "name": "PixelPet · 你的小小陪伴",
+  "short_name": "PixelPet",
+  "description": "三个按键，一只小伙伴。属于你的口袋像素宠物。",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#f6f5ef",
+  "background_color": "#f6f5ef",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
