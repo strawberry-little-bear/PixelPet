@@ -235,6 +235,23 @@ describe("quiet waiting feedback without false bites", () => {
     expect(document.querySelector('.fishing-wait-note')).toBeNull();
     expect(screen.getByText('池塘已暂停')).toBeTruthy();
   });
+  it.each(["ready", "wait", "result", "done"] as const)("announces meaningful %s status changes", phase => {
+    const pet = fixture(); Object.assign(pet.game!.fishing!, { phase, casts: phase === "ready" ? 0 : 1, elapsedMs: 0 });
+    render(<FishingGame pet={pet} active={true} choice={0} />);
+    const status = document.querySelector<HTMLElement>(".fishing-status")!;
+    expect(status.getAttribute("role")).toBe("status");
+    expect(status.getAttribute("aria-live")).toBe("polite");
+    expect(status.getAttribute("aria-atomic")).toBe("true");
+  });
+  it("keeps the bite countdown out of live announcements", () => {
+    const pet = fixture(); Object.assign(pet.game!.fishing!, { phase: "bite", casts: 1, elapsedMs: 2000 });
+    render(<FishingGame pet={pet} active={true} choice={0} />);
+    const status = document.querySelector<HTMLElement>(".fishing-status")!;
+    expect(status.getAttribute("role")).toBe("status");
+    expect(status.getAttribute("aria-live")).toBe("off");
+    expect(status.getAttribute("aria-atomic")).toBe("true");
+    expect(document.querySelector('.fishing-bite')?.getAttribute("role")).toBe("status");
+  });
   it.each(['bite', 'result', 'done', 'ready'] as const)("does not mix waiting notes into %s", phase => {
     const pet = fixture(); Object.assign(pet.game!.fishing!, { phase, elapsedMs: 16000 });
     render(<FishingGame pet={pet} active={true} choice={0} />);
