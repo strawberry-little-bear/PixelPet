@@ -9,6 +9,11 @@ export function TreasureGame({ pet, active, cursor, choice, reaction }: { pet: P
   if (!n) return null;
   const clue = treasureClue(n), found = treasureFound(n);
   const done = treasureDone(n), paused = !done && (n.paused || !active);
+  const pauseHint = [
+    `B / C 继续后仍选中 ${cursor + 1} 号未探索格；A 换格、B 探索一次，不会自动探索。`,
+    "B 重看本局两页规则；C 返回暂停，不消耗探索次数。",
+    "B 先打开放弃确认，A / C 可取消；确认放弃才丢弃本局，不发金币或陪伴奖励。",
+  ][choice];
   const label = (index: number) => {
     const view = treasureCell(n, index);
     return `${index + 1}号格 · ${!view.opened && !done ? "未探索" : view.item ? `${treasureItems[view.item]}${view.opened ? "，已找到" : "，留在林间，未找到"}` : view.opened ? `空地，周围 ${view.nearby} 件` : "未探索空地"}`;
@@ -16,7 +21,7 @@ export function TreasureGame({ pet, active, cursor, choice, reaction }: { pet: P
   return <section className="treasure-game" aria-label="森林寻宝" data-paused={paused} data-done={done}>
     <header data-treasure-reading-start><strong>森林寻宝</strong><span>探索 {n.opened.length} / 6 · 找到 {found} / 3</span></header>
     <TreasureCompanion pet={pet} paused={paused} done={done} reaction={reaction}/>
-    {paused && <div className="treasure-pause"><strong>慢慢找，不计时</strong><ul>{treasureMenu.map((name, i) => <li key={name} aria-current={choice === i}>{choice === i ? "▸" : "　"} {name}</li>)}</ul><small>A 选择 · B 确认 · C 继续</small></div>}
+    {paused && <div className="treasure-pause"><strong>慢慢找，不计时</strong><ul>{treasureMenu.map((name, i) => <li key={name} aria-current={choice === i}>{choice === i ? "▸" : "　"} {name}</li>)}</ul><p className="treasure-pause-hint" aria-live="polite" aria-atomic="true">{pauseHint}</p><small>A 选择 · B 确认 · C 继续</small></div>}
     {n.opened.length > 0 && <p className="treasure-result" aria-live="polite">上次探索：{label(n.opened[n.opened.length - 1])}</p>}
     {clue && <p className="treasure-clue" id="treasure-clue">最近空地线索：{clue.index + 1}号格 · 数字 {clue.nearby}。标「邻」的格子都计入，含斜角及已找到的小物。</p>}
     <div className="treasure-grid" role="grid" aria-label="林地九格，只用 A / B / C 操作" aria-describedby={clue ? "treasure-clue" : undefined}>

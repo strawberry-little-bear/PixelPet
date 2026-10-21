@@ -111,6 +111,27 @@ describe("visible treasure clue range", () => {
 });
 
 describe("three-key treasure flow",()=>{
+ it("explains pause choices through rules, continuing, a saved dig and cancelled discard",async()=>{
+  saved.game!.treasure!.opened=[0,3];saved.game!.treasure!.step=4;
+  await mount();
+  const hint=()=>document.querySelector(".treasure-pause-hint")?.textContent;
+  expect(hint()).toContain("仍选中 2 号未探索格");
+  await key("a");expect(hint()).toContain("不消耗探索次数");await key("b");
+  expect(document.querySelector(".game-guide")).toBeTruthy();await key("b");await key("c");
+  expect(hint()).toContain("不消耗探索次数");await key("a");
+  expect(hint()).toContain("先打开放弃确认");expect(calls()).toHaveLength(0);
+  // C always continues, even when discard is selected; it never confirms it.
+  await key("c");expect(hint()).toBeUndefined();expect(calls().map(a=>a.kind)).toEqual(["treasure-resume"]);
+  expect(saved.game!.treasure!.opened).toEqual([0,3]);await key("b");
+  expect(calls().at(-1)).toEqual(expect.objectContaining({kind:"treasure-dig",tile:1,step:5,gameId:id}));
+  await key("c");expect(hint()).toContain("仍选中 3 号未探索格");
+  const before=structuredClone(saved.game), count=calls().length;
+  await key("a");await key("a");await key("b");
+  expect(document.querySelector(".game-abandon")).toBeTruthy();await key("c");
+  expect(hint()).toContain("仍选中 3 号未探索格");
+  expect(calls()).toHaveLength(count);expect(saved.game).toEqual(before);
+ });
+
  it("never runs from a read or elapsed time; explicit resume then A selects and B digs",async()=>{
   saved.game!.treasure!.paused=false;await mount();await clock(60000);
   expect(calls()).toHaveLength(0);expect(document.querySelector(".treasure-pause")).toBeTruthy();

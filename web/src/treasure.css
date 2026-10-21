@@ -51,6 +51,7 @@
 .treasure-grid span { font-size: .714286rem; }
 .treasure-pause { padding: 8px; border: 1px solid #61784f; margin: 4px 0; }
 .treasure-pause ul { list-style: none; margin: 4px 0; padding: 0; }
+.treasure-pause-hint { margin: 6px 0; font-size: .857143rem; }
 .treasure-pause li[aria-current=true] { font-weight: bold; text-decoration: underline; }
 .treasure-game > small { display: block; font-size: .714286rem; }
 .treasure-status { margin: 6px 0; }
