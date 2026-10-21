@@ -1424,6 +1424,14 @@ export default function App() {
   };
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
+    // External overlays own C even while a save write is still in flight.
+    // Otherwise a slow request can leave keyboard users trapped in the overlay.
+    if ((tools || help || reset) && key === "C") {
+      setHelp(false);
+      setReset(false);
+      if (tools) setTools(false);
+      return;
+    }
     if (busyRef.current) {
       if (key === "C" && pet?.game?.id && canPauseFishingPulse(busyActionRef.current) && !pendingFishingPause.current) {
         audio.current?.cancel();
@@ -1449,14 +1457,7 @@ export default function App() {
       if (key === "B") void refresh();
       return;
     }
-    if (tools || help || reset) {
-      if (key === "C") {
-        setHelp(false);
-        setReset(false);
-        if (tools) setTools(false);
-      }
-      return;
-    }
+    if (tools || help || reset) return;
     if (clipRef.current) {
       if (key === "C") {
         beep();

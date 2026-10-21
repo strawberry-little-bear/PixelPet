@@ -93,6 +93,27 @@ it('respects a key another handler has already consumed', async () => {
   finally { document.removeEventListener('keydown', consume); }
   expect(selection()).toBe(before); expect(writes()).toHaveLength(0);
 });
+
+it('lets C close an external overlay while a save write is pending', async () => {
+  let resolveAction: (value: Result) => void = () => {};
+  const pendingAction = new Promise<Result>(resolve => { resolveAction = resolve; });
+  api.mockImplementationOnce(async path => path === 'action' ? pendingAction : result());
+
+  await mount();
+  await menu();
+  await key('b');
+  expect(writes()).toHaveLength(1);
+
+  fireEvent.click(screen.getByRole('button', { name: '玩法说明' }));
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  await key('c');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(writes()).toHaveLength(1);
+
+  resolveAction(result());
+  await act(async () => { await pendingAction; });
+});
+
 it('does not steal shortcuts from a content-editable target', async () => {
   await mount(); await menu();
   const editor = document.createElement('div'); editor.contentEditable = 'true';
