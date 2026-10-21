@@ -5,6 +5,11 @@
 .life-summary-grid strong { font-size: 1.05em; }
 .life-summary-grid span { overflow-wrap: anywhere; }
 .life-summary p { margin: 8px 0; }
+.life-summary-memory { margin: 10px 0; padding: 8px; border: 1px solid currentColor; border-radius: 2px; }
+.life-summary-memory strong { display: block; }
+.life-summary-memory time { display: block; margin-top: 2px; font-size: .9em; }
+.life-summary-memory h4 { margin: 5px 0 3px; }
+.life-summary-memory p { margin: 0; }
 .life-summary small { display: block; line-height: 1.35; }
 @media (max-width: 380px) {
   .life-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; }

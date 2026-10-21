@@ -141,6 +141,8 @@ describe("共同生活回顾", () => {
     expect(container.querySelector(".life-summary")?.textContent).toContain("游戏记忆");
     expect(container.querySelector(".life-summary")?.textContent).toContain("2");
     expect(container.querySelector(".life-summary")?.textContent).toContain("俄罗斯方块");
+    expect(container.querySelector(".life-summary-memory")?.textContent).toContain("公园里走过的第一条小路");
+    expect(container.querySelector(".life-summary-memory time")?.textContent).toBe("2026/10/20");
     expect(container.querySelector(".life-summary")?.textContent).toContain("不补写旧历史");
   });
 
@@ -150,6 +152,17 @@ describe("共同生活回顾", () => {
     expect(summary).toContain("永久纪念");
     expect(summary).toContain("还没有保存的共同游戏经历");
     expect(summary).toContain("0");
+    expect(container.querySelector(".life-summary-memory")).toBeNull();
     expect(summary).not.toContain("游戏记忆3");
+  });
+
+  it("does not surface an invalid timestamp as the latest memory", () => {
+    const current = structuredClone(pet("adult"));
+    current.album = { since: 1, legacy: false, entries: [
+      { kind: "meal", at: 0, source: "shared" },
+      { kind: "bath", at: Number.NaN, source: "shared" },
+    ] };
+    const { container } = render(<StatusGuide pet={current} rules={rules} now={2} />);
+    expect(container.querySelector(".life-summary-memory")).toBeNull();
   });
 });
