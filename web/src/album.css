@@ -13,3 +13,5 @@
 .album-directory li { display:flex; gap:6px; padding:3px 6px; border-radius:3px; }
 .album-directory li > span { width:12px; flex-shrink:0; }
 .album-directory li[aria-current="true"] { background:#688254; color:#f2f2d9; }
+
+.album-item { overflow-wrap:anywhere; }

@@ -1,7 +1,7 @@
 import { isOutingMemory, outingMemoryWords } from "./outing-memory";
 import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
 import { BookOpen, Heart, Moon, Sparkles, Utensils, Waves } from "lucide-react";
-import type { Memory, PetState } from "./types";
+import type { Memory, PetState, Shop, ShopItem } from "./types";
 import { formNames } from "./growth";
 import { PetArt } from "./PetArt";
 import "./album.css";
@@ -68,11 +68,18 @@ export function memoryWords(m: Memory, legacy: boolean) {
   }
 }
 const dateLabel = (at: number) => new Date(at).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
-export function AlbumPanel({ pet, now, page, category = "all", missing = false }: { pet: PetState; now: number; page: number; category?: AlbumCategory; missing?: boolean }) {
+const memorySlots: Partial<Record<Memory["kind"], ShopItem["slot"]>> = {
+  outfit: "accessory", decoration: "room", wallpaper: "wallpaper", floor: "floor",
+};
+export function AlbumPanel({ pet, shop, now, page, category = "all", missing = false }: { pet: PetState; shop?: Shop | null; now: number; page: number; category?: AlbumCategory; missing?: boolean }) {
   const memories = albumMemories(pet, category);
   const categoryLabel = albumCategories.find(c => c.id === category)!.label;
   const currentPage = Math.min(Math.max(0, page), memories.length);
   const memory = currentPage > 0 ? memories[currentPage - 1] : undefined;
+  // Resolve only the recorded item, never today's equipment. Names come from
+  // the current server catalog, not a fabricated historical name snapshot.
+  const memorySlot = memory && memorySlots[memory.kind];
+  const memoryItem = memorySlot && shop?.catalog?.find(item => item.id === memory?.item && item.slot === memorySlot);
   const words = memory ? memoryWords(memory, pet.album?.legacy ?? false) : undefined;
   const stage = memory?.kind === "hatch" ? "baby" : memory?.kind === "growing" ? "growing" : memory?.kind === "adult" ? "adult" : pet.growth?.stage || "baby";
   const isPortrait = !memory || ["hatch", "growing", "adult"].includes(memory.kind);
@@ -87,6 +94,7 @@ export function AlbumPanel({ pet, now, page, category = "all", missing = false }
       <time dateTime={new Date(memory.at).toISOString()}>{dateLabel(memory.at)}</time>
       <h3>{words.title}</h3>
       <p>{words.story}</p>
+      {memorySlot && <p className="album-item">当时选用：{memoryItem?.name.trim() || "名称暂不可用"}</p>}
       <small className="album-source">{isOutingMemory(memory.kind) ? "来自真实发现时的虚构风景 · 同类只记录一次" : memory.source === "saved"
         ? memory.kind === "hatch" ? "沿用旧存档的相遇日期，不补写照顾经历。" : "旧存档记录时间，可能来自旧版迁移；不补写当时细节。"
         : memory.source === "elapsed" ? "按相遇日期计算，不代表连续登录。" : "来自已保存的真实经历 · 只记录一次"}</small>

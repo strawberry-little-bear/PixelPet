@@ -2347,7 +2347,7 @@ export default function App() {
                           <FishAlbum pet={pet} page={fishPage} />
                         </CareReadingRegion>}
                         {page === "album" && <CareReadingRegion className="memory-reading-region" label="永久纪念册阅读区">
-                          {albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} now={now} page={albumReading?.page ?? 0} missing={albumReading?.cursor.missing} category={albumCategory} />}
+                          {albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} shop={shop} now={now} page={albumReading?.page ?? 0} missing={albumReading?.cursor.missing} category={albumCategory} />}
                         </CareReadingRegion>}
                         {page === "return" && returnRecap && (
                           <ReturnPanel pet={pet} recap={returnRecap} page={returnPage} updated={returnUpdated} />

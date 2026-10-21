@@ -1,4 +1,4 @@
-// Real play → confirmed coins → buy → use → store → refresh, on private saves only.
+// Real play → confirmed coins → buy → use → store → permanent memory → refresh. Private saves only.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -38,6 +38,31 @@ async function shopItem(page) {
   await menu(page, 9); await key(page, 'a'); await key(page, 'b');
   await page.locator('.shop-panel h3').waitFor();
 }
+async function homeMemory(page, mode, suffix) {
+  await menu(page, 8);
+  for (let i = 0; i < 4; i++) await key(page, 'a');
+  await key(page, 'b'); await key(page, 'b');
+  const panel = page.locator('.album-panel[data-album-kind=outfit]');
+  await panel.waitFor();
+  assert((await panel.textContent()).includes('当时选用：嫩叶胸针'), 'saved outfit has no readable item name');
+  assert((await panel.ariaSnapshot()).includes('当时选用：嫩叶胸针'), 'saved item name is hidden from accessibility tree');
+  assert.equal(await panel.locator('[data-item=leaf-pin]').count(), 1);
+  const note = panel.locator('.album-item');
+  const font = await note.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+  assert(font >= mode.font * .85, 'memory item label did not scale');
+  await note.evaluate(el => {
+    const range = document.createRange(); range.selectNodeContents(el);
+    const lines = Array.from(range.getClientRects(), r => ({ top: r.top + scrollY, left: r.left, width: r.width, height: r.height }));
+    for (const line of lines) {
+      window.scrollTo({ top: line.top - 12, behavior: 'instant' });
+      const top = line.top - scrollY, hit = document.elementFromPoint(line.left + line.width / 2, top + line.height / 2);
+      if (line.left < -1 || line.left + line.width > innerWidth + 1 || top < 0 || top + line.height > innerHeight || !hit || !el.contains(hit)) throw Error('Memory item label unreadable');
+    }
+    if (document.documentElement.scrollWidth > innerWidth + 1) throw Error('Memory page horizontal overflow');
+  });
+  await page.screenshot({ path: join(dir, `${mode.name}-memory-${suffix}.png`), fullPage: true });
+  await key(page, 'c'); await key(page, 'c'); await page.locator('.content-home').waitFor();
+}
 async function caption(page, expected, mode) {
   const note = page.locator('.shop-preview small');
   assert.equal(await note.textContent(), expected);
@@ -71,7 +96,7 @@ try {
   for (const mode of [
     { name: 'desktop', width: 1200, height: 850, font: 14 },
     { name: 'phone-lost-buy', width: 320, height: 480, font: 28, lostKind: 'buy' },
-    { name: 'phone-lost-equip', width: 320, height: 480, font: 28, lostKind: 'equip' },
+    { name: 'phone-lost-equip', width: 320, height: 380, font: 28, lostKind: 'equip' },
   ]) {
     // A healthy schema-1 fixture, not fabricated coins, ownership or a completed game.
     const now = Date.now(); await api('import', { schema: 1, revision: 1, species: 2, name: '小窝伙伴',
@@ -141,7 +166,14 @@ try {
       await page.screenshot({ path: join(dir, `${mode.name}-trial.png`), fullPage: true });
       await key(page, 'c'); await caption(page, '当前小窝 · 装扮不影响成长', mode);
       assert.equal(await page.locator('.shop-preview [data-item=leaf-pin]').count(), 0);
-      await key(page, 'b'); await key(page, 'b'); await caption(page, '使用中 · 已保存', mode);
+      await key(page, 'c'); await page.locator('.content-home').waitFor();
+      assert.equal(await page.locator('.content-home [data-item=leaf-pin]').count(), 0);
+      const memoryBefore = (await api('state')).state.album.entries;
+      assert.equal(memoryBefore.filter(m => m.kind === 'outfit').length, 1);
+      assert.equal(memoryBefore.find(m => m.kind === 'outfit').item, 'leaf-pin');
+      await homeMemory(page, mode, 'stored');
+      assert.deepEqual((await api('state')).state.album.entries, memoryBefore);
+      await shopItem(page); await key(page, 'b'); await caption(page, '使用中 · 已保存', mode);
       const equipped = (await api('state')).state;
       assert.equal(equipped.economy.equipped.accessory, 'leaf-pin'); assert.equal(equipped.economy.coins, bought.economy.coins);
       assert.equal(equipped.careCount, 1);
@@ -151,6 +183,9 @@ try {
       const persisted = (await api('state')).state;
       assert.deepEqual(persisted.economy, equipped.economy); assert.equal(persisted.careCount, 1);
       assert.equal(persisted.companion.recent.id, gameId);
+      await homeMemory(page, mode, 'reloaded');
+      assert.deepEqual((await api('state')).state.album.entries, memoryBefore);
+      assert.deepEqual((await api('state')).state.economy, persisted.economy);
       await shopItem(page); await caption(page, '使用中 · 已保存', mode);
       assert.equal(writes.filter(w => w.kind === 'buy').length, 1); assert.equal(writes.filter(w => w.kind === 'equip').length, 3);
       assert.equal(writes.filter(w => w.kind === 'treasure-finish').length, 1); assert.equal(writes.filter(w => w.kind === 'daily').length, 1);

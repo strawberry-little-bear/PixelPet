@@ -68,6 +68,8 @@ try {
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
   const modes = [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 28 }, { width: 320, height: 380, font: 28 }];
   const categories = ['all', 'growth', 'care', 'play', 'home', 'days', 'scenery'];
+  const homeItems = { outfit: 'leaf-pin', decoration: 'clover-pot', wallpaper: 'meadow-wall', floor: 'honey-floor' };
+  const catalog = (await api('state')).shop.catalog;
   const cases = [{ kind: 'home', sleeping: false }, { kind: 'home', sleeping: true }, { kind: 'fishing', sleeping: false }, { kind: 'walk', sleeping: false }];
   for (const mode of modes) for (const { kind, sleeping } of cases) for (const history of ['empty', 'saved']) {
     const at = Date.now();
@@ -83,6 +85,13 @@ try {
       fixture.pond.fish = [{ id: 'reed-minnow', firstAt: at, lastAt: at, count: 1 }];
       fixture.park.finds = [{ id: 'leaf', firstAt: at, lastAt: at, count: 1 }];
       for (const kind of ['scenery-fishing-clear', 'scenery-walk-rain']) fixture.album.entries.push({ kind, at, source: 'shared' });
+    }
+    // Constructed first-use records with different current equipment. This is
+    // layout/provenance coverage, not a claim of naturally earning all items.
+    if (history === 'saved' && kind === 'home') {
+      fixture.economy.owned = [...Object.values(homeItems), 'berry-scarf', 'moon-lamp', 'starlit-wall', 'mint-floor'];
+      fixture.economy.equipped = { accessory: 'berry-scarf', room: 'moon-lamp', wallpaper: 'starlit-wall', floor: 'mint-floor' };
+      for (const [kind, item] of Object.entries(homeItems)) fixture.album.entries.push({ kind, item, at: fixture.lastTick, source: 'shared' });
     }
     await api('import', fixture);
     if (kind !== 'home') {
@@ -132,6 +141,13 @@ try {
             await page.locator('.album-source:last-child').scrollIntoViewIfNeeded(); await visible(page, '.album-source:last-child');
             await key(page, 'B'); await visible(page, header); await readable(page);
             assert.equal(await page.locator('.album-panel > header > span').innerText(), `${(i + 1) % pages + 1} / ${pages}`);
+            const recorded = homeItems[await page.locator('[data-album-page]').getAttribute('data-album-kind')];
+            if (recorded) {
+              const expected = `当时选用：${catalog.find(item => item.id === recorded).name}`;
+              assert.equal(await page.locator('.album-item').textContent(), expected);
+              assert((await page.locator('[data-album-page]').ariaSnapshot()).includes(expected));
+              await page.locator('.album-item').scrollIntoViewIfNeeded(); await visible(page, '.album-item');
+            }
           }
           // Reverse the entire category, including cover-to-last and first-to-cover.
           for (let i = 0; i < pages; i++) {
