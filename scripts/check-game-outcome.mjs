@@ -102,10 +102,11 @@ try {
       await key(page, 'B'); const confirmed = await (await finishResponse).json();
       const receipt = page.getByLabel('本页最近一次游戏结算'); await receipt.waitFor();
       // Check before any test scrolling: being reachable later is not enough.
-      const heading = await receipt.locator('h3').boundingBox();
+      const headingLocator = receipt.locator(':scope > h3');
+      const heading = await headingLocator.boundingBox();
       assert(heading && heading.y >= 0 && heading.y + heading.height <= mode.height,
         `New receipt heading is outside viewport: ${JSON.stringify(heading)}`);
-      assert(await receipt.locator('h3').evaluate(el => {
+      assert(await headingLocator.evaluate(el => {
         const b = el.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
         return !!hit && el.contains(hit);
       }), 'New receipt heading must not be covered');
@@ -115,7 +116,7 @@ try {
       await page.screenshot({path:join(dir, `${label}-initial-viewport.png`)});
       console.log('PLACEMENT', label, JSON.stringify(heading));
       assert.equal(await receipt.locator('.game-outcome-message').innerText(), confirmed.message);
-      assert.equal(await receipt.locator('time').getAttribute('datetime'), new Date(confirmed.serverTime).toISOString());
+      assert.equal(await receipt.locator(':scope > time').getAttribute('datetime'), new Date(confirmed.serverTime).toISOString());
       assert.equal(confirmed.state.companion.recent.id, gameId);
       assert.match(await receipt.innerText(), /本局共同游戏已记录；不代表本次兴趣或成长增加/);
       assert(!confirmed.state.game);
