@@ -57,6 +57,26 @@ describe("Walking pause choice consequences", () => {
     const view = render(<WalkingGame pet={pet} active choice={2} />);
     expect(view.container.querySelector(".walk-pause-hint")).toBeNull();
     expect(view.container.querySelector(".walk-warning")?.textContent).toContain("前方浅石 · A 跃水 · 还有 2 步");
+    expect(view.container.querySelector(".walk-warning")?.getAttribute("aria-live")).toBe("off");
+    expect(view.container.querySelector(".walk-warning")?.hasAttribute("aria-atomic")).toBe(false);
+  });
+  it("announces only pause, finish, and new obstacle boundaries", () => {
+    const pet = fixture(); pet.game!.walking!.paused = false;
+    const view = render(<WalkingGame pet={pet} active choice={0} />);
+    const warning = () => view.container.querySelector(".walk-warning");
+    expect(warning()?.getAttribute("aria-live")).toBe("off");
+    pet.game!.walking!.beat = 30;
+    view.rerender(<WalkingGame pet={pet} active choice={0} />);
+    expect(warning()?.getAttribute("aria-live")).toBe("polite");
+    expect(warning()?.getAttribute("aria-atomic")).toBe("true");
+    pet.game!.walking!.beat = 31;
+    view.rerender(<WalkingGame pet={pet} active choice={0} />);
+    expect(warning()?.getAttribute("aria-live")).toBe("off");
+    expect(warning()?.hasAttribute("aria-atomic")).toBe(false);
+    pet.game!.walking!.beat = 72;
+    view.rerender(<WalkingGame pet={pet} active choice={0} />);
+    expect(warning()?.getAttribute("aria-live")).toBe("polite");
+    expect(warning()?.getAttribute("aria-atomic")).toBe("true");
   });
   it("keeps completed walks focused on explicit collection even when not active", () => {
     const pet = fixture(); pet.game!.walking!.beat = 72;
