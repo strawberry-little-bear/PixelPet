@@ -27,3 +27,8 @@
 .session-allowance { border-top: 1px dashed currentColor; margin-top: 10px; padding-top: 8px; }
 .session-allowance > strong, .session-allowance > small { display: block; }
 .session-allowance .guide-allowance { margin: 6px 0; }
+
+/* A read-only snapshot belongs beside the irreversible choice, not a reward preview. */
+.abandon-progress { margin: 10px 0; padding: 8px; border: 1px dashed currentColor; text-align: left; }
+.abandon-progress > strong { margin: 0; }
+.abandon-progress > p { margin: 4px 0 0; }

@@ -2341,7 +2341,7 @@ export default function App() {
                         )}
                         {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused economy={pet.economy} shop={shop} now={now} />}
                         {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} economy={pet.economy} shop={shop} now={now} />}
-                        {abandoning && <AbandonGame stars={!pet.game?.kind} fishing={pet.game?.kind === "fishing"} walk={pet.game?.kind === "walk"} />}
+                        {abandoning && <AbandonGame game={pet.game} />}
                         {page === "shop" && (
                           <ShopPanel
                             pet={pet}

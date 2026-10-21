@@ -119,6 +119,7 @@ describe("abandon is not pause, finish, or a one-key data loss", () => {
     saved.game = session(info); const original = structuredClone(saved); await mount();
     await openConfirmation(info);
     expect(document.querySelector(".game-abandon")).toBeTruthy(); expect(actions()).toHaveLength(0);
+    expect(screen.getByLabelText("本局已保存进度").textContent).toContain(info.title);
     await clock(6000); expect(actions()).toHaveLength(0);
     await key("a"); expect(document.querySelector(".game-abandon")).toBeNull();
     await clock(1500); expect(actions()).toHaveLength(0);

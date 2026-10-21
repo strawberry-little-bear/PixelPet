@@ -1,9 +1,10 @@
+import { abandonProgress } from "./abandon-progress";
 import { DailyRefresh } from "./DailyRefresh";
 import { GuideReward } from "./GuideReward";
 import type { GuideRewardContext } from "./GuideReward";
 import { games, gameAllowance, guideSeen } from "./games";
 import type { GameInfo } from "./games";
-import type { Economy, Shop } from "./types";
+import type { Economy, PetState, Shop } from "./types";
 import "./arcade.css";
 
 export function ArcadePanel({ choice, economy, shop, now }: {
@@ -57,9 +58,12 @@ export function GameGuide({ game, page, review = false, paused = false, ...rewar
   </section>;
 }
 
-export function AbandonGame({ stars, fishing = false, walk = false }: { stars: boolean; fishing?: boolean; walk?:boolean; }) {
+export function AbandonGame({ game }: { game: PetState["game"] }) {
+  const progress = abandonProgress(game);
+  const stars = !!game && !game.kind, fishing = game?.kind === "fishing", walk = game?.kind === "walk";
   return <section className="game-abandon" role="status" aria-label="放弃本局确认">
     <header>要放弃这一局吗？</header>
+    {progress && <div className="abandon-progress" aria-label="本局已保存进度"><strong>{progress.title}</strong><p>{progress.text}</p></div>}
     <p>本局进度将丢弃，<br />不发金币、不计陪伴奖励。</p>
     <small>{walk ? "实际遇见的发现仍会保留，未走完不发奖励。" : fishing ? "实际钓到的鱼仍保留在图鉴，未完成不发奖励。" : stars ? "光点仍随时间移动，但不会自动接取。" : "取消确认不会自动启动游戏。"}</small>
     <strong>A / C 留在本局 · B 确认放弃</strong>

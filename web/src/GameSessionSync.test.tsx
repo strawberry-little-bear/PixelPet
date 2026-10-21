@@ -228,3 +228,14 @@ describe("unfinished-only discard intent", () => {
     expect(actions()).toHaveLength(1); expect(saved.game?.tetris?.end).toBe("won"); expect(saved.careCount).toBe(0);
   });
 });
+
+it("refreshes acknowledged progress inside an open confirmation without a gameplay write", async () => {
+  saved.game = game("stars"); await mount(); await abandon("stars");
+  expect(screen.getByLabelText("本局已保存进度").textContent).toContain("已完成 0 / 5 轮");
+  saved.game!.round = 2; saved.game!.score = 1; saved.game!.lastBeat = 4; saved.revision++;
+  await poll();
+  expect(screen.getByLabelText("本局已保存进度").textContent).toContain("已完成 2 / 5 轮 · 接住 1 颗");
+  expect(actions()).toHaveLength(0);
+  await key("c"); expect(document.querySelector(".game-abandon")).toBeNull();
+  expect(saved.game!.round).toBe(2); expect(actions()).toHaveLength(0);
+});
