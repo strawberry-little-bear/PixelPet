@@ -46,7 +46,7 @@ it.each(cases)("$kind paused=$paused explicit entry, all pages and C return pres
   const count = kind === "fish" ? 7 : 6;
   for (let n = 1; n <= count; n++) {
     expect(document.querySelectorAll(`.${kind}-album [data-collection-reading-start]`)).toHaveLength(1);
-    await key(n % 2 ? "b" : "a"); expect(window.scrollBy).toHaveBeenCalledTimes(n + 1);
+    await key("b"); expect(window.scrollBy).toHaveBeenCalledTimes(n + 1);
     expect(document.activeElement).toBe(focus);
   }
   if (kind === "fish") expect(document.querySelector(".fish-album-grid > div:first-child")?.getAttribute("aria-current")).toBe("true");

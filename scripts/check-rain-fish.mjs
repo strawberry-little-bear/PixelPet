@@ -86,7 +86,7 @@ async function album(page, atHome = false) {
   if (atHome) { await key(page, 'A'); for (let i = 0; i < 10; i++) await key(page, 'A'); }
   else await key(page, 'A');
   await key(page, 'B'); await page.locator('.fish-album').waitFor();
-  for (let i = 0; i < 7; i++) { await readable(page); if (i < 6) await key(page, i % 2 ? 'A' : 'B'); }
+  for (let i = 0; i < 7; i++) { await readable(page); if (i < 6) await key(page, 'B'); }
   assert.equal(await page.locator('.fish-album-grid > div').count(), 7);
   assert.equal(await page.locator('.fish-album-grid > div:last-child').getAttribute('aria-current'), 'true');
 }

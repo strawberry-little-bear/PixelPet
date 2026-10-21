@@ -1465,7 +1465,7 @@ export default function App() {
         setPage(pet.game?.kind === "walk" ? "game" : "home"); setWalkChoice(0);
         if (pet.game?.kind === "walk") setPauseReadingDestination({ sessionKey, target: "pause" });
       } else {
-        const next = (parkPage + 1) % parkCatalog.length;
+        const next = (parkPage + (key === "A" ? parkCatalog.length - 1 : 1)) % parkCatalog.length;
         setParkPage(next); navigateCollectionReading("park-album", next);
       }
       return;
@@ -1475,7 +1475,8 @@ export default function App() {
         setPage(pet.game?.kind === "fishing" ? "game" : "home"); setFishingChoice(0);
         if (pet.game?.kind === "fishing") setPauseReadingDestination({ sessionKey, target: "pause" });
       } else {
-        const next = (fishPage + 1) % fishCatalogFor(pet).length;
+        const count = fishCatalogFor(pet).length;
+        const next = (fishPage + (key === "A" ? count - 1 : 1)) % count;
         setFishPage(next); navigateCollectionReading("fish-album", next);
       }
       return;
@@ -2010,7 +2011,7 @@ export default function App() {
     ? "A 换游戏  B 进入  C 返回"
     : page === "game-guide"
       ? guideSeen(games[arcadeChoice].id) && !guideReview ? "A 重看规则  B 开始  C 返回选择" : "A 翻页  B 开始  C 返回选择"
-      : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A / B 翻页  C 返回" : "";
+      : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A 上一页  B 下一页  C 返回" : "";
   const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"
       : uncertain || unavailable ? checking ? "正在读取 · 不重做操作" : "B 读取存档 · 不重做操作"
       : page === "import-preview"

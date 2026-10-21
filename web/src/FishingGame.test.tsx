@@ -239,7 +239,7 @@ describe("rain fish catalogue compatibility", () => {
     const count = schema >= 15 ? 7 : 6;
     expect(document.querySelectorAll(".fish-album-grid > div")).toHaveLength(count);
     expect(screen.getByText(`已发现 0 / ${count}`)).toBeTruthy();
-    for (let i = 1; i < count; i++) await key(i % 2 ? "b" : "a");
+    for (let i = 1; i < count; i++) await key("b");
     if (schema >= 15) {
       expect(screen.getByText(/每竿 1\/8/)).toBeTruthy();
       expect(screen.getByText(/不看现实天气/)).toBeTruthy();

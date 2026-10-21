@@ -141,19 +141,29 @@ try {
         if (n === 0) await page.screenshot({ path: join(dir, `visible-${label}.png`) });
         // Read all the way to the last hint, then use an actual machine key.
         await page.locator(`.${kind}-album > small:last-child`).scrollIntoViewIfNeeded();
-        await key(page, n % 2 ? 'A' : 'B');
+        await key(page, 'B');
       }
       assert.equal(await index(page, kind), 0); await visible(page, `.${kind}-album > header`);
+      assert((await page.locator(`.${kind}-album > small:last-child`).innerText()).includes('A 上一页 · B 下一页'));
+      assert.match(await page.locator('.lcd-bottom').innerText(), /A 上一页\s+B 下一页/);
+      // Reverse the full catalog too, including first-to-last wrap, using only
+      // machine keys after reading the bottom of each card.
+      for (let n = 1; n <= count; n++) {
+        await page.locator(`.${kind}-album > small:last-child`).scrollIntoViewIfNeeded();
+        await key(page, 'A');
+        assert.equal(await index(page, kind), (count - n) % count);
+        await visible(page, `.${kind}-album > header`); await readable(page, kind);
+      }
       await page.evaluate(() => scrollBy({ top: 70, behavior: 'instant' }));
       const position = await page.evaluate(() => scrollY), beforeReads = reads;
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
       for (let i = 0; i < 100 && reads === beforeReads; i++) await wait(20);
       assert(reads > beforeReads); await wait(100); assert.equal(await page.evaluate(() => scrollY), position, 'ordinary read replayed navigation');
-      for (const nativeKey of ['Enter', 'Space']) {
-        await page.locator('.button-b').focus(); const previous = await index(page, kind);
-        await page.keyboard.press(nativeKey); assert.equal(await index(page, kind), (previous + 1) % count);
+      for (const [button, direction] of [['a', -1], ['b', 1]]) for (const nativeKey of ['Enter', 'Space']) {
+        await page.locator(`.button-${button}`).focus(); const previous = await index(page, kind);
+        await page.keyboard.press(nativeKey); assert.equal(await index(page, kind), (previous + direction + count) % count);
         await visible(page, `.${kind}-album > header`);
-        assert(await page.locator('.button-b').evaluate(el => document.activeElement === el), 'reading stole machine-key focus');
+        assert(await page.locator(`.button-${button}`).evaluate(el => document.activeElement === el), 'reading stole machine-key focus');
       }
       await page.screenshot({ path: join(dir, `keyboard-${label}.png`) });
       await key(page, 'C'); await page.locator(paused ? pause : '.home-caption').waitFor();
