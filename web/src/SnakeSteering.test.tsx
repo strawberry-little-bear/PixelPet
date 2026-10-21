@@ -24,6 +24,8 @@ describe("paused snake relative steering reminder", () => {
   ] as const)("uses saved heading %i, not screen-left/screen-right", (direction, heading, left, right) => {
     const view = render(<SnakeGame pet={pet(direction)} now={now} active={false} turn={0} />);
     const guide = view.getByRole("region", { name: "继续后的转弯方向" });
+    expect(guide.getAttribute("aria-live")).toBe("polite");
+    expect(guide.getAttribute("aria-atomic")).toBe("true");
     expect(guide.textContent).toContain(`蛇头现在朝${heading}`);
     expect(guide.textContent).toContain(`A 左转：朝${left}`);
     expect(guide.textContent).toContain(`B 右转：朝${right}`);

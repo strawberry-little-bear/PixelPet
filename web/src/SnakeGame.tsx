@@ -36,7 +36,7 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
       </svg>
       {(paused || ended) && <div className="snake-overlay" role="status"><strong>{ended ? snake.end === "won" ? "果篮装满啦！" : "休息一下再来" : "果园已暂停"}</strong><span>{ended ? `吃到 ${snake.eaten} 颗 · A 暂不操作 · B / C 收好本局成绩` : "A / C 继续 · B 放弃确认"}</span><small>{ended ? snake.eaten >= 3 ? "计入陪伴 · 最多 6 金币" : "吃到 3 颗后完成才有奖励" : "刷新、离开不补跑"}</small></div>}
     </div>
-    {paused && !ended && <section className="snake-steering-guide" aria-label="继续后的转弯方向">
+    {paused && !ended && <section className="snake-steering-guide" aria-label="继续后的转弯方向" aria-live="polite" aria-atomic="true">
       <strong>蛇头现在朝{directions[snake.direction]}</strong>
       <p>继续后：</p>
       <ul>
