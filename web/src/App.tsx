@@ -2002,6 +2002,15 @@ export default function App() {
   const growth = petGrowth(pet, now);
   const stage = stageNames[growth.stage];
   const form = tendency(growth);
+  const resetSummary = pet && !corrupt ? {
+    days: pet.hatchedAt > 0 ? Math.floor(Math.max(0, now - pet.hatchedAt) / 86400000) + 1 : 0,
+    logs: (pet.logs ?? []).length,
+    memories: pet.album?.entries.length ?? 0,
+    fishFound: new Set((pet.pond?.fish ?? []).map(fish => fish.id)).size,
+    fishTotal: fishCatalogFor(pet).length,
+    parkFound: new Set((pet.park?.finds ?? []).map(find => find.id)).size,
+    parkTotal: parkCatalog.length,
+  } : null;
   const need = petNeed(pet);
   const mood = pet?.sleeping
     ? "正在做一个甜甜的梦"
@@ -2811,6 +2820,17 @@ export default function App() {
                 <p>
                   {corrupt ? "重新开始会用一颗新蛋替换无法读取的存档。也可以取消并导入已有备份；原始内容会保留为恢复快照。" : "重新开始会替换当前宠物。建议先导出备份，留住这段小小的陪伴。"}
                 </p>
+                {resetSummary && <section className="reset-summary" aria-label="重新开始会清除的共同经历">
+                  <strong>这会清除当前共同经历</strong>
+                  <dl>
+                    <div><dt>相识日子</dt><dd>{resetSummary.days ? `${resetSummary.days} 天` : "尚未孵化"}</dd></div>
+                    <div><dt>成长日记</dt><dd>{resetSummary.logs} 条</dd></div>
+                    <div><dt>永久纪念册</dt><dd>{resetSummary.memories} 条</dd></div>
+                    <div><dt>鱼图鉴</dt><dd>{resetSummary.fishFound} / {resetSummary.fishTotal}</dd></div>
+                    <div><dt>沿途发现</dt><dd>{resetSummary.parkFound} / {resetSummary.parkTotal}</dd></div>
+                  </dl>
+                  <small>导出备份会把这些记录一起保存；取消不会改变当前小窝。</small>
+                </section>}
                 {!corrupt && !clockAhead && <>
                   <button className="modal-export" disabled={backupExport.pending || busy || uncertain || unavailable || !pet} onClick={() => void backupExport.download()} aria-busy={backupExport.pending}>
                     <ArrowDownToLine size={16} />

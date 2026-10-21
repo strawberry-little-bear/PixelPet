@@ -1988,6 +1988,46 @@ footer i {
   }
 }
 
+.reset-summary {
+  margin: 20px 0 8px;
+  padding: 14px 16px;
+  border: 1px solid #eadfca;
+  border-radius: 12px;
+  background: #fffaf0;
+}
+.reset-summary > strong {
+  display: block;
+  color: #806c54;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 9px;
+}
+.reset-summary dl {
+  margin: 0;
+  display: grid;
+  gap: 5px;
+}
+.reset-summary dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #8a947c;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.reset-summary dt, .reset-summary dd { margin: 0; }
+.reset-summary dd {
+  color: #6e7c5a;
+  font-family: var(--mono);
+  text-align: right;
+}
+.reset-summary small {
+  display: block;
+  margin-top: 10px;
+  color: #9da58f;
+  font-size: 10px;
+  line-height: 1.7;
+}
 .modal-export { width:100%; background:transparent; }
 .export-feedback { overflow-wrap:anywhere; }
 .tools-menu .export-feedback[role="alert"], .modal .export-feedback[role="alert"] { color:#8b3b2e; }

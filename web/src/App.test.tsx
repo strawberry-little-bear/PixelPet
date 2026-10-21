@@ -1210,6 +1210,37 @@ describe("reset focus restoration", () => {
     expect(api.mock.calls.filter(([path]) => path === "reset")).toHaveLength(0);
   });
 
+  it("shows the shared history that reset would remove before confirmation", async () => {
+    const at = Date.now() - 2 * 86400000;
+    saved.hatchedAt = at;
+    saved.logs = [
+      { at, text: "第一条" },
+      { at: at + 1, text: "第二条" },
+      { at: at + 2, text: "第三条" },
+    ];
+    saved.album = { since: at, legacy: false, entries: [
+      { kind: "hatch", at, source: "shared" },
+      { kind: "meal", at: at + 1, source: "shared" },
+    ] };
+    saved.pond = { since: at, fish: [{ id: "sun-carp", firstAt: at, lastAt: at, count: 2 }] };
+    saved.park = { since: at, finds: [{ id: "leaf", firstAt: at, lastAt: at, count: 1 }], walks: 1, lastWalkAt: at };
+    await mount();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /存档盒/ })); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /重新开始/ })); });
+    const summary = screen.getByRole("region", { name: "重新开始会清除的共同经历" });
+    expect(summary.textContent).toContain("3 天");
+    expect(summary.textContent).toContain("成长日记");
+    expect(summary.textContent).toContain("3 条");
+    expect(summary.textContent).toContain("永久纪念册");
+    expect(summary.textContent).toContain("2 条");
+    expect(summary.textContent).toContain("鱼图鉴");
+    expect(summary.textContent).toContain("1 / 6");
+    expect(summary.textContent).toContain("沿途发现");
+    expect(summary.textContent).toContain("1 / 6");
+    await key("c");
+    expect(api.mock.calls.filter(([path]) => path === "reset")).toHaveLength(0);
+  });
+
   it("lets C cancel reset confirmation without changing the save", async () => {
     await mount();
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: /存档盒/ })); });
