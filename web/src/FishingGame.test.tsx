@@ -101,6 +101,31 @@ describe("three-key pond and explicit pause", () => {
   });
 });
 
+describe("home response after a newly discovered fish", () => {
+  it("shows a one-shot discovery echo after collecting the session", async () => {
+    Object.assign(saved.game!.fishing!, { phase: "done", casts: 3, catches: [], paused: true });
+    saved.pond!.fish = [];
+    api.mockImplementation(async (path, body) => {
+      if (path === "action") {
+        const a = body as { kind: string };
+        if (a.kind === "fish-finish") {
+          saved.pond!.fish = [{ id: "sun-carp", count: 1, firstAt: Date.now(), lastAt: Date.now() }];
+          delete saved.game;
+          saved.revision++;
+        }
+      }
+      return result();
+    });
+    await mount();
+    await key("b");
+    expect(document.querySelector('[data-echo="fish-discovery"]')).toBeTruthy();
+    expect(screen.getByText("新发现 · 小鱼")).toBeTruthy();
+    await clock(12000);
+    expect(document.querySelector("[data-echo]")).toBeNull();
+    expect(calls()).toHaveLength(1);
+  });
+});
+
 describe("actual discoveries and anatomical companions", () => {
   it("shows only known silhouettes, real first dates/counts, and no fabricated legacy fish", () => {
     render(<FishAlbum pet={saved} page={0} />); expect(document.querySelectorAll(".fish-album text")).toHaveLength(6); expect(screen.getByText("还未遇见的小鱼")).toBeTruthy(); cleanup();

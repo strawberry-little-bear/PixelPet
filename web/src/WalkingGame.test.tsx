@@ -86,6 +86,26 @@ describe("three-key walking",()=>{
  it("offers explicit B/C settlement at the end, A never submits",async()=>{saved.game!.walking!.beat=72;await mount();await clock(5000);await key("a");expect(calls()).toHaveLength(0);await key("c");expect(calls()).toEqual([expect.objectContaining({kind:"walk-finish",gameId:id,step:0})]);expect(document.querySelector(".content-home")).toBeTruthy()});
  it("opens park records from the permanent home menu without writing",async()=>{delete saved.game;await mount();await key("a");for(let i=0;i<11;i++)await key("a");await key("b");expect(document.querySelector(".park-album")).toBeTruthy();await key("b");await key("c");expect(calls()).toHaveLength(0)});
 });
+describe("home response after a newly discovered park item",()=>{
+ it("shows a one-shot discovery echo after collecting the route",async()=>{
+  saved.game!.walking!.beat=72;saved.park!.finds=[];
+  api.mockImplementation(async(path,body)=>{
+   if(path==="action") {
+    const a=body as {kind:string};
+    if(a.kind==="walk-finish") {
+     saved.park!.finds=[{id:"leaf",firstAt:Date.now(),lastAt:Date.now(),count:1}];
+     delete saved.game;saved.revision++;
+    }
+   }
+   return response();
+  });
+  await mount();await key("a");await key("c");
+  expect(document.querySelector('[data-echo="park-discovery"]')).toBeTruthy();
+  expect(screen.getByText("新发现 · 沿途")).toBeTruthy();
+  await clock(12000);expect(document.querySelector("[data-echo]")).toBeNull();
+  expect(calls()).toHaveLength(1);
+ });
+});
 describe("real discoveries and species-specific participation",()=>{
  it("never invents undiscovered items and shows real first dates and counts",()=>{const {rerender}=render(<ParkAlbum pet={saved} page={0}/>);expect(screen.getByText("还未遇见")).toBeTruthy();expect(document.querySelector(".park-art text")).toBeTruthy();saved.park!.finds=[{id:"leaf",firstAt:Date.parse("2026-10-18T08:00:00Z"),lastAt:Date.now(),count:2}];rerender(<ParkAlbum pet={saved} page={0}/>);expect(screen.getByText("银杏叶")).toBeTruthy();expect(screen.getByText(/遇见 2 次/)).toBeTruthy();expect(document.querySelector(".park-art text")).toBeNull()});
  it.each(parkCatalog)("renders a distinct $id discovery only after actually meeting it",item=>{saved.park!.finds=[{id:item.id,firstAt:Date.now(),lastAt:Date.now(),count:1}];render(<ParkAlbum pet={saved} page={parkCatalog.indexOf(item)}/>);expect(screen.getByText(item.name)).toBeTruthy();expect(document.querySelectorAll("button,a,input")).toHaveLength(0)});

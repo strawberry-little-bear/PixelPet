@@ -23,8 +23,7 @@ import { TreasureGame } from "./TreasureGame";
 import { nextTreasure, treasureDone, treasureMenu } from "./treasure";
 import { WalkingGame, ParkAlbum } from "./WalkingGame";
 import { parkCatalog, walkMenu } from "./walk";
-import { completedExperience, experienceWords } from "./companion";
-import type { GameExperience } from "./types";
+import { completedExperience, experienceWords, recordNewDiscoveries, takeDiscoveryEcho, type CompanionEchoKind } from "./companion";
 import { FishingGame, FishAlbum } from "./FishingGame";
 import { fishCatalogFor, fishingMenu } from "./fishing";
 import { TetrisGame, tetrisOptions } from "./TetrisGame";
@@ -234,8 +233,10 @@ export default function App() {
   // Ordinary reads and care keep this last acknowledged game result unchanged.
   const [gameOutcome, setGameOutcome] = useState<GameOutcomeRecord | null>(null);
   // A page-local visual window, independent of saved dates and server clock anchors.
-  const [homeEcho, setHomeEcho] = useState<(GameExperience & { monotonicUntil: number }) | null>(null);
+  const [homeEcho, setHomeEcho] = useState<{ kind: CompanionEchoKind; monotonicUntil: number } | null>(null);
   const seenExperiences = useRef(new Set<string>());
+  const seenDiscoveries = useRef(new Set<string>());
+  const pendingDiscoveryEchoes = useRef(new Map<string, "fish-discovery" | "park-discovery">());
   const homeEchoEpoch = useRef(0);
   const recapDisplayEpoch = useRef(0);
   const [foreground, setForeground] = useState(() => !document.hidden);
@@ -521,6 +522,8 @@ export default function App() {
     setCareOutcome(null);
     setGameOutcome(null);
     setHomeEcho(null);
+    seenDiscoveries.current.clear();
+    pendingDiscoveryEchoes.current.clear();
     setEvolution(null);
     activeEvolution.current = null;
     clipRef.current = null;
@@ -1127,9 +1130,24 @@ export default function App() {
           ? "done" : kind === "treasure-dig" ? "result" : "selection" });
       }
       if (["treasure-pause", "treasure-finish", "cancel-play"].includes(kind)) { setTreasureSession(""); setTreasureChoice(0); }
-      const experience = completedExperience(pet?.game?.id, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
-      if (experience && !document.hidden && echoEpoch === homeEchoEpoch.current)
-        setHomeEcho({ ...experience, monotonicUntil: performance.now() + 12000 });
+      const activeGameID = pet?.game?.id;
+      const activeGameKind = pet?.game?.kind;
+      if (activeGameID && activeGameKind === "fishing")
+        recordNewDiscoveries("fish", activeGameID, pet?.pond?.fish,
+          r.state.pond?.fish, pendingDiscoveryEchoes.current, seenDiscoveries.current);
+      if (activeGameID && activeGameKind === "walk")
+        recordNewDiscoveries("park", activeGameID, pet?.park?.finds,
+          r.state.park?.finds, pendingDiscoveryEchoes.current, seenDiscoveries.current);
+      const discoveryEcho = !r.state.game && activeGameID && ["fish-finish", "walk-finish", "cancel-play"].includes(kind)
+        ? activeGameKind === "fishing"
+          ? takeDiscoveryEcho("fish", activeGameID, pendingDiscoveryEchoes.current)
+          : activeGameKind === "walk"
+            ? takeDiscoveryEcho("park", activeGameID, pendingDiscoveryEchoes.current)
+            : null
+        : null;
+      const experience = completedExperience(activeGameID, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
+      if ((discoveryEcho || experience) && !document.hidden && echoEpoch === homeEchoEpoch.current)
+        setHomeEcho({ kind: discoveryEcho ?? experience!.kind, monotonicUntil: performance.now() + 12000 });
       if (kind === "walk-resume" && activeWalkEpoch === walkEpoch.current && !document.hidden && windowActive.current) setWalkSession(r.state.game?.id ?? "");
       if (["walk-pause","walk-finish","cancel-play"].includes(kind)) {setWalkSession("");setWalkChoice(0);}
       if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden && windowActive.current) setFishingSession(r.state.game?.id ?? "");

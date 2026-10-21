@@ -1,5 +1,5 @@
 import { experienceWords } from "./companion";
-import type { SharedGameKind } from "./companion";
+import type { CompanionEchoKind } from "./companion";
 import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
 import { useId } from "react";
 import type { CSSProperties } from "react";
@@ -176,11 +176,11 @@ export function PetScene({
   form?: AdultForm | "";
   need?: NeedKind;
   equipped?: Equipment;
-  echo?: SharedGameKind;
+  echo?: CompanionEchoKind;
 }) {
   const rig = petRigKind(index, stage);
   const sharedEcho = motion === "idle" && stage !== "egg" && !["hungry", "tired", "dirty"].includes(need || "") ? echo : undefined;
-  const echoNeed = sharedEcho ? ({ stars: "content", tiles: "quiet", snake: "content", tetris: "content", fishing: "quiet", walk: "quiet", treasure: "quiet" } as const)[sharedEcho] : undefined;
+  const echoNeed = sharedEcho ? ({ stars: "content", tiles: "quiet", snake: "content", tetris: "content", fishing: "quiet", walk: "quiet", treasure: "quiet", "fish-discovery": "quiet", "park-discovery": "quiet" } as const)[sharedEcho] : undefined;
   const activeNeed = motion === "idle" && stage !== "egg" ? echoNeed || need : undefined;
   const expression: Expression =
     motion === "sleeping"
@@ -220,7 +220,7 @@ export function PetScene({
         style={{ "--clip-duration": `${duration}ms` } as CSSProperties}
       >
         <span className="pet-ground-shadow" />
-        {sharedEcho && <div className="home-game-token" data-game={sharedEcho}><span>{({ stars: "★", tiles: "▧ ▧", snake: "●", tetris: "▥", fishing: "<><", walk: "♧", treasure: "◆" })[sharedEcho]}</span><small>刚才 · {({ stars: "接星星", tiles: "连连看", snake: "贪吃蛇", tetris: "俄罗斯方块", fishing: "池塘钓鱼", walk: "公园散步", treasure: "森林寻宝" })[sharedEcho]}</small></div>}
+        {sharedEcho && <div className="home-game-token" data-game={sharedEcho}><span>{({ stars: "★", tiles: "▧ ▧", snake: "●", tetris: "▥", fishing: "<><", walk: "♧", treasure: "◆", "fish-discovery": "✦", "park-discovery": "✿" })[sharedEcho]}</span><small>{({ stars: "刚才 · 接星星", tiles: "刚才 · 连连看", snake: "刚才 · 贪吃蛇", tetris: "刚才 · 俄罗斯方块", fishing: "刚才 · 池塘钓鱼", walk: "刚才 · 公园散步", treasure: "刚才 · 森林寻宝", "fish-discovery": "新发现 · 小鱼", "park-discovery": "新发现 · 沿途" })[sharedEcho]}</small></div>}
         {motion === "sleeping" && (
           <>
             <span className="sleep-pillow" />

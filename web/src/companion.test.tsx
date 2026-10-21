@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { games } from "./games";
-import { completedExperience, experienceWords, interestSummary } from "./companion";
+import { completedExperience, experienceWords, interestSummary, recordNewDiscoveries, takeDiscoveryEcho } from "./companion";
 import { CompanionPanel } from "./CompanionPanel";
 import { PetScene } from "./PetScene";
 import type { Companion, GameExperience } from "./types";
@@ -62,5 +62,25 @@ describe("home echoes respect anatomy and care priority", () => {
   it.each(["eating","bathing","sleeping","waking","celebrating"] as const)("never intrudes on %s",motion=>{
     const {container}=render(<PetScene index={2} motion={motion} echo="stars" clipId={1} dirty={false}/>);
     expect(container.querySelector('[data-echo]')).toBeNull();expect(container.querySelector('.home-game-token')).toBeNull();
+  });
+});
+
+describe("discovery echoes stay local to a real outing", () => {
+  const found = (id: string) => ({ id, firstAt: 1, lastAt: 1, count: 1 });
+  it("records a first fish or park item, ignores repeat counts, and consumes once", () => {
+    const pending = new Map<string, "fish-discovery" | "park-discovery">();
+    const seen = new Set<string>();
+    expect(recordNewDiscoveries("fish", "fishing-session", [], [found("sun-carp")], pending, seen)).toBe(true);
+    expect(recordNewDiscoveries("fish", "fishing-session", [found("sun-carp")], [{ ...found("sun-carp"), count: 2 }], pending, seen)).toBe(false);
+    expect(takeDiscoveryEcho("fish", "fishing-session", pending)).toBe("fish-discovery");
+    expect(takeDiscoveryEcho("fish", "fishing-session", pending)).toBeNull();
+    expect(recordNewDiscoveries("park", "walk-session", [], [found("leaf")], pending, seen)).toBe(true);
+    expect(takeDiscoveryEcho("park", "walk-session", pending)).toBe("park-discovery");
+  });
+  it("does not infer a discovery when there is no local session", () => {
+    const pending = new Map<string, "fish-discovery" | "park-discovery">();
+    const seen = new Set<string>();
+    expect(recordNewDiscoveries("fish", undefined, [], [found("sun-carp")], pending, seen)).toBe(false);
+    expect(pending.size).toBe(0);
   });
 });
