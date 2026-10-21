@@ -1,5 +1,6 @@
 import { usePhysicalButtonFocus } from "./usePhysicalButtonFocus";
 import { CareReadingRegion } from "./CareReadingRegion";
+import { starsReactionFor, starsReactionMs, type StarsReaction } from "./stars-reaction";
 import { treasureReactionFor, treasureReactionMs, type TreasureReaction } from "./treasure-reaction";
 import { anchorServerClock, readServerClock } from "./serverClock";
 import { useTreasureViewport, type TreasureDestination } from "./useTreasureViewport";
@@ -186,6 +187,7 @@ export default function App() {
   const [chosen, setChosen] = useState(0);
   const [selected, setSelected] = useState(0);
   const [lane, setLane] = useState(1);
+  const [starsReaction, setStarsReaction] = useState<StarsReaction | null>(null);
   const [now, setNow] = useState(Date.now());
   const clock = useRef(anchorServerClock(now));
   const [busy, setBusy] = useState(false);
@@ -522,7 +524,7 @@ export default function App() {
     fishingEpoch.current++;
     boardEpoch.current++;
     homeEchoEpoch.current++;
-    setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
+    setWalkSession(""); setTreasureSession(""); setTreasureReaction(null); setStarsReaction(null);
     setFishingSession("");
     setTetrisSession("");
     setSnakeSession("");
@@ -797,6 +799,12 @@ export default function App() {
     return () => clearInterval(timer);
   }, [page]);
   useEffect(() => {
+    if (!starsReaction) return;
+    const timer = setTimeout(() => setStarsReaction(null), starsReactionMs);
+    return () => clearTimeout(timer);
+  }, [starsReaction]);
+  useEffect(() => { setStarsReaction(null); }, [sessionKey, page]);
+  useEffect(() => {
     if (!treasureReaction) return;
     const timer = setTimeout(() => setTreasureReaction(null), treasureReactionMs);
     return () => clearTimeout(timer);
@@ -1045,7 +1053,7 @@ export default function App() {
     syncEpoch.current++;
     setCareFeedback(null);
     setCareOutcome(null);
-    setTreasureReaction(null);
+    setTreasureReaction(null); setStarsReaction(null);
     setHomeEcho(null);
     busyRef.current = true;
     setBusy(true);
@@ -1091,6 +1099,9 @@ export default function App() {
         && activeEpoch === fishingEpoch.current && performance.now() - actionStartedAt <= 1500
         && !document.hidden && windowActive.current)
         audio.current?.bite();
+      if (kind === "catch" && page === "game" && activeBoardEpoch === boardEpoch.current
+        && performance.now() - actionStartedAt <= 2000 && !document.hidden && windowActive.current)
+        setStarsReaction(starsReactionFor(pet?.game, r.state.game, extra.lane));
       if (kind === "treasure-dig" && page === "game" && treasureSession === pet?.game?.id
         && activeBoardEpoch === boardEpoch.current && performance.now() - actionStartedAt <= 2000
         && !document.hidden && windowActive.current)
@@ -1239,7 +1250,7 @@ export default function App() {
       audio.current?.cancel();
       setTileLink(null);
       boardEpoch.current++;
-      walkEpoch.current++;setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
+      walkEpoch.current++;setWalkSession(""); setTreasureSession(""); setTreasureReaction(null); setStarsReaction(null);
       fishingEpoch.current++;
       setFishingSession("");
       setTetrisSession("");
@@ -1323,7 +1334,7 @@ export default function App() {
       audio.current?.cancel();
       setTileLink(null);
       boardEpoch.current++;
-      walkEpoch.current++; setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
+      walkEpoch.current++; setWalkSession(""); setTreasureSession(""); setTreasureReaction(null); setStarsReaction(null);
       fishingEpoch.current++; setFishingSession("");
       setSnakeSession("");
       setTetrisSession("");
@@ -1357,7 +1368,7 @@ export default function App() {
     // Invalidate local run permission and any late automatic callback. Merely
     // reading does not persist a pause, step, reward or tutorial preference.
     boardEpoch.current++; fishingEpoch.current++; walkEpoch.current++;
-    setTetrisSession(""); setFishingSession(""); setWalkSession(""); setTreasureSession(""); setTreasureReaction(null);
+    setTetrisSession(""); setFishingSession(""); setWalkSession(""); setTreasureSession(""); setTreasureReaction(null); setStarsReaction(null);
     setPauseGuideSession(sessionKey); setGuidePage(0); setPage("pause-guide");
     setPauseReadingDestination({ sessionKey, target: "guide" });
   };
@@ -1724,7 +1735,7 @@ export default function App() {
       } else if (page === "menu") {
         setSelected((v) => (v + 1) % items.length); navigateCareReading("menu");
       }
-      else if (page === "game") setLane((v) => (v + 1) % 3);
+      else if (page === "game") { setStarsReaction(null); setLane((v) => (v + 1) % 3); }
       else if (page === "status") {
         setStatusPage(v => (v + 1) % statusPageCount); navigateCareReading("status");
       }
@@ -1735,6 +1746,7 @@ export default function App() {
     }
     if (key === "C") {
       if (page === "game") {
+        setStarsReaction(null);
         setAbandonGame(sessionKey);
         return;
       }
@@ -2556,7 +2568,8 @@ export default function App() {
                           />
                         )}
                         {page === "game" && !abandoning && pet.game && !pet.game.kind && (
-                          <StarsGame pet={pet} now={now} lane={lane} target={target} message={message} />
+                          <StarsGame pet={pet} now={now} lane={lane} target={target} message={message}
+                            reaction={!tools && !help && !reset && foreground ? starsReaction : null} />
                         )}
                         {page === "game" && !abandoning && gameRewardReading && <section className="session-allowance" aria-label="本局奖励提示">
                           <strong>本局奖励提示</strong>

@@ -1,12 +1,14 @@
+import { starsReactionMatches, type StarsReaction } from "./stars-reaction";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
 import type { PetState } from "./types";
 
 const positions = ["左边", "中间", "右边"];
-export function StarsGame({ pet, now, lane, target, message }: {
-  pet: PetState; now: number; lane: number; target: number; message: string;
+export function StarsGame({ pet, now, lane, target, message, reaction }: {
+  pet: PetState; now: number; lane: number; target: number; message: string; reaction?: StarsReaction | null;
 }) {
   if (!pet.game || pet.game.kind) return null;
+  const caught = starsReactionMatches(reaction, pet.game, lane);
   return (
     <section className="star-game" aria-label="接星星">
       <header className="game-score">
@@ -18,6 +20,7 @@ export function StarsGame({ pet, now, lane, target, message }: {
           <div key={i} className={`game-lane ${i === lane ? "lane-selected" : ""}`}>
             <span className={`falling-star ${target === i ? "visible" : ""}`} aria-hidden="true">★</span>
             {lane === i ? <PetArt index={pet.species} stage={petGrowth(pet, now).stage}
+              motion={caught ? "celebrating" : "idle"} expression={caught ? "content" : "awake"}
               accessory={pet.economy?.equipped.accessory} /> : <span className="lane-dot" aria-hidden="true">·</span>}
           </div>
         ))}
