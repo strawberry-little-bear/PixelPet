@@ -19,6 +19,7 @@ const port = await new Promise((resolve, reject) => {
 const base = `http://127.0.0.1:${port}`;
 const games = ['stars', 'tiles', 'snake', 'tetris', 'fishing', 'walk', 'treasure'];
 const actions = ['play', 'play-tiles', 'play-snake', 'play-tetris', 'play-fishing', 'play-walk', 'play-treasure'];
+const repeatStartInstruction = { stars: '开始', tiles: '开始', fishing: '进入准备', snake: '进入暂停', tetris: '进入暂停', walk: '进入暂停', treasure: '进入暂停' };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 let server, browser, startupError, log = '';
 async function api(path, body) {
@@ -130,7 +131,7 @@ try {
       await seed(); await page.reload(); await enter(page, index);
       await key(page, 'B'); await page.locator('.game-quick-start').waitFor();
       assert.equal(await page.locator('.guide-steps').count(), 0);
-      assert((await page.locator('.game-guide').innerText()).includes('A 重看规则 · B 开始'));
+      assert((await page.locator('.game-guide').innerText()).includes(`A 重看规则 · B ${repeatStartInstruction[id]}`));
       await readable(page, '.game-quick-start');
       if (id === 'walk') await page.screenshot({ path: join(dir, `repeat-${width}-${font}.png`), fullPage: true });
       await key(page, 'A'); await page.locator('.guide-steps').waitFor();
