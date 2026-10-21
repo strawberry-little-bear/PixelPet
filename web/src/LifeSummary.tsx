@@ -6,6 +6,7 @@ import "./life-summary.css";
 const gameMemoryKinds = new Set<Memory["kind"]>([
   "stars", "perfect-stars", "tiles", "snake", "tetris", "fishing", "walk", "treasure",
 ]);
+const walkLength = 72;
 
 function validTimestamp(value: number | undefined): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0 && value <= 8.64e15;
@@ -25,12 +26,19 @@ export function lifeSummary(pet: PetState, now: number) {
   const memories = pet.album?.entries ?? [];
   const gameMemories = memories.filter(entry => gameMemoryKinds.has(entry.kind)).length;
   const discoveries = (pet.pond?.fish?.length ?? 0) + (pet.park?.finds?.length ?? 0);
+  const completedWalks = Number.isSafeInteger(pet.park?.walks) ? Math.max(0, pet.park?.walks ?? 0) : 0;
+  const fishCaught = (pet.pond?.fish ?? []).reduce((total, fish) =>
+    total + (Number.isSafeInteger(fish.count) ? Math.max(0, fish.count) : 0), 0);
   return {
     daysTogether,
     careCount: Number.isFinite(pet.careCount) ? Math.max(0, Math.floor(pet.careCount)) : 0,
     memoryCount: memories.length,
     gameMemories,
     discoveries,
+    completedWalks,
+    walkSteps: completedWalks * walkLength,
+    fishCaught,
+    fishSpecies: pet.pond?.fish?.length ?? 0,
     interest: pet.companion ? interestSummary(pet.companion) : "还没有保存的共同游戏经历，玩喜欢的就好。",
     recentMemory: recentMemory(pet),
   };
@@ -48,6 +56,16 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       <div><strong>{summary.discoveries}</strong><span>真实发现</span></div>
     </div>
     <p>{summary.interest}</p>
+    <section className="life-summary-experiences" aria-label="共同经历统计">
+      <strong>共同经历统计</strong>
+      <div className="life-summary-experience-grid">
+        <div data-stat="walks"><b>{summary.completedWalks}</b><span>完成散步</span></div>
+        <div data-stat="walk-steps"><b>{summary.walkSteps}</b><span>累计步数</span></div>
+        <div data-stat="fish-caught"><b>{summary.fishCaught}</b><span>实际钓获</span></div>
+        <div data-stat="fish-species"><b>{summary.fishSpecies}</b><span>已识鱼种</span></div>
+      </div>
+      <small>只统计已经保存的经历：散步按每次完整路线 72 步计算；钓获来自鱼图鉴次数。</small>
+    </section>
     {summary.recentMemory && <section className="life-summary-memory" aria-label="最近保存的回忆">
       <strong>最近保存的回忆</strong>
       <time dateTime={new Date(summary.recentMemory.at).toISOString()}>{new Date(summary.recentMemory.at).toLocaleDateString("zh-CN", {

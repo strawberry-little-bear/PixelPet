@@ -14,3 +14,14 @@
 @media (max-width: 380px) {
   .life-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; }
 }
+
+.life-summary-experiences { margin: 10px 0; padding: 8px; border: 1px dashed currentColor; border-radius: 2px; }
+.life-summary-experiences > strong { display: block; }
+.life-summary-experience-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 7px 0 5px; }
+.life-summary-experience-grid > div { min-width: 0; display: grid; gap: 2px; text-align: center; }
+.life-summary-experience-grid b { font-size: 1.05em; }
+.life-summary-experience-grid span { overflow-wrap: anywhere; }
+.life-summary-experiences small { display: block; line-height: 1.35; }
+@media (max-width: 380px) {
+  .life-summary-experience-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
+}
