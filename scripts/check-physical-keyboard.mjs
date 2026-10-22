@@ -83,7 +83,7 @@ try {
           await page.screenshot({ path: join(dir, `help-${key}.png`), fullPage: true });
         }
         await page.keyboard.press(key); await page.getByRole('dialog').waitFor({ state: 'hidden' });
-        assert(await page.getByRole('button', { name: '玩法说明' }).evaluate(el => el === document.activeElement));
+        assert(await page.locator('.physical-button.button-c').evaluate(el => el === document.activeElement));
         // Tab actually traverses the three buttons in visual A/B/C order.
         await page.locator('.button-a').focus(); await page.keyboard.press('Tab');
         assert(await page.locator('.button-b').evaluate(el => el === document.activeElement));
