@@ -37,11 +37,11 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 for (const stage of ["baby", "growing", "adult"] as const) for (const action of ["feed", "clean"] as const) {
   it.each(["help", "tools", "reset", "hidden"])(`${stage}/${action}: retains the historical reason after %s outlasts the reward interval`, async name => {
     kind = action; await mount(stage); const growth = structuredClone(saved.growth); await care();
-    const text = toast(); expect(text).toContain("记录时同类习惯仍在间隔内");
+    const text = toast(); expect(text).toContain("记录时同类习惯仍在间隔内"); expect(text).toContain("记录时约还需 1 分钟"); expect(text).toContain("以之后实际结果为准");
     if (name === "hidden") {
       const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true); await sync(); await tick(65000); hidden.mockReturnValue(false); await sync();
     } else { await cover(name, true); await tick(65000); await cover(name, false); }
-    expect(toast()).toBe(text); expect(toast()).not.toMatch(/已结束|还需.*分钟|成长 \+/);
+    expect(toast()).toBe(text); expect(toast()).not.toMatch(/已结束|成长 \+/);
     expect(document.querySelector(".care-learning")?.textContent).toContain("记录时同类习惯仍在间隔内");
     expect(saved.growth).toEqual(growth); expect(receipt.habitGain).toBe(0); expect(writes()).toHaveLength(1);
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3); expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();

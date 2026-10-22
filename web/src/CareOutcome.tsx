@@ -4,6 +4,7 @@ import "./care-outcome.css";
 import { SleepSummary } from "./SleepSummary";
 import { CareReadingRegion } from "./CareReadingRegion";
 import { careHabitUnits } from "./careHabitUnits";
+import { cooldownEstimate } from "./cooldownEstimate";
 import { formNames } from "./growth";
 
 const needLabels = [["hunger", "饱食"], ["mood", "心情"], ["clean", "清洁"], ["energy", "体力"]] as const;
@@ -42,8 +43,11 @@ function learningSummary(f: CareFeedback): { habit: string; reason: string } | n
   if (habitGain !== 0 || f.points !== 0) return null;
   if (f.reason === "not-needed" && (f.kind === "feed" || f.kind === "clean"))
     return { habit: `${label}：+0`, reason: `记录时${f.kind === "feed" ? "饱食" : "清洁"}已满足，本次不计习惯。` };
-  return f.reason === "cooldown"
-    ? { habit: `${label}：+0`, reason: "记录时同类习惯仍在间隔内；本次不计入，不代表状态没有改善。" } : null;
+  if (f.reason === "cooldown") {
+    const estimate = cooldownEstimate(f);
+    return { habit: `${label}：+0`, reason: `记录时同类习惯仍在间隔内；本次不计入，不代表状态没有改善。${estimate ? ` ${estimate}` : ""}` };
+  }
+  return null;
 }
 
 // Never infer a historical transition from the current pet, points, or a local

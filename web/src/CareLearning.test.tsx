@@ -57,7 +57,7 @@ describe("saved care learning receipt", () => {
   it("describes the saved cooldown without a stale countdown or promise of future credit", () => {
     render(<CareOutcome feedback={{ ...feedback, points: 0, habitGain: 0, reason: "cooldown", retryAt: 1 }} />);
     expect(learning()?.textContent).toContain("记录时同类习惯仍在间隔内");
-    expect(learning()?.textContent).not.toContain("分钟");
+    expect(learning()?.textContent).not.toContain("还需");
     expect(learning()?.textContent).not.toContain("间隔已结束");
   });
   it.each(["resting", "awake"] as const)("%s does not credit the sleep toggle with passive rest", reason => {

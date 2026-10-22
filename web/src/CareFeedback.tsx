@@ -2,6 +2,7 @@ import type { CareFeedback as Feedback, CareRules, Growth } from "./types";
 import { nextGrowthGoal } from "./growth";
 import { sleepGrowthGuidance } from "./sleepGuidance";
 import { careHabitUnits } from "./careHabitUnits";
+import { cooldownEstimate } from "./cooldownEstimate";
 
 const habitNames = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" };
 
@@ -30,7 +31,8 @@ export function feedbackText(feedback: Feedback, growth: Growth, context?: { rul
   }
   // A confirmed result is historical, even if the toast was covered for a while.
   // Do not infer current reward eligibility from a local clock or an old retryAt.
-  return { title, detail: "记录时同类习惯仍在间隔内；本次不计入。下次以实际结果为准。" };
+  const estimate = cooldownEstimate(feedback);
+  return { title, detail: `记录时同类习惯仍在间隔内；本次不计入。${estimate || "下次以实际结果为准。"}` };
 }
 
 export function CareFeedback({ feedback, growth, mood, rules, growthRecorded = true }: {

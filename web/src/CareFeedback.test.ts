@@ -32,6 +32,13 @@ describe("honest growth feedback", () => {
       expect(feedbackText(f, emptyGrowth()).detail).toBe("记录时同类习惯仍在间隔内；本次不计入。下次以实际结果为准。");
     }
   });
+  it("explains the historical remaining interval without turning it into a live promise", () => {
+    const at = Date.parse("2026-10-20T01:20:00Z");
+    const f = { ...credit, reason: "cooldown" as const, points: 0, habitGain: 0,
+      effect: { at, before: { hunger: 60, mood: 70, clean: 60, energy: 80 }, after: { hunger: 80, mood: 73, clean: 57, energy: 80 } },
+      retryAt: at + 61_000 };
+    expect(feedbackText(f, emptyGrowth()).detail).toBe("记录时同类习惯仍在间隔内；本次不计入。记录时约还需 2 分钟；以之后实际结果为准。");
+  });
   it("does not promise more growth points when an adult goes to sleep", () => {
     const f = { ...credit, kind: "sleep" as const, reason: "resting" as const, points: 0, habitGain: 0 };
     expect(feedbackText(f, emptyGrowth()).detail).toContain("成长基准尚未读到");

@@ -15,8 +15,8 @@ for (const kind of ["feed", "clean", "catch", "tile-pick", "snake-finish", "tetr
     const f = feedback(kind, at + 60000), saved = structuredClone(f);
     const view = render(<CareFeedback feedback={f} growth={emptyGrowth()} mood="" />);
     const initial = screen.getByRole("status").textContent!;
-    expect(initial).toContain("记录时同类习惯仍在间隔内"); expect(initial).toContain("下次以实际结果为准");
-    expect(initial).not.toMatch(/还需.*分钟|已结束|成长 \+|习惯 \+1/);
+    expect(initial).toContain("记录时同类习惯仍在间隔内"); expect(initial).toContain("记录时约还需 1 分钟"); expect(initial).toContain("以之后实际结果为准");
+    expect(initial).not.toMatch(/已结束|成长 \+|习惯 \+1/);
     for (const now of [at - 86400000, at + 60000, at + 86400000]) {
       vi.setSystemTime(now); view.rerender(<CareFeedback feedback={f} growth={emptyGrowth()} mood="" />);
       expect(screen.getByRole("status").textContent).toBe(initial);
@@ -27,5 +27,5 @@ for (const kind of ["feed", "clean", "catch", "tile-pick", "snake-finish", "tetr
 it.each([undefined, 0, at - 60000])("legacy retryAt %s does not turn a confirmed cooldown into readiness", retryAt => {
   render(<CareFeedback feedback={feedback("feed", retryAt)} growth={emptyGrowth("adult")} mood="" />);
   const text = screen.getByRole("status").textContent!;
-  expect(text).toContain("记录时同类习惯仍在间隔内"); expect(text).not.toMatch(/已结束|成长 \+|还需.*分钟/);
+  expect(text).toContain("记录时同类习惯仍在间隔内"); expect(text).not.toMatch(/已结束|成长 \+/);
 });
