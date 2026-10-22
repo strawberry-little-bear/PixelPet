@@ -13,6 +13,14 @@ function validTimestamp(value: number | undefined): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0 && value <= 8.64e15;
 }
 
+// Saved timestamps are whole milliseconds, but "now" comes from the server
+// clock anchor plus a fractional performance.now() delta. It is a real instant
+// that is almost never an integer, so it must not go through validTimestamp or
+// every day count silently falls back to the placeholder.
+function validMoment(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 8.64e15;
+}
+
 function recentMemory(pet: PetState) {
   const memory = albumMemories(pet).filter(entry => validTimestamp(entry.at)).at(-1);
   if (!memory) return null;
@@ -21,7 +29,7 @@ function recentMemory(pet: PetState) {
 }
 
 export function lifeSummary(pet: PetState, now: number) {
-  const daysTogether = validTimestamp(pet.createdAt) && validTimestamp(now)
+  const daysTogether = validTimestamp(pet.createdAt) && validMoment(now)
     ? Math.max(1, Math.floor((now - pet.createdAt) / 86400000) + 1)
     : null;
   const memories = pet.album?.entries ?? [];
