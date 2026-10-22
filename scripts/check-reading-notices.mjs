@@ -29,7 +29,7 @@ async function key(page, k) {
 }
 async function unobscured(page, label) {
   const metrics = [];
-  for (const target of await page.locator('.sleep-home-guidance p,.care-outcome-reading p,.care-reading-hint,.lcd-bottom,.physical-button').all()) {
+  for (const target of await page.locator('.sleep-home-guidance p,.care-outcome-reading p,.lcd-bottom,.physical-button').all()) {
     await target.evaluate(el => el.scrollIntoView({ block: 'end', behavior: 'instant' }));
     const metric = await target.evaluate(el => {
       const t = document.querySelector('.toast').getBoundingClientRect(), ranges = [];
@@ -48,6 +48,25 @@ async function unobscured(page, label) {
     assert.equal(metric.hidden, 0, JSON.stringify(metric)); metrics.push(metric);
   }
   assert(metrics.length >= 4, 'Must cover reading and keys');
+  const reading = page.locator('.sleep-home-guidance,.care-outcome-reading').first();
+  const hint = reading.locator('.care-reading-hint');
+  const restingHint = await hint.evaluate(el => {
+    const css = getComputedStyle(el);
+    return { position: css.position, width: css.width, height: css.height, clipPath: css.clipPath };
+  });
+  assert.equal(restingHint.position, 'absolute', `${label}: reading hint should not lead the visual reading flow`);
+  assert.equal(restingHint.width, '1px', `${label}: resting reading hint should be visually compact`);
+  assert.equal(restingHint.height, '1px', `${label}: resting reading hint should be visually compact`);
+  await page.locator('.button-c').focus();
+  for (let i = 0; i < 10 && !await reading.evaluate(el => document.activeElement === el); i++) await page.keyboard.press('Shift+Tab');
+  assert(await reading.evaluate(el => document.activeElement === el), `${label}: Tab must reach the reading region`);
+  const focusedHint = await hint.evaluate(el => {
+    const css = getComputedStyle(el), rect = el.getBoundingClientRect();
+    return { position: css.position, width: css.width, height: css.height, clipPath: css.clipPath, visible: rect.width > 0 && rect.height > 0 };
+  });
+  assert.equal(focusedHint.position, 'static', `${label}: focused reading hint should be in the reading flow`);
+  assert(focusedHint.visible, `${label}: focused reading hint should be visible`);
+  assert.equal(focusedHint.clipPath, 'none', `${label}: focused reading hint should not remain clipped`);
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   const notice = page.getByRole('status').filter({ has: page.getByRole('button', { name: '关闭提示' }) });
   assert.equal(await notice.count(), 1);
