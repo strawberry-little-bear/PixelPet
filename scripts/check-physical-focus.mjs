@@ -122,7 +122,9 @@ try {
         } else if(expected==='dialog') {
           assert(await page.getByRole('dialog').evaluate(el=>el.contains(document.activeElement)),'modal focus must stay inside');
           await page.getByRole('button',{name:'关闭',exact:true}).click();
-          assert(await page.getByRole('button',{name:'玩法说明',exact:true}).evaluate(el=>el===document.activeElement));
+          // External modal controls must return to the physical C key so the
+          // LCD's C shortcut remains usable after the ordinary button loses focus.
+          assert(await page.locator('.physical-button.button-c').evaluate(el=>el===document.activeElement));
         } else if(expected==='other') {
           assert(await tabFocus.evaluate(el=>el===document.activeElement),'Tab focus must not be stolen');
           await tabFocus.dispose();
