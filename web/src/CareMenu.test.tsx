@@ -24,6 +24,21 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("three-key care explanations", () => {
+  it("shows that the six visible menu rows are only a window into all thirteen choices", async () => {
+    await mount(); await key("b");
+    const progress = () => document.querySelector<HTMLElement>(".care-menu-pagination")?.textContent;
+    expect(progress()).toContain("第 1–6 / 13 项");
+    expect(progress()).toContain("还有 7 项");
+
+    for (let i = 0; i < 6; i++) await key("a");
+    expect(progress()).toContain("第 2–7 / 13 项");
+    expect(progress()).toContain("还有 6 项");
+
+    for (let i = 0; i < 6; i++) await key("a");
+    expect(progress()).toContain("已到最后一项");
+    expect(progress()).toContain("回到第 1 项");
+  });
+
   it("opens, browses all thirteen hints, wraps, and cancels without writes", async () => {
     await mount(); await key("b");
     const kinds = ["feed", "arcade", "clean", "sleep", "status", "journal", "growth", "return", "album", "shop", "fish-album", "park-album", "moment"];

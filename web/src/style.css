@@ -1139,6 +1139,12 @@ footer i {
   bottom: 12px;
   color: #899570;
 }
+.care-menu-pagination {
+  margin: 0 1px 5px;
+  color: #77885a;
+  font: 8px var(--mono);
+  line-height: 1.6;
+}
 .care-menu {
   display: flex;
   flex-direction: column;

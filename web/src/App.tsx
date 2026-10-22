@@ -2536,6 +2536,18 @@ export default function App() {
                         {page === "menu" && (
                           <CareReadingRegion className="care-menu-reading" label="照顾菜单阅读区"
                             hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
+                            <div className="care-menu-pagination" aria-live="polite" aria-atomic="true" aria-label="菜单浏览进度">
+                              {(() => {
+                                const start = Math.max(0, selected - 5);
+                                const end = Math.min(items.length, start + 6);
+                                const remaining = items.length - end;
+                                return remaining > 0
+                                  ? <>第 {start + 1}–{end} / {items.length} 项 · A 继续浏览（还有 {remaining} 项）</>
+                                  : selected === items.length - 1
+                                    ? <>第 {start + 1}–{end} / {items.length} 项 · 已到最后一项，A 将回到第 1 项</>
+                                    : <>第 {start + 1}–{end} / {items.length} 项 · A 继续浏览</>;
+                              })()}
+                            </div>
                             <div className="care-menu">
                               {items
                                 .slice(
