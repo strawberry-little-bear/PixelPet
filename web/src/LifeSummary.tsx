@@ -25,7 +25,9 @@ export function lifeSummary(pet: PetState, now: number) {
     ? Math.max(1, Math.floor((now - pet.createdAt) / 86400000) + 1)
     : null;
   const memories = pet.album?.entries ?? [];
-  const gameMemories = memories.filter(entry => gameMemoryKinds.has(entry.kind)).length;
+  const gameMemories = new Set(memories.flatMap(entry => entry.kind === "perfect-stars"
+    ? ["stars"]
+    : gameMemoryKinds.has(entry.kind) ? [entry.kind] : [])).size;
   const discoveries = (pet.pond?.fish?.length ?? 0) + (pet.park?.finds?.length ?? 0);
   const completedWalks = Number.isSafeInteger(pet.park?.walks) ? Math.max(0, pet.park?.walks ?? 0) : 0;
   const fishCaught = (pet.pond?.fish ?? []).reduce((total, fish) =>
@@ -33,7 +35,7 @@ export function lifeSummary(pet: PetState, now: number) {
   const gameStats = games.map(game => ({
     id: game.id,
     title: game.title,
-    count: memories.filter(entry => entry.kind === game.id).length,
+    recorded: memories.some(entry => entry.kind === game.id || (game.id === "stars" && entry.kind === "perfect-stars")),
   }));
   const lastMemory = recentMemory(pet);
   const stage = pet.growth?.stage;
@@ -89,13 +91,13 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       <small>只统计已经保存的经历：散步按每次完整路线 72 步计算；钓获来自鱼图鉴次数。</small>
     </section>
     <section className="life-summary-games" aria-label="各游戏共同经历">
-      <strong>各游戏收好次数</strong>
+      <strong>各游戏纪念</strong>
       <ul>
         {summary.gameStats.map(game => <li key={game.id} data-game-stat={game.id}>
-          <span>{game.title}</span><b>{game.count}</b>
+          <span>{game.title}</span><b>{game.recorded ? "留过" : "尚无"}</b>
         </li>)}
       </ul>
-      <small>只计算已经完成并收好的正式游戏；中途放弃、未完成的进度不会补算。</small>
+      <small>这里只表示纪念册是否留过这款游戏；重复游玩不重复计数，中途放弃不会留下游戏纪念。</small>
     </section>
     {summary.recentMemory && <section className="life-summary-memory" aria-label="最近保存的回忆">
       <strong>最近保存的回忆</strong>
