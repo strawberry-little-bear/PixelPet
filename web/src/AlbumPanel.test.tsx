@@ -104,4 +104,10 @@ describe("album categories", () => {
   rerender(<AlbumPanel pet={p} now={now} page={1} category="days" />);
   expect(screen.getByText(/不代表连续登录/)).toBeTruthy();
  });
+ it("says 今天 instead of 相识 0 天 on the first day, and tolerates a live fractional clock", () => {
+  const p=pet();p.hatchedAt=now-3600000;
+  render(<AlbumPanel pet={p} now={now+0.6} page={0} category="play" />);
+  expect(screen.getByText("今天刚刚相识")).toBeTruthy();
+  expect(document.querySelector(".album-panel")?.textContent).not.toContain("相识 0 天");
+ });
 });

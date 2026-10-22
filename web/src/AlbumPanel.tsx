@@ -68,11 +68,17 @@ export function memoryWords(m: Memory, legacy: boolean) {
   }
 }
 const dateLabel = (at: number) => new Date(at).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+// Whole days since the first meeting. Day one reads "今天", not "相识 0 天";
+// the status page numbers the same day as 相识第 1 天.
+const meetingDays = (now: number, hatchedAt: number) => Number.isFinite(now) && Number.isFinite(hatchedAt)
+  ? Math.max(0, Math.floor((now - hatchedAt) / 86400000))
+  : null;
 const memorySlots: Partial<Record<Memory["kind"], ShopItem["slot"]>> = {
   outfit: "accessory", decoration: "room", wallpaper: "wallpaper", floor: "floor",
 };
 export function AlbumPanel({ pet, shop, now, page, category = "all", missing = false }: { pet: PetState; shop?: Shop | null; now: number; page: number; category?: AlbumCategory; missing?: boolean }) {
   const memories = albumMemories(pet, category);
+  const meeting = meetingDays(now, pet.hatchedAt);
   const categoryLabel = albumCategories.find(c => c.id === category)!.label;
   const currentPage = Math.min(Math.max(0, page), memories.length);
   const memory = currentPage > 0 ? memories[currentPage - 1] : undefined;
@@ -99,7 +105,7 @@ export function AlbumPanel({ pet, shop, now, page, category = "all", missing = f
         ? memory.kind === "hatch" ? "沿用旧存档的相遇日期，不补写照顾经历。" : "旧存档记录时间，可能来自旧版迁移；不补写当时细节。"
         : memory.source === "elapsed" ? "按相遇日期计算，不代表连续登录。" : "来自已保存的真实经历 · 只记录一次"}</small>
     </> : <>
-      <h3>与你相识 {Math.max(0, Math.floor((now - pet.hatchedAt) / 86400000))} 天</h3>
+      <h3>{meeting === null ? "与你相识的每一天" : meeting === 0 ? "今天刚刚相识" : `与你相识 ${meeting} 天`}</h3>
       {memories.length === 0 && pet.album
         ? <p>{category === "scenery" ? <>这里还没有留下风景手记。<br />钓获或走到发现点时自然记录，不必集齐。</> : <>这里还没有留下回忆。<br />不必特意完成什么，慢慢相伴就好。</>}</p>
         : <p>{category === "all" ? <>长大、星光和温柔的小事，<br />不会随最近的日记翻篇。</> : "这里只翻看这一类已保存的回忆，按时间排列。"}</p>}
