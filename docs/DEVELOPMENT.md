@@ -44,6 +44,10 @@ PIXELPET_DB="$DEV_DIR/test.db" go run ./cmd/pet
 
 这是没有身份认证的本地单玩家服务，不要直接暴露到公网。配置一个监听地址不等于具备安全的多人部署能力。
 
+### Windows 与 exFAT
+
+`web/pnpm-workspace.yaml` 已固定使用 `nodeLinker: hoisted`，让 pnpm 使用平铺的依赖目录。Windows exFAT、同步盘或受限目录无法创建 symlink 时，先删除已有的 `web/node_modules`，再在 `web/` 中重新执行 `pnpm install --frozen-lockfile`。不要把依赖目录从 NTFS 复制到 exFAT 后继续复用；重新安装可以避免旧链接残留。安装完成后仍使用同一条 `pnpm build` 命令。
+
 ## 验证与隔离构建
 
 后端和前端单元测试使用测试夹具／临时库；浏览器验收必须另外指定临时数据库和测试端口。下面把构建输出也放进独立目录，避免覆盖玩家正在使用的 `bin/pixelpet` 和 `web/dist`：

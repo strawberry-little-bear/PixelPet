@@ -37,6 +37,8 @@ cd ..
 ./scripts/run.sh
 ```
 
+仓库已为 `web/` 配置 `nodeLinker: hoisted`。这是普通 NTFS、macOS 和 Linux 可以使用的平铺依赖目录；在 Windows 的 exFAT 或受限目录中，也能避免 pnpm 创建 symlink 时的安装失败。若本机已有旧的 `web/node_modules`，删除后重新执行上面的安装命令即可。
+
 浏览器打开 **http://127.0.0.1:8080**。首次选择角色并孵化；以后刷新浏览器或重启服务都能续玩。
 
 > 存档默认在 `data/pixelpet.db`，不是浏览器本地存储。请先在存档盒导出备份，再迁移或替换存档。服务没有身份认证，**不要直接暴露到公网**。

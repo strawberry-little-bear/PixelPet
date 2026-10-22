@@ -2,3 +2,6 @@ packages:
   - .
 allowBuilds:
   esbuild: true
+# Windows exFAT and some restricted folders cannot create pnpm symlinks.
+# Use a flat node_modules tree for the standalone web package.
+nodeLinker: hoisted
