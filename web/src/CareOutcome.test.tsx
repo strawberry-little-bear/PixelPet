@@ -21,6 +21,7 @@ describe("authoritative care outcome", () => {
   expect(panel.querySelector("time")?.dateTime).toBe(new Date(at).toISOString());
   expect(panel.textContent).toContain("不含此前时间结算");
   expect(panel.textContent).toContain("不是当前读数");
+  expect(panel.querySelector('[aria-label="即时状态变化"]')).toBeTruthy();
   expect(panel.querySelector("button,a,input,[tabindex]")).toBeNull();
   expect(within(panel).queryByRole("status")).toBeNull();
  });

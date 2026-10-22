@@ -2,15 +2,24 @@ import { Sprout } from "lucide-react";
 import { journalView } from "./journal";
 import type { JournalCursor, JournalLogs } from "./journal";
 
+function splitDiaryText(text: string) {
+  const marker = "即时需求：";
+  const splitAt = text.indexOf(marker);
+  return splitAt > 0
+    ? { primary: text.slice(0, splitAt), detail: text.slice(splitAt) }
+    : { primary: text, detail: "" };
+}
+
 export function JournalPanel({ logs, cursor }: { logs: JournalLogs; cursor: JournalCursor }) {
   const { entry, index, cursor: current } = journalView(logs, cursor);
+  const diary = entry ? splitDiaryText(entry.text) : null;
   return <section className="screen-journal" aria-label="成长日记">
     <Sprout size={26} aria-hidden="true" />
     {entry ? <>
       <time data-care-reading-start dateTime={new Date(entry.at).toISOString()}>{new Date(entry.at).toLocaleString("zh-CN", {
         year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
       })}</time>
-      <p>{entry.text}</p>
+      <p><span className="journal-primary">{diary?.primary}</span>{diary?.detail && <small className="journal-detail">{diary.detail}</small>}</p>
       <span>{index + 1} / {logs?.length ?? 0}</span>
     </> : <>
       <p data-care-reading-start>还没有日记，之后的照顾和成长会慢慢记在这里。</p>

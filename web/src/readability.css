@@ -94,6 +94,10 @@
 .reading-mode .shop-panel[data-shop-category="directory"] .shop-preview { height: auto; }
 .reading-mode .shop-preview small { position: static; display: block; }
 .reading-mode .screen-journal { height: auto; min-height: 184px; }
+/* Keep the diary voice and receipt heading above their complete numeric detail.
+   Secondary text keeps the reading minimum and scales with enlarged root type. */
+.reading-mode .lcd-content :is(.journal-primary, .care-outcome > h3) { font-size: 1rem; }
+.reading-mode .lcd-content .journal-detail { font-size: .857143rem; }
 .reading-mode .lcd-top, .reading-mode .lcd-bottom { height: auto; min-height: 25px; padding: 4px 0; gap: 4px; font-size: .642857rem; line-height: 1.6; }
 .reading-mode .lcd-bottom > span:last-child { font-size: inherit; flex-shrink: 0; }
 .reading-mode .save-recovery { height: auto; overflow: visible; }

@@ -133,6 +133,18 @@ try {
         assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
         const font = parseFloat(await panel.locator('.care-outcome').evaluate(el => getComputedStyle(el).fontSize));
         assert(Math.abs(font - mode.font * 12/14)<.1, 'actual receipt text doubles');
+        const headingFont = parseFloat(await panel.locator('.care-outcome > h3').evaluate(el => getComputedStyle(el).fontSize));
+        assert(Math.abs(headingFont - mode.font)<.1 && headingFont>font, 'Receipt heading stays above readable numeric details');
+        for (const selector of ['.care-outcome dt', '.care-outcome > small', '.care-learning > small']) {
+          const sizes = await panel.locator(selector).evaluateAll(els => els.map(el => {
+            const css = getComputedStyle(el); return {font:parseFloat(css.fontSize),opacity:css.opacity};
+          }));
+          assert(sizes.length>0);
+          for (const size of sizes) {
+            assert(size.font>=font-.1, 'Secondary receipt text must retain the reading minimum');
+            assert.equal(size.opacity,'1', 'Secondary text must not lose contrast through opacity');
+          }
+        }
         await page.screenshot({path:join(dir,`focus-${label}.png`)});
         for (const [k,direction] of [['ArrowDown',1],['Space',1],['Shift+Space',-1],['End',1],['PageUp',-1],['Home',-1],['PageDown',1]]) {
           await settledScroll(page);
@@ -176,6 +188,21 @@ try {
         assert.equal(await focusedKey(page),'b');
         const confirm = mode.height===380?'Space':'Enter'; await page.keyboard.press(confirm); await page.locator('.care-menu').waitFor();
         assert.deepEqual(writes,[kind]); assert.deepEqual(errors,[]);
+        if (care==='feed' || care==='clean') {
+          await page.keyboard.press('c'); await page.keyboard.press('a');
+          for (let i=0;i<5;i++) await page.keyboard.press('a');
+          await page.keyboard.press('b');
+          const diary = page.locator('.screen-journal'); await diary.waitFor();
+          assert.equal(await diary.locator('p').textContent(),ack.state.logs[0].text, 'Diary preserves the complete saved sentence');
+          const primary = parseFloat(await diary.locator('.journal-primary').evaluate(el => getComputedStyle(el).fontSize));
+          const detail = parseFloat(await diary.locator('.journal-detail').evaluate(el => getComputedStyle(el).fontSize));
+          assert(Math.abs(primary-mode.font)<.1 && primary>detail, 'Diary voice stays above numeric detail');
+          assert(Math.abs(detail-font)<.1, 'Diary details scale with the reading minimum');
+          assert(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth+1), 'Diary horizontal overflow');
+          await page.screenshot({path:join(dir,`diary-${label}.png`),fullPage:true});
+          assert.deepEqual(writes,[kind], 'Reading the diary must not write care');
+          assert.deepEqual(errors,[]);
+        }
         results.push({care,...mode,movements,confirm,writes,feedback:ack.careFeedback});
       } catch(e) {
         await page.screenshot({path:join(dir,`failure-${label}.png`),fullPage:true});

@@ -69,16 +69,18 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
     {!embedded && <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
       year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
     })}（本地时间）</time>}
-    {embedded ? <div className="care-outcome-compact" aria-label="本局照顾后的状态变化">
-      {needLabels.map(([key, label]) => <span key={key} data-need={key}>
-        <strong>{label}</strong> {fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}（{change(after[key] - before[key])}）
-      </span>)}
-    </div> : <dl>
-      {needLabels.map(([key, label]) => <div key={key} data-need={key}>
-        <dt>{label}</dt>
-        <dd><span>{fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}</span><strong>{change(after[key] - before[key])}</strong></dd>
-      </div>)}
-    </dl>}
+    <div className="care-outcome-details" aria-label="即时状态变化">
+      {embedded ? <div className="care-outcome-compact" aria-label="本局照顾后的状态变化">
+        {needLabels.map(([key, label]) => <span key={key} data-need={key}>
+          <strong>{label}</strong> {fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}（{change(after[key] - before[key])}）
+        </span>)}
+      </div> : <dl>
+        {needLabels.map(([key, label]) => <div key={key} data-need={key}>
+          <dt>{label}</dt>
+          <dd><span>{fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}</span><strong>{change(after[key] - before[key])}</strong></dd>
+        </div>)}
+      </dl>}
+    </div>
     {learning && <div className="care-learning" role="group" aria-label="本次成长与习惯">
       <strong>本次成长：+{careAmount(feedback.points)} 点</strong>
       <span>{learning.habit}</span>

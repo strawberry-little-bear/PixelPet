@@ -1246,6 +1246,17 @@ footer i {
   flex: 1;
   color: #4b6037;
 }
+.screen-journal .journal-primary { display: block; }
+.screen-journal .journal-detail {
+  display: block;
+  margin-top: 10px;
+  font-size: .857143rem;
+  line-height: 1.55;
+  letter-spacing: 0;
+  color: #50643e;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
 .screen-journal > span {
   font: 8px var(--mono);
 }
