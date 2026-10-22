@@ -57,15 +57,27 @@
 .treasure-status { margin: 6px 0; }
 @media (forced-colors: active) { .treasure-grid [aria-selected=true] { outline: 2px solid Highlight; } }
 
-/* Keep the same three physical keys available while reading the tall grid. */
-.treasure-mode .device-buttons {
-  position: sticky;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  z-index: 3;
-  padding: 8px;
-  border: 1px solid #718660;
-  border-radius: 16px;
-  background: #d6e5b4;
+/* Keep the tall grid inside the LCD. The physical keys remain in normal
+   document flow, so their sticky tray cannot cover the third row before the
+   player makes a selection. A/B/C can still reveal the current target. */
+.device-stage.treasure-mode .screen-bezel {
+  height: 460px;
+  flex-shrink: 0;
+}
+.device-stage.treasure-mode .lcd-content {
+  height: 380px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.device-stage.treasure-mode .device-buttons {
+  position: static;
+  flex-shrink: 0;
+}
+@media (max-width: 700px) {
+  .device-stage.treasure-mode .screen-bezel { height: 364px; }
+  .device-stage.treasure-mode .lcd-content { height: 284px; }
 }
 .treasure-result { margin: 6px 0; }
 /* Game feedback already lives in the LCD; a transient toast must not cover keys. */
