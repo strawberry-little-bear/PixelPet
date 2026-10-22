@@ -1023,11 +1023,12 @@ export default function App() {
     const trap = (event: KeyboardEvent) => {
       // Let IME selection keep Escape/Tab, including legacy browser events.
       if (event.isComposing || event.keyCode === 229) return;
-      if (event.key === "Escape") {
+      if (event.key === "Escape" || event.key.toLowerCase() === "c") {
         event.preventDefault();
         event.stopPropagation();
         setHelp(false);
         setReset(false);
+        return;
       }
       if (event.key !== "Tab") return;
       const focusable = modalRef.current?.querySelectorAll<HTMLElement>(

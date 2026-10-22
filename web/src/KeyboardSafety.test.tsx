@@ -85,6 +85,35 @@ for (const flag of flags) describe(flag.name, () => {
   });
 });
 
+it('lets C cancel the help and reset modals and restores focus to the physical C key', async () => {
+  await mount();
+  fireEvent.click(screen.getByRole('button', { name: '玩法说明' }));
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  await key('c');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(document.querySelector<HTMLButtonElement>('.physical-button.button-c'));
+
+  fireEvent.click(screen.getByRole('button', { name: /存档盒/ }));
+  fireEvent.click(screen.getByRole('button', { name: '重新开始' }));
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  await key('C');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(document.querySelector<HTMLButtonElement>('.physical-button.button-c'));
+});
+
+it('keeps the hidden backup file input out of Tab until the archive box opens', async () => {
+  await mount();
+  const input = screen.getByLabelText('导入存档文件') as HTMLInputElement;
+  expect(input.disabled).toBe(true);
+  expect(input.tabIndex).toBe(-1);
+  fireEvent.click(screen.getByRole('button', { name: /存档盒/ }));
+  expect(input.disabled).toBe(false);
+  expect(input.tabIndex).toBe(0);
+  fireEvent.click(screen.getByRole('button', { name: /存档盒/ }));
+  expect(input.disabled).toBe(true);
+  expect(input.tabIndex).toBe(-1);
+});
+
 it('respects a key another handler has already consumed', async () => {
   await mount(); await menu(); const before = selection();
   const consume = (e: KeyboardEvent) => e.preventDefault();
