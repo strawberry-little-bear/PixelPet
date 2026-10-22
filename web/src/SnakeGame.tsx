@@ -15,6 +15,12 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
   const paused = !active || snake.paused;
   const growth = petGrowth(pet, now);
   const directions = ["右", "下", "左", "上"];
+  const heading = (snake.direction + (active ? turn : 0) + 4) % 4;
+  const head = snake.body[0];
+  const boundaryDistance = heading === 0 ? 11 - head.x : heading === 1 ? 9 - head.y : heading === 2 ? head.x : head.y;
+  const boundaryHint = active && !snake.paused && !ended && boundaryDistance <= 2
+    ? `前方还有 ${boundaryDistance} 格到围栏，提前按 A 左转或 B 右转。`
+    : "";
   return <section className="snake-game" aria-label="果园贪吃蛇">
     <header><strong>果园贪吃蛇</strong><span>果子 {snake.eaten}/8</span></header>
     <div className="snake-field">
@@ -36,6 +42,7 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
       </svg>
       {(paused || ended) && <div className="snake-overlay" role="status"><strong>{ended ? snake.end === "won" ? "果篮装满啦！" : "休息一下再来" : "果园已暂停"}</strong><span>{ended ? `吃到 ${snake.eaten} 颗 · A 暂不操作 · B / C 收好本局成绩` : "A / C 继续 · B 放弃确认"}</span><small>{ended ? snake.eaten >= 3 ? "计入陪伴 · 最多 6 金币" : "吃到 3 颗后完成才有奖励" : "刷新、离开不补跑"}</small></div>}
     </div>
+    {boundaryHint && <p className="snake-navigation-hint" role="status">{boundaryHint}</p>}
     {paused && !ended && <section className="snake-steering-guide" aria-label="继续后的转弯方向" aria-live="polite" aria-atomic="true">
       <strong>蛇头现在朝{directions[snake.direction]}</strong>
       <p>继续后：</p>

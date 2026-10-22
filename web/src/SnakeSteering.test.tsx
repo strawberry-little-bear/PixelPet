@@ -51,6 +51,26 @@ describe("paused snake relative steering reminder", () => {
     expect(view.getByText("我帮你装果子！下一步左转")).toBeTruthy();
   });
 
+  it.each([
+    [0, { x: 10, y: 5 }, 0, "前方还有 1 格到围栏"],
+    [1, { x: 4, y: 8 }, 0, "前方还有 1 格到围栏"],
+    [2, { x: 1, y: 5 }, 0, "前方还有 1 格到围栏"],
+    [3, { x: 4, y: 1 }, 0, "前方还有 1 格到围栏"],
+  ] as const)("warns before the %i heading reaches a boundary", (direction, head, turn, text) => {
+    const state = pet(direction, false);
+    state.game!.snake!.body[0] = head;
+    const view = render(<SnakeGame pet={state} now={now} active turn={turn} />);
+    expect(view.getByRole("status").textContent).toContain(text);
+    expect(view.getByRole("status").textContent).toContain("A 左转或 B 右转");
+  });
+
+  it("uses the queued turn when deciding whether to warn", () => {
+    const state = pet(0, false);
+    state.game!.snake!.body[0] = { x: 10, y: 5 };
+    const view = render(<SnakeGame pet={state} now={now} active turn={-1} />);
+    expect(view.queryByText(/前方还有 .*格到围栏/)).toBeNull();
+  });
+
   it.each(["won", "wall", "body", "limit"] as const)("does not suggest continuing a %s game", end => {
     const state = pet(2); state.game!.snake!.end = end;
     const view = render(<SnakeGame pet={state} now={now} active={false} turn={0} />);
