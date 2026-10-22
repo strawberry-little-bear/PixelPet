@@ -88,6 +88,19 @@ async function feedbackVisible(page, selector) {
   assert(boxes.buttons.every(b => b.visible && b.clear), `covered/offscreen controls: ${JSON.stringify(boxes)}`);
   return boxes;
 }
+async function initialGridVisible(page) {
+  const boxes = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('.treasure-grid [role=row]')];
+    const dock = document.querySelector('.device-buttons');
+    if (rows.length !== 3 || !dock) return null;
+    const last = rows.at(-1).getBoundingClientRect(), controls = dock.getBoundingClientRect();
+    return { lastRow: { top: last.top, bottom: last.bottom }, dock: { top: controls.top, bottom: controls.bottom }, scrollY };
+  });
+  assert(boxes, 'missing initial treasure grid or key dock');
+  assert(boxes.lastRow.bottom <= boxes.dock.top + 1,
+    `initial third treasure row is covered by controls: ${JSON.stringify(boxes)}`);
+  return boxes;
+}
 // Reading can scroll beyond the auto-positioned result. Verify that even the
 // final line of the longer reward explanation can clear the sticky key dock.
 async function ruleEndVisible(page) {
@@ -118,13 +131,19 @@ try {
   }
   assert(ready, `isolated server did not start: ${startupError ?? log}`);
   browser = await chromium.launch({channel:'chrome', headless:true});
-  for (const [width,height,font,forced] of [[1200,700,14,false],[1200,700,28,false],[320,700,14,false],[320,700,28,false],[320,380,14,false],[320,380,28,true]]) {
+  for (const [width,height,font,forced] of [[1200,700,14,false],[1200,700,28,false],[900,1000,14,false],[320,700,14,false],[320,700,28,false],[320,380,14,false],[320,380,28,true]]) {
     await seed();
     const ctx = await browser.newContext({viewport:{width,height},hasTouch:true,isMobile:width===320,reducedMotion:width===1200&&font===14?'no-preference':'reduce',forcedColors:forced?'active':'none'});
     const page=await ctx.newPage(), errors=[];
     page.on('pageerror', error=>errors.push(error.message));
     await page.addInitScript(font => document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize=`${font}px`),font);
-    await page.goto(base); await start(page); await key(page,'C');
+    await page.goto(base); await start(page);
+    let initial = null;
+    if (width === 900 && height === 1000 && font === 14) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      initial = await initialGridVisible(page);
+    }
+    await key(page,'C');
     const resume = await feedbackVisible(page,'.treasure-grid [aria-selected=true]');
     // Native Enter/Space activation keeps focus on the same physical A button.
     await page.locator('.button-a').focus();
@@ -172,7 +191,7 @@ try {
     await key(page,'B'); await page.locator('.home-caption').waitFor();
     assert.equal(await page.locator('.treasure-mode').count(),0,'dock leaked outside treasure');
     assert.deepEqual(errors, [], 'browser runtime errors');
-    results.push({width,height,font,forced,resume,ruleEnd}); await ctx.close();
+    results.push({width,height,font,forced,initial,resume,ruleEnd}); await ctx.close();
   }
   await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({dir,groups:results.length,results},null,2));
 } finally {

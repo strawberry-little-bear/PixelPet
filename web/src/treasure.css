@@ -37,9 +37,9 @@
   .treasure-object path { fill: Canvas; stroke: CanvasText; }
 }
 .treasure-companion > p { margin: 6px 0; }
-.treasure-grid { border: 1px solid #61784f; background: #a1b78b44; margin: 8px 0; padding: 5px; }
-.treasure-grid > [role=row] { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
-.treasure-grid > [role=row] + [role=row] { margin-top: 5px; }
+.treasure-grid { border: 1px solid #61784f; background: #a1b78b44; margin: 0 0 8px; padding: 4px; }
+.treasure-grid > [role=row] { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; }
+.treasure-grid > [role=row] + [role=row] { margin-top: 4px; }
 .treasure-grid [role=gridcell] { min-width: 0; padding: 3px; border: 1px dashed #718660; text-align: center; display: flex; flex-direction: column; align-items: center; }
 .treasure-grid [role=gridcell][aria-selected=true] { border: 2px solid currentColor; padding: 2px; background: #c1d3a2; }
 .treasure-grid [data-opened=true] { background: #d4dfbb; border-style: solid; }
@@ -49,9 +49,9 @@
 .treasure-grid strong { font-size: 1.428571rem; line-height: 1.2; }
 .treasure-grid small { font-size: .642857rem; }
 .treasure-grid span { font-size: .714286rem; }
-.treasure-pause { padding: 8px; border: 1px solid #61784f; margin: 4px 0; }
+.treasure-pause { padding: 6px 8px; border: 1px solid #61784f; margin: 4px 0; }
 .treasure-pause ul { list-style: none; margin: 4px 0; padding: 0; }
-.treasure-pause-hint { margin: 6px 0; font-size: .857143rem; }
+.treasure-pause-hint { margin: 5px 0; font-size: .857143rem; }
 .treasure-pause li[aria-current=true] { font-weight: bold; text-decoration: underline; }
 .treasure-game > small { display: block; font-size: .714286rem; }
 .treasure-status { margin: 6px 0; }
