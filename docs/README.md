@@ -11,6 +11,7 @@
 | 安装、启动、服务配置、隔离测试 | [开发与运行](DEVELOPMENT.md) |
 | 十只原创角色、阶段造型与动作截图 | [角色图集](CHARACTERS.md) |
 | 已处理的试玩建议及当前状态 | [试玩反馈](PLAYTEST_FEEDBACK.md) |
+| 最新一轮从孵化玩到寻宝的完整记录 | [试玩记录 2026-10-22](PLAYTEST_2026-10-22.md) |
 | 下一批优先做什么 | [下一步计划](NEXT_STEPS.md) |
 | 已有交付与历史验收 | [开发进度](PROGRESS.md) · [原计划归档](NEXT_STEPS_HISTORY_2026-10-21.md) |
 | 总体路线与早期规划 | [路线图](ROADMAP.md) · [非小游戏完善计划](IMPROVEMENT_PLAN.md) |
