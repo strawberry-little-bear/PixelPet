@@ -11,6 +11,10 @@
 .life-summary-memory h4 { margin: 5px 0 3px; }
 .life-summary-memory p { margin: 0; }
 .life-summary small { display: block; line-height: 1.35; }
+.life-summary-next { margin: 10px 0; padding: 8px; border: 1px solid currentColor; border-radius: 2px; }
+.life-summary-next > strong { display: block; }
+.life-summary-next p { margin: 5px 0; }
+.life-summary-next small { margin: 0; }
 @media (max-width: 380px) {
   .life-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; }
 }

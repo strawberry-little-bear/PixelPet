@@ -156,20 +156,35 @@ describe("共同生活回顾", () => {
     expect(container.querySelector(".life-summary-memory")?.textContent).toContain("公园里走过的第一条小路");
     expect(container.querySelector(".life-summary-memory time")?.textContent).toBe("2026/10/20");
     expect(container.querySelector(".life-summary")?.textContent).toContain("不补写旧历史");
+    expect(container.querySelector(".life-summary-next")?.textContent).toContain("最近留下的是");
+  });
+
+  it("gives an adult pet a gentle direction without inventing a task", () => {
+    const current = pet("adult");
+    const before = structuredClone(current);
+    const { container } = render(<StatusGuide pet={current} rules={null} now={Date.now()} />);
+    const next = container.querySelector(".life-summary-next")?.textContent ?? "";
+    expect(next).toContain("成年后的日子没有必须完成的目标");
+    expect(next).toContain("不是任务");
+    expect(current).toEqual(before);
   });
 
   it("does not invent history for a legacy pet", () => {
-    const { container } = render(<StatusGuide pet={pet()} rules={null} now={Date.now()} />);
+    const current = pet();
+    const before = structuredClone(current);
+    const { container } = render(<StatusGuide pet={current} rules={null} now={Date.now()} />);
     const summary = container.querySelector(".life-summary")?.textContent ?? "";
     expect(summary).toContain("永久纪念");
     expect(summary).toContain("还没有保存的共同游戏经历");
     expect(summary).toContain("0");
+    expect(summary).toContain("按它当下的需要慢慢照顾");
     expect(container.querySelector('[data-stat="walk-steps"]')?.textContent).toContain("0");
     expect(container.querySelector('[data-stat="fish-caught"]')?.textContent).toContain("0");
     expect(container.querySelector('[data-game-stat="stars"]')?.textContent).toContain("0");
     expect(container.querySelector('[data-game-stat="treasure"]')?.textContent).toContain("0");
     expect(container.querySelector(".life-summary-memory")).toBeNull();
     expect(summary).not.toContain("游戏记忆3");
+    expect(current).toEqual(before);
   });
 
   it("does not surface an invalid timestamp as the latest memory", () => {

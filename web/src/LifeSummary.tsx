@@ -35,6 +35,15 @@ export function lifeSummary(pet: PetState, now: number) {
     title: game.title,
     count: memories.filter(entry => entry.kind === game.id).length,
   }));
+  const lastMemory = recentMemory(pet);
+  const stage = pet.growth?.stage;
+  const nextStep = stage === "adult"
+    ? lastMemory
+      ? `形态已经固定，最近留下的是「${lastMemory.title}」。想继续时，可以回看纪念册、布置小窝，或按心情一起玩喜欢的游戏。`
+      : "形态已经固定，可以按心情回看纪念册、布置小窝，或一起玩喜欢的游戏。成年后的日子没有必须完成的目标。"
+    : stage === "baby" || stage === "growing"
+      ? "按它当下的需要慢慢照顾，等它准备好再看看成长记录；不必为了数字重复操作。"
+      : "先从今天的相遇开始，等真正发生的照顾和游戏自然留下回忆。";
   return {
     daysTogether,
     careCount: Number.isFinite(pet.careCount) ? Math.max(0, Math.floor(pet.careCount)) : 0,
@@ -47,7 +56,8 @@ export function lifeSummary(pet: PetState, now: number) {
     fishSpecies: pet.pond?.fish?.length ?? 0,
     gameStats,
     interest: pet.companion ? interestSummary(pet.companion) : "还没有保存的共同游戏经历，玩喜欢的就好。",
-    recentMemory: recentMemory(pet),
+    recentMemory: lastMemory,
+    nextStep,
   };
 }
 
@@ -63,6 +73,11 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       <div><strong>{summary.discoveries}</strong><span>真实发现</span></div>
     </div>
     <p>{summary.interest}</p>
+    <section className="life-summary-next" aria-label="一起生活的下一步">
+      <strong>一起生活的下一步</strong>
+      <p>{summary.nextStep}</p>
+      <small>这是陪伴提示，不是任务；按你们的心情来就好。</small>
+    </section>
     <section className="life-summary-experiences" aria-label="共同经历统计">
       <strong>共同经历统计</strong>
       <div className="life-summary-experience-grid">
