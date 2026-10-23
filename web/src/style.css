@@ -1524,7 +1524,7 @@ footer i {
   border-radius: 9px;
   margin-top: 22px;
   color: #839368;
-  font-size: 12px;
+  font-size: .857143rem;
 }
 .confirm-reset {
   width: 100%;
@@ -1533,7 +1533,7 @@ footer i {
   color: #fff7ed;
   margin-top: 12px;
   border-radius: 9px;
-  font-size: 12px;
+  font-size: .857143rem;
 }
 @keyframes idle-bob {
   0%,
@@ -2052,3 +2052,24 @@ footer i {
 
 /* Reading typography must not shrink the decorative star to body-text size. */
 .reading-mode .star-game .falling-star { font-size: 26px; }
+
+.reset-confirmation {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+  overflow-wrap: anywhere;
+}
+.reset-confirmation strong { font-size: .857143rem; font-weight: 500; }
+.reset-confirmation input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #839368;
+  border-radius: 7px;
+  background: #fffdf7;
+  color: #444c3b;
+  font: inherit;
+}
+.reset-confirmation input:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.reset-confirmation small { font-size: .785714rem; line-height: 1.8; }

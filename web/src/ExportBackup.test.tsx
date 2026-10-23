@@ -73,7 +73,8 @@ describe('explicit backup download feedback', () => {
     await act(async () => { gate.resolve(backup()); }); expect(create).toHaveBeenCalledTimes(1);
   });
   it('blocks reset confirmation while its backup is in flight', async () => {
-    await mount(true); const gate = deferred<Response>(); fetching.mockReturnValueOnce(gate.promise); await exportNow(true);
+    await mount(true); fireEvent.change(screen.getByRole("textbox", { name: "重新开始确认文字" }), { target: { value: saved.name } });
+    const gate = deferred<Response>(); fetching.mockReturnValueOnce(gate.promise); await exportNow(true);
     const confirm = screen.getByRole('button', { name: '确认重新开始' }); expect(confirm).toHaveProperty('disabled', true); fireEvent.click(confirm);
     expect(api.mock.calls.some(([p]) => p === 'reset')).toBe(false);
     await act(async () => { gate.resolve(backup()); }); expect(confirm).toHaveProperty('disabled', false);

@@ -258,6 +258,9 @@ export default function App() {
   const [tools, setTools] = useState(false);
   const [help, setHelp] = useState(false);
   const [reset, setReset] = useState(false);
+  const [resetConfirmation, setResetConfirmation] = useState("");
+  const resetWords = !corrupt && pet?.hatchedAt && pet.name.trim() ? pet.name.trim() : "重新开始";
+  const resetConfirmed = reset && resetConfirmation.trim() === resetWords;
   const [pressed, setPressed] = useState("");
   const [journalCursor, setJournalCursor] = useState(() => startJournal([]));
   const [growthPage, setGrowthPage] = useState(0);
@@ -1054,7 +1057,9 @@ export default function App() {
     const trap = (event: KeyboardEvent) => {
       // Let IME selection keep Escape/Tab, including legacy browser events.
       if (event.isComposing || event.keyCode === 229) return;
-      if (event.key === "Escape" || event.key.toLowerCase() === "c") {
+      const editing = event.target instanceof HTMLElement &&
+        (event.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
+      if (event.key === "Escape" || (!editing && event.key.toLowerCase() === "c")) {
         event.preventDefault();
         event.stopPropagation();
         setHelp(false);
@@ -1063,7 +1068,7 @@ export default function App() {
       }
       if (event.key !== "Tab") return;
       const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
-        "button:not(:disabled),a[href]",
+        "button:not(:disabled),a[href],input:not(:disabled)",
       );
       if (!focusable?.length) return;
       const first = focusable[0],
@@ -2069,7 +2074,7 @@ export default function App() {
     }
   }
   async function restart() {
-    if (backupExport.pending || busyRef.current || uncertainRef.current || unavailableRef.current) return;
+    if (!resetConfirmed || backupExport.pending || busyRef.current || uncertainRef.current || unavailableRef.current) return;
     syncEpoch.current++;
     busyRef.current = true;
     setBusy(true);
@@ -2317,6 +2322,7 @@ export default function App() {
                   onClick={(event) => {
                     modalReturnFocus.current = event.currentTarget.closest(".tools-wrap")?.querySelector<HTMLButtonElement>(".backup-button") || null;
                     setTools(false);
+                    setResetConfirmation("");
                     setReset(true);
                   }}
                 >
@@ -2983,8 +2989,16 @@ export default function App() {
                   {backupExport.pending && <p role="status">正在读取备份，请稍候…</p>}
                   {backupExport.feedback && <p className="export-feedback" role={backupExport.feedback.error ? "alert" : "status"}>{backupExport.feedback.text}</p>}
                 </>}
+                <label className="reset-confirmation" htmlFor="reset-confirmation">
+                  <strong>请输入「{resetWords}」再确认</strong>
+                  <input id="reset-confirmation" aria-label="重新开始确认文字"
+                    aria-describedby="reset-confirmation-hint" type="text" autoComplete="off"
+                    spellCheck={false} value={resetConfirmation} disabled={busy}
+                    onChange={event => setResetConfirmation(event.target.value)} />
+                  <small id="reset-confirmation-hint">{resetWords === "重新开始" ? "输入上方文字，确认替换当前存档。" : "输入当前宠物名，确认告别这段陪伴。"}输入时 A/B/C 是文字，Esc 可取消；Enter 不会提交。</small>
+                </label>
                 <button
-                  disabled={backupExport.pending || busy || uncertain || unavailable || (!pet && !corrupt)}
+                  disabled={!resetConfirmed || backupExport.pending || busy || uncertain || unavailable || (!pet && !corrupt)}
                   className="confirm-reset"
                   onClick={() => void restart()}
                 >

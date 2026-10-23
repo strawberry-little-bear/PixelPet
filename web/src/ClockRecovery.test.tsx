@@ -115,7 +115,7 @@ describe("service clock recovery", () => {
     else { await click(/存档盒/); await click("重新开始"); }
     api.mockRejectedValue(clock());
     if (path === "import") await key("b");
-    else await click("确认重新开始");
+    else { fireEvent.change(screen.getByRole("textbox", { name: "重新开始确认文字" }), { target: { value: saved.name } }); await click("确认重新开始"); }
     expect(document.querySelector(".clock-recovery")).toBeTruthy();
     expect(document.querySelector(".import-preview,.modal")).toBeNull();
     await key("b"); await key("a"); await key("c");

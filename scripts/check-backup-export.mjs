@@ -102,7 +102,10 @@ try {
       await ctx.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; }), font);
       await page.goto(url); await page.locator('.home-caption').waitFor();
       await page.getByRole('button', { name: '存档盒', exact: true }).click();
-      if (reset) await page.getByRole('button', { name: '重新开始', exact: true }).click();
+      if (reset) {
+        await page.getByRole('button', { name: '重新开始', exact: true }).click();
+        await page.getByRole('textbox', { name: '重新开始确认文字' }).fill('导出试玩伙伴');
+      }
       const button = page.getByRole('button', { name: reset ? '先导出当前存档' : '导出存档', exact: true });
       for (mode of Object.keys(failedResponses).concat('offline')) {
         const before = downloads.length;

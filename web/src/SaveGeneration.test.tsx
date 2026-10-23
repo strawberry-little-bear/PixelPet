@@ -44,7 +44,7 @@ describe("save-generation-scoped user intent", () => {
     if (kind === "import") await preview();
     generation = next; saved.revision++; const snapshot = structuredClone(saved);
     if (kind === "feed") await menu(0);
-    if (kind === "reset") await act(async () => { fireEvent.click(screen.getByRole("button", { name: "确认重新开始" })); });
+    if (kind === "reset") await act(async () => { fireEvent.change(screen.getByRole("textbox", { name: "重新开始确认文字" }), { target: { value: saved.name } }); fireEvent.click(screen.getByRole("button", { name: "确认重新开始" })); });
     if (kind === "import") await key("b");
     expect(writes()).toHaveLength(1); expect(writes()[0][2]).toBe(first);
     expect(saved).toEqual(snapshot);
@@ -121,7 +121,7 @@ describe("save-generation-scoped user intent", () => {
     api.mockRejectedValueOnce(new RequestFailure("坏档", "unavailable", "save_corrupt", first)); await mount();
     expect(document.querySelector(".corrupt-recovery")).toBeTruthy();
     if (kind === "import") { await preview(); await key("b"); }
-    else { resetModal(); await act(async () => { fireEvent.click(screen.getByRole("button", { name: "确认重新开始" })); }); }
+    else { resetModal(); await act(async () => { fireEvent.change(screen.getByRole("textbox", { name: "重新开始确认文字" }), { target: { value: "重新开始" } }); fireEvent.click(screen.getByRole("button", { name: "确认重新开始" })); }); }
     expect(writes()).toHaveLength(1); expect(writes()[0][2]).toBe(first);
   });
 

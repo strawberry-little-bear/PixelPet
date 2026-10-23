@@ -201,6 +201,7 @@ it.each(["import", "reset"] as const)("explicit %s clears the page result even f
   } else {
     await act(async () => { fireEvent.click(screen.getByRole("button", {name:/存档盒/})); });
     await act(async () => { fireEvent.click(screen.getByRole("button", {name:"重新开始"})); });
+    fireEvent.change(screen.getByRole("textbox", { name: "重新开始确认文字" }), { target: { value: saved.name } });
     await act(async () => { fireEvent.click(screen.getByRole("button", {name:"确认重新开始"})); });
   }
   expect(outcome()).toBeNull(); expect(writes()).toHaveLength(2);

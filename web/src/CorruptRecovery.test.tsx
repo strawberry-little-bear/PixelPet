@@ -182,7 +182,7 @@ describe("explicit repair of a diagnosed corrupt saved state", () => {
     expect(document.querySelector(".modal")?.textContent).toContain("新蛋替换无法读取的存档");
     expect(document.querySelector(".modal-export")).toBeNull(); expect(writes()).toHaveLength(0);
     await click("关闭"); expect(writes()).toHaveLength(0);
-    await click(/存档盒/); await click("重新开始"); await click("确认重新开始");
+    await click(/存档盒/); await click("重新开始"); fireEvent.change(screen.getByRole("textbox", { name: "重新开始确认文字" }), { target: { value: "重新开始" } }); await click("确认重新开始");
     expect(document.querySelector(".modal,.save-recovery")).toBeNull();
     expect(document.querySelector(".content-choose")).toBeTruthy();
     await advance(); expect(document.querySelector(".content-choose")).toBeTruthy();
