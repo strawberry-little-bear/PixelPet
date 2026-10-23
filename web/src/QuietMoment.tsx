@@ -1,7 +1,10 @@
 import { CareReadingRegion } from "./CareReadingRegion";
 import { quietMemories } from "./quiet-memory";
-import { PetArt } from "./PetArt";
+import { PetArt, petRigClass } from "./PetArt";
+import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
+import { stageNames, formNames } from "./growth";
 import type { PetState } from "./types";
+import "./growth.css";
 import "./quiet-moment.css";
 
 export const quietMoments = [
@@ -19,6 +22,9 @@ const sleepingMoments = [
 export function QuietMoment({ pet, choice, replied, memoryKey = null }: {
   pet: PetState; choice: number; replied: boolean; memoryKey?: string | null;
 }) {
+  const growth = pet.growth;
+  const stage = growth?.stage ?? "baby";
+  const form = growth?.form ?? "";
   const moment = quietMoments[choice] ?? quietMoments[0];
   const words = pet.sleeping ? sleepingMoments[choice] ?? sleepingMoments[0] : moment;
   const memory = !pet.sleeping && choice === 2 && replied ? quietMemories(pet).find(m => m.key === memoryKey) : undefined;
@@ -26,13 +32,18 @@ export function QuietMoment({ pet, choice, replied, memoryKey = null }: {
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
       <header><span>不用完成什么</span><small>{choice + 1} / {quietMoments.length}</small></header>
-      <div className="quiet-moment-pet" aria-hidden="true">
-        <PetArt index={pet.species} stage={pet.growth?.stage ?? "baby"}
-          expression={pet.sleeping ? "asleep" : replied ? moment.expression : "awake"}
-          motion={pet.sleeping ? "sleeping" : "idle"}
-          accessory={pet.economy?.equipped.accessory} />
+      <div className={`quiet-moment-pet growth-${stage} motion-${pet.sleeping ? "sleeping" : "idle"}`} aria-hidden="true">
+        <div className={`growth-size ${petRigClass(pet.species, stage)}`}>
+          <PetArt index={pet.species} stage={stage}
+            expression={pet.sleeping ? "asleep" : replied ? moment.expression : "awake"}
+            motion={pet.sleeping ? "sleeping" : "idle"}
+            accessory={pet.economy?.equipped.accessory} />
+          {growth && stage !== "egg" && !pet.economy?.equipped.accessory && <GrowthOutfit stage={stage} form={form} />}
+        </div>
+        {stage === "adult" && <FormEmblem form={form} />}
       </div>
       <div className="quiet-moment-copy">
+        {growth && <small className="quiet-growth-label">{stageNames[stage]}{stage === "adult" && form ? ` · ${formNames[form]}` : ""}</small>}
         <strong>{words.title}</strong>
         <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
         {memory && <small className="quiet-memory-source">从纪念册想起：{memory.title}</small>}

@@ -23,6 +23,25 @@ async function api(path, body) {
   });
   assert(response.ok, `${path}: ${await response.clone().text()}`); return response.json();
 }
+async function appearance(page, selector) {
+  return page.locator(selector).evaluate(panel => {
+    const rig = panel.querySelector('.growth-size'), box = rig.getBoundingClientRect();
+    const outfit = panel.querySelector('.growth-outfit'), outfitBox = outfit?.getBoundingClientRect();
+    return {
+      rig: rig.className,
+      outfit: outfit?.outerHTML ?? null,
+      emblem: panel.querySelector('.growth-form-emblem')?.outerHTML ?? null,
+      accessory: panel.querySelector('.equipped-accessory')?.outerHTML ?? null,
+      geometry: outfitBox ? [box.width, box.height, outfitBox.x - box.x, outfitBox.y - box.y, outfitBox.width, outfitBox.height] : [box.width, box.height],
+    };
+  });
+}
+async function sameAppearance(page, expected, saved) {
+  assert.deepEqual(await appearance(page, '.quiet-moment-pet'), expected, 'Quiet company must preserve the home rig, outfit placement, form and accessory');
+  const stageNames = { baby: '幼年期', growing: '成长期', adult: '成年期' };
+  const formNames = { balanced: '均衡型', lively: '活力型', gentle: '恬静型', easygoing: '自在型' };
+  assert.equal(await page.locator('.quiet-growth-label').innerText(), stageNames[saved.growth.stage] + (saved.growth.stage === 'adult' ? ` · ${formNames[saved.growth.form]}` : ''));
+}
 async function responseVisible(page) {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const box = await page.locator('.quiet-moment-copy').boundingBox(), height = page.viewportSize().height;
@@ -82,20 +101,33 @@ try {
     await wait(100);
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
-  for (const stage of ['baby', 'adult']) for (const mode of [
+  // Controlled save fixtures verify rendering; these are not natural growth journeys.
+  for (const fixture of [
+    { stage: 'baby', species: 2, age: 1 },
+    { stage: 'growing', species: 3, age: 30 },
+    { stage: 'adult', species: 9, age: 80 },
+    { stage: 'adult', species: 7, age: 80, form: 'gentle', accessory: 'leaf-pin' },
+  ]) for (const mode of [
     { width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
   ]) {
-    const at = Date.now(), age = (stage === 'baby' ? 1 : 80) * 3600000;
-    await api('import', { schema: 1, revision: 1, species: stage === 'baby' ? 2 : 9, name: '回忆伙伴',
+    const { stage } = fixture, at = Date.now(), age = fixture.age * 3600000;
+    const seeded = await api('import', { schema: 1, revision: 1, species: fixture.species, name: '回忆伙伴',
       createdAt: at - age, hatchedAt: at - age, lastTick: at, sleeping: false,
       needs: { hunger: 50, mood: 70, clean: 50, energy: 80 }, careCount: 0, logs: [] });
+    if (fixture.form) {
+      seeded.state.growth.form = fixture.form;
+      seeded.state.album.entries.find(memory => memory.kind === 'adult').form = fixture.form;
+      seeded.state.economy.owned.push(fixture.accessory);
+      seeded.state.economy.equipped.accessory = fixture.accessory;
+      await api('import', seeded.state);
+    }
     await api('action', { kind: 'feed' }); await api('action', { kind: 'clean' });
     const before = (await api('state')).state;
     assert.equal(before.growth.stage, stage);
     assert.deepEqual(before.album.entries.filter(m => m.source === 'shared').map(m => m.kind).sort(), ['bath', 'meal']);
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
       isMobile: mode.width < 700, reducedMotion: mode.font === 28 ? 'reduce' : 'no-preference', forcedColors: mode.font === 28 ? 'active' : 'none' });
-    const page = await context.newPage(), writes = [], errors = [], label = `${stage}-${mode.width}-${mode.height}`;
+    const page = await context.newPage(), writes = [], errors = [], label = `${stage}${fixture.accessory ? '-equipped' : ''}-${mode.width}-${mode.height}`;
     page.on('pageerror', e => errors.push(e.message));
     page.on('request', req => { if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push(req.url()); });
     await page.addInitScript(font => {
@@ -106,7 +138,11 @@ try {
     }, mode.font);
     try {
       await page.goto(base); await page.locator('.home-caption').waitFor();
+      const homeAppearance = await appearance(page, '.pet-scene');
       await open(page);
+      await sameAppearance(page, homeAppearance, before);
+      await page.locator('.quiet-moment-pet').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: join(dir, `${label}-appearance.png`) });
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       await physical(page, 'b'); const first = await page.locator('.quiet-memory-source').innerText();
       await physical(page, 'b'); const second = await page.locator('.quiet-memory-source').innerText();
@@ -149,6 +185,8 @@ try {
       await page.waitForFunction(() => document.querySelector('.quiet-moment')?.dataset.sleeping === 'true');
       assert.equal(await page.evaluate(() => window.__quietScrollCalls), scrollCalls, 'Sleep sync must not reposition the response');
       const sleepingBefore = (await api('state')).state;
+      await sameAppearance(page, homeAppearance, before);
+      if (stage === 'adult') assert.equal(await page.locator('.quiet-moment .growth-form-emblem').evaluate(el => getComputedStyle(el).opacity), '0.4');
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
       assert((await page.locator('.lcd-bottom').innerText()).includes('B 安静陪着'));
@@ -174,6 +212,7 @@ try {
       for (const field of ['album', 'careCount', 'economy']) assert.deepEqual(sleepingAfter[field], sleepingBefore[field]);
       await page.reload(); await page.locator('.home-caption').waitFor(); await open(page);
       assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), '轻声道晚安');
+      await sameAppearance(page, homeAppearance, before);
       await page.keyboard.press('b');
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       await page.locator('.quiet-moment-note').scrollIntoViewIfNeeded();
@@ -183,6 +222,7 @@ try {
       await page.waitForFunction(() => document.querySelector('.quiet-moment')?.dataset.sleeping === 'false');
       assert.equal(await page.evaluate(() => window.__quietScrollCalls), wakeScrollCalls, 'Wake sync must not reposition the response');
       assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
+      await sameAppearance(page, homeAppearance, before);
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       assert((await page.locator('.lcd-bottom').innerText()).includes('B 聊聊回忆'));
       await page.keyboard.press('b');
