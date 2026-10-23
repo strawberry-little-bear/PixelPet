@@ -34,6 +34,7 @@ describe("acknowledged familiarity results", () => {
     expect(panel.textContent).toContain(reason === "credited" ? "本局熟悉度 +1" : reason === "cooldown" ? "仍在 30 分钟间隔内" : "熟悉度已满");
     expect(panel.textContent).toContain("熟悉度按每款游戏分别记录");
     expect(panel.textContent).toContain("陪玩习惯与成长以本局照顾变化为准");
+    if (reason === "cooldown") expect(panel.textContent).toContain("记录时约还需 10 分钟");
     expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("本局实际结算原文");
     expect(panel.querySelector("button,a,input,[role=button]")).toBeNull();
   });
@@ -47,6 +48,7 @@ describe("acknowledged familiarity results", () => {
     expect(screen.getByLabelText("本局游戏熟悉度").textContent).toContain("熟悉度 +1");
     expect(screen.getByLabelText("散步奖励拆解").textContent).toContain("本次实际到账：+0 金币");
     expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("本次成长：+0.00 点");
+    expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("记录时约还需 10 分钟");
   });
   it.each([
     ["wrong game", { kind: "snake" }], ["wrong session", { gameId: "different" }], ["negative", { before: -1 }],
