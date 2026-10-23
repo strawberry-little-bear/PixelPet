@@ -70,7 +70,7 @@ node scripts/check-build-cache.mjs
 
 浏览器脚本按专项文档运行，显式提供 `PIXELPET_TEST_BINARY`、`PIXELPET_TEST_WEB` 和 `PIXELPET_PLAYWRIGHT_MODULE`。可用脚本及保护规则见 [`browser-test-builds.mjs`](../scripts/browser-test-builds.mjs)；不要直接运行未知脚本并假定它不会触及共享构建。玩家库 `data/pixelpet.db` 不用于测试，也不通过导入或重置覆盖。
 
-陪伴闲聊的专项回归是 `node scripts/check-quiet-memory.mjs`，同样需要上述三个隔离环境变量。它在临时库中导入阶段年龄夹具，再通过真实喂食、洗澡操作生成回忆，检查 B 轮换、阅读区 Enter 不操作、A/C 返回、刷新、小屏文字可达和闲聊无写入；另通过独立客户端真实入睡／起床，核对三种睡眠陪伴、闭眼姿态、睡眠状态保持、刷新和同步后旧回应清除。阶段夹具不代表自然多日游玩。
+陪伴闲聊的专项回归是 `node scripts/check-quiet-memory.mjs`，同样需要上述三个隔离环境变量。它在临时库中导入阶段年龄夹具，再通过真实喂食、洗澡操作生成回忆，检查 B 轮换、阅读区 Enter 不操作、A/C 返回、刷新、小屏文字可达和闲聊无写入；触摸机身键后核对当前标题、对白与回忆来源进入视口，阅读区切回触摸不漏按或重复，普通同步不重放定位；另通过独立客户端真实入睡／起床，核对三种睡眠陪伴、闭眼姿态、睡眠状态保持、刷新和同步后旧回应清除。阶段夹具不代表自然多日游玩。
 
 GitHub Actions 当前运行 Go 竞态测试和构建、前端测试／构建，以及节奏原型协议和算术检查；并不自动包含全部 Chrome 专项验收。另含临时双构建的[稳定运行时与更新缓存检查](BUILD_CACHE.md)。具体以 [CI 配置](../.github/workflows/ci.yml) 为准。
 

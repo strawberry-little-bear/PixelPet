@@ -23,11 +23,29 @@ async function api(path, body) {
   });
   assert(response.ok, `${path}: ${await response.clone().text()}`); return response.json();
 }
+async function responseVisible(page) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const box = await page.locator('.quiet-moment-copy').boundingBox(), height = page.viewportSize().height;
+  assert(box && box.y >= -1 && (box.height > height - 24 ? box.y <= 13 : box.y + box.height <= height + 1),
+    `Current choice and response must be in view: ${JSON.stringify(box)}, viewport=${height}`);
+}
+async function physical(page, key) {
+  const button = page.locator(`.button-${key}`);
+  const previous = key === 'a' ? await page.locator('.quiet-moment-copy > strong').innerText() : null;
+  await button.tap();
+  await responseVisible(page);
+  if (key === 'a') {
+    const titles = await page.locator('.quiet-moment').getAttribute('data-sleeping') === 'true'
+      ? ['轻轻摸摸', '守着它睡', '轻声道晚安'] : ['摸摸它', '陪它发呆', '说声你好'];
+    assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), titles[(titles.indexOf(previous) + 1) % 3], 'Each tap must change the choice once');
+  }
+  assert(await button.evaluate(el => document.activeElement === el), 'Reading navigation must preserve physical button focus');
+}
 async function open(page) {
   await page.keyboard.press('a');
   for (let i = 0; i < 12; i++) await page.keyboard.press('a');
-  await page.keyboard.press('b'); await page.locator('.quiet-moment').waitFor();
-  await page.keyboard.press('a'); await page.keyboard.press('a');
+  await physical(page, 'b'); await page.locator('.quiet-moment').waitFor();
+  await physical(page, 'a'); await physical(page, 'a');
 }
 async function readable(page) {
   const problems = await page.locator('.quiet-moment').evaluate(panel => {
@@ -80,21 +98,25 @@ try {
     const page = await context.newPage(), writes = [], errors = [], label = `${stage}-${mode.width}-${mode.height}`;
     page.on('pageerror', e => errors.push(e.message));
     page.on('request', req => { if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push(req.url()); });
-    await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
-      document.documentElement.style.fontSize = `${font}px`;
-    }), mode.font);
+    await page.addInitScript(font => {
+      document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; });
+      const original = window.scrollBy.bind(window);
+      window.__quietScrollCalls = 0;
+      window.scrollBy = (...args) => { window.__quietScrollCalls++; return original(...args); };
+    }, mode.font);
     try {
       await page.goto(base); await page.locator('.home-caption').waitFor();
       await open(page);
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
-      await page.keyboard.press('b'); const first = await page.locator('.quiet-memory-source').innerText();
-      await page.keyboard.press('b'); const second = await page.locator('.quiet-memory-source').innerText();
+      await physical(page, 'b'); const first = await page.locator('.quiet-memory-source').innerText();
+      await physical(page, 'b'); const second = await page.locator('.quiet-memory-source').innerText();
       assert.notEqual(first, second);
       assert([first, second].some(t => t.includes('泡泡里的小陪伴')));
       assert([first, second].some(t => t.includes('一份暖暖的小饭团')));
-      await page.keyboard.press('b'); assert.equal(await page.locator('.quiet-memory-source').innerText(), first);
+      await physical(page, 'b'); assert.equal(await page.locator('.quiet-memory-source').innerText(), first);
       await readable(page);
-      await page.locator('.button-b').tap();
+      await page.screenshot({ path: join(dir, `${label}-reply-viewport.png`) });
+      await physical(page, 'b');
       const panel = page.getByRole('region', { name: '无目的互动阅读区' });
       for (let i = 0; i < 12 && !await panel.evaluate(el => document.activeElement === el); i++) await page.keyboard.press('Shift+Tab');
       assert(await panel.evaluate(el => document.activeElement === el), 'Native Tab must reach the reading region');
@@ -105,7 +127,7 @@ try {
       const box = await page.locator('.quiet-moment-note').boundingBox();
       assert(box && box.y >= -1 && box.y + box.height <= mode.height + 1, 'Final note must be reachable');
       await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
-      await page.keyboard.press('a'); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      await physical(page, 'a'); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
       await open(page); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       await page.reload(); await page.locator('.home-caption').waitFor();
@@ -114,25 +136,34 @@ try {
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       const after = (await api('state')).state;
       for (const field of ['album', 'careCount', 'economy']) assert.deepEqual(after[field], before[field], `${field} changed during read-only chat`);
+      // Ordinary reads and sleep/wake must not replay a prior explicit reading jump.
+      await page.locator('.quiet-moment-note').scrollIntoViewIfNeeded();
+      const scrollCalls = await page.evaluate(() => window.__quietScrollCalls);
+      const polled = page.waitForResponse(response => /\/api\/(state|visit)$/.test(response.url()));
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await polled; await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+      assert.equal(await page.evaluate(() => window.__quietScrollCalls), scrollCalls, 'Ordinary read must not reposition the response');
       // Sleep/wake happens through a separate client; this page stays read-only.
       await api('action', { kind: 'sleep' });
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
       await page.waitForFunction(() => document.querySelector('.quiet-moment')?.dataset.sleeping === 'true');
+      assert.equal(await page.evaluate(() => window.__quietScrollCalls), scrollCalls, 'Sleep sync must not reposition the response');
       const sleepingBefore = (await api('state')).state;
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
       assert((await page.locator('.lcd-bottom').innerText()).includes('B 安静陪着'));
       // Selection is still the third option; wrap through all bedside interactions.
       for (const title of ['轻声道晚安', '轻轻摸摸', '守着它睡']) {
-        assert.equal(await page.locator('.quiet-moment > strong').innerText(), title);
-        await page.keyboard.press('b');
+        assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), title);
+        await physical(page, 'b');
         assert.equal(await page.locator('.quiet-memory-source').count(), 0);
         assert.equal(await page.locator('.quiet-moment .expression-asleep.rig-motion-sleeping').count(), 1);
         assert.equal(await page.locator('.quiet-moment-pet').evaluate(el => getComputedStyle(el).animationName), 'none');
         assert.equal(await page.locator('.quiet-moment .sprite-eyes-open').evaluate(el => getComputedStyle(el).opacity), '0');
         assert.equal(await page.locator('.quiet-moment .sprite-eyes-closed').evaluate(el => getComputedStyle(el).opacity), '1');
         await readable(page);
-        await page.keyboard.press('a');
+        if (title === '轻声道晚安') await page.screenshot({ path: join(dir, `${label}-sleep-reply-viewport.png`) });
+        await physical(page, 'a');
       }
       await page.locator('.quiet-moment-note').scrollIntoViewIfNeeded();
       const sleepBox = await page.locator('.quiet-moment-note').boundingBox();
@@ -142,12 +173,15 @@ try {
       assert.equal(sleepingAfter.sleeping, true, 'Quiet company must not wake the pet');
       for (const field of ['album', 'careCount', 'economy']) assert.deepEqual(sleepingAfter[field], sleepingBefore[field]);
       await page.reload(); await page.locator('.home-caption').waitFor(); await open(page);
-      assert.equal(await page.locator('.quiet-moment > strong').innerText(), '轻声道晚安');
+      assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), '轻声道晚安');
       await page.keyboard.press('b');
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      await page.locator('.quiet-moment-note').scrollIntoViewIfNeeded();
+      const wakeScrollCalls = await page.evaluate(() => window.__quietScrollCalls);
       await api('action', { kind: 'sleep' });
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
       await page.waitForFunction(() => document.querySelector('.quiet-moment')?.dataset.sleeping === 'false');
+      assert.equal(await page.evaluate(() => window.__quietScrollCalls), wakeScrollCalls, 'Wake sync must not reposition the response');
       assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       assert((await page.locator('.lcd-bottom').innerText()).includes('B 聊聊回忆'));

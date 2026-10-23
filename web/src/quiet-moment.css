@@ -4,8 +4,9 @@
 .quiet-moment > header small { font: 8px var(--mono); opacity: .7; }
 .quiet-moment-pet { height: 92px; width: 130px; position: relative; margin: 8px 0 5px; }
 .quiet-moment-pet .pet-sprite { position: absolute; width: 100%; height: 100%; left: 0; top: 0; }
-.quiet-moment > strong { font-size: 11px; }
-.quiet-moment > p { max-width: 260px; margin: 7px 0 4px; font-size: 10px; line-height: 1.7; }
+.quiet-moment-copy { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 260px; }
+.quiet-moment-copy > strong { font-size: 11px; }
+.quiet-moment-copy > p { max-width: 260px; margin: 7px 0 4px; font-size: 10px; line-height: 1.7; }
 .quiet-memory-source { max-width: 260px; margin: 3px 0; font-size: .625rem; line-height: 1.6; overflow-wrap: anywhere; }
 .quiet-moment-note { max-width: 260px; margin-top: 3px; font-size: 8px; line-height: 1.5; opacity: .75; }
 .quiet-moment[data-replied="true"]:not([data-sleeping="true"]) .quiet-moment-pet { animation: quiet-moment-breathe 900ms ease both; }

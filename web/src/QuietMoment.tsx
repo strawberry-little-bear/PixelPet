@@ -32,9 +32,11 @@ export function QuietMoment({ pet, choice, replied, memoryKey = null }: {
           motion={pet.sleeping ? "sleeping" : "idle"}
           accessory={pet.economy?.equipped.accessory} />
       </div>
-      <strong>{words.title}</strong>
-      <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
-      {memory && <small className="quiet-memory-source">从纪念册想起：{memory.title}</small>}
+      <div className="quiet-moment-copy">
+        <strong>{words.title}</strong>
+        <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
+        {memory && <small className="quiet-memory-source">从纪念册想起：{memory.title}</small>}
+      </div>
       <small className="quiet-moment-note">{pet.sleeping ? "它还在睡觉，陪伴不会叫醒它，也没有奖励或惩罚。" : "没有奖励或惩罚，只留下一小会儿陪伴。"}</small>
     </section>
   </CareReadingRegion>;

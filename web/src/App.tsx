@@ -457,6 +457,15 @@ export default function App() {
     setAlbumReadingDestination({ petKey: careReadingKey, sessionKey, category });
   };
 
+  const [quietReadingDestination, setQuietReadingDestination] = useState<{ petKey: string | null; choice: number } | null>(null);
+  useReadingViewport(readingRoot, quietReadingDestination, ".quiet-moment-copy",
+    !!careReadingKey && quietReadingDestination?.petKey === careReadingKey && page === "moment" &&
+    quietReadingDestination?.choice === quietMomentChoice &&
+    !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  const navigateQuietReading = (choice: number) => {
+    setQuietReadingDestination({ petKey: careReadingKey, choice });
+  };
+
   const [returnReadingDestination, setReturnReadingDestination] = useState<{ petKey: string | null; recapId: string; page: number } | null>(null);
   useReadingViewport(readingRoot, returnReadingDestination, ".return-panel > header",
     !!careReadingKey && returnReadingDestination?.petKey === careReadingKey &&
@@ -1802,11 +1811,14 @@ export default function App() {
     }
     if (page === "moment") {
       if (key === "A") {
-        setQuietMomentChoice(value => (value + 1) % 3);
+        const nextChoice = (quietMomentChoice + 1) % 3;
+        setQuietMomentChoice(nextChoice);
+        navigateQuietReading(nextChoice);
         setQuietMomentReplied(false);
         setQuietMemoryKey(null);
       } else if (key === "B") {
         setQuietMomentReplied(true);
+        navigateQuietReading(quietMomentChoice);
         if (!pet.sleeping && quietMomentChoice === 2) setQuietMemoryKey(value => nextQuietMemory(quietMemories(pet), value));
       } else if (key === "C") setPage("home");
       return;
@@ -1873,6 +1885,7 @@ export default function App() {
         setQuietMomentReplied(false);
         setQuietMemoryKey(null);
         setPage("moment");
+        navigateQuietReading(0);
       } else if (item.kind === "return") {
         if (returnRecap) {
           setReturnReading({ id: returnRecap.id, page: 0, updated: false });
@@ -2748,7 +2761,15 @@ export default function App() {
                       disabled={(busy && !(key === "C" && (canPauseFishingPulse(busyAction) || canPauseWalkingStep(busyAction) || canPauseBoardStep(busyAction)))) || checking || ((uncertain || unavailable) && key !== "B") || (clip !== null && key !== "C")}
                       className={`physical-button button-${key.toLowerCase()} ${pressed === key ? "is-pressed" : ""}`}
                       aria-label={`${key} ${["选择", "确认", "返回"][i]}`}
-                      onClick={() => controls.current(key)}
+                      onPointerDown={(event) => {
+                        // Blurring a reading stop collapses its hint and moves the
+                        // keys. Keep the tap target still until click activation.
+                        if (event.button === 0 && document.activeElement?.matches(".care-reading-region")) event.preventDefault();
+                      }}
+                      onClick={(event) => {
+                        event.currentTarget.focus({ preventScroll: true });
+                        controls.current(key);
+                      }}
                     >
                       <span>{key}</span>
                     </button>
