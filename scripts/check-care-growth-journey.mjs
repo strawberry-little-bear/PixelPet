@@ -138,6 +138,18 @@ try {
         assert(result.state.logs[0].text.includes(`即时需求：${changes.length ? changes.join('、') : '不变'}（不含时间结算）。`),
           'saved diary must match the acknowledged clamped effect, excluding passive settlement');
       }
+      if (result.careFeedback.reason === 'credited') {
+        // Compare the short and detailed UI receipts to the actual saved diary.
+        // Exact floating-point half-step cases live in CareFeedbackPrecision.test.tsx;
+        // real elapsed settlement here does not guarantee those boundary values.
+        const amount = result.state.logs[0].text.match(/本次成长 \+(\S+) 点/)?.[1];
+        assert(amount, 'credited diary must include the saved growth amount');
+        const habit = { nutrition: '喂食习惯', clean: '清洁习惯', play: '陪玩习惯' }[result.careFeedback.habit];
+        const title = `${result.careFeedback.points > 0 ? `成长 +${amount} · ` : ''}${habit} +${result.careFeedback.habitGain}`;
+        await page.waitForFunction(title => document.querySelector('.growth-feedback strong')?.textContent === title, title);
+        assert((await page.getByRole('group', { name: '本次成长与习惯', exact: true }).innerText()).includes(`本次成长：+${amount} 点`),
+          'detailed receipt must agree with the short prompt and saved diary');
+      }
       return { result, body: saved.request().postDataJSON(), headers: await saved.request().allHeaders() };
     }
     async function reload(stage, motion = 'idle') {

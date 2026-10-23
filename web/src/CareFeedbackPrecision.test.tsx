@@ -1,6 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { feedbackText } from "./CareFeedback";
+import { CareFeedback as FeedbackToast, feedbackText } from "./CareFeedback";
 import { CareOutcome } from "./CareOutcome";
 import { emptyGrowth } from "./growth";
 import type { CareFeedback } from "./types";
@@ -18,4 +18,35 @@ describe("whole care credits from fractional legacy habit totals", () => {
       expect(feedback).toEqual(before);
     });
   }
+});
+
+describe("consistent growth amounts in the short and detailed care receipt", () => {
+  it.each([
+    [72 - 71.965, "0.04"],
+    [72 - 71.995, "0.01"],
+    [72 - 71.775, "0.23"],
+    [.004, "<0.01"],
+    [.0349, "0.03"],
+    [.25, "0.25"],
+  ] as const)("shows the same gain for %s points", (points, amount) => {
+    const feedback: CareFeedback = { kind: "feed", habit: "nutrition", points, habitGain: 1, reason: "credited", effect };
+    const before = structuredClone(feedback);
+    const { container } = render(<>
+      <FeedbackToast feedback={feedback} growth={emptyGrowth()} mood="" />
+      <CareOutcome feedback={feedback} />
+    </>);
+    expect(container.querySelector(".growth-feedback strong")?.textContent).toBe(`成长 +${amount} · 喂食习惯 +1`);
+    expect(container.querySelector(".care-learning")?.textContent).toContain(`本次成长：+${amount} 点`);
+    expect(feedback).toEqual(before);
+  });
+
+  it("keeps adult habit credit without claiming extra growth", () => {
+    const feedback: CareFeedback = { kind: "feed", habit: "nutrition", points: 0, habitGain: 1, reason: "credited", effect };
+    const { container } = render(<>
+      <FeedbackToast feedback={feedback} growth={emptyGrowth("adult")} mood="" />
+      <CareOutcome feedback={feedback} />
+    </>);
+    expect(container.querySelector(".growth-feedback strong")?.textContent).toBe("喂食习惯 +1");
+    expect(container.querySelector(".care-learning")?.textContent).toContain("本次成长：+0.00 点");
+  });
 });

@@ -3,6 +3,7 @@ import { nextGrowthGoal } from "./growth";
 import { sleepGrowthGuidance } from "./sleepGuidance";
 import { careHabitUnits } from "./careHabitUnits";
 import { cooldownEstimate } from "./cooldownEstimate";
+import { careAmount } from "./careAmount";
 
 const habitNames = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" };
 
@@ -11,7 +12,7 @@ export function feedbackText(feedback: Feedback, growth: Growth, context?: { rul
     const habitGain = careHabitUnits(feedback.habitGain) ?? feedback.habitGain;
     const habit = feedback.habit ? `${habitNames[feedback.habit]} +${habitGain}` : "习惯已记住";
     const gain = feedback.points > 0
-      ? `成长 +${feedback.points < .005 ? "<0.01" : feedback.points.toFixed(2)} · `
+      ? `成长 +${careAmount(feedback.points)} · `
       : "";
     return { title: gain + habit, detail: nextGrowthGoal(growth) };
   }
