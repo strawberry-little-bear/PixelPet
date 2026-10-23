@@ -76,6 +76,8 @@ node scripts/check-build-cache.mjs
 
 状态头像专项回归为 `node scripts/check-status-appearance.mjs`，使用同样的隔离环境变量与临时数据库。覆盖十种宠物的幼年／成长／成年外观、四种成年形态、装备替换、睡醒同步、翻页和刷新，并比较小窝与状态页的装饰及物种定位；在桌面、320px 双倍字号、短屏与强制颜色模式下核对长名字、头像边界和三键约束。成年形态使用通过导入校验的构造旧档，不能作为自然养大或实体手机验收的证据。整页文字可达性另见 `node scripts/check-status-reading.mjs`。
 
+低体力开局专项回归为 `node scripts/check-game-readiness.mjs`，使用同样的隔离环境变量、临时数据库和随机端口。覆盖七款游戏的首次／重复规则入口、服务端拒绝、无开局写入、翻页返回、320px 双倍字号与短屏；另用三颗机身键完成休息、短暂真实恢复、起床和手动开局。起始体力由构造旧档提供，不代表自然多日游玩；正常目录／规则阅读另见 `node scripts/check-arcade-reading.mjs`。
+
 GitHub Actions 当前运行 Go 竞态测试和构建、前端测试／构建，以及节奏原型协议和算术检查；并不自动包含全部 Chrome 专项验收。另含临时双构建的[稳定运行时与更新缓存检查](BUILD_CACHE.md)。具体以 [CI 配置](../.github/workflows/ci.yml) 为准。
 
 ## 游戏结算回复

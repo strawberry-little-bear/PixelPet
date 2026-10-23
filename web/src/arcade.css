@@ -1,5 +1,5 @@
 .arcade-panel, .game-guide, .game-abandon { color: #405132; font-size: 10px; line-height: 1.5; }
-.arcade-panel header, .game-guide header, .game-abandon header { font-size: 12px; font-weight: bold; margin-bottom: 6px; }
+.arcade-panel header, .game-guide header, .game-abandon header { display: flow-root; font-size: 12px; font-weight: bold; margin-bottom: 6px; }
 .arcade-panel header small, .game-guide header small { float: right; font-size: 9px; }
 .arcade-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
 .arcade-card { border: 1px dashed #899d76; padding: 3px 5px; opacity: .65; font-size: 10px; }
@@ -34,3 +34,5 @@
 .abandon-progress { margin: 10px 0; padding: 8px; border: 1px dashed currentColor; text-align: left; }
 .abandon-progress > strong { margin: 0; }
 .abandon-progress > p { margin: 4px 0 0; }
+
+.arcade-panel .game-start-note, .game-guide .game-start-note { border-left: 2px solid currentColor; padding-left: 6px; margin: 6px 0; font-size: 11px; line-height: 1.7; }

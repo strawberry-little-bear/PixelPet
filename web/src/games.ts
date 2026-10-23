@@ -68,6 +68,18 @@ export function gameFinishInstruction(game: GameInfo): string {
     : "A 暂不操作 · B / C 收好本局发现";
 }
 
+// All seven games require an awake pet with at least 10 energy. This only
+// explains the latest accepted snapshot; the server validates again at start.
+// Missing optional readings keep older component callers working as before.
+export function gameStartBlock(sleeping = false, energy?: number): { hint: string; note: string } | null {
+  if (sleeping) return { hint: "B 暂不可开始", note: "它正在睡觉，先从菜单选「起床啦」，醒来后再一起玩。" };
+  if (typeof energy === "number" && Number.isFinite(energy) && energy < 10) return {
+    hint: "B 暂不可开始",
+    note: `最近读取的体力不足 10${Math.round(energy) === 10 ? "（整数显示为 10）" : ""}；先用 C 逐级返回小窝，再从菜单选「睡个好觉」休息，醒来后再一起玩。`,
+  };
+  return null;
+}
+
 export function gameStartLabel(game: GameInfo): string {
   return game.id === "stars" || game.id === "tiles" ? "开始"
     : game.id === "fishing" ? "进入准备"

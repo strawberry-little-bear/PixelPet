@@ -294,3 +294,52 @@ it.each(games.map((info, index) => ({ info, index, id: info.id })))("retains $id
   await key("b"); expect(document.querySelector(".game-quick-start")).toBeTruthy();
   await key("c"); await clock(1000); expect(actions()).toHaveLength(before);
 });
+
+describe("game readiness follows saved energy", () => {
+  it.each(games.map((info, index) => ({ info, index, id: info.id })))
+    ("explains low energy before starting $id and leaves its rules readable", async ({ info, index }) => {
+      saved.needs.energy = 9.999;
+      await mount(); await select(index);
+      expect(document.querySelector(".arcade-panel")?.textContent).toContain("体力不足 10");
+      await key("b");
+      expect(document.querySelector(".game-guide")?.textContent).toContain("体力不足 10（整数显示为 10）");
+      expect(document.querySelector(".game-guide")?.textContent).toContain("B 暂不可开始");
+      expect(document.querySelector(".lcd-bottom")?.textContent).toContain("B 暂不可开始");
+      await key("a");
+      expect(document.querySelector(".game-guide header")?.textContent).toContain("2 / 2");
+      await key("b");
+      expect(actions()).toHaveLength(0);
+      expect(guideSeen(info.id)).toBe(false);
+      expect(screen.getByRole("alert").textContent).toContain("睡个好觉");
+      await key("c");
+      expect(document.querySelector('[data-game="' + info.id + '"][aria-current="true"]')).toBeTruthy();
+      expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+      expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
+    });
+
+  it("keeps the repeat card and rule review honest after energy falls, then enables an explicit start after recovery", async () => {
+    rememberGuide("walk"); await mount(); await select(5); await key("b");
+    expect(document.querySelector(".game-quick-start")?.textContent).toContain(gameStartInstruction(games[5], true));
+    saved.needs.energy = 0; saved.revision++;
+    await act(async () => { fireEvent.focus(window); });
+    expect(document.querySelector(".game-quick-start")?.textContent).toContain("B 暂不可开始");
+    await key("b"); expect(actions()).toHaveLength(0);
+    await key("a");
+    expect(document.querySelector(".game-guide")?.textContent).toContain("B 暂不可开始");
+    saved.needs.energy = 10; saved.revision++;
+    await act(async () => { fireEvent.focus(window); });
+    expect(document.querySelector(".game-guide")?.textContent).not.toContain("B 暂不可开始");
+    expect(actions()).toHaveLength(0); // State synchronization must not start a game.
+    await key("b");
+    expect(actions().map(a => a.kind)).toEqual(["play-walk"]);
+    expect(saved.game?.walking?.paused).toBe(true);
+  });
+
+  it.each([10, 10.001])("allows explicit starts at an authoritative energy of %s", async energy => {
+    saved.needs.energy = energy;
+    await mount(); await select(0); await key("b");
+    expect(document.querySelector(".game-guide")?.textContent).not.toContain("B 暂不可开始");
+    await key("b");
+    expect(actions().map(a => a.kind)).toEqual(["play"]);
+  });
+});

@@ -34,7 +34,7 @@ import { useTileViewport, type TileDestination } from "./useTileViewport";
 import { TileGame, nextTile } from "./TileGame";
 import { GameAllowance } from "./GuideReward";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
-import { gameFinishInstruction, gameStartInstruction, games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
+import { gameFinishInstruction, gameStartBlock, gameStartInstruction, games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
 import type { TileHint, TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { dailyWalletNotice, shopItems, shopSections } from "./shop";
@@ -1602,13 +1602,14 @@ export default function App() {
       return;
     }
     if (page === "game-guide") {
+      const blocked = gameStartBlock(pet.sleeping, pet.needs.energy);
       if (key === "A") {
         if (guideSeen(games[arcadeChoice].id) && !guideReview) { setGuideReview(true); setGuidePage(0); }
         else setGuidePage(v => (v + 1) % 2);
         navigateArcadeReading("game-guide");
       }
       else if (key === "C") { setPage("arcade"); navigateArcadeReading("arcade"); }
-      else if (pet.sleeping) setError("它正在睡觉，先从菜单选「起床啦」，醒来后再一起玩。");
+      else if (blocked) setError(blocked.note);
       else {
         const game = games[arcadeChoice];
         void act(game.startAction).then(ok => { if (ok) rememberGuide(game.id); });
@@ -2161,10 +2162,11 @@ export default function App() {
     || (treasure && (treasure.paused || treasureSession !== pet?.game?.id))
     || (walking && (walking.paused || walkSession !== pet?.game?.id))
     || (fishing && (fishing.paused || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)));
+  const startBlocked = gameStartBlock(pet?.sleeping, pet?.needs.energy);
   const gameNavHint = page === "pause-guide" ? "A / B 翻页  C 返回暂停" : page === "arcade"
     ? pet?.sleeping ? "A 换游戏  B 暂不可开始  C 返回" : "A 换游戏  B 进入  C 返回"
     : page === "game-guide"
-      ? pet?.sleeping ? "A 翻页  B 暂不可开始  C 返回选择" : `A 翻页  ${gameStartInstruction(games[arcadeChoice], guideSeen(games[arcadeChoice].id) && !guideReview)}  C 返回选择`
+      ? startBlocked ? `A 翻页  ${startBlocked.hint}  C 返回选择` : `A 翻页  ${gameStartInstruction(games[arcadeChoice], guideSeen(games[arcadeChoice].id) && !guideReview)}  C 返回选择`
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A 上一页  B 下一页  C 返回" : "";
   const quietMemoryCount = page === "moment" && pet ? quietMemories(pet).length : 0;
   const quietMomentHint = pet?.sleeping
@@ -2494,10 +2496,11 @@ export default function App() {
                             shop={shop}
                             now={now}
                             sleeping={pet.sleeping}
+                            energy={pet.needs.energy}
                           />
                         )}
                         {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused economy={pet.economy} growth={growth} shop={shop} now={now} />}
-                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} sleeping={pet.sleeping} economy={pet.economy} growth={growth} shop={shop} now={now} />}
+                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} sleeping={pet.sleeping} energy={pet.needs.energy} economy={pet.economy} growth={growth} shop={shop} now={now} />}
                         {abandoning && <AbandonGame game={pet.game} />}
                         {page === "shop" && (
                           <ShopPanel
