@@ -59,14 +59,15 @@ export function lifeSummary(pet: PetState, now: number) {
   const completedWalks = Number.isSafeInteger(pet.park?.walks) ? Math.max(0, pet.park?.walks ?? 0) : 0;
   const fishCaught = (pet.pond?.fish ?? []).reduce((total, fish) =>
     total + (Number.isSafeInteger(fish.count) ? Math.max(0, fish.count) : 0), 0);
+  const lastMemory = recentMemory(pet);
+  const comfort = currentComfort(pet);
+  const interests = validInterestEntries(pet.companion);
   const gameStats = games.map(game => ({
     id: game.id,
     title: game.title,
     recorded: memories.some(entry => entry.kind === game.id || (game.id === "stars" && entry.kind === "perfect-stars")),
+    familiarity: interests.find(entry => entry.kind === game.id)?.points ?? 0,
   }));
-  const lastMemory = recentMemory(pet);
-  const comfort = currentComfort(pet);
-  const interests = validInterestEntries(pet.companion);
   const bestInterest = Math.max(0, ...interests.map(entry => entry.points));
   const interestLeaders = bestInterest >= 2
     ? interests.filter(entry => entry.points === bestInterest)
@@ -150,9 +151,10 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       <ul>
         {summary.gameStats.map(game => <li key={game.id} data-game-stat={game.id}>
           <span>{game.title}</span><b>{game.recorded ? "留过" : "尚无"}</b>
+          {game.familiarity > 0 && <small>熟悉度 {game.familiarity} / {interestLimit}</small>}
         </li>)}
       </ul>
-      <small>这里只表示纪念册是否留过这款游戏；重复游玩不重复计数，中途放弃不会留下游戏纪念。</small>
+      <small>纪念册和熟悉度分别记录；重复游玩不重复计数，中途放弃不会留下游戏纪念。</small>
     </section>
     {summary.recentMemory && <section className="life-summary-memory" aria-label="最近保存的回忆">
       <strong>最近保存的回忆</strong>
