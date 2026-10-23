@@ -59,6 +59,33 @@ func TestSnakeClockTurnsAndSessionGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestNewSnakeStartsWithAReachableFirstFruit(t *testing.T) {
+	s, now := snakeState(t)
+	n := s.Game.Snake
+	if n.Food != (TilePoint{7, 5}) {
+		t.Fatalf("first fruit should be in the opening path: %#v", n.Food)
+	}
+	if n.Paused != true || n.LastMoveAt != now.UnixMilli() {
+		t.Fatalf("new snake should start paused at the server time: %#v", n)
+	}
+
+	s.Apply(snakeAction(&s, "snake-resume"), now)
+	for step := 0; step < 3; step++ {
+		now = now.Add(650 * time.Millisecond)
+		s.Advance(now)
+		if _, err := s.Apply(snakeAction(&s, "snake-step"), now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n.Eaten != 1 || n.Body[0] != (TilePoint{7, 5}) {
+		t.Fatalf("straight opening should reach the first fruit: %#v", n)
+	}
+	if n.Food == (TilePoint{7, 5}) || !snakeInside(n.Food) {
+		t.Fatalf("after the first fruit, a new in-bounds fruit is required: %#v", n.Food)
+	}
+}
+
 func TestSnakeAwayPausesWithoutCatchup(t *testing.T) {
 	s, now := snakeState(t)
 	s.Apply(snakeAction(&s, "snake-resume"), now)

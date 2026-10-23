@@ -54,8 +54,16 @@ func (n *Snake) placeFood() error {
 	return nil
 }
 func newSnake(now time.Time) (*Snake, error) {
-	n := &Snake{Body: []TilePoint{{4, 5}, {3, 5}, {2, 5}}, Paused: true, LastMoveAt: now.UnixMilli()}
-	return n, n.placeFood()
+	// Give the first round a readable opening: moving straight reaches the
+	// first fruit before the player has to make a difficult turn. Subsequent
+	// fruits remain random, so the game still becomes a navigation challenge
+	// after the player has learned the two steering keys.
+	return &Snake{
+		Body:       []TilePoint{{4, 5}, {3, 5}, {2, 5}},
+		Food:       TilePoint{7, 5},
+		Paused:     true,
+		LastMoveAt: now.UnixMilli(),
+	}, nil
 }
 
 // ExpireSnake persists a safe pause on reads without advancing any cells.
