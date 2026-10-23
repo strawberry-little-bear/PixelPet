@@ -180,6 +180,22 @@ describe("shared UTC quota and wallet visibility", () => {
   });
 });
 
+describe("saved game familiarity", () => {
+  it("shows a selected game's saved familiarity without adding a new control", () => {
+    const companion = { since: Date.now(), interests: [{ kind: "tetris" as const, points: 3, lastAt: Date.now() }] };
+    const view = render(<ArcadePanel choice={3} companion={companion} now={Date.now()} shop={rules} economy={saved.economy} />);
+    expect(screen.getByLabelText("共同游戏熟悉度").textContent).toContain("3 / 5");
+    expect(screen.getByLabelText("共同游戏熟悉度").textContent).toContain("也可以换一款");
+    expect(view.container.querySelector("button,a,input,[role=button]")).toBeNull();
+  });
+
+  it("does not show familiarity for an unselected or not-yet-familiar game", () => {
+    const companion = { since: Date.now(), interests: [{ kind: "tetris" as const, points: 1, lastAt: Date.now() }] };
+    const view = render(<ArcadePanel choice={0} companion={companion} now={Date.now()} shop={rules} economy={saved.economy} />);
+    expect(view.container.querySelector('[aria-label="共同游戏熟悉度"]')).toBeNull();
+  });
+});
+
 describe("guide and confirmation edge cases", () => {
   it("protects an older star session that has no persisted id", async () => {
     saved.game = session(games[0]); delete saved.game.id; await mount(); await key("c"); await key("a");

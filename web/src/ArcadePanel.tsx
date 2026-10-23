@@ -1,16 +1,18 @@
 import { abandonProgress } from "./abandon-progress";
 import { DailyRefresh } from "./DailyRefresh";
+import { interestLimit, validInterestEntries } from "./companion";
 import { GameHabit, GuideReward } from "./GuideReward";
 import type { GuideRewardContext } from "./GuideReward";
 import { gameStartInstruction, gameStartLabel, games, gameAllowance, guideSeen } from "./games";
 import type { GameInfo } from "./games";
-import type { Economy, PetState, Shop } from "./types";
+import type { Companion, Economy, PetState, Shop } from "./types";
 import "./arcade.css";
 
-export function ArcadePanel({ choice, economy, shop, now, sleeping = false }: {
-  choice: number; economy?: Economy; shop: Shop | null; now: number; sleeping?: boolean;
+export function ArcadePanel({ choice, economy, companion, shop, now, sleeping = false }: {
+  choice: number; economy?: Economy; companion?: Companion; shop: Shop | null; now: number; sleeping?: boolean;
 }) {
   const game = games[choice] ?? games[0];
+  const familiar = validInterestEntries(companion).find(entry => entry.kind === game.id && entry.points >= 2);
   const allowance = gameAllowance(economy, shop, now);
   return <section className="arcade-panel" aria-label="一起玩耍">
     <header>和小伙伴一起玩 <small>{choice + 1} / {games.length}</small></header>
@@ -22,6 +24,7 @@ export function ArcadePanel({ choice, economy, shop, now, sleeping = false }: {
     <div className="arcade-details" aria-live="polite">
       <strong>{game.summary} · {game.duration}</strong>
       <p>{game.controls}</p><p>{game.reward}</p>
+      {familiar && <p className="arcade-familiar" aria-label="共同游戏熟悉度">你们已经熟悉这款游戏：{familiar.points} / {interestLimit}。想继续时可以再玩，也可以换一款。</p>}
     </div>
     <p className="arcade-quota">{allowance
       ? `今日游戏额度剩 ${allowance.daily} / ${shop!.gameDailyLimit} 币`

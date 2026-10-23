@@ -2488,6 +2488,7 @@ export default function App() {
                           <ArcadePanel
                             choice={arcadeChoice}
                             economy={pet.economy}
+                            companion={pet.companion}
                             shop={shop}
                             now={now}
                             sleeping={pet.sleeping}
