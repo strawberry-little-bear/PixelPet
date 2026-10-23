@@ -33,7 +33,7 @@ describe("shared life summary", () => {
   });
 
   it("still falls back when the saved start time is unusable", () => {
-    const broken = { ...pet(), createdAt: 0 };
+    const broken = { ...pet(), hatchedAt: 0 };
     expect(lifeSummary(broken, created).daysTogether).toBeNull();
     render(<LifeSummary pet={broken} now={created} />);
     expect(document.querySelector(".life-summary-grid")?.textContent).toContain("—");
@@ -42,6 +42,34 @@ describe("shared life summary", () => {
   it("never shows a negative day count when the clock runs behind the save", () => {
     expect(lifeSummary(pet(), created - 5 * day).daysTogether).toBe(1);
   });
+
+  it.each([0.5, day - 0.5, day + 0.5, 9 * day + 0.5])(
+    "counts from hatching even when the egg waited a week (%s ms)", elapsed => {
+      const current = { ...pet(), hatchedAt: created + 7 * day };
+      const before = structuredClone(current);
+      expect(lifeSummary(current, current.hatchedAt + elapsed).daysTogether)
+        .toBe(Math.floor(elapsed / day) + 1);
+      expect(current).toEqual(before);
+    },
+  );
+
+  it("renders the first shared day after a delayed hatch", () => {
+    const current = { ...pet(), hatchedAt: created + 7 * day };
+    render(<LifeSummary pet={current} now={current.hatchedAt + 0.75} />);
+    expect(document.querySelector(".life-summary-grid > div > strong")?.textContent).toBe("1");
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, -1, created + 0.5, 8.64e15 + 1])(
+    "does not substitute the egg creation date for an unusable hatch time (%s)", hatchedAt => {
+      expect(lifeSummary({ ...pet(), hatchedAt }, created + day).daysTogether).toBeNull();
+    },
+  );
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 0, -1, 8.64e15 + 1])(
+    "does not invent shared days from an unusable live clock (%s)", now => {
+      expect(lifeSummary(pet(), now).daysTogether).toBeNull();
+    },
+  );
 
   it("shows current comfort as a read-only snapshot", () => {
     const current = pet();

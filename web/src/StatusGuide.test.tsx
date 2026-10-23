@@ -125,6 +125,7 @@ describe("共同生活回顾", () => {
     const at = Date.parse("2026-10-20T08:00:00Z");
     const current = structuredClone(pet("adult"));
     current.createdAt = at;
+    current.hatchedAt = at;
     current.careCount = 4;
     current.album = { since: at, legacy: false, entries: [
       { kind: "hatch", at, source: "shared" },
@@ -159,6 +160,14 @@ describe("共同生活回顾", () => {
     expect(container.querySelector(".life-summary-memory time")?.textContent).toBe("2026/10/20");
     expect(container.querySelector(".life-summary")?.textContent).toContain("不补写旧历史");
     expect(container.querySelector(".life-summary-next")?.textContent).toContain("最近留下的是");
+  });
+
+  it("starts the shared day count at hatching, not when the egg was created", () => {
+    const day = 86400000;
+    const at = Date.parse("2026-10-20T08:00:00Z");
+    const current = { ...pet(), createdAt: at - 7 * day, hatchedAt: at };
+    const { container } = render(<StatusGuide pet={current} rules={rules} now={at + day + 0.75} />);
+    expect(container.querySelector(".life-summary-grid > div > strong")?.textContent).toBe("2");
   });
 
   it("gives an adult pet a gentle direction without inventing a task", () => {

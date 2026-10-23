@@ -46,8 +46,10 @@ function recentMemory(pet: PetState) {
 }
 
 export function lifeSummary(pet: PetState, now: number) {
-  const daysTogether = validTimestamp(pet.createdAt) && validMoment(now)
-    ? Math.max(1, Math.floor((now - pet.createdAt) / 86400000) + 1)
+  // Meeting starts at hatching, as on the home/status pages and album milestones.
+  // An egg can wait several days after creation before the pet meets its player.
+  const daysTogether = validTimestamp(pet.hatchedAt) && validMoment(now)
+    ? Math.max(1, Math.floor((now - pet.hatchedAt) / 86400000) + 1)
     : null;
   const memories = pet.album?.entries ?? [];
   const gameMemories = new Set(memories.flatMap(entry => entry.kind === "perfect-stars"
