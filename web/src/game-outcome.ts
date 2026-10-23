@@ -1,6 +1,6 @@
 import { games } from "./games";
 import type { GameInfo } from "./games";
-import type { GameReceipt, PetState, Result, WalkGameReceipt } from "./types";
+import type { GameReceipt, InterestGameReceipt, PetState, Result, WalkGameReceipt } from "./types";
 
 export type GameOutcomeRecord = {
   kind: GameInfo["id"];
@@ -28,7 +28,9 @@ export function completedGameOutcome(action: string, before: PetState | null, re
   const record: GameOutcomeRecord = { kind, at: result.serverTime, message: result.message,
     shared: after.companion ? recent?.id === game.id && recent.kind === kind : null };
   const walk = kind === "walk" ? validWalkReceipt(result.gameReceipt?.walk) : undefined;
-  if (walk) record.gameReceipt = { walk };
+  const interest = record.shared && recent?.at === result.serverTime
+    ? validInterestReceipt(result.gameReceipt?.interest, kind, game.id, result.serverTime, after) : undefined;
+  if (walk || interest) record.gameReceipt = { ...(walk && { walk }), ...(interest && { interest }) };
   return record;
 }
 
@@ -40,4 +42,26 @@ function validWalkReceipt(value: unknown): WalkGameReceipt | undefined {
   const receipt = value as WalkGameReceipt;
   if (receipt.total !== 12 || receipt.routeCoins !== 3 || receipt.performanceCoins !== Math.floor(receipt.cleared / 4) || receipt.awardedCoins > receipt.routeCoins + receipt.performanceCoins) return undefined;
   return { ...receipt };
+}
+
+// Accept only this acknowledgement's matching, internally consistent metadata.
+// Missing/malformed optional receipts keep the legacy text; never infer a gain.
+function validInterestReceipt(value: unknown, kind: GameInfo["id"], id: string, at: number, after: PetState): InterestGameReceipt | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as InterestGameReceipt;
+  if (v.kind !== kind || v.gameId !== id || !Number.isSafeInteger(v.before) || !Number.isSafeInteger(v.after) ||
+      v.before < 0 || v.after < 1 || v.after > 5 || v.before > v.after) return undefined;
+  const interests = after.companion?.interests;
+  const interest = Array.isArray(interests) ? interests.find(i => i?.kind === kind) : undefined;
+  if (!interest || interest.points !== v.after || !Number.isSafeInteger(interest.lastAt) || interest.lastAt <= 0 || interest.lastAt > at) return undefined;
+  if (v.reason === "credited") {
+    if (v.after !== v.before + 1 || interest.lastAt !== at || v.retryAt !== undefined) return undefined;
+  } else if (v.reason === "cooldown") {
+    if (v.after !== v.before || v.after >= 5 || !Number.isSafeInteger(v.retryAt) ||
+        v.retryAt! <= at || v.retryAt !== interest.lastAt + 30 * 60 * 1000) return undefined;
+  } else if (v.reason === "familiar") {
+    if (v.before !== 5 || v.after !== 5 || v.retryAt !== undefined) return undefined;
+  } else return undefined;
+  return { kind, gameId: id, before: v.before, after: v.after, reason: v.reason,
+    ...(v.retryAt !== undefined && { retryAt: v.retryAt }) };
 }

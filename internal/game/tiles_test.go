@@ -107,16 +107,18 @@ func TestTileHintOnlyExplainsAMismatchedSelection(t *testing.T) {
 	if _, err := s.Apply(Action{Kind: "play-tiles"}, now); err != nil {
 		t.Fatal(err)
 	}
+	// This test needs known matching/mismatching cells; production boards are random.
+	s.Game.Tiles.Board = [16]int{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8}
 	id := s.Game.ID
 	if _, err := s.Apply(Action{Kind: "tile-pick", GameID: id, Tile: 0}, now); err != nil {
 		t.Fatal(err)
 	}
-	before := s.Game.Tiles
+	before := *s.Game.Tiles
 	path := s.TileHint(Action{Kind: "tile-pick", GameID: id, Tile: 2})
 	if len(path) < 2 || len(path) > 4 {
 		t.Fatalf("hint path = %v", path)
 	}
-	if s.Game.Tiles.Pick != before.Pick || s.Game.Tiles.Pairs != before.Pairs {
+	if *s.Game.Tiles != before {
 		t.Fatal("hint changed the saved selection")
 	}
 	if got := s.TileHint(Action{Kind: "tile-pick", GameID: id, Tile: 1}); got != nil {

@@ -99,7 +99,11 @@ export type WalkGameReceipt = {
   performanceCoins: number;
   awardedCoins: number;
 };
-export type GameReceipt = { walk?: WalkGameReceipt };
+export type InterestGameReceipt = {
+  kind: GameExperience["kind"]; gameId: string; before: number; after: number;
+  reason: "credited" | "cooldown" | "familiar"; retryAt?: number;
+};
+export type GameReceipt = { walk?: WalkGameReceipt; interest?: InterestGameReceipt };
 export type Result = {
   careRules?: CareRules;
   saveGeneration?: string;

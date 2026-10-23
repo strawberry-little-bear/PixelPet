@@ -37,7 +37,8 @@ type WalkGameReceipt struct {
 }
 
 type GameReceipt struct {
-	Walk *WalkGameReceipt `json:"walk,omitempty"`
+	Walk     *WalkGameReceipt     `json:"walk,omitempty"`
+	Interest *InterestGameReceipt `json:"interest,omitempty"`
 }
 
 type Result struct {
@@ -193,6 +194,8 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	var feedback *game.CareFeedback
 	var tileLink []game.TilePoint
 	var tileHint []game.TilePoint
+	interestBefore := captureGameInterest(state, a)
+	var interestReceipt *InterestGameReceipt
 	var walkReceipt *WalkGameReceipt
 	var walkBeforeCoins int
 	var walkFinishing bool
@@ -214,6 +217,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			return Result{}, err
 		}
 		changed = true
+		interestReceipt = interestBefore.receipt(state, now)
 		if walkFinishing && state.Game == nil && walkReceipt != nil && state.Economy != nil {
 			walkReceipt.AwardedCoins = max(0, state.Economy.Coins-walkBeforeCoins)
 		}
@@ -318,8 +322,8 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 		}
 	}
 	var receipt *GameReceipt
-	if walkReceipt != nil {
-		receipt = &GameReceipt{Walk: walkReceipt}
+	if walkReceipt != nil || interestReceipt != nil {
+		receipt = &GameReceipt{Walk: walkReceipt, Interest: interestReceipt}
 	}
 	result := Result{CareRules: game.CareRuleBook(), SaveGeneration: generation, TileLink: tileLink, TileHint: tileHint, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, GameReceipt: receipt, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
 	if a != nil && a.RequestID != "" {

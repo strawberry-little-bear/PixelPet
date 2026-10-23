@@ -73,6 +73,9 @@ func TestWalkPersistenceConcurrentReplayLeaseImportAndAtomicSettlement(t *testin
 	if r.GameReceipt == nil || r.GameReceipt.Walk == nil || r.GameReceipt.Walk.Cleared != 0 || r.GameReceipt.Walk.Total != 12 || r.GameReceipt.Walk.RouteCoins != 3 || r.GameReceipt.Walk.PerformanceCoins != 0 || r.GameReceipt.Walk.AwardedCoins != 3 {
 		t.Fatal("settlement receipt", r.GameReceipt)
 	}
+	if x := r.GameReceipt.Interest; x == nil || x.Kind != "walk" || x.GameID != id || x.Reason != "credited" || x.Before != 0 || x.After != 1 {
+		t.Fatal("walk and interest receipts must coexist", x)
+	}
 	same, err := db.Do(finish, nil, false, now)
 	if err != nil || same.State.Revision != r.State.Revision || !reflect.DeepEqual(same.GameReceipt, r.GameReceipt) {
 		t.Fatal("duplicate reward", err)

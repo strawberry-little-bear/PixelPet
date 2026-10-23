@@ -40,7 +40,7 @@ func TestCompanionSettlementConcurrentRetriesRestartAndImport(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			r, e := s.Do(a, nil, false, now)
-			if e != nil || r.State.Companion.Recent == nil || r.State.Companion.Interests[0].Points != 1 {
+			if e != nil || r.State.Companion.Recent == nil || r.State.Companion.Interests[0].Points != 1 || r.GameReceipt == nil || r.GameReceipt.Interest == nil || r.GameReceipt.Interest.Reason != "credited" || r.GameReceipt.Interest.Before != 0 || r.GameReceipt.Interest.After != 1 {
 				t.Error("retry lost experience", e)
 			}
 		}()
@@ -62,6 +62,9 @@ func TestCompanionSettlementConcurrentRetriesRestartAndImport(t *testing.T) {
 	r, err = s.Do(a, nil, false, now)
 	if err != nil || !reflect.DeepEqual(before.Companion, r.State.Companion) || r.State.CareCount != 1 {
 		t.Fatal("restart replay", err)
+	}
+	if r.GameReceipt == nil || r.GameReceipt.Interest == nil || r.GameReceipt.Interest.Before != 0 || r.GameReceipt.Interest.After != 1 || r.GameReceipt.Interest.GameID != id {
+		t.Fatal("restart lost original interest receipt", r.GameReceipt)
 	}
 	if _, err = s.Do(&game.Action{Kind: "catch", GameID: id, Lane: 0, RequestID: "expired-cache-like-new-key"}, nil, false, now); err == nil {
 		t.Fatal("removed session replayed")

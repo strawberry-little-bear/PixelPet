@@ -7,3 +7,7 @@
 .walk-reward-breakdown p { margin: 4px 0; }
 @media (max-width: 700px) { .walk-reward-breakdown { padding: 6px; } }
 @media (forced-colors: active) { .game-outcome { color: CanvasText; border-color: CanvasText; } }
+
+.game-interest-result { margin: 8px 0; padding: 7px 0; border-top: 1px dashed currentColor; overflow-wrap: anywhere; }
+.game-interest-result strong, .game-interest-result small { display: block; }
+.game-interest-result p { margin: 4px 0; }

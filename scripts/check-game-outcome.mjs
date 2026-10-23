@@ -1,18 +1,14 @@
 // Real untimed treasure completions: acknowledged page-local results, isolated HTTP/DB.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary');
-assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
-const shared = async path => realpath(path).catch(() => resolve(path));
-assert.notEqual(await realpath(binary), await shared(join(root, 'bin/pixelpet')), 'Do not use shared binary, including symlinks');
-assert.notEqual(await realpath(web), await shared(join(root, 'web/dist')), 'Do not use shared web build, including symlinks');
+const { binary, web } = await isolatedTestBuilds({ root });
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-game-outcome-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -60,14 +56,27 @@ try {
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
 
   const modes = [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 28 }, { width: 320, height: 380, font: 28 }];
-  for (const mode of modes) for (const exhausted of [false, true]) {
+  const cases = modes.flatMap(mode => [false, true].map(exhausted => ({ ...mode, exhausted, familiarity: 'credited' })));
+  for (const familiarity of ['cooldown', 'familiar']) cases.push({ ...modes[2], exhausted: true, familiarity });
+  for (const mode of cases) {
+    const { exhausted, familiarity } = mode;
     const at = Date.now();
-    const initial = await api('import', { schema: 1, species: 2, name: '把陪玩收好', createdAt: at - 3600000,
-      hatchedAt: at - 3600000, lastTick: at, sleeping: false, needs: { hunger: 70, mood: 70, energy: 80, clean: 80 }, careCount: 0, logs: [] });
+    const initial = await api('import', { schema: 1, species: 2, name: '把陪玩收好', createdAt: at - 4 * 3600000,
+      hatchedAt: at - 4 * 3600000, lastTick: at, sleeping: false, needs: { hunger: 70, mood: 70, energy: 80, clean: 80 }, careCount: 0, logs: [] });
     const fixture = initial.state;
     fixture.economy.lastGameAt = initial.serverTime;
     fixture.economy.gameCoins = exhausted ? initial.shop.gameDailyLimit : 0;
     fixture.economy.coins = 12;
+    // Explicit imported history, not natural multi-hour play. Finish below is real.
+    fixture.growth.care.play = 1;
+    fixture.growth.care.lastPlay = initial.serverTime - 60000;
+    fixture.companion.since = fixture.createdAt;
+    if (familiarity !== 'credited') {
+      const interest = fixture.companion.interests.find(i => i.kind === 'treasure');
+      interest.points = familiarity === 'familiar' ? 5 : 1;
+      interest.lastAt = initial.serverTime - 60000;
+      fixture.companion.recent = { kind: 'treasure', id: 'a'.repeat(32), at: interest.lastAt };
+    }
     await api('import', fixture);
     const before = (await api('state')).state;
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
@@ -76,7 +85,7 @@ try {
       document.documentElement.style.fontSize = `${font}px`; localStorage.setItem('pixelpet-guide-v1-treasure', 'seen');
     }), mode.font);
     const page = await context.newPage(), errors = [], writes = [];
-    const label = `${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
+    const label = `${familiarity}-${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
     page.on('pageerror', e => errors.push(e.message));
     page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
     page.on('request', r => { if (r.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(r.url()).pathname)) writes.push({ path: new URL(r.url()).pathname, body: r.postDataJSON() }); });
@@ -118,7 +127,15 @@ try {
       assert.equal(await receipt.locator('.game-outcome-message').innerText(), confirmed.message);
       assert.equal(await receipt.locator(':scope > time').getAttribute('datetime'), new Date(confirmed.serverTime).toISOString());
       assert.equal(confirmed.state.companion.recent.id, gameId);
-      assert.match(await receipt.innerText(), /本局共同游戏已记录；不代表本次兴趣或成长增加/);
+      assert.match(await receipt.innerText(), /本局共同游戏已记录/);
+      assert.equal(confirmed.gameReceipt.interest.reason, familiarity);
+      assert.equal(confirmed.gameReceipt.interest.gameId, gameId);
+      const interestPanel = receipt.getByLabel('本局游戏熟悉度');
+      assert.match(await interestPanel.innerText(), familiarity === 'credited' ? /本局熟悉度 \+1/ : familiarity === 'cooldown' ? /仍在 30 分钟间隔内/ : /熟悉度已满/);
+      assert.match(await interestPanel.innerText(), /熟悉度按每款游戏分别记录/);
+      assert.equal(confirmed.careFeedback.habitGain, 0, 'Familiarity is independent of shared habit cooldown');
+      assert.equal(confirmed.careFeedback.points, 0);
+      assert.equal(confirmed.state.growth.care.play, before.growth.care.play);
       assert(!confirmed.state.game);
       if (exhausted) assert.equal(confirmed.state.economy.coins, before.economy.coins);
       else assert(confirmed.state.economy.coins > before.economy.coins);
@@ -146,7 +163,7 @@ try {
       const reloaded = (await api('state')).state;
       assert.equal(reloaded.economy.coins, confirmed.state.economy.coins);
       assert.equal(reloaded.companion.recent.id, gameId);
-      assert.deepEqual(errors, []); results.push({exhausted,...mode,heading,passed:true}); console.log('PASS', label);
+      assert.deepEqual(errors, []); results.push({...mode,heading,passed:true}); console.log('PASS', label);
     } catch (error) {
       await page.screenshot({path:join(dir, `${label}-failure.png`),fullPage:true}); throw error;
     } finally { await context.close(); }
