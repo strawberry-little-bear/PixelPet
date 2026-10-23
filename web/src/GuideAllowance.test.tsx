@@ -68,17 +68,21 @@ it.each([false, true])("App passes accepted economy and refreshed rules to the g
   if (seen) rememberGuide("stars");
   const saved: PetState = { schema: 7, revision: 1, species: 2, name: "额度伙伴", createdAt: now - 10000,
     hatchedAt: now - 9000, lastTick: now, sleeping: false, needs: { hunger: 70, mood: 70, energy: 80, clean: 80 },
-    careCount: 0, growth: emptyGrowth("baby"), logs: [], economy: economy({ gameCoins: 30 }) };
+    careCount: 0, growth: { ...emptyGrowth("baby"), care: { ...emptyGrowth("baby").care, lastPlay: now - 10 * 60000 } }, logs: [], economy: economy({ gameCoins: 30 }) };
   let shop = rules;
   api.mockImplementation(async () => ({ state: structuredClone(saved), shop, serverTime: Date.now(), message: "" }));
   await act(async () => { render(<App />); });
   for (const k of ["a", "a", "b", "b"]) await key(k);
+  expect(screen.getByLabelText("当前陪玩习惯").textContent).toContain("约还需 20 分钟");
   if (!seen) await key("a");
   expect(note().textContent).toContain("当前不能得币");
   saved.revision++; saved.economy!.gameCoins = 28;
+  saved.growth!.care.lastPlay = now - 25 * 60000;
   shop = { ...rules, gameDailyLimit: 29 };
   await act(async () => { window.dispatchEvent(new Event("focus")); });
   expect(note().textContent).toContain("今日游戏额度剩 1 币");
+  if (!seen) await key("a");
+  expect(screen.getByLabelText("当前陪玩习惯").textContent).toContain("约还需 5 分钟");
   expect(api.mock.calls.some(([path]) => ["action", "import", "reset", "recap/read"].includes(path))).toBe(false);
   expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
   expect(document.querySelector(".lcd button,.lcd a,.lcd input,[role=button]")).toBeNull();

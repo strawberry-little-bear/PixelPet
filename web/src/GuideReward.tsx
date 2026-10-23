@@ -18,10 +18,14 @@ export function GameAllowance({ economy, shop, now }: GuideRewardContext) {
   return <p className="guide-allowance" aria-label="当前游戏奖励额度">{note}</p>;
 }
 
-export function GuideReward({ game, growth, ...context }: GuideRewardContext & { game: GameInfo }) {
+export function GameHabit({ growth, now }: Pick<GuideRewardContext, "growth" | "now">) {
+  return <p className="guide-habit" aria-label="当前陪玩习惯">{playHabitGuidance(growth, now)}</p>;
+}
+
+export function GuideReward({ game, ...context }: GuideRewardContext & { game: GameInfo }) {
   return <>
     <p className="guide-reward">基础规则：{game.reward}</p>
     <GameAllowance {...context} />
-    <p className="guide-habit" aria-label="当前陪玩习惯">{playHabitGuidance(growth, context.now)}</p>
+    <GameHabit {...context} />
   </>;
 }

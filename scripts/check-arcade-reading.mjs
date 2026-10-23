@@ -101,6 +101,8 @@ try {
       await visible(page, header); // The actual physical key may scroll first.
       assert.equal(await page.locator('.game-guide').getAttribute('data-guide'), id);
       if (expectedPage !== null) assert((await page.locator(header).innerText()).includes(`${expectedPage + 1} / 2`));
+      assert.equal(await page.locator('.game-guide [aria-label="当前陪玩习惯"]').count(), 1);
+      assert.match(await page.locator('.guide-habit').innerText(), /陪玩习惯尚未记录/);
       await readable(page, '.game-guide');
       const font = await page.locator('.game-guide > strong').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
       assert(Math.abs(font - mode.font * 12 / 14) < .1, 'guide did not use the requested text size');

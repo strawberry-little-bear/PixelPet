@@ -18,7 +18,7 @@ beforeEach(() => {
     schema: 2, revision: 1, species: 2, name: "草莓兔",
     createdAt: now - 10000, hatchedAt: now - 9000, lastTick: now,
     sleeping: false, needs: { hunger: 60, mood: 70, clean: 60, energy: 80 },
-    careCount: 0, growth: emptyGrowth("baby"), logs: [],
+    careCount: 0, growth: { ...emptyGrowth("baby"), care: { ...emptyGrowth("baby").care, lastPlay: now - 10 * 60 * 1000 } }, logs: [],
   };
   api.mockReset();
   api.mockResolvedValue({ state: pet, serverTime: now, message: "" });
@@ -52,6 +52,8 @@ it("lets A/B/C discover every listed game, read both rule pages and return witho
     const guide = screen.getByRole("region", { name: `${game.title}玩法说明` });
     expect(guide.textContent).toContain("1 / 2");
     expect(guide.textContent).toContain(game.controls);
+    expect(screen.getByLabelText("当前陪玩习惯").textContent).toContain("约还需 20 分钟");
+    expect(screen.getByLabelText("当前陪玩习惯").textContent).toContain("仍可陪玩");
     await key("a");
     expect(guide.textContent).toContain("2 / 2");
     expect(guide.textContent).toContain(game.reward);

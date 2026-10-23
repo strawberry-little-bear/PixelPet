@@ -1,6 +1,6 @@
 import { abandonProgress } from "./abandon-progress";
 import { DailyRefresh } from "./DailyRefresh";
-import { GuideReward } from "./GuideReward";
+import { GameHabit, GuideReward } from "./GuideReward";
 import type { GuideRewardContext } from "./GuideReward";
 import { gameStartInstruction, gameStartLabel, games, gameAllowance, guideSeen } from "./games";
 import type { GameInfo } from "./games";
@@ -52,7 +52,10 @@ export function GameGuide({ game, page, review = false, paused = false, sleeping
         <li key={step}>{step}。</li>
       )}
     </ul>
-    {page === 0 ? <p className="guide-reward">{game.duration}</p> : <GuideReward game={game} {...rewardContext} />}
+    {page === 0 ? <>
+      <p className="guide-reward">{game.duration}</p>
+      <GameHabit {...rewardContext} />
+    </> : <GuideReward game={game} {...rewardContext} />}
     {paused && <p className="guide-paused-note">只读本局规则；返回仍保持暂停，按暂停画面提示手动继续。</p>}
     <small>{paused ? "A / B 翻页 · C 返回暂停" : `A 翻页 · ${sleeping ? "B 暂不可开始" : gameStartInstruction(game, seen)} · C 返回选游戏`}</small>
   </section>;
