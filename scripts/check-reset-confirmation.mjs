@@ -47,10 +47,25 @@ try {
       await ctx.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; }), font);
       await page.goto(base); await page.locator('.home-caption').waitFor();
       const open = async () => { await page.getByRole('button', { name: '存档盒', exact: true }).click(); await page.getByRole('button', { name: '重新开始', exact: true }).click(); };
+      for (const modal of ['help', 'reset']) {
+        if (modal === 'help') await page.getByRole('button', { name: '玩法说明', exact: true }).click();
+        else await open();
+        const close = page.getByRole('button', { name: '关闭', exact: true }); await close.focus();
+        for (const shortcut of ['Control+c', 'Meta+c', 'Alt+c']) {
+          await page.keyboard.press(shortcut);
+          assert(await page.getByRole('dialog').isVisible(), shortcut + ' must not dismiss ' + modal);
+          assert(await close.evaluate(el => el === document.activeElement));
+          assert.equal(resets.length, 0);
+        }
+        await page.keyboard.press('c'); await page.getByRole('dialog').waitFor({ state: 'detached' });
+        assert(await page.locator('.button-c').evaluate(el => el === document.activeElement));
+      }
       await open(); const input = page.getByRole('textbox', { name: '重新开始确认文字' });
       const confirm = page.getByRole('button', { name: '确认重新开始', exact: true });
       assert(await confirm.isDisabled());
       await input.click(); await page.keyboard.type('ABC'); assert.equal(await input.inputValue(), 'ABC');
+      await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.press('ControlOrMeta+c');
+      assert.equal(await input.inputValue(), 'ABC');
       assert(await page.getByRole('dialog').isVisible()); assert(await confirm.isDisabled());
       await page.keyboard.press('Enter'); assert.equal(resets.length, 0);
       await page.keyboard.press('Tab'); assert(await page.getByRole('button', { name: '关闭', exact: true }).evaluate(el => el === document.activeElement));

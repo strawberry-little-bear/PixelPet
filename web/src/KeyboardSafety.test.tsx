@@ -243,3 +243,30 @@ it.each([{ isComposing: true }, { keyCode: 229 }, { metaKey: true }, { ctrlKey: 
     await act(async () => { screen.getByRole('button', { name: 'C 返回' }).dispatchEvent(event); });
     expect(event.defaultPrevented).toBe(false); expect(writes()).toHaveLength(0);
   });
+
+for (const modal of ['help', 'reset']) {
+  it.each([{ ctrlKey: true }, { metaKey: true }, { altKey: true }])(
+    `keeps modified C shortcuts native in the ${modal} dialog: %j`,
+    async modifier => {
+      await mount();
+      if (modal === 'help') {
+        fireEvent.click(screen.getByRole('button', { name: '玩法说明' }));
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: /存档盒/ }));
+        fireEvent.click(screen.getByRole('button', { name: '重新开始' }));
+      }
+      const close = screen.getByRole('button', { name: '关闭' }); close.focus();
+      for (const value of ['c', 'C']) {
+        const event = await key(value, modifier, close);
+        expect(event.defaultPrevented).toBe(false);
+        expect(screen.getByRole('dialog')).toBeTruthy();
+        expect(document.activeElement).toBe(close);
+        expect(writes()).toHaveLength(0);
+      }
+      await key('c', {}, close);
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(document.activeElement).toBe(document.querySelector('.physical-button.button-c'));
+      expect(writes()).toHaveLength(0);
+    },
+  );
+}

@@ -1055,8 +1055,9 @@ export default function App() {
     const previous = modalReturnFocus.current || document.activeElement as HTMLElement | null;
     modalRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const trap = (event: KeyboardEvent) => {
-      // Let IME selection keep Escape/Tab, including legacy browser events.
-      if (event.isComposing || event.keyCode === 229) return;
+      // Keep IME selection and native shortcuts (such as copy) out of modal controls.
+      if (event.isComposing || event.keyCode === 229 ||
+        event.metaKey || event.ctrlKey || event.altKey) return;
       const editing = event.target instanceof HTMLElement &&
         (event.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
       if (event.key === "Escape" || (!editing && event.key.toLowerCase() === "c")) {

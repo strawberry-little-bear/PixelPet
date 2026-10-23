@@ -49,9 +49,14 @@ it.each(["egg", "corrupt"])("uses explicit restart words for %s without a readab
 });
 it("treats A/B/C and Enter as text input, while Escape cancels and restores physical focus", async () => {
   await mount(); input().focus();
-  for (const key of ["a", "b", "c", "C", "Enter"]) fireEvent.keyDown(input(), { key });
+  for (const key of ["a", "b", "c", "C", "Enter"]) {
+    const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+    await act(async () => { input().dispatchEvent(event); });
+    expect(event.defaultPrevented).toBe(false);
+  }
   expect(document.querySelector(".modal")).toBeTruthy(); expect(resets()).toHaveLength(0);
-  await type("ABC伙伴"); fireEvent.keyDown(input(), { key: "Escape", isComposing: true });
+  await type("ABC伙伴"); expect(confirm().disabled).toBe(false);
+  fireEvent.keyDown(input(), { key: "Escape", isComposing: true });
   expect(document.querySelector(".modal")).toBeTruthy();
   await act(async () => { fireEvent.keyDown(input(), { key: "Escape" }); });
   expect(document.querySelector(".modal")).toBeNull();
