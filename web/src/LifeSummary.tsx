@@ -75,9 +75,13 @@ export function lifeSummary(pet: PetState, now: number) {
     : [];
   const stage = pet.growth?.stage;
   const nextStep = stage === "adult"
-    ? lastMemory
-      ? `形态已经固定，最近留下的是「${lastMemory.title}」。想继续时，可以回看纪念册、布置小窝，或按心情一起玩喜欢的游戏。`
-      : "形态已经固定，可以按心情回看纪念册、布置小窝，或一起玩喜欢的游戏。成年后的日子没有必须完成的目标。"
+    ? interestLeaders.length > 0 && lastMemory
+      ? `形态已经固定，最近留下的是「${lastMemory.title}」，常一起玩的是「${interestLeaders.join("」和「")}」。想继续时，可以再玩一局，也可以回看纪念册或换个心情去散步。`
+      : interestLeaders.length > 0
+        ? `形态已经固定，最近常一起玩的是「${interestLeaders.join("」和「")}」。想继续时，可以再玩一局，也可以回看纪念册或换个心情去散步。`
+        : lastMemory
+          ? `形态已经固定，最近留下的是「${lastMemory.title}」。想继续时，可以回看纪念册、布置小窝，或按心情一起玩喜欢的游戏。`
+          : "形态已经固定，可以按心情回看纪念册、布置小窝，或一起玩喜欢的游戏。成年后的日子没有必须完成的目标。"
     : stage === "baby" || stage === "growing"
       ? "按它当下的需要慢慢照顾，等它准备好再看看成长记录；不必为了数字重复操作。"
       : "先从今天的相遇开始，等真正发生的照顾和游戏自然留下回忆。";

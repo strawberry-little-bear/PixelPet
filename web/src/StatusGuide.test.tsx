@@ -162,6 +162,20 @@ describe("共同生活回顾", () => {
     expect(container.querySelector(".life-summary-next")?.textContent).toContain("最近留下的是");
   });
 
+  it("gives an adult pet a gentle direction from saved game interest", () => {
+    const at = Date.parse("2026-10-20T08:00:00Z");
+    const current = structuredClone(pet("adult"));
+    current.createdAt = at;
+    current.hatchedAt = at;
+    current.companion = { since: at, interests: [{ kind: "tetris", points: 3, lastAt: at }] };
+    const before = structuredClone(current);
+    const { container } = render(<StatusGuide pet={current} rules={rules} now={at + 2 * 86400000} />);
+    const next = container.querySelector(".life-summary-next")?.textContent ?? "";
+    expect(next).toContain("最近常一起玩的是「俄罗斯方块」");
+    expect(next).toContain("不是任务");
+    expect(current).toEqual(before);
+  });
+
   it("starts the shared day count at hatching, not when the egg was created", () => {
     const day = 86400000;
     const at = Date.parse("2026-10-20T08:00:00Z");
