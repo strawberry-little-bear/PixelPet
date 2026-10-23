@@ -95,3 +95,64 @@ func TestStaticCachePolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestManifestContentType(t *testing.T) {
+	web := t.TempDir()
+	modified := time.Date(2026, 10, 24, 0, 0, 0, 0, time.UTC)
+	for _, name := range []string{"index.html", "manifest.webmanifest"} {
+		path := filepath.Join(web, name)
+		if err := os.WriteFile(path, []byte(`{"name":"PixelPet"}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(path, modified, modified); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler := Handler(nil, web) // Static requests must not need a player database.
+	for _, tt := range []struct {
+		name, method, header, value string
+		status                      int
+	}{
+		{"get", "GET", "", "", 200},
+		{"head", "HEAD", "", "", 200},
+		{"range", "GET", "Range", "bytes=0-4", 206},
+		{"not modified", "GET", "If-Modified-Since", modified.Format(http.TimeFormat), 304},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r := httptest.NewRequest(tt.method, "/manifest.webmanifest", nil)
+			if tt.header != "" {
+				r.Header.Set(tt.header, tt.value)
+			}
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, r)
+			if w.Code != tt.status || w.Header().Get("Cache-Control") != "no-cache" {
+				t.Fatalf("status=%d headers=%v", w.Code, w.Header())
+			}
+			if tt.status != 304 && w.Header().Get("Content-Type") != "application/manifest+json" {
+				t.Fatalf("manifest MIME depends on host configuration: %q", w.Header().Get("Content-Type"))
+			}
+			if (tt.method == "HEAD" || tt.status == 304) && w.Body.Len() != 0 {
+				t.Fatal("HEAD/304 returned a body")
+			}
+			if tt.status == 206 && w.Body.String() != `{"nam` {
+				t.Fatalf("range changed: %q", w.Body.String())
+			}
+		})
+	}
+	if err := os.Remove(filepath.Join(web, "manifest.webmanifest")); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest("GET", "/manifest.webmanifest", nil))
+	if w.Code != 404 || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/plain") {
+		t.Fatalf("missing manifest must remain a plain-text error: %d %v", w.Code, w.Header())
+	}
+	if err := os.Remove(filepath.Join(web, "index.html")); err != nil {
+		t.Fatal(err)
+	}
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest("GET", "/manifest.webmanifest", nil))
+	if w.Code != 503 || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/plain") {
+		t.Fatalf("unbuilt frontend must remain a plain-text error: %d %v", w.Code, w.Header())
+	}
+}

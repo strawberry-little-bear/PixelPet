@@ -167,6 +167,11 @@ func handlerWithClock(db *store.Store, web string, now func() time.Time) http.Ha
 			http.Error(w, "前端尚未构建。开发时请打开 http://127.0.0.1:5173；或先在 web 目录执行 pnpm build。", 503)
 			return
 		}
+		// Some hosts do not register .webmanifest and otherwise serve text/plain.
+		// Set the type locally; FileServer still supplies plain-text error responses.
+		if r.URL.Path == "/manifest.webmanifest" {
+			w.Header().Set("Content-Type", "application/manifest+json")
+		}
 		http.FileServer(http.Dir(web)).ServeHTTP(w, r)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
