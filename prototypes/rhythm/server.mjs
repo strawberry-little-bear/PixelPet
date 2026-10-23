@@ -2,6 +2,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { createSession, command } from './protocol.mjs';
 const number = (name, fallback, max) => {
@@ -16,6 +17,9 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const files = new Map(await Promise.all([
   ['/', 'index.html', 'text/html; charset=utf-8'], ['/client.mjs', 'client.mjs', 'text/javascript; charset=utf-8'], ['/styles.css', 'styles.css', 'text/css; charset=utf-8'],
 ].map(async ([url, path, type]) => [url, { body: await readFile(new URL(`./public/${path}`, import.meta.url)), type }])));
+// Keep cues, response anchors and idle expiration on the same elapsed clock.
+// Host wall-clock corrections must not retime a live cue or expire a session.
+const serverNow = () => performance.timeOrigin + performance.now();
 const sessions = new Map(); let requestCount = 0;
 const server = createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -37,7 +41,7 @@ const server = createServer(async (req, res) => {
     const index = requestCount++;
     // Deterministic alternating jitter, explicitly a synthetic test condition.
     await wait(up + (index % 2 ? jitter : 0));
-    const now = Date.now();
+    const now = serverNow();
     for (const [id, value] of sessions) if (now - value.touched > 10 * 60000) sessions.delete(id);
     let state, lastRequest = 0, lease;
     if (input.kind === 'create') {
@@ -68,7 +72,7 @@ const server = createServer(async (req, res) => {
       }
     }
     sessions.set(state.id, { state, touched: now, lastRequest, lease });
-    const reply = { state, lease, serverTime: Date.now(), simulation: { up, down, jitter } };
+    const reply = { state, lease, serverTime: serverNow(), simulation: { up, down, jitter } };
     await wait(down + (index % 2 ? 0 : jitter));
     send(200, reply);
   } catch { if (!res.headersSent) send(500, { error: '原型连接中断，请手动重新核对。' }); else res.end(); }
