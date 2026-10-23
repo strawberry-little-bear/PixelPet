@@ -2,14 +2,16 @@
 // response fixtures, direct DB edits or player URLs. The server stays running.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY;
-assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY to a freshly built test binary.');
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
+const { binary, web } = await isolatedTestBuilds();
+const recordedSleep = process.argv.includes('--recorded-sleep');
+assert(process.argv.slice(2).every(arg => arg === '--recorded-sleep'), 'Unknown argument');
 const waitMs = Number(process.env.PIXELPET_WALL_WAIT_MS ?? 16 * 60000);
 assert(Number.isSafeInteger(waitMs) && waitMs >= 16 * 60000 && waitMs <= 60 * 60000, 'Wait must be 16–60 real minutes.');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
@@ -21,7 +23,7 @@ async function start(c) {
     const s = net.createServer(); s.once('error', reject); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(e => e ? reject(e) : resolve(p)); });
   });
   c.base = `http://127.0.0.1:${port}`; let error;
-  c.child = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_DB: c.db, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_WEB: join(root, 'web/dist') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  c.child = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_DB: c.db, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
   c.child.once('error', e => { error = e; });
   c.child.stdout.on('data', d => { c.log += d; }); c.child.stderr.on('data', d => { c.log += d; });
   for (let i = 0; i < 100; i++) {
@@ -48,7 +50,11 @@ function instrument(page, c) {
   });
 }
 const response = (page, path) => page.waitForResponse(r => new URL(r.url()).pathname === `/api/${path}`);
-async function key(page, k) { await page.locator(`.button-${k}:not(:disabled)`).click(); }
+async function key(page, k) {
+  await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
+  await page.keyboard.press(k);
+  await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
+}
 async function menu(page, index) { await key(page, 'a'); for (let i = 0; i < index; i++) await key(page, 'a'); await key(page, 'b'); }
 const near = (a, b, label) => assert(Math.abs(a - b) < 1e-7, `${label}: ${a} != ${b}`);
 function verify(c, visit) {
@@ -73,11 +79,16 @@ function verify(c, visit) {
   return { hours, needs: after.needs, growth: after.growth.points - before.growth.points, rest };
 }
 try {
-  browser = await chromium.launch({ channel: 'chrome', headless: true });
   for (const stage of ['baby', 'growing', 'adult']) for (const sleeping of [false, true]) {
-    const c = { label: `${stage}-${sleeping ? 'sleep' : 'awake'}`, stage, sleeping, db: join(dir, `${stage}-${sleeping}.db`), log: '', requests: [], errors: [], phase: 'baseline' }; cases.push(c);
-    await start(c); const now = Date.now(), age = { baby: 1, growing: 30, adult: 80 }[stage] * 3600000;
-    await api(c, 'import', { schema: 1, revision: 1, species: 2, name: '真实关页回访', createdAt: now - age, hatchedAt: now - age, lastTick: now, sleeping, needs: { hunger: 60, mood: 80, clean: 65, energy: 40 }, careCount: 0, logs: [] });
+    const c = { label: `${stage}-${sleeping ? 'sleep' : 'awake'}`, stage, sleeping, db: join(dir, `${stage}-${sleeping}`, 'test.db'), log: '', requests: [], errors: [], phase: 'baseline' }; cases.push(c);
+    await mkdir(dirname(c.db)); await start(c);
+    if (!browser) browser = await chromium.launch({ channel: 'chrome', headless: true });
+    const now = Date.now(), age = { baby: 1, growing: 30, adult: 80 }[stage] * 3600000;
+    await api(c, 'import', { schema: 1, revision: 1, species: 2, name: '真实关页回访', createdAt: now - age, hatchedAt: now - age, lastTick: now, sleeping: sleeping && !recordedSleep, needs: { hunger: 60, mood: 80, clean: 65, energy: 40 }, careCount: 0, logs: [] });
+    if (sleeping && recordedSleep) {
+      c.bed = await api(c, 'action', { kind: 'sleep', requestId: `browser-bed-${stage}` });
+      assert(c.bed.state.sleepSession);
+    }
     const context = await browser.newContext(), page = await context.newPage(); instrument(page, c);
     const first = response(page, 'visit'); await page.goto(c.base); c.baseline = await (await first).json();
     await page.locator('.home-caption').waitFor(); assert.equal(c.baseline.state.growth.stage, stage); assert(!c.baseline.recapPending && !c.baseline.returnRecap);
@@ -85,7 +96,7 @@ try {
   }
   await browser.close(); browser = null;
   const started = performance.now(), wallStarted = Date.now(), counts = cases.map(c => c.requests.length);
-  await writeFile(join(dir, 'waiting.json'), JSON.stringify({ waitMs, wallStarted, cases: cases.map(({ child, ...c }) => ({ ...c, pid: child.pid })) }, null, 2));
+  await writeFile(join(dir, 'waiting.json'), JSON.stringify({ recordedSleep, binary, web, waitMs, wallStarted, cases: cases.map(({ child, ...c }) => ({ ...c, pid: child.pid })) }, null, 2));
   console.log(JSON.stringify({ phase: 'browser-closed-real-wait', waitMs, wallStarted, artifacts: dir, browserRunning: false, servers: cases.map(c => c.child.pid) }));
   await wait(waitMs);
   const elapsed = performance.now() - started, wallElapsed = Date.now() - wallStarted;
@@ -96,27 +107,66 @@ try {
     c.phase = 'return';
     const width = c.sleeping ? 320 : 1200, context = await browser.newContext({ viewport: { width, height: 800 }, forcedColors: c.sleeping ? 'active' : 'none' });
     if (c.sleeping) await context.addInitScript(() => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = '28px'; }));
+    await context.addInitScript(() => {
+      window.__wakePresentation = {};
+      document.addEventListener('DOMContentLoaded', () => new MutationObserver(() => {
+        const timing = window.__wakePresentation;
+        if (document.querySelector('.growth-feedback.has-feedback') && document.querySelector('.pet-scene[data-motion=idle]') && timing.feedbackAt == null) timing.feedbackAt = performance.now();
+        if (document.querySelector('.return-panel') && timing.returnAt == null) timing.returnAt = performance.now();
+      }).observe(document.documentElement, { subtree: true, childList: true, attributes: true }));
+    });
     const page = await context.newPage(); instrument(page, c); const returning = response(page, 'visit');
     // Register before navigation: an awake pet may claim immediately on mount.
     const claiming = c.sleeping ? null : response(page, 'recap/read');
     await page.goto(c.base); const visit = await (await returning).json(), settlement = verify(c, visit), recap = visit.returnRecap;
-    let claimed;
+    let claimed, woken, wakeReceipt;
     if (c.sleeping) {
       await page.locator('.home-caption').waitFor(); assert.equal(await page.locator('.return-panel').count(), 0);
       assert.equal(c.requests.filter(r => r.path === '/api/recap/read').length, 0, 'Do not claim while sleeping');
       const wake = response(page, 'action'), claimAfterWake = response(page, 'recap/read'); await menu(page, 3);
-      const woken = await (await wake).json(); assert.equal(woken.state.sleeping, false); assert.deepEqual(woken.returnRecap, recap);
+      woken = await (await wake).json(); assert.equal(woken.state.sleeping, false); assert.deepEqual(woken.returnRecap, recap);
+      // The current app gives the confirmed wake feedback eight unobstructed
+      // seconds after its animation, before claiming/presenting the recap.
+      await page.waitForFunction(() => document.querySelector('.growth-feedback.has-feedback') &&
+        document.querySelector('.pet-scene[data-motion=idle]'));
+      assert.equal(c.requests.filter(r => r.path === '/api/recap/read').length, 0, 'Wake feedback must precede recap claim');
+      assert.equal(await page.locator('.return-panel').count(), 0);
+      if (recordedSleep) {
+        const summary = woken.careFeedback?.sleepSummary;
+        assert(summary, 'Recorded bedtime must produce an acknowledged sleep summary');
+        assert.equal(summary.startedAt, c.bed.state.sleepSession.startedAt);
+        assert.equal(summary.wokeAt, woken.careFeedback.effect.at);
+        near(summary.settledHours, (summary.wokeAt - summary.startedAt) / 3600000, 'entire sleep duration');
+        near(summary.energyRecovered, woken.state.needs.energy - c.bed.state.needs.energy, 'entire sleep recovery');
+        near(summary.restGain, summary.energyRecovered / c.baseline.careRules.growth.restEnergyPerHabit, 'entire sleep rest');
+        near(summary.growthPoints, woken.state.growth.points - c.bed.state.growth.points, 'entire sleep growth');
+        assert.equal(woken.state.sleepSession, undefined);
+        assert.equal(woken.careFeedback.points, 0, 'Waking itself must not grant growth');
+        assert.equal(woken.careFeedback.habitGain, 0, 'Waking itself must not grant a habit');
+        await page.locator('.sleep-summary').waitFor();
+      } else assert.equal(woken.careFeedback?.sleepSummary, undefined, 'Legacy sleep must not fabricate history');
+      wakeReceipt = await page.locator('.care-outcome').textContent();
+      await page.locator('.care-outcome').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: join(dir, `${c.label}-wake.png`), fullPage: true });
       claimed = await (await claimAfterWake).json();
     } else claimed = await (await claiming).json();
     assert(claimed.recapClaimed && !claimed.recapPending); assert.deepEqual(claimed.returnRecap, recap);
     await page.locator('.return-panel').waitFor(); assert.equal(await page.locator('.return-panel header span').innerText(), '1 / 2');
+    if (c.sleeping) {
+      c.presentation = await page.evaluate(() => window.__wakePresentation);
+      assert(Number.isFinite(c.presentation.feedbackAt) && Number.isFinite(c.presentation.returnAt));
+      assert(c.presentation.returnAt - c.presentation.feedbackAt >= 7950, 'Recap shortened the eight-second wake feedback');
+    }
     const firstHeight = await page.locator('.device').evaluate(el => el.getBoundingClientRect().height);
     await key(page, 'b'); assert.equal(await page.locator('.return-panel header span').innerText(), '2 / 2');
-    assert.equal(await page.locator('.device').evaluate(el => el.getBoundingClientRect().height), firstHeight);
+    assert(Math.abs(await page.locator('.device').evaluate(el => el.getBoundingClientRect().height) - firstHeight) < 1, 'Recap page change must not resize the device');
     await page.locator('.return-panel').focus(); await page.keyboard.press('End');
     await page.waitForFunction(() => { const e = document.querySelector('.return-panel'); return e.scrollHeight - e.clientHeight - e.scrollTop < 2; });
     await page.screenshot({ path: join(dir, `${c.label}-recap.png`), fullPage: true });
     await key(page, 'c'); await page.locator('.home-caption').waitFor();
+    await page.screenshot({ path: join(dir, `${c.label}-home.png`), fullPage: true });
+    if (c.sleeping) assert.equal(await page.locator('.care-outcome').textContent(), wakeReceipt, 'Recap changed the acknowledged wake receipt');
+    if (recordedSleep && c.sleeping) await page.locator('.sleep-summary').waitFor();
     c.phase = 'reload'; const reloading = response(page, 'visit'); await page.reload(); const reloaded = await (await reloading).json();
     await page.locator('.home-caption').waitFor(); assert(!reloaded.recapPending && !reloaded.recapClaimed); assert.deepEqual(reloaded.returnRecap, recap);
     assert.equal(await page.locator('.return-panel').count(), 0); assert.equal(c.requests.filter(r => r.path === '/api/recap/read').length, 1);
@@ -130,10 +180,10 @@ try {
     for (const r of actions) assert.equal(JSON.parse(r.body).kind, 'sleep');
     assert(!c.requests.some(r => ['/api/import', '/api/reset'].includes(r.path))); assert.deepEqual(c.errors, []);
     assert.equal(await page.locator('.physical-button').count(), 3); assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
-    results.push({ label: c.label, closedAt: c.closedAt, baseline: c.baseline, visit, claimed, reloaded, persisted, settlement, requests: c.requests });
+    results.push({ label: c.label, closedAt: c.closedAt, baseline: c.baseline, visit, claimed, reloaded, persisted, settlement, bed: c.bed, woken, presentation: c.presentation, requests: c.requests });
     await context.close(); await stop(c); console.log('PASS', c.label, JSON.stringify(settlement));
   }
-  await writeFile(join(dir, 'results.json'), JSON.stringify({ waitMs, elapsed, wallElapsed, cases: results }, null, 2));
+  await writeFile(join(dir, 'results.json'), JSON.stringify({ recordedSleep, binary, web, waitMs, elapsed, wallElapsed, cases: results }, null, 2));
   console.log(JSON.stringify({ groups: results.length, elapsed, wallElapsed, artifacts: dir }));
 } finally {
   if (browser) await browser.close(); await Promise.all(cases.map(stop));
