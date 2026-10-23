@@ -1,13 +1,16 @@
 import { games } from "./games";
 import type { GameOutcomeRecord } from "./game-outcome";
 import type { CareFeedback } from "./types";
+import { CareReadingRegion } from "./CareReadingRegion";
 import { CareOutcome } from "./CareOutcome";
 import "./game-outcome.css";
 
-export function GameOutcome({ outcome, careFeedback = null }: { outcome: GameOutcomeRecord | null; careFeedback?: CareFeedback | null }) {
+export function GameOutcome({ outcome, careFeedback = null, readable = false }: {
+  outcome: GameOutcomeRecord | null; careFeedback?: CareFeedback | null; readable?: boolean;
+}) {
   if (!outcome) return null;
   const walk = outcome.gameReceipt?.walk, interest = outcome.gameReceipt?.interest;
-  return <section className="game-outcome" aria-label="本页最近一次游戏结算">
+  const receipt = <section className="game-outcome" aria-label="本页最近一次游戏结算">
     <h3>本页最近一次结算 · {games.find(g => g.id === outcome.kind)?.title}</h3>
     <time dateTime={new Date(outcome.at).toISOString()}>{new Date(outcome.at).toLocaleString("zh-CN", {
       year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
@@ -33,4 +36,9 @@ export function GameOutcome({ outcome, careFeedback = null }: { outcome: GameOut
     <small>上方是服务端已确认的结算原文，不是当前额度或下一局预测；兴趣记录可从成长手册查看。本页暂存，刷新后不保留。</small>
     <CareOutcome feedback={careFeedback} embedded />
   </section>;
+  // Status already supplies a reading stop; only home needs its own.
+  return readable ? <CareReadingRegion className="game-outcome-reading" label="游戏结算阅读区"
+    hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
+    {receipt}
+  </CareReadingRegion> : receipt;
 }

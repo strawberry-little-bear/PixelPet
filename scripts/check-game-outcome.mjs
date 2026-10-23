@@ -24,6 +24,32 @@ async function api(path, body) {
   assert(res.ok, await res.clone().text()); return res.json();
 }
 async function key(page, k) { await page.locator(`.button-${k.toLowerCase()}`).tap(); }
+async function settledScroll(page) {
+  return page.evaluate(() => new Promise((resolve, reject) => {
+    let previous = scrollY, stable = 0;
+    const deadline = performance.now() + 3000;
+    function frame() {
+      stable = scrollY === previous ? stable + 1 : 0; previous = scrollY;
+      if (stable >= 12) return resolve(scrollY);
+      if (performance.now() > deadline) return reject(new Error('Native reading scroll did not settle'));
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }));
+}
+async function nativeReceiptStop(page, region) {
+  // Reach the physical C and then the receipt through the native Tab order;
+  // do not activate a key or synthesize focus on the reading stop.
+  for (let i = 0; i < 15 && !await page.locator('.button-c').evaluate(el => el === document.activeElement); i++)
+    await page.keyboard.press('Tab');
+  assert(await page.locator('.button-c').evaluate(el => el === document.activeElement));
+  for (let i = 0; i < 8 && !await region.evaluate(el => el === document.activeElement); i++)
+    await page.keyboard.press('Shift+Tab');
+  assert(await region.evaluate(el => el === document.activeElement), 'Native Tab must reach the game receipt');
+  assert.equal(await region.getAttribute('tabindex'), '0');
+  assert.match(await page.locator(`[id="${await region.getAttribute('aria-describedby')}"]`).innerText(), /Enter 不操作/);
+  assert.deepEqual(await region.evaluate(el => { const css = getComputedStyle(el); return [css.outlineWidth, css.outlineStyle]; }), ['2px', 'solid']);
+}
 // Native document scrolling, including every line at double root font size.
 async function reachableLines(page, selector) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
@@ -149,11 +175,33 @@ try {
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
       await wait(250); assert.equal(await receipt.innerText(), text);
       assert.equal(await page.evaluate(() => scrollY), readingY, 'Ordinary sync must not replay receipt navigation');
+      const region = page.getByRole('region', { name: '游戏结算阅读区' });
+      await nativeReceiptStop(page, region);
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('.care-menu').count(), 0, 'Reading Enter must not open the menu');
+      const movements = [];
+      await page.keyboard.press('Home'); await settledScroll(page);
+      for (const [key, direction] of [['ArrowDown', 1], ['Space', 1], ['Shift+Space', -1], ['End', 1], ['PageUp', -1]]) {
+        const before = await settledScroll(page);
+        await page.keyboard.press(key); const after = await settledScroll(page);
+        assert((after - before) * direction > 0, `${key} must scroll natively: ${before} -> ${after}`);
+        assert(await region.evaluate(el => el === document.activeElement), 'Reading must keep focus');
+        movements.push({ key, before, after });
+      }
+      const position = await settledScroll(page);
+      await region.evaluate(el => el.dataset.syncProbe = 'same-node');
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await wait(250);
+      assert.equal(await region.getAttribute('data-sync-probe'), 'same-node');
+      assert(await region.evaluate(el => el === document.activeElement));
+      assert.equal(await settledScroll(page), position, 'Sync must preserve focused reading position');
+      assert.equal(writes.length, count, 'Native reading must not submit an action');
+      await page.screenshot({path:join(dir, `${label}-reading-viewport.png`)});
       await reachableLines(page, '.game-outcome');
       await page.screenshot({path:join(dir, `${label}.png`),fullPage:true});
       // Status first page also carries exactly the acknowledged receipt.
       await key(page, 'A'); for (let i = 0; i < 4; i++) await key(page, 'A'); await key(page, 'B');
       await page.locator('.screen-status').waitFor(); assert.equal(await receipt.innerText(), text);
+      assert.equal(await page.getByRole('region', { name: '游戏结算阅读区' }).count(), 0, 'Status must not nest reading stops');
       await reachableLines(page, '.game-outcome');
       assert.equal(writes.length, count, 'reading/navigating the result must not write');
       assert.equal(await page.locator('.physical-button').count(), 3);
@@ -161,8 +209,11 @@ try {
       // C returns from status first; a separate home C acknowledges the result.
       await key(page, 'C'); assert.equal(await receipt.innerText(), text);
       assert((await page.locator('.lcd-bottom').innerText()).includes('C 收起回执'));
+      await nativeReceiptStop(page, region);
       const savedBeforeDismiss = (await api('state')).state;
       await page.keyboard.press('c');
+      assert(await page.locator('.button-c').evaluate(el => el === document.activeElement), 'Dismissal returns focus to C');
+      assert.equal(await region.count(), 0);
       assert.equal(await receipt.count(), 0, 'Home C dismisses the complete game receipt');
       assert.equal(await page.locator('.care-outcome,.toast').count(), 0);
       assert(!(await page.locator('.lcd-bottom').innerText()).includes('收起'));
@@ -178,7 +229,7 @@ try {
       const reloaded = (await api('state')).state;
       assert.equal(reloaded.economy.coins, confirmed.state.economy.coins);
       assert.equal(reloaded.companion.recent.id, gameId);
-      assert.deepEqual(errors, []); results.push({...mode,heading,passed:true}); console.log('PASS', label);
+      assert.deepEqual(errors, []); results.push({...mode,heading,movements,passed:true}); console.log('PASS', label);
     } catch (error) {
       await page.screenshot({path:join(dir, `${label}-failure.png`),fullPage:true}); throw error;
     } finally { await context.close(); }

@@ -1858,7 +1858,7 @@ export default function App() {
       if (page === "home") {
         // C during a clip was consumed above. A separate home C acknowledges
         // the page-local receipt; it never deletes saved diary/album entries.
-        if (document.activeElement?.matches(".care-outcome-reading"))
+        if (document.activeElement?.matches(".care-outcome-reading,.game-outcome-reading"))
           document.querySelector<HTMLButtonElement>(".physical-button.button-c")?.focus({ preventScroll: true });
         setCareFeedback(null);
         setCareOutcome(null);
@@ -1960,9 +1960,9 @@ export default function App() {
       // and shortcuts on physical buttons still perform the original controls.
       if (e.target instanceof HTMLElement && e.target.matches(".return-panel,.care-reading-region") &&
         (e.key === "ArrowDown" || e.key === " ")) return;
-      // Enter on a care or memory reading stop is not a confirmation/page turn.
+      // Enter on these reading stops is not a confirmation or page turn.
       // Native activation on physical buttons and explicit A/B/C stay intact.
-      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region,.quiet-moment-reading,.sleep-home-guidance,.walk-discoveries,.fishing-catches") && e.key === "Enter") return;
+      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.game-outcome-reading,.memory-reading-region,.quiet-moment-reading,.sleep-home-guidance,.walk-discoveries,.fishing-catches") && e.key === "Enter") return;
       // Enter/Space activate the focused physical key, just like clicking it.
       // In particular the import preview deliberately focuses safe C: never
       // turn that native activation into the global B/confirm shortcut.
@@ -2595,7 +2595,7 @@ export default function App() {
                               <CareAdvice pet={pet} />
                             </CareReadingRegion>}
                             {gameOutcome ? (
-                              <GameOutcome outcome={gameOutcome} careFeedback={careOutcome} />
+                              <GameOutcome outcome={gameOutcome} careFeedback={careOutcome} readable />
                             ) : (
                               <CareOutcome feedback={careOutcome} readable />
                             )}

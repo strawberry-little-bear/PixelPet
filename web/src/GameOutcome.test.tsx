@@ -291,3 +291,63 @@ it("closing help with C preserves the result until C is pressed again on home", 
   await key("c"); expect(outcome()).toBeNull();
   expect(writes()).toHaveLength(1);
 });
+
+async function readingKey(region: HTMLElement, value: string) {
+  const event = new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true });
+  await act(async () => { region.dispatchEvent(event); });
+  return event;
+}
+
+it("game results have a named native reading stop only after completion", async () => {
+  await mount();
+  expect(screen.queryByRole("region", { name: "游戏结算阅读区" })).toBeNull();
+  await key("b");
+  const region = screen.getByRole("region", { name: "游戏结算阅读区" });
+  expect(region.tabIndex).toBe(0); expect(region.contains(outcome())).toBe(true);
+  const hint = document.getElementById(region.getAttribute("aria-describedby")!);
+  expect(hint?.textContent).toContain("Enter 不操作");
+  expect(region.closest("[aria-live]")).toBeNull();
+  expect(region.querySelectorAll("button,a,input,[role=button],[tabindex]")).toHaveLength(0);
+});
+
+it("native reading keys preserve the game receipt and do not open the menu or write", async () => {
+  await mount(); await key("b");
+  const region = screen.getByRole("region", { name: "游戏结算阅读区" }); region.focus();
+  const text = outcome()?.textContent, before = structuredClone(saved);
+  for (const value of ["ArrowDown", "ArrowUp", " ", "PageDown", "PageUp", "Home", "End", "Enter"]) {
+    expect((await readingKey(region, value)).defaultPrevented).toBe(false);
+    expect(document.querySelector(".care-menu")).toBeNull();
+  }
+  await act(async () => { await vi.advanceTimersByTimeAsync(17000); });
+  await poll();
+  expect(screen.getByRole("region", { name: "游戏结算阅读区" })).toBe(region);
+  expect(document.activeElement).toBe(region); expect(outcome()?.textContent).toBe(text);
+  expect(saved).toEqual(before); expect(writes()).toHaveLength(1);
+});
+
+it.each(["a", "b"])("explicit %s from the game reading stop opens the menu without a care write", async value => {
+  await mount(); await key("b");
+  const region = screen.getByRole("region", { name: "游戏结算阅读区" }); region.focus();
+  await readingKey(region, value);
+  expect(document.querySelector(".care-menu")).toBeTruthy(); expect(writes()).toHaveLength(1);
+});
+
+it("status uses its existing reading stop and keeps the same game result body", async () => {
+  await mount(); await key("b");
+  const text = outcome()?.textContent;
+  await key("a"); for (let i=0;i<4;i++) await key("a"); await key("b");
+  expect(screen.queryByRole("region", { name: "游戏结算阅读区" })).toBeNull();
+  const status = screen.getByRole("region", { name: "状态说明阅读区" });
+  expect(status.querySelectorAll("[tabindex='0']")).toHaveLength(0);
+  expect(outcome()?.textContent).toBe(text); expect(writes()).toHaveLength(1);
+});
+
+it("C dismisses a focused game reading stop and returns focus to the physical C key", async () => {
+  await mount(); await key("b");
+  const region = screen.getByRole("region", { name: "游戏结算阅读区" }); region.focus();
+  const before = structuredClone(saved);
+  await readingKey(region, "c");
+  expect(screen.queryByRole("region", { name: "游戏结算阅读区" })).toBeNull();
+  expect(outcome()).toBeNull(); expect(document.activeElement).toBe(document.querySelector(".button-c"));
+  await poll(); expect(outcome()).toBeNull(); expect(saved).toEqual(before); expect(writes()).toHaveLength(1);
+});
