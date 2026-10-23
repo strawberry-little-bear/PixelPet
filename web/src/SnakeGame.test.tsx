@@ -2,7 +2,7 @@ import { RequestFailure } from "./requestFailure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import App from "./App";
-import { SnakeGame } from "./SnakeGame";
+import { SnakeGame, snakeFoodHint } from "./SnakeGame";
 import { ArcadePanel } from "./ArcadePanel";
 import { memoryWords } from "./AlbumPanel";
 import { emptyGrowth } from "./growth";
@@ -87,6 +87,31 @@ describe("three-key realtime snake", () => {
     await key("b"); expect(actions().at(-1)).toMatchObject({ kind: "snake-finish", step: 0, gameId: id });
     expect(document.querySelector(".content-home")).toBeTruthy();
   });
+  it("shows the fruit direction and distance while the snake is moving", () => {
+    const current = structuredClone(saved);
+    current.game = snakeGame();
+    current.game.snake!.paused = false;
+    current.game.snake!.body[0] = { x: 4, y: 5 };
+    current.game.snake!.food = { x: 9, y: 2 };
+    render(<SnakeGame pet={current} now={current.lastTick} active turn={0} />);
+    expect(snakeFoodHint(current.game.snake!.body[0], current.game.snake!.food)).toBe("果子在右上方，横向 5 格、纵向 3 格。");
+    expect(document.querySelector(".snake-navigation-hint")?.textContent).toContain("果子在右上方");
+    expect(document.querySelectorAll(".lcd button")).toHaveLength(0);
+  });
+
+  it("adds the boundary warning to the same navigation hint", () => {
+    const current = structuredClone(saved);
+    current.game = snakeGame();
+    current.game.snake!.paused = false;
+    current.game.snake!.body[0] = { x: 10, y: 5 };
+    current.game.snake!.food = { x: 2, y: 5 };
+    render(<SnakeGame pet={current} now={current.lastTick} active turn={0} />);
+    const hint = document.querySelector(".snake-navigation-hint")?.textContent ?? "";
+    expect(hint).toContain("果子在正左方");
+    expect(hint).toContain("前方还有 1 格到围栏");
+    expect(document.querySelectorAll(".snake-navigation-hint")).toHaveLength(1);
+  });
+
   it("renders stage-specific equipped pet and permanent snake memory", () => {
     saved.game = snakeGame(); saved.game.snake!.eaten = 8; saved.game.snake!.end = "won";
     render(<SnakeGame pet={saved} now={saved.lastTick} active={false} turn={0} />);
