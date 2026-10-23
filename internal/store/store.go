@@ -44,6 +44,7 @@ type Result struct {
 	CareRules      game.CareRules     `json:"careRules"`
 	SaveGeneration string             `json:"saveGeneration"`
 	TileLink       []game.TilePoint   `json:"tileLink,omitempty"`
+	TileHint       []game.TilePoint   `json:"tileHint,omitempty"`
 	Shop           game.Shop          `json:"shop"`
 	State          game.State         `json:"state"`
 	Message        string             `json:"message"`
@@ -191,6 +192,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	message := ""
 	var feedback *game.CareFeedback
 	var tileLink []game.TilePoint
+	var tileHint []game.TilePoint
 	var walkReceipt *WalkGameReceipt
 	var walkBeforeCoins int
 	var walkFinishing bool
@@ -203,6 +205,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	}
 	if a != nil {
 		tileLink = state.TileLink(*a)
+		tileHint = state.TileHint(*a)
 		message, feedback, err = state.ApplyWithFeedback(*a, now)
 		if err != nil {
 			if errors.Is(err, game.ErrGameFinished) {
@@ -318,7 +321,7 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 	if walkReceipt != nil {
 		receipt = &GameReceipt{Walk: walkReceipt}
 	}
-	result := Result{CareRules: game.CareRuleBook(), SaveGeneration: generation, TileLink: tileLink, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, GameReceipt: receipt, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
+	result := Result{CareRules: game.CareRuleBook(), SaveGeneration: generation, TileLink: tileLink, TileHint: tileHint, Shop: game.ShopRules(), State: state, Message: message, ServerTime: now.UnixMilli(), CareFeedback: feedback, GameReceipt: receipt, ReturnRecap: recap, RecapPending: pending, RecapClaimed: claimed}
 	if a != nil && a.RequestID != "" {
 		encoded, _ := json.Marshal(result)
 		if _, err = tx.Exec("INSERT INTO requests(id,body) VALUES(?,?)", a.RequestID, string(encoded)); err != nil {

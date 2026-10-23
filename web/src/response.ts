@@ -127,6 +127,11 @@ function validShop(value: unknown): boolean {
 // Feedback is optional on old servers. If provided, its base fields are used
 // directly by the short success text. Optional effect receipts retain their own
 // local guard; missing/bad effect metadata does not make safe feedback unusable.
+function validTilePath(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length < 2 || value.length > 4) return false;
+  return value.every((item) => record(item) && count(item.x) && item.x <= 5 && count(item.y) && item.y <= 5);
+}
+
 function validCareFeedback(value: unknown): boolean {
   if (value == null) return true;
   return record(value) &&
@@ -179,6 +184,8 @@ export function validCoreResponse(value: unknown): value is Result {
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>
       record(log) && timestamp(log.at) && typeof log.text === "string"))) &&
     timestamp(value.serverTime) && typeof value.message === "string" && validCareFeedback(value.careFeedback) &&
+    (value.tileLink === undefined || validTilePath(value.tileLink)) &&
+    (value.tileHint === undefined || validTilePath(value.tileHint)) &&
     validReturnRecap(value.returnRecap) &&
     (value.recapPending === undefined || typeof value.recapPending === "boolean") &&
     (value.recapClaimed === undefined || typeof value.recapClaimed === "boolean") &&

@@ -66,6 +66,16 @@
   animation: tile-thread 0.35s linear infinite;
   pointer-events: none;
 }
+.tile-hint {
+  stroke: #6f8060;
+  stroke-width: 2.1;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-dasharray: 2 3;
+  opacity: .86;
+  animation: tile-hint-pulse 0.9s ease-in-out infinite alternate;
+  pointer-events: none;
+}
 .tile-companion {
   position: relative;
   flex: 1;
@@ -131,6 +141,13 @@
   border-top: 1px dotted #7e987b66;
   padding-top: 3px;
 }
+.tile-hint-note {
+  font-size: inherit;
+  margin: 3px 0 0;
+  line-height: 1.35;
+  color: #6f8060;
+  overflow-wrap: anywhere;
+}
 .tile-message {
   font-size: inherit;
   margin: 3px 0 0;
@@ -141,6 +158,10 @@
   to {
     stroke-dashoffset: -6;
   }
+}
+@keyframes tile-hint-pulse {
+  from { opacity: .55; }
+  to { opacity: 1; }
 }
 @keyframes tile-helper {
   0%,

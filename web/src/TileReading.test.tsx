@@ -2,13 +2,14 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { TileGame } from "./TileGame";
 import type { PetState } from "./types";
+import type { TileHint } from "./TileGame";
 const pet: PetState = {
   schema: 5, revision: 1, species: 2, name: "伙伴", createdAt: 1, hatchedAt: 1, lastTick: 1,
   sleeping: false, needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [],
   game: { id: "one", kind: "tiles", startedAt: 1, round: 0, score: 0, lastBeat: -1,
     tiles: { board: [0,0,2,2,3,3,4,4,5,5,6,6,7,7,8,8], pick: 14, pairs: 1, shuffles: 0 } },
 };
-function view(state = pet, cursor = 3) { return <TileGame pet={state} cursor={cursor} message="" link={null} now={1}/>; }
+function view(state = pet, cursor = 3, hint: TileHint | null = null) { return <TileGame pet={state} cursor={cursor} message="" link={null} hint={hint} now={1}/>; }
 afterEach(cleanup);
 it("describes all sixteen visible cells, including empty positions, without revealing a solution", () => {
   const { container } = render(view());
@@ -45,5 +46,12 @@ it("uses unique description IDs and never adds clickable board cells", () => {
   const { container } = render(<>{view()}{view()}</>);
   const boards = container.querySelectorAll(".tile-board");
   expect(boards[0].getAttribute("aria-describedby")).not.toBe(boards[1].getAttribute("aria-describedby"));
+  expect(container.querySelectorAll("button,input,a,[role=button],[tabindex]")).toHaveLength(0);
+});
+
+it("shows a server-provided legal route as a temporary example", () => {
+  const { container } = render(view(pet, 3, { id: 7, path: [{ x: 1, y: 1 }, { x: 1, y: 3 }, { x: 4, y: 3 }] }));
+  expect(container.querySelector(".tile-hint")?.getAttribute("points")).toBe("20,20 20,60 80,60");
+  expect(screen.getByRole("note").textContent).toContain("示例路径");
   expect(container.querySelectorAll("button,input,a,[role=button],[tabindex]")).toHaveLength(0);
 });

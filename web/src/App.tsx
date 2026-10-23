@@ -34,7 +34,7 @@ import { TileGame, nextTile } from "./TileGame";
 import { GameAllowance } from "./GuideReward";
 import { ArcadePanel, GameGuide, AbandonGame } from "./ArcadePanel";
 import { gameFinishInstruction, gameStartInstruction, games, guideSeen, rememberGuide, gameSessionKey, gameAwaitingFinish } from "./games";
-import type { TileLink } from "./TileGame";
+import type { TileHint, TileLink } from "./TileGame";
 import { ShopPanel, dailyClaimed } from "./ShopPanel";
 import { dailyWalletNotice, shopItems, shopSections } from "./shop";
 import type { ShopCategory } from "./shop";
@@ -300,6 +300,9 @@ export default function App() {
   const [tileCursor, setTileCursor] = useState(0);
   const [tileLink, setTileLink] = useState<TileLink | null>(null);
   const tileLinkSequence = useRef(0);
+  const [tileHint, setTileHint] = useState<TileHint | null>(null);
+  const tileHintSequence = useRef(0);
+  const tileHintShownFor = useRef("");
   const [tileDestination, setTileDestination] = useState<TileDestination | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
   const [shopPage, setShopPage] = useState(0);
@@ -539,6 +542,7 @@ export default function App() {
     snakeTurn.current = 0;
     setQueuedTurn(0);
     setTileLink(null);
+    setTileHint(null);
   }, []);
   const markCorrupt = useCallback((reconciled = false, generation?: string) => {
     const replaced = generation !== undefined && acceptedGeneration.current !== undefined && generation !== acceptedGeneration.current;
@@ -823,6 +827,15 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [tileLink]);
   useEffect(() => {
+    if (!tileHint) return;
+    const timer = setTimeout(() => setTileHint(null), 3200);
+    return () => clearTimeout(timer);
+  }, [tileHint]);
+  useEffect(() => {
+    tileHintShownFor.current = "";
+    setTileHint(null);
+  }, [pet?.game?.id]);
+  useEffect(() => {
     const board = pet?.game?.tiles?.board;
     if (board && !board[tileCursor]) setTileCursor(nextTile(board, tileCursor));
   }, [pet?.game?.id, pet?.game?.tiles?.board, tileCursor]);
@@ -841,6 +854,7 @@ export default function App() {
   useEffect(() => {
     if (pet && page === "game" && !pet.game && !busy) {
       setTileLink(null);
+      setTileHint(null);
       setPage("home");
     }
   }, [pet, page, busy]);
@@ -1065,6 +1079,7 @@ export default function App() {
   async function act(kind: string, extra: Record<string, unknown> = {}) {
     if (busyRef.current || uncertainRef.current || unavailableRef.current || corruptRef.current) return false;
     syncEpoch.current++;
+    if (kind === "tile-pick") setTileHint(null);
     setCareFeedback(null);
     setCareOutcome(null);
     // A new acknowledged action starts a fresh receipt window. The previous
@@ -1184,6 +1199,13 @@ export default function App() {
           id: ++tileLinkSequence.current,
         });
       }
+      if (kind === "tile-pick" && r.tileHint?.length && tileKey && pet?.game?.tiles
+        && tileHintShownFor.current !== tileKey
+        && r.state.game?.tiles && tileKey === gameSessionKey(pet.game)
+        && activeBoardEpoch === boardEpoch.current && !document.hidden && windowActive.current) {
+        tileHintShownFor.current = tileKey;
+        setTileHint({ path: r.tileHint, id: ++tileHintSequence.current });
+      }
       setCareFeedback(r.careFeedback ?? null);
       setCareOutcome(r.careFeedback ?? null);
       const clipKind = careClip(kind, r.state.sleeping);
@@ -1199,6 +1221,7 @@ export default function App() {
       ) {
         setPage("game");
         setLane(1);
+        setTileHint(null);
         setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
         setTileLink(null);
       } else if (
@@ -1281,6 +1304,7 @@ export default function App() {
     if (tools || help || reset) {
       audio.current?.cancel();
       setTileLink(null);
+      setTileHint(null);
       boardEpoch.current++;
       walkEpoch.current++;setWalkSession(""); setTreasureSession(""); setTreasureReaction(null); setStarsReaction(null);
       fishingEpoch.current++;
@@ -1365,6 +1389,7 @@ export default function App() {
     const stop = () => {
       audio.current?.cancel();
       setTileLink(null);
+      setTileHint(null);
       boardEpoch.current++;
       walkEpoch.current++; setWalkSession(""); setTreasureSession(""); setTreasureReaction(null); setStarsReaction(null);
       fishingEpoch.current++; setFishingSession("");
@@ -1691,7 +1716,7 @@ export default function App() {
         if (sessionKey) setTileDestination({ sessionKey, target: "selection" });
       } else if (key === "B") void act("tile-pick", { tile: tileCursor });
       else if (pet.game.tiles.pick >= 0) void act("tile-clear");
-      else { setTileLink(null); setAbandonGame(sessionKey); }
+      else { setTileLink(null); setTileHint(null); setAbandonGame(sessionKey); }
       return;
     }
     if (page === "shop") {
@@ -2663,6 +2688,7 @@ export default function App() {
                             pet={pet}
                             cursor={tileCursor}
                             link={tileLink}
+                            hint={tileHint}
                             message={message}
                             now={now}
                           />

@@ -102,6 +102,30 @@ func referenceTileRoute(board [16]int, a, b int) bool {
 	}
 	return false
 }
+func TestTileHintOnlyExplainsAMismatchedSelection(t *testing.T) {
+	s, now := economyPet(t)
+	if _, err := s.Apply(Action{Kind: "play-tiles"}, now); err != nil {
+		t.Fatal(err)
+	}
+	id := s.Game.ID
+	if _, err := s.Apply(Action{Kind: "tile-pick", GameID: id, Tile: 0}, now); err != nil {
+		t.Fatal(err)
+	}
+	before := s.Game.Tiles
+	path := s.TileHint(Action{Kind: "tile-pick", GameID: id, Tile: 2})
+	if len(path) < 2 || len(path) > 4 {
+		t.Fatalf("hint path = %v", path)
+	}
+	if s.Game.Tiles.Pick != before.Pick || s.Game.Tiles.Pairs != before.Pairs {
+		t.Fatal("hint changed the saved selection")
+	}
+	if got := s.TileHint(Action{Kind: "tile-pick", GameID: id, Tile: 1}); got != nil {
+		t.Fatalf("matched pair got a mismatch hint: %v", got)
+	}
+	if got := s.TileHint(Action{Kind: "tile-pick", GameID: "stale", Tile: 2}); got != nil {
+		t.Fatalf("stale game got a hint: %v", got)
+	}
+}
 func TestTilePathAgainstIndependentCorridorEnumeration(t *testing.T) {
 	r := rand.New(rand.NewPCG(27, 91))
 	for i := 0; i < 100; i++ {

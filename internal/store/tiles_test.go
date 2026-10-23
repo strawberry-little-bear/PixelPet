@@ -58,6 +58,20 @@ func TestTileSessionPersistsSelectionAndPaysExactlyOnce(t *testing.T) {
 	if len(r.TileLink) != 0 {
 		t.Fatal("reload replayed a link")
 	}
+	wrong := -1
+	for cell, value := range r.State.Game.Tiles.Board {
+		if cell != a && value != 0 && value != r.State.Game.Tiles.Board[a] {
+			wrong = cell
+			break
+		}
+	}
+	if wrong < 0 {
+		t.Fatal("no mismatched tile")
+	}
+	mismatch, err := s.Do(&game.Action{Kind: "tile-pick", GameID: id, Tile: wrong, RequestID: "mismatch"}, nil, false, now)
+	if err != nil || len(mismatch.TileHint) < 2 || mismatch.State.Game.Tiles.Pick != a {
+		t.Fatalf("mismatch hint: %v %+v", err, mismatch)
+	}
 	pair := &game.Action{Kind: "tile-pick", GameID: id, Tile: b, RequestID: "pair"}
 	r, err = s.Do(pair, nil, false, now)
 	if err != nil || r.State.Game.Tiles.Pairs != 1 || len(r.TileLink) < 2 {

@@ -27,6 +27,7 @@ export function nextTile(board: number[], cursor: number) {
   return 0;
 }
 export type TileLink = { path: TilePoint[]; tile: number; id: number };
+export type TileHint = { path: TilePoint[]; id: number };
 export function TileIcon({ value }: { value: number }) {
   const paths = [
     "",
@@ -58,12 +59,14 @@ export function TileGame({
   pet,
   cursor,
   link,
+  hint = null,
   message,
   now,
 }: {
   pet: PetState;
   cursor: number;
   link: TileLink | null;
+  hint?: TileHint | null;
   message: string;
   now: number;
 }) {
@@ -111,6 +114,14 @@ export function TileGame({
               )}
             </g>
           ))}
+          {hint && hint.path.length > 0 && !link && (
+            <polyline
+              className="tile-hint"
+              data-hint-id={hint.id}
+              points={hint.path.map((p) => `${p.x * 20},${p.y * 20}`).join(" ")}
+              fill="none"
+            />
+          )}
           {link && link.path.length > 0 && (
             <polyline
               className="tile-link"
@@ -158,6 +169,11 @@ export function TileGame({
         <p>{tilePosition(cursor)}· {tileNames[tiles.board[cursor]]}</p>
         <p>{tiles.pick >= 0 ? `已选${tilePosition(tiles.pick)}· ${tileNames[tiles.board[tiles.pick]]}` : "B 选中"}</p>
       </div>
+      {hint && !link && (
+        <p className="tile-hint-note" role="note">
+          虚线是示例路径，可以连通但不会自动收好。
+        </p>
+      )}
       <p className="tile-message">
         {message || "同图案，最多拐两次弯；可绕棋盘外。"}
       </p>

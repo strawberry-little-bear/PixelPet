@@ -144,6 +144,32 @@ func (s State) TileLink(a Action) []TilePoint {
 	}
 	return TilePath(s.Game.Tiles.Board, s.Game.Tiles.Pick, a.Tile)
 }
+
+// TileHint returns one legal route after a mismatched second selection. It is
+// explanatory feedback only: it never changes the board, selection or score.
+// The first route in board order keeps the hint deterministic for retries and
+// lets the client explain the server-owned two-turn rule without reimplementing
+// the path finder.
+func (s State) TileHint(a Action) []TilePoint {
+	if a.Kind != "tile-pick" || s.Game == nil || s.Game.Kind != "tiles" || s.Game.ID != a.GameID || s.Game.Tiles == nil {
+		return nil
+	}
+	t := s.Game.Tiles
+	if t.Pick < 0 || a.Tile < 0 || a.Tile >= 16 || a.Tile == t.Pick || t.Board[a.Tile] == 0 || TilePath(t.Board, t.Pick, a.Tile) != nil {
+		return nil
+	}
+	for first := 0; first < 16; first++ {
+		if t.Board[first] == 0 {
+			continue
+		}
+		for second := first + 1; second < 16; second++ {
+			if path := TilePath(t.Board, first, second); path != nil {
+				return path
+			}
+		}
+	}
+	return nil
+}
 func (s *State) applyTile(a Action, now time.Time) (string, error) {
 	if s.Game == nil || s.Game.Kind != "tiles" || s.Game.Tiles == nil {
 		return "", errors.New("连连看还没有开始")

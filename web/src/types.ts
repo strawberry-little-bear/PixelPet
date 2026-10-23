@@ -109,6 +109,7 @@ export type Result = {
   careFeedback?: CareFeedback;
   gameReceipt?: GameReceipt;
   tileLink?: TilePoint[];
+  tileHint?: TilePoint[];
   shop?: Shop;
   returnRecap?: ReturnRecap;
   recapPending?: boolean;

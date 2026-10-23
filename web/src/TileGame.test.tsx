@@ -138,6 +138,36 @@ describe("three-key pet tile matching", () => {
     expect(scroll).toHaveBeenCalledTimes(3);
     expect(actions().map(a => a.kind)).toEqual(["tile-pick", "tile-clear"]);
   });
+  it("shows one server-provided route after the first mismatched pair", async () => {
+    saved.game = game();
+    saved.game.tiles!.pick = 0;
+    let hintAvailable = true;
+    api.mockImplementation(async (path, body) => {
+      if (path === "action" && (body as { kind: string }).kind === "tile-pick") {
+        saved.revision++;
+        if (hintAvailable) {
+          hintAvailable = false;
+          return {
+            ...result(),
+            tileHint: [
+              { x: 1, y: 1 },
+              { x: 1, y: 3 },
+              { x: 4, y: 3 },
+            ],
+          };
+        }
+      }
+      return result();
+    });
+    await mount();
+    await key("a");
+    await key("a");
+    await key("b");
+    expect(document.querySelector(".tile-hint")?.getAttribute("points")).toBe("20,20 20,60 80,60");
+    expect(screen.getByRole("note").textContent).toContain("不会自动收好");
+    await act(async () => { await vi.advanceTimersByTimeAsync(3200); });
+    expect(document.querySelector(".tile-hint")).toBeNull();
+  });
   it("does not reveal rejected tile actions", async () => {
     const scroll = feedbackGeometry(); saved.game = game(); await mount();
     api.mockRejectedValueOnce(new RequestFailure("请重选", "rejected"));
