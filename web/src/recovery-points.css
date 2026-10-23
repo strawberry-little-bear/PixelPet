@@ -1,0 +1,10 @@
+.tools-menu:has(.recovery-points-open) { width: min(340px, calc(100vw - 32px)); max-height: calc(100dvh - 100px); overflow-y: auto; overscroll-behavior: contain; }
+.recovery-points { border-top: 1px solid var(--line); }
+.tools-menu .recovery-point-list { font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere; }
+.tools-menu .recovery-point-list p { font-size: inherit; color: #586348; padding: 6px; }
+.recovery-point-list ol { list-style: none; margin: 0; padding: 0; }
+.recovery-point-list li { padding: 8px; border-top: 1px dotted #879475; }
+.recovery-point-list li > span { display: block; margin-top: 4px; }
+.tools-menu .recovery-point-list button { font-size: inherit; text-decoration: underline; }
+.tools-menu .recovery-point-list [role=alert] { color: #8b3b2e; }
+@media (forced-colors: active) { .tools-menu .recovery-point-list p { color: CanvasText; } .tools-menu .recovery-point-list [role=alert] { color: CanvasText; } }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/strawberry-little-bear/PixelPet/internal/game"
@@ -133,6 +134,40 @@ func handlerWithClock(db *store.Store, web string, now func() time.Time) http.Ha
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Disposition", `attachment; filename="pixelpet-backup.json"`)
 		json.NewEncoder(w).Encode(result.State)
+	})
+	mux.HandleFunc("GET /api/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		list, err := db.Snapshots(now())
+		if err != nil {
+			write(w, store.Result{}, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		json.NewEncoder(w).Encode(struct {
+			Snapshots []store.Snapshot `json:"snapshots"`
+		}{list})
+	})
+	mux.HandleFunc("GET /api/snapshots/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil || id <= 0 || strconv.FormatInt(id, 10) != r.PathValue("id") {
+			http.Error(w, "无效的恢复点编号", http.StatusBadRequest)
+			return
+		}
+		body, err := db.SnapshotBody(id, now())
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		if err != nil {
+			status := http.StatusConflict
+			if errors.Is(err, store.ErrSnapshotMissing) {
+				status = http.StatusNotFound
+			}
+			w.WriteHeader(status)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		w.Write(body)
 	})
 	mux.HandleFunc("POST /api/import", func(w http.ResponseWriter, r *http.Request) {
 		var state game.State

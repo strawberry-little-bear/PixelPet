@@ -70,6 +70,7 @@ import { CareAdvice } from "./CareAdvice";
 import { careMenuLabel } from "./careMenu";
 import { previewBackup, backupSizeLimit } from "./backup";
 import { ImportPreview, type PendingImport } from "./ImportPreview";
+import { RecoveryPoints, type RecoveryPointSource } from "./RecoveryPoints";
 import { albumView, nextAlbum, previousAlbum, reconcileAlbum, startAlbum } from "./album-reading";
 import { AlbumDirectory, AlbumPanel, albumCategories, type AlbumCategory } from "./AlbumPanel";
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
@@ -2013,13 +2014,13 @@ export default function App() {
     setPage(previous.page === "game" && previous.gameId !== sessionKey ? (pet?.hatchedAt ? "home" : "choose") : previous.page);
     setMessage("已取消导入，没有替换当前存档。");
   }
-  async function importFile(file?: File) {
+  async function importFile(file?: Pick<File, "name" | "size" | "text">, recoveryPoint?: RecoveryPointSource) {
     // Clearing the input immediately also permits selecting the same file again.
     if (fileRef.current) fileRef.current.value = "";
     if (!file || backupExport.pending || busyRef.current || uncertainRef.current || unavailableRef.current || (!pet && !corruptRef.current)) return;
     if (page !== "import-preview") importReturn.current = { page, gameId: sessionKey };
     const sequence = ++importSequence.current;
-    const pending: PendingImport = { fileName: file.name };
+    const pending: PendingImport = { fileName: file.name, recoveryPoint };
     pendingImportRef.current = pending;
     setPendingImport(pending);
     setTools(false);
@@ -2031,12 +2032,12 @@ export default function App() {
       if (file.size > backupSizeLimit) throw new Error("备份文件过大，请选择 PixelPet 导出的 JSON 文件（不超过 64 KiB）。");
       const backup = previewBackup(await file.text());
       if (sequence !== importSequence.current) return;
-      const ready = { fileName: file.name, backup };
+      const ready = { fileName: file.name, backup, recoveryPoint };
       pendingImportRef.current = ready;
       setPendingImport(ready);
     } catch (error) {
       if (sequence !== importSequence.current) return;
-      const rejected = { fileName: file.name, error: error instanceof Error ? error.message : "无法读取这份备份文件，请重新选择。" };
+      const rejected = { fileName: file.name, recoveryPoint, error: error instanceof Error ? error.message : "无法读取这份备份文件，请重新选择。" };
       pendingImportRef.current = rejected;
       setPendingImport(rejected);
     }
@@ -2320,6 +2321,9 @@ export default function App() {
                   <ArrowUpFromLine size={16} />
                   导入备份
                 </button>
+                <RecoveryPoints enabled={!backupExport.pending && !busy && !uncertain && !unavailable && !clockAhead && (!!pet || corrupt)}
+                  onPreview={(text, source) => void importFile({ name: `恢复点 #${source.id}`,
+                    size: new TextEncoder().encode(text).length, text: async () => text }, source)} />
                 <button
                   disabled={backupExport.pending || busy || uncertain || unavailable || (!pet && !corrupt)}
                   className="reset-link"

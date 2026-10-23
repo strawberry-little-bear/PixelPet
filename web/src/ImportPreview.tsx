@@ -1,12 +1,13 @@
+import type { RecoveryPointSource } from "./RecoveryPoints";
 import type { BackupPreview } from "./backup";
 import type { PetState } from "./types";
 import "./import-preview.css";
 
-export type PendingImport = { fileName: string; backup?: BackupPreview; error?: string };
+export type PendingImport = { fileName: string; recoveryPoint?: RecoveryPointSource; backup?: BackupPreview; error?: string };
 export function ImportPreview({ pending, pet, busy }: { pending: PendingImport; pet: PetState | null; busy: boolean }) {
   return <section className="import-preview" aria-label="备份导入确认" aria-busy={busy || (!pending.backup && !pending.error)}>
     <h3>先看看，再替换</h3>
-    <p className="import-file">文件：{pending.fileName}</p>
+    <p className="import-file">{pending.recoveryPoint ? <>自动恢复点 #{pending.recoveryPoint.id} · 生成于 <time dateTime={new Date(pending.recoveryPoint.createdAt).toISOString()}>{new Date(pending.recoveryPoint.createdAt).toLocaleString("zh-CN", { hour12: false })}</time>（本地时间）</> : <>文件：{pending.fileName}</>}</p>
     {pending.backup ? <>
       <dl>
         <div><dt>备份中的伙伴</dt><dd>{pending.backup.name} · {pending.backup.speciesName}</dd></div>
@@ -15,6 +16,7 @@ export function ImportPreview({ pending, pet, busy }: { pending: PendingImport; 
       </dl>
       {pet ? <p>将替换当前「{pet.name}」的全部存档，不会合并。建议先从存档盒导出当前存档。</p>
         : <p>当前存档无法读取，也无法正常导出。确认后将用备份整份替换，不会合并；替换前保留原始内容的恢复快照。</p>}
+      {pending.recoveryPoint && <small>恢复点生成时间与存档记录时间可能不同；确认替换前会再保留当前存档的恢复点，最近仅保留 10 份。</small>}
       <small>这里只预览文件内容，不代表已经通过校验。确认后由服务端校验、迁移与结算；离线最多结算 12 小时；未完成游戏会结束，不发完成奖励。</small>
       <strong role="status">{busy ? "正在导入，请稍候…" : "尚未导入 · B 确认替换，A / C 取消"}</strong>
     </> : pending.error ? <>
