@@ -256,6 +256,9 @@ func TestOutingSchema12MigrationSnapshotsWithoutBackfill(t *testing.T) {
 	old := game.New(now)
 	old.Apply(game.Action{Kind: "hatch"}, now)
 	old.Schema = 12
+	if old.Companion != nil {
+		old.Companion.History = nil
+	}
 	old.Companion.Interests = old.Companion.Interests[:6]
 	old.Apply(game.Action{Kind: "play-walk"}, now)
 	id := old.Game.ID
@@ -301,6 +304,9 @@ func TestEncounterSchema13MigrationSnapshotsWithoutInventingHistory(t *testing.T
 	old.Apply(game.Action{Kind: "hatch"}, now)
 	old.Apply(game.Action{Kind: "play-walk"}, now)
 	old.Schema = 13
+	if old.Companion != nil {
+		old.Companion.History = nil
+	}
 	old.Companion.Interests = old.Companion.Interests[:6]
 	old.Game.ID = "00001800000000000000000000000001"
 	id := old.Game.ID
@@ -325,6 +331,7 @@ func TestEncounterSchema13MigrationSnapshotsWithoutInventingHistory(t *testing.T
 		t.Fatal(err)
 	}
 	expected.Schema = game.Schema
+	expected.Companion.History = game.New(now).Companion.History
 	expected.Companion.Interests = append(expected.Companion.Interests, game.Interest{Kind: "treasure"})
 	expected.Revision++ // normal persisted migration revision; no gameplay/history changes
 	if err != nil || !reflect.DeepEqual(expected, r.State) {

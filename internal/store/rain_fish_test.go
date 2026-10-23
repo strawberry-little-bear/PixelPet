@@ -25,6 +25,9 @@ func TestRainFishMigrationSnapshotPersistenceRetryAndImport(t *testing.T) {
 	// Model an actual old-schema cast. Downgrading after a schema-15 cast
 	// randomly made 1/8 of fixtures invalid by retaining a rare candidate.
 	s.Schema = 14
+	if s.Companion != nil {
+		s.Companion.History = nil
+	}
 	s.Companion.Interests = s.Companion.Interests[:6]
 	s.Apply(game.Action{Kind: "fish-cast", GameID: s.Game.ID}, now)
 	s.Game.Fishing.Paused = true
@@ -82,6 +85,9 @@ func TestRainFishMigrationSnapshotPersistenceRetryAndImport(t *testing.T) {
 	}
 	invalid := restored.State
 	invalid.Schema = 14
+	if invalid.Companion != nil {
+		invalid.Companion.History = nil
+	}
 	invalid.Companion = &game.Companion{Since: invalid.Companion.Since, Interests: append([]game.Interest{}, invalid.Companion.Interests[:6]...), Recent: invalid.Companion.Recent}
 	if _, err = db.Do(nil, &invalid, false, now); err == nil {
 		t.Fatal("old schema accepted rare fish")

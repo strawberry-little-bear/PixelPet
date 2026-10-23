@@ -134,6 +134,9 @@ func TestRainFishPauseRoundTripAndSchema14Migration(t *testing.T) {
 	// Existing schema14 rainy casts keep their original common candidate and all history.
 	legacy, now := fishingState(t)
 	legacy.Schema = 14
+	if legacy.Companion != nil {
+		legacy.Companion.History = nil
+	}
 	legacy.Companion.Interests = legacy.Companion.Interests[:6]
 	legacy.Pond.Fish = []FishDiscovery{{ID: "reed-minnow", FirstAt: now.UnixMilli(), LastAt: now.UnixMilli(), Count: 2}}
 	legacy.Game.ID = rainID(2)
@@ -144,12 +147,16 @@ func TestRainFishPauseRoundTripAndSchema14Migration(t *testing.T) {
 		t.Fatal("missing migration")
 	}
 	legacy.Schema = 14
+	if legacy.Companion != nil {
+		legacy.Companion.History = nil
+	}
 	legacy.Companion.Interests = legacy.Companion.Interests[:6]
 	after, _ := json.Marshal(legacy)
 	if string(before) != string(after) {
 		t.Fatal("migration rewrote history/session")
 	}
 	legacy.Schema = Schema
+	legacy.Companion.History = newGameHistory(now)
 	legacy.Companion.Interests = append(legacy.Companion.Interests, Interest{Kind: "treasure"})
 	if legacy.Upgrade(now) {
 		t.Fatal("migration repeated")
@@ -170,6 +177,9 @@ func TestRainFishValidationRejectsOldSchemaOrWrongSky(t *testing.T) {
 					s.Game.Fishing.Phase = phase
 				}
 				s.Schema = schema
+				if s.Companion != nil {
+					s.Companion.History = nil
+				}
 				s.Companion.Interests = s.Companion.Interests[:6]
 				s.Game.ID = rainID(sky)
 				if got := s.Validate(now) == nil; got != (schema == 15 && sky == 2) {
@@ -182,11 +192,17 @@ func TestRainFishValidationRejectsOldSchemaOrWrongSky(t *testing.T) {
 	fishDo(t, &s, now, "fish-reel")
 	s.Game = nil
 	s.Schema = 14
+	if s.Companion != nil {
+		s.Companion.History = nil
+	}
 	s.Companion.Interests = s.Companion.Interests[:6]
 	if s.Validate(now) == nil {
 		t.Fatal("old schema accepted new discovery")
 	}
 	s.Schema = 15
+	if s.Companion != nil {
+		s.Companion.History = nil
+	}
 	if err := s.Validate(now); err != nil {
 		t.Fatal("historical discovery must not require an active rainy game", err)
 	}

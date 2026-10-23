@@ -111,6 +111,7 @@ func TestSchemaTenParkMigrationKeepsSnapshotAndPriorInterest(t *testing.T) {
 	s, now := recapStore(t)
 	r, _ := s.Do(nil, nil, false, now)
 	r.State.Schema = 10
+	r.State.Companion.History = nil
 	r.State.Park = nil
 	r.State.Companion.Interests = r.State.Companion.Interests[:5]
 	r.State.Companion.Interests[0].Points = 1

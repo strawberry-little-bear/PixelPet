@@ -33,6 +33,9 @@ func TestRestedMemorySchema17SnapshotAndRestart(t *testing.T) {
 	old.Needs.Energy = 86
 	old.Apply(game.Action{Kind: "sleep"}, now)
 	old.Schema = 17
+	if old.Companion != nil {
+		old.Companion.History = nil
+	}
 	body, _ := json.Marshal(old)
 	if _, err = db.db.Exec("UPDATE saves SET body=? WHERE id=1", string(body)); err != nil {
 		t.Fatal(err)
@@ -43,6 +46,7 @@ func TestRestedMemorySchema17SnapshotAndRestart(t *testing.T) {
 	}
 	expected := old
 	expected.Schema = game.Schema
+	expected.Companion = &game.Companion{Since: old.Companion.Since, Interests: old.Companion.Interests, Recent: old.Companion.Recent, History: game.New(now).Companion.History}
 	expected.Revision++
 	if !reflect.DeepEqual(expected, r.State) || len(restedCards(r.State)) != 0 {
 		t.Fatal("migration changed existing sleep/history")
@@ -136,6 +140,9 @@ func TestRestedMemoryDoesNotBackfillCachedSchema17Wake(t *testing.T) {
 	old := game.New(now)
 	old.Apply(game.Action{Kind: "hatch"}, now)
 	old.Schema = 17
+	if old.Companion != nil {
+		old.Companion.History = nil
+	}
 	old.Needs.Energy = 86
 	old.Apply(game.Action{Kind: "sleep"}, now)
 	now = now.Add(time.Hour)

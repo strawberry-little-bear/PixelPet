@@ -35,7 +35,8 @@ export type Growth = {
   };
 };
 export type GameExperience = { kind: "stars" | "tiles" | "snake" | "tetris" | "fishing" | "walk" | "treasure"; id: string; at: number };
-export type Companion = { since: number; interests: {kind: GameExperience["kind"]; points: number; lastAt: number}[]; recent?: GameExperience };
+export type GameHistory = { since: number; completions: {kind: GameExperience["kind"]; count: number}[] };
+export type Companion = { history?: GameHistory; since: number; interests: {kind: GameExperience["kind"]; points: number; lastAt: number}[]; recent?: GameExperience };
 export type PetState = {
  companion?: Companion;
  park?: {since:number;finds?:FishDiscovery[]|null;walks:number;lastWalkAt:number};

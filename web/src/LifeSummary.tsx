@@ -1,5 +1,6 @@
 import { interestLimit, interestSummary, validInterestEntries } from "./companion";
 import { games } from "./games";
+import { completionLabel, savedGameHistory } from "./game-history";
 import { albumMemories, memoryWords } from "./AlbumPanel";
 import type { Memory, PetState } from "./types";
 import "./life-summary.css";
@@ -62,9 +63,11 @@ export function lifeSummary(pet: PetState, now: number) {
   const lastMemory = recentMemory(pet);
   const comfort = currentComfort(pet);
   const interests = validInterestEntries(pet.companion);
+  const history = savedGameHistory(pet);
   const gameStats = games.map(game => ({
     id: game.id,
     title: game.title,
+    completions: history?.completions.find(entry => entry.kind === game.id)?.count ?? null,
     recorded: memories.some(entry => entry.kind === game.id || (game.id === "stars" && entry.kind === "perfect-stars")),
     familiarity: interests.find(entry => entry.kind === game.id)?.points ?? 0,
   }));
@@ -98,6 +101,7 @@ export function lifeSummary(pet: PetState, now: number) {
     fishCaught,
     fishSpecies: pet.pond?.fish?.length ?? 0,
     gameStats,
+    gameHistorySince: history?.since ?? null,
     interest: pet.companion ? interestSummary(pet.companion) : "还没有保存的共同游戏经历，玩喜欢的就好。",
     interestProgress: interestLeaders.length > 0
       ? { titles: interestLeaders, points: bestInterest }
@@ -147,14 +151,18 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       <small>只统计已经保存的经历：散步按每次完整路线 72 步计算；钓获来自鱼图鉴次数。</small>
     </section>
     <section className="life-summary-games" aria-label="各游戏共同经历">
-      <strong>各游戏纪念</strong>
+      <strong>各游戏共同经历</strong>
+      {summary.gameHistorySince !== null
+        ? <small className="life-summary-tracking">共同游戏局数自 <time dateTime={new Date(summary.gameHistorySince).toISOString()}>{new Date(summary.gameHistorySince).toLocaleString("zh-CN", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}</time>（本地时间）起记录；之前的局数未知，不补算。</small>
+        : <small className="life-summary-tracking">这份存档尚未记录共同游戏局数；纪念和熟悉度不能推算过去玩过多少局。</small>}
       <ul>
         {summary.gameStats.map(game => <li key={game.id} data-game-stat={game.id}>
           <span>{game.title}</span><b>{game.recorded ? "留过" : "尚无"}</b>
+          <small data-completion-count={game.id}>{game.completions === null ? "局数未记录" : `共同游戏 ${completionLabel(game.completions)}`}</small>
           {game.familiarity > 0 && <small>熟悉度 {game.familiarity} / {interestLimit}</small>}
         </li>)}
       </ul>
-      <small>纪念册和熟悉度分别记录；重复游玩不重复计数，中途放弃不会留下游戏纪念。</small>
+      <small>纪念每种只留一次；共同游戏局数记录每次达到陪伴条件并收好的游戏，短局和放弃不计。熟悉度间隔内、已满或金币额度用完，仍会记录符合条件的一局；不额外增加成长或奖励。</small>
     </section>
     {summary.recentMemory && <section className="life-summary-memory" aria-label="最近保存的回忆">
       <strong>最近保存的回忆</strong>

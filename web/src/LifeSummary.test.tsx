@@ -161,3 +161,66 @@ describe("shared life summary", () => {
     expect(container.querySelector("[data-current-comfort]")?.textContent).not.toContain("NaN");
   });
 });
+
+describe("saved shared-game completion counts", () => {
+  const kinds = ["stars", "tiles", "snake", "tetris", "fishing", "walk", "treasure"] as const;
+  const trackedPet = (): PetState => ({
+    ...pet(), schema: 19, lastTick: created + day,
+    companion: { since: created, interests: [], history: {
+      since: created + 60000,
+      completions: kinds.map((kind, i) => ({ kind, count: i + 1 })),
+    } },
+  });
+
+  it("shows all seven saved counts separately from one-time memories and familiarity", () => {
+    const current = trackedPet();
+    current.companion!.interests = [{ kind: "stars", points: 5, lastAt: created }];
+    const before = structuredClone(current);
+    const { container } = render(<LifeSummary pet={current} now={created + day + 0.5} />);
+    kinds.forEach((kind, i) => {
+      expect(container.querySelector(`[data-completion-count=${kind}]`)?.textContent).toBe(`共同游戏 ${i + 1} 局`);
+    });
+    expect(container.querySelector("[data-game-stat=stars]")?.textContent).toContain("熟悉度 5 / 5");
+    expect(container.querySelector(".life-summary-tracking")?.textContent).toContain("之前的局数未知，不补算");
+    expect(container.querySelector(".life-summary-tracking time")?.getAttribute("datetime"))
+      .toBe(new Date(created + 60000).toISOString());
+    expect(current).toEqual(before);
+  });
+
+  it("does not backfill old counts from saved memories or capped interests", () => {
+    const current = trackedPet();
+    delete current.companion!.history;
+    current.companion!.interests = [{ kind: "stars", points: 5, lastAt: created }];
+    current.album = { since: created, legacy: false, entries: [{kind: "perfect-stars", source: "shared", at: created}] };
+    const { container } = render(<LifeSummary pet={current} now={created + day} />);
+    expect(container.querySelectorAll("[data-completion-count]")).toHaveLength(7);
+    expect(container.querySelector("[data-completion-count=stars]")?.textContent).toBe("局数未记录");
+    expect(container.querySelector("[data-game-stat=stars]")?.textContent).toContain("留过");
+    expect(lifeSummary(current, created).gameStats.every(game => game.completions === null)).toBe(true);
+  });
+
+  it("shows known zeroes as zero, and the numeric limit as a lower bound", () => {
+    const current = trackedPet();
+    current.companion!.history!.completions[0].count = 0;
+    current.companion!.history!.completions[1].count = Number.MAX_SAFE_INTEGER;
+    const { container } = render(<LifeSummary pet={current} now={created + day} />);
+    expect(container.querySelector("[data-completion-count=stars]")?.textContent).toBe("共同游戏 0 局");
+    expect(container.querySelector("[data-completion-count=tiles]")?.textContent).toBe(`共同游戏 ≥${Number.MAX_SAFE_INTEGER} 局`);
+  });
+
+  it.each(["negative", "fraction", "unsafe", "duplicate", "missing", "future", "before", "invalid time"])(
+    "keeps malformed %s history unknown instead of showing fabricated totals", problem => {
+      const current = trackedPet(), history = current.companion!.history!;
+      if (problem === "negative") history.completions[0].count = -1;
+      if (problem === "fraction") history.completions[0].count = 1.5;
+      if (problem === "unsafe") history.completions[0].count = Number.MAX_SAFE_INTEGER + 1;
+      if (problem === "duplicate") history.completions[0].kind = "tiles";
+      if (problem === "missing") history.completions.pop();
+      if (problem === "future") history.since = current.lastTick + 1;
+      if (problem === "before") history.since = current.createdAt - 1;
+      if (problem === "invalid time") history.since = Number.NaN;
+      expect(lifeSummary(current, created + day).gameHistorySince).toBeNull();
+      expect(lifeSummary(current, created + day).gameStats.every(game => game.completions === null)).toBe(true);
+    },
+  );
+});

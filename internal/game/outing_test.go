@@ -90,6 +90,9 @@ func TestOutingUpgradeDoesNotBackfill(t *testing.T) {
 	}
 	s.Album.Entries = entries
 	s.Schema = 12
+	if s.Companion != nil {
+		s.Companion.History = nil
+	}
 	s.Companion.Interests = s.Companion.Interests[:6]
 	before := copyState(s)
 	if !s.Upgrade(now) || s.Schema != Schema {
@@ -97,6 +100,7 @@ func TestOutingUpgradeDoesNotBackfill(t *testing.T) {
 	}
 	before.Schema = Schema
 	before.Companion.Interests = append(before.Companion.Interests, Interest{Kind: "treasure"})
+	before.Companion.History = newGameHistory(now)
 	if !reflect.DeepEqual(before, s) || len(outingMemories(s)) != 0 || s.Upgrade(now) {
 		t.Fatal("migration fabricated or changed history")
 	}

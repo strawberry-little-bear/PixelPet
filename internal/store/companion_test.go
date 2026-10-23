@@ -40,7 +40,7 @@ func TestCompanionSettlementConcurrentRetriesRestartAndImport(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			r, e := s.Do(a, nil, false, now)
-			if e != nil || r.State.Companion.Recent == nil || r.State.Companion.Interests[0].Points != 1 || r.GameReceipt == nil || r.GameReceipt.Interest == nil || r.GameReceipt.Interest.Reason != "credited" || r.GameReceipt.Interest.Before != 0 || r.GameReceipt.Interest.After != 1 {
+			if e != nil || r.State.Companion.Recent == nil || r.State.Companion.Interests[0].Points != 1 || r.State.Companion.History.Completions[0].Count != 1 || r.GameReceipt == nil || r.GameReceipt.Interest == nil || r.GameReceipt.Interest.Reason != "credited" || r.GameReceipt.Interest.Before != 0 || r.GameReceipt.Interest.After != 1 {
 				t.Error("retry lost experience", e)
 			}
 		}()

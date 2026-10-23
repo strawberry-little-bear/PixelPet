@@ -1,0 +1,70 @@
+// Isolated SQLite/HTTP/Chrome. Two real keyboard-played stars games verify
+// saved counts. Old-schema and extreme-number layouts use explicit fixtures.
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import net from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
+const { binary, web } = await isolatedTestBuilds();
+const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
+const dir = await mkdtemp(join(tmpdir(), 'pixelpet-game-history-'));
+const port = await new Promise((resolve, reject) => { const s=net.createServer(); s.once('error',reject); s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(e=>e?reject(e):resolve(p));}); });
+const base=`http://127.0.0.1:${port}`, wait=ms=>new Promise(r=>setTimeout(r,ms)), results=[];
+let server,browser,log='',startupError;
+async function api(path,body) { const r=await fetch(`${base}/api/${path}`,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); assert(r.ok,await r.clone().text());return r.json(); }
+async function key(page,k) { await page.locator('.button-'+k+':not([disabled])').waitFor(); await page.keyboard.press(k); await page.waitForFunction(()=>!document.querySelector('.button-b')?.disabled); }
+async function home(page) { await page.reload();await page.locator('.home-caption').waitFor();await key(page,'c'); }
+async function summary(page) { await key(page,'a');for(let i=0;i<4;i++)await key(page,'a');await key(page,'b');await key(page,'a');await page.locator('.life-summary-games').waitFor(); }
+async function count(page,n) { assert.equal(await page.locator('[data-completion-count=stars]').textContent(),`共同游戏 ${n} 局`); }
+async function play(page,n) {
+ await key(page,'a');await key(page,'a');await key(page,'b');await page.locator('.arcade-card').first().waitFor();await key(page,'b');await page.locator('.game-guide').waitFor();await key(page,'b');await page.locator('.star-game').waitFor();
+ for(let i=0;i<5;i++) { await wait(950);const ack=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/action'&&r.request().method()==='POST'&&r.request().postDataJSON()?.kind==='catch');await key(page,'b');const response=await ack;assert(response.ok(),await response.text()); }
+ await page.locator('.game-outcome').waitFor();assert((await page.locator('.game-completion-count').textContent()).includes(`已记录 ${n} 局共同游戏`));await key(page,'c');await key(page,'c');
+}
+async function layout(page) {
+ assert.equal(await page.locator('.physical-button').count(),3);
+ assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow');
+ const clipped=await page.locator('.life-summary-games').evaluate(el=>{
+  const b=el.getBoundingClientRect(),walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),bad=[];let node;
+  while((node=walker.nextNode())){const range=document.createRange();range.selectNodeContents(node);for(const r of range.getClientRects())if(r.width&&r.height&&(r.left<b.left-1||r.right>b.right+1))bad.push(node.textContent);}
+  return bad;
+ });assert.deepEqual(clipped,[],'game history text clipped');
+ const titleLines=await page.locator('.life-summary-games li span').evaluateAll(elements=>elements.map(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length;}));assert(titleLines.every(n=>n<=2),'game titles broken into narrow vertical columns');
+ const last=page.locator('.life-summary-games > small').last();await last.scrollIntoViewIfNeeded();assert(await last.isVisible());
+ await page.locator('.button-c').scrollIntoViewIfNeeded();await key(page,'c');await page.locator('.home-caption').waitFor();
+}
+try {
+ server=spawn(binary,[],{env:{...process.env,PIXELPET_ADDR:`127.0.0.1:${port}`,PIXELPET_DB:join(dir,'test.db'),PIXELPET_WEB:web},stdio:['ignore','pipe','pipe']});server.once('error',e=>startupError=e);server.stdout.on('data',b=>log+=b);server.stderr.on('data',b=>log+=b);
+ let ready=false;for(let i=0;i<100;i++){if(startupError)throw startupError;assert.equal(server.exitCode,null,log);try{if((await fetch(base+'/api/state')).ok){ready=true;break;}}catch{}await wait(100);}assert(ready,log);
+ const at=Date.now();await api('import',{schema:1,revision:0,species:2,name:'记录测试伙伴',createdAt:at-3600000,hatchedAt:at-3600000,lastTick:at,sleeping:false,needs:{hunger:80,mood:80,clean:80,energy:80},careCount:0,logs:[]});
+ browser=await chromium.launch({channel:'chrome',headless:true});
+ const context=await browser.newContext({viewport:{width:1200,height:850},reducedMotion:'reduce'}),page=await context.newPage(),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));await page.goto(base);await page.locator('.home-caption').waitFor();await key(page,'c');
+ await summary(page);await count(page,0);await key(page,'c');
+ await play(page,1);await summary(page);await count(page,1);await key(page,'c');
+ await play(page,2);await summary(page);await count(page,2);
+ let current=(await api('state')).state;assert.equal(current.companion.interests[0].points,1);assert.equal(current.companion.history.completions[0].count,2);assert.equal(current.album.entries.filter(x=>x.kind==='stars').length,1);
+ await home(page);await summary(page);await count(page,2);await key(page,'c');results.push({keyboardGames:2,count:2,familiarity:1,refresh:'preserved'});
+ const exported=await api('backup');const backup=exported.state??exported;
+ assert.equal(backup.companion.history.completions[0].count,2);
+ await api('import',backup);await home(page);await summary(page);await count(page,2);await key(page,'c');results.push({exportImport:'preserves counts without a new completion'});
+ const old=structuredClone(backup);old.schema=18;delete old.companion.history;
+ const migrated=(await api('import',old)).state;assert.equal(migrated.schema,19);assert.equal(migrated.companion.history.completions[0].count,0);assert.deepEqual(migrated.companion.interests,backup.companion.interests);assert.deepEqual(migrated.album,backup.album);
+ await home(page);await summary(page);await count(page,0);assert((await page.locator('.life-summary-tracking').textContent()).includes('之前的局数未知'));await key(page,'c');results.push({legacyFixture:'no invented past games'});
+ await api('import',backup);
+ assert.deepEqual(errors,[]);await context.close();
+ const modes=[{width:1200,height:850,font:14},{width:390,height:844,font:14},{width:320,height:568,font:28},{width:320,height:380,font:28,forcedColors:'active'}];
+ for(const mode of modes){
+  const ctx=await browser.newContext({viewport:{width:mode.width,height:mode.height},forcedColors:mode.forcedColors||'none',reducedMotion:'reduce'}),p=await ctx.newPage(),pageErrors=[];p.on('pageerror',e=>pageErrors.push(e.message));
+  await p.addInitScript(font=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize=font+'px'),mode.font);
+  await p.goto(base);await p.locator('.home-caption').waitFor();await key(p,'c');await summary(p);await count(p,2);
+  await p.screenshot({path:join(dir,`summary-${mode.width}-${mode.height}.png`),fullPage:true});await layout(p);assert.deepEqual(pageErrors,[]);results.push({layout:mode});await ctx.close();
+ }
+ // Constructed upper-bound display; this is not actual lifetime play.
+ const extreme=structuredClone(backup);for(const row of extreme.companion.history.completions)row.count=Number.MAX_SAFE_INTEGER;await api('import',extreme);
+ const ctx=await browser.newContext({viewport:{width:320,height:568}}),p=await ctx.newPage();await p.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize='28px'));await p.goto(base);await p.locator('.home-caption').waitFor();await key(p,'c');await summary(p);assert((await p.locator('[data-completion-count=stars]').textContent()).includes('≥'));await layout(p);await ctx.close();results.push({extremeNumberFixture:'wraps and shows lower bound'});
+ await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({passed:results.length,artifacts:dir,results},null,2));
+} finally {await browser?.close();if(server&&server.exitCode===null){server.kill('SIGTERM');await new Promise(r=>server.once('exit',r));}}

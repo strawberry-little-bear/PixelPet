@@ -103,6 +103,9 @@ func TestSchemaElevenMigrationPreservesUnknownAdultHistoryAndRecordsFutureEvolut
 		t.Run(map[bool]string{false: "future", true: "legacy"}[alreadyAdult], func(t *testing.T) {
 			s, now := nearAdult(t, CareHistory{Play: 4}, .8)
 			s.Schema = 11
+			if s.Companion != nil {
+				s.Companion.History = nil
+			}
 			s.Companion.Interests = s.Companion.Interests[:6]
 			if alreadyAdult {
 				if _, err := s.Apply(Action{Kind: "feed"}, now); err != nil {
@@ -111,6 +114,7 @@ func TestSchemaElevenMigrationPreservesUnknownAdultHistoryAndRecordsFutureEvolut
 			}
 			old := copyState(s)
 			old.Companion.Interests = append(old.Companion.Interests, Interest{Kind: "treasure"})
+			old.Companion.History = newGameHistory(now)
 			if !s.Upgrade(now) || s.Schema != Schema || !reflect.DeepEqual(old.Growth, s.Growth) || !reflect.DeepEqual(old.Album, s.Album) || !reflect.DeepEqual(old.Companion, s.Companion) || !reflect.DeepEqual(old.Economy, s.Economy) {
 				t.Fatal("migration invented history or altered records")
 			}
@@ -143,6 +147,9 @@ func TestFormRecordRejectsImpossibleOrContradictoryPortableEvidence(t *testing.T
 	for name, change := range map[string]func(*State){
 		"old schema": func(s *State) {
 			s.Schema = 11
+			if s.Companion != nil {
+				s.Companion.History = nil
+			}
 			s.Companion.Interests = s.Companion.Interests[:6]
 		},
 		"not adult":            func(s *State) { s.Growth.Stage = "growing" },

@@ -21,10 +21,11 @@ type Companion struct {
 	Since     int64           `json:"since"`
 	Interests []Interest      `json:"interests"`
 	Recent    *GameExperience `json:"recent,omitempty"`
+	History   *GameHistory    `json:"history,omitempty"`
 }
 
 func newCompanion(now time.Time) *Companion {
-	c := &Companion{Since: now.UnixMilli(), Interests: make([]Interest, len(companionGames))}
+	c := &Companion{Since: now.UnixMilli(), Interests: make([]Interest, len(companionGames)), History: newGameHistory(now)}
 	for i, kind := range companionGames {
 		c.Interests[i].Kind = kind
 	}
@@ -43,6 +44,7 @@ func (s *State) recordGameExperience(kind string, now time.Time) {
 		if r.Kind != kind {
 			continue
 		}
+		c.recordCompletion(kind)
 		c.Recent = &GameExperience{Kind: kind, ID: s.Game.ID, At: now.UnixMilli()}
 		if r.Points < InterestLimit && (r.LastAt == 0 || now.UnixMilli()-r.LastAt >= InterestInterval.Milliseconds()) {
 			r.Points++
@@ -62,7 +64,7 @@ func (s State) validCompanion() bool {
 	} else if s.Schema < 16 {
 		count = 6
 	}
-	if c == nil || c.Since < s.CreatedAt || c.Since > s.LastTick || len(c.Interests) != count {
+	if c == nil || c.Since < s.CreatedAt || c.Since > s.LastTick || len(c.Interests) != count || !s.validGameHistory() {
 		return false
 	}
 	total, latest := 0, int64(0)

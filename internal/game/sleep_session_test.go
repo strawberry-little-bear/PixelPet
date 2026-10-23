@@ -147,6 +147,9 @@ func TestLegacySleepSessionIsUnknownUntilNextExplicitBedtime(t *testing.T) {
 	for _, schema := range []int{1, 15, 16} {
 		s := sleepPet(t, now, 40)
 		s.Schema = schema
+		if s.Companion != nil {
+			s.Companion.History = nil
+		}
 		s.Sleeping = true
 		if schema == 1 {
 			s.Growth = nil
@@ -254,6 +257,9 @@ func TestSchemaSixteenUpgradePreservesEveryActiveGameAndOldSleep(t *testing.T) {
 				}
 			}
 			s.Schema = 16
+			if s.Companion != nil {
+				s.Companion.History = nil
+			}
 			if err := s.Validate(now); err != nil {
 				t.Fatal(err)
 			}
@@ -265,6 +271,9 @@ func TestSchemaSixteenUpgradePreservesEveryActiveGameAndOldSleep(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.Schema = 16
+			if s.Companion != nil {
+				s.Companion.History = nil
+			}
 			after, _ := json.Marshal(s)
 			if string(before) != string(after) {
 				t.Fatal("migration changed needs, game, or history")

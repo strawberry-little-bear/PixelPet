@@ -103,6 +103,9 @@ func TestEncountersUpgradeDoesNotBackfill(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			s, now := encounterState(t, kind)
 			s.Schema = 13
+			if s.Companion != nil {
+				s.Companion.History = nil
+			}
 			s.Companion.Interests = s.Companion.Interests[:6]
 			discoverEncounter(t, &s, &now)
 			if len(encounterMemories(s)) != 0 {
@@ -111,6 +114,7 @@ func TestEncountersUpgradeDoesNotBackfill(t *testing.T) {
 			before := copyState(s)
 			before.Schema = Schema
 			before.Companion.Interests = append(before.Companion.Interests, Interest{Kind: "treasure"})
+			before.Companion.History = newGameHistory(now)
 			if !s.Upgrade(now) || !reflect.DeepEqual(before, s) || s.Upgrade(now) {
 				t.Fatal("upgrade changed history")
 			}
@@ -221,6 +225,9 @@ func TestEncounterDoesNotAlterDiscoveryOrSettlement(t *testing.T) {
 			rare, now := encounterState(t, kind)
 			ordinary := copyState(rare)
 			ordinary.Schema = 13
+			if ordinary.Companion != nil {
+				ordinary.Companion.History = nil
+			}
 			ordinary.Companion.Interests = ordinary.Companion.Interests[:6]
 			// Equal cast fixtures compare the same fish/wait draw, not independent RNG.
 			if kind == "fishing" {
@@ -249,6 +256,8 @@ func TestEncounterDoesNotAlterDiscoveryOrSettlement(t *testing.T) {
 				walkDo(t, &ordinary, now, "walk-finish")
 			}
 			ordinary.Companion.Interests = append(ordinary.Companion.Interests, Interest{Kind: "treasure"})
+			// The historical engine has no counters; compare the unchanged interest data.
+			ordinary.Companion.History = rare.Companion.History
 			if rare.CareCount != ordinary.CareCount || !reflect.DeepEqual(rare.Companion, ordinary.Companion) {
 				t.Fatal("encounter changed care/companion settlement")
 			}

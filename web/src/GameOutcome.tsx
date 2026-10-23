@@ -1,4 +1,5 @@
 import { games } from "./games";
+import { completionLabel } from "./game-history";
 import type { GameOutcomeRecord } from "./game-outcome";
 import type { CareFeedback } from "./types";
 import { CareReadingRegion } from "./CareReadingRegion";
@@ -44,6 +45,7 @@ export function GameOutcome({ outcome, careFeedback = null, readable = false }: 
     <p>{outcome.shared === true ? interest ? "本局共同游戏已记录。" : "本局共同游戏已记录；不代表本次兴趣或成长增加。"
       : outcome.shared === false ? "本局未新增共同游戏记录；以本次结算说明的条件为准。"
       : "这份回复未提供共同游戏记录，不作推测。"}</p>
+    {outcome.completedCount !== undefined && <p className="game-completion-count">这款游戏已记录 {completionLabel(outcome.completedCount)}共同游戏；可从生活回顾查看各款记录。局数从开始记录时累计，不补算旧版游玩。</p>}
     <small>上方是服务端已确认的结算原文，不是当前额度或下一局预测；兴趣记录可从成长手册查看。本页暂存，刷新后不保留。</small>
     <CareOutcome feedback={careFeedback} embedded />
   </section>;

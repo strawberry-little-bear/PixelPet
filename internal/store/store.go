@@ -268,6 +268,11 @@ func (s *Store) do(a *game.Action, imported *game.State, reset bool, now time.Ti
 			if imported.Companion != nil {
 				companion := *imported.Companion
 				companion.Interests = append([]game.Interest{}, imported.Companion.Interests...)
+				if companion.History != nil {
+					history := *companion.History
+					history.Completions = append([]game.GameCompletion{}, history.Completions...)
+					companion.History = &history
+				}
 				if companion.Recent != nil {
 					recent := *companion.Recent
 					companion.Recent = &recent

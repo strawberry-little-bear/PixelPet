@@ -110,6 +110,7 @@ func (s *State) Upgrade(now time.Time) bool {
 	if s.Schema == 9 {
 		s.Advance(now)
 		s.Companion = newCompanion(now)
+		s.Companion.History = nil // Counts begin only when schema 19 opens.
 		s.Companion.Interests = s.Companion.Interests[:5]
 		s.Schema = 10
 	}
@@ -154,6 +155,12 @@ func (s *State) Upgrade(now time.Time) bool {
 		// Preserve a known active sleep, but never infer a past rested wake.
 		// The new memory can only be recorded by a future explicit wake.
 		s.Schema = 18
+	}
+	if s.Schema == 18 {
+		// Neither capped interests nor one-time memories prove past play counts.
+		s.Advance(now)
+		s.Companion.History = newGameHistory(now)
+		s.Schema = 19
 	}
 	return true
 }

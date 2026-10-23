@@ -153,11 +153,12 @@ describe("共同生活回顾", () => {
     expect(container.querySelector('[data-game-stat="tetris"]')?.textContent).toContain("熟悉度 2 / 5");
     expect(container.querySelector('[data-game-stat="walk"]')?.textContent).toContain("留过");
     expect(container.querySelector('[data-game-stat="fishing"]')?.textContent).toContain("尚无");
-    expect(container.querySelector('[data-game-stat="fishing"] small')).toBeNull();
+    expect(container.querySelector('[data-completion-count="fishing"]')?.textContent).toBe("局数未记录");
+    expect(container.querySelector('[data-game-stat="fishing"]')?.textContent).not.toContain("熟悉度");
     expect(container.querySelectorAll('[data-game-stat="stars"]')).toHaveLength(1);
     expect(container.querySelector(".life-summary-grid")?.textContent).toContain("3游戏记忆");
     expect(container.querySelector(".life-summary-experiences")?.textContent).toContain("只统计");
-    expect(container.querySelector(".life-summary-games")?.textContent).toContain("纪念册和熟悉度分别记录");
+    expect(container.querySelector(".life-summary-games")?.textContent).toContain("纪念每种只留一次");
     expect(container.querySelector(".life-summary-memory")?.textContent).toContain("公园里走过的第一条小路");
     expect(container.querySelector(".life-summary-memory time")?.textContent).toBe("2026/10/20");
     expect(container.querySelector(".life-summary")?.textContent).toContain("不补写旧历史");

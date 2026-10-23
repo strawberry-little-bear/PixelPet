@@ -81,6 +81,9 @@ func TestRestedMemoryMigrationDoesNotInventPastWake(t *testing.T) {
 		s := sleepPet(t, now, 86)
 		sleepToggle(t, &s, now)
 		s.Schema = 17
+		if s.Companion != nil {
+			s.Companion.History = nil
+		}
 		if !known {
 			s.SleepSession = nil
 		}
@@ -91,6 +94,7 @@ func TestRestedMemoryMigrationDoesNotInventPastWake(t *testing.T) {
 		}
 		expected := copyState(before)
 		expected.Schema = Schema
+		expected.Companion.History = newGameHistory(now.Add(time.Hour))
 		if !reflect.DeepEqual(expected, s) || hasMemory(s, "rested") {
 			t.Fatal("migration rewrote history")
 		}
@@ -185,6 +189,9 @@ func TestRestedMemoryAllowsAll33AlbumCardsAndKeepsOldLimit(t *testing.T) {
 		t.Fatalf("full album rejected: %d cards", len(s.Album.Entries))
 	}
 	s.Schema = 17
+	if s.Companion != nil {
+		s.Companion.History = nil
+	}
 	if s.validAlbum(end) {
 		t.Fatal("old schema accepted new memory")
 	}
@@ -212,8 +219,12 @@ func TestRestedMemorySchema17MigrationPreservesActiveGamesAndEgg(t *testing.T) {
 				}
 			}
 			s.Schema = 17
+			if s.Companion != nil {
+				s.Companion.History = nil
+			}
 			before := copyState(s)
 			before.Schema = Schema
+			before.Companion.History = newGameHistory(now)
 			if err := s.Validate(now); err != nil {
 				t.Fatal(err)
 			}

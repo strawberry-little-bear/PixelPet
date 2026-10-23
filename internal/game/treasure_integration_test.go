@@ -123,6 +123,9 @@ func TestSchemaFifteenUpgradePreservesEveryActiveGame(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.Schema = 15
+			if s.Companion != nil {
+				s.Companion.History = nil
+			}
 			s.Companion.Interests = append([]Interest{}, s.Companion.Interests[:6]...)
 			if err := s.Validate(now); err != nil {
 				t.Fatal("legacy fixture", err)
@@ -135,6 +138,9 @@ func TestSchemaFifteenUpgradePreservesEveryActiveGame(t *testing.T) {
 				t.Fatal("fabricated history")
 			}
 			s.Schema = 15
+			if s.Companion != nil {
+				s.Companion.History = nil
+			}
 			s.Companion.Interests = s.Companion.Interests[:6]
 			after, _ := json.Marshal(s)
 			if string(raw) != string(after) {

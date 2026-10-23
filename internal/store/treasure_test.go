@@ -132,6 +132,9 @@ func TestTreasureSchema15MigrationSnapshotsExactlyOnce(t *testing.T) {
 	}
 	old := r.State
 	old.Schema = 15
+	if old.Companion != nil {
+		old.Companion.History = nil
+	}
 	old.Companion.Interests = old.Companion.Interests[:6]
 	raw, _ := json.Marshal(old)
 	if _, err = db.db.Exec("UPDATE saves SET body=? WHERE id=1", string(raw)); err != nil {
@@ -140,7 +143,7 @@ func TestTreasureSchema15MigrationSnapshotsExactlyOnce(t *testing.T) {
 	expected := old
 	expected.Schema = game.Schema
 	expected.Revision++
-	expected.Companion = &game.Companion{Since: old.Companion.Since, Interests: append(append([]game.Interest{}, old.Companion.Interests...), game.Interest{Kind: "treasure"}), Recent: old.Companion.Recent}
+	expected.Companion = &game.Companion{Since: old.Companion.Since, Interests: append(append([]game.Interest{}, old.Companion.Interests...), game.Interest{Kind: "treasure"}), Recent: old.Companion.Recent, History: game.New(now).Companion.History}
 	for i := 0; i < 3; i++ {
 		r, err = db.Do(nil, nil, false, now)
 		if err != nil || !reflect.DeepEqual(r.State, expected) {

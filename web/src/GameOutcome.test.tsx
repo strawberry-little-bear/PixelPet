@@ -352,3 +352,26 @@ it("C dismisses a focused game reading stop and returns focus to the physical C 
   expect(outcome()).toBeNull(); expect(document.activeElement).toBe(document.querySelector(".button-c"));
   await poll(); expect(outcome()).toBeNull(); expect(saved).toEqual(before); expect(writes()).toHaveLength(1);
 });
+
+it.each(games)("captures $id completion totals only from this acknowledged shared settlement", game => {
+  const before = fixture(); before.game!.kind = game.id === "stars" ? undefined : game.id;
+  const after = structuredClone(before); delete after.game;
+  after.schema = 19;
+  after.companion = { since: before.createdAt, interests: [], recent: {kind: game.id, id, at}, history: {
+    since: before.createdAt,
+    completions: games.map(g => ({ kind: g.id, count: g.id === game.id ? 8 : 0 })),
+  } };
+  const r = result(after), original = structuredClone(r);
+  const record = completedGameOutcome(terminalActions[game.id], before, r);
+  expect(record?.completedCount).toBe(8);
+  render(<GameOutcome outcome={record} />);
+  expect(outcome()?.textContent).toContain("已记录 8 局共同游戏");
+  expect(r).toEqual(original);
+  after.companion.recent!.at--;
+  expect(completedGameOutcome(terminalActions[game.id], before, r)?.completedCount).toBeUndefined();
+  after.companion.recent!.at = at;
+  after.companion.history!.completions.find(g => g.kind === game.id)!.count = 0;
+  expect(completedGameOutcome(terminalActions[game.id], before, r)?.completedCount).toBeUndefined();
+  delete after.companion.history;
+  expect(completedGameOutcome(terminalActions[game.id], before, r)?.completedCount).toBeUndefined();
+});

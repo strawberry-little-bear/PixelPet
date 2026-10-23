@@ -1,4 +1,5 @@
 import { games } from "./games";
+import { savedGameHistory } from "./game-history";
 import type { GameInfo } from "./games";
 import type { GameReceipt, InterestGameReceipt, PetState, Result, WalkGameReceipt } from "./types";
 
@@ -8,6 +9,7 @@ export type GameOutcomeRecord = {
   message: string;
   shared: boolean | null;
   gameReceipt?: GameReceipt;
+  completedCount?: number;
 };
 const finishActions: Record<GameInfo["id"], string> = {
   stars: "catch", tiles: "tile-pick", snake: "snake-finish", tetris: "tetris-finish",
@@ -27,6 +29,10 @@ export function completedGameOutcome(action: string, before: PetState | null, re
   const recent = after.companion?.recent;
   const record: GameOutcomeRecord = { kind, at: result.serverTime, message: result.message,
     shared: after.companion ? recent?.id === game.id && recent.kind === kind : null };
+  if (record.shared && recent?.at === result.serverTime) {
+    const count = savedGameHistory(after)?.completions.find(entry => entry.kind === kind)?.count;
+    if (count !== undefined && count > 0) record.completedCount = count;
+  }
   const walk = kind === "walk" ? validWalkReceipt(result.gameReceipt?.walk) : undefined;
   const interest = record.shared && recent?.at === result.serverTime
     ? validInterestReceipt(result.gameReceipt?.interest, kind, game.id, result.serverTime, after) : undefined;

@@ -149,6 +149,9 @@ func TestWalkSchemaTenUpgradePreservesFiveInterestsAndActiveSession(t *testing.T
 	finishExperience(t, &s, &now, "tiles", true)
 	s.Apply(Action{Kind: "play-fishing"}, now)
 	s.Schema = 10
+	if s.Companion != nil {
+		s.Companion.History = nil
+	}
 	s.Park = nil
 	s.Companion.Interests = s.Companion.Interests[:5]
 	before := s
@@ -163,6 +166,9 @@ func TestWalkSchemaTenUpgradePreservesFiveInterestsAndActiveSession(t *testing.T
 		t.Fatal("lost session")
 	}
 	s.Schema = 10
+	if s.Companion != nil {
+		s.Companion.History = nil
+	}
 	s.Park = nil
 	s.Companion.Interests = s.Companion.Interests[:5]
 	after, _ := json.Marshal(s)
