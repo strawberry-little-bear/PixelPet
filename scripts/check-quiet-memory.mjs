@@ -1,0 +1,128 @@
+// Real HTTP/Chrome memory chat. Fixture ages are controlled, actions use a temporary save.
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import net from 'node:net';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { binary, web } = await isolatedTestBuilds({ root });
+const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
+const dir = await mkdtemp(join(tmpdir(), 'pixelpet-quiet-memory-')), results = [];
+const port = await new Promise((resolve, reject) => {
+  const socket = net.createServer(); socket.once('error', reject);
+  socket.listen(0, '127.0.0.1', () => { const p = socket.address().port; socket.close(e => e ? reject(e) : resolve(p)); });
+});
+const base = `http://127.0.0.1:${port}`, wait = ms => new Promise(r => setTimeout(r, ms));
+let server, browser, log = '', startupError;
+async function api(path, body) {
+  const response = await fetch(`${base}/api/${path}`, body === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  assert(response.ok, `${path}: ${await response.clone().text()}`); return response.json();
+}
+async function open(page) {
+  await page.keyboard.press('a');
+  for (let i = 0; i < 12; i++) await page.keyboard.press('a');
+  await page.keyboard.press('b'); await page.locator('.quiet-moment').waitFor();
+  await page.keyboard.press('a'); await page.keyboard.press('a');
+}
+async function readable(page) {
+  const problems = await page.locator('.quiet-moment').evaluate(panel => {
+    const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT), problems = [];
+    let text;
+    while ((text = walker.nextNode())) {
+      if (!text.textContent.trim()) continue;
+      const range = document.createRange(); range.selectNodeContents(text);
+      for (const box of range.getClientRects()) {
+        if (box.left < -1 || box.right > innerWidth + 1) problems.push('horizontal: ' + text.textContent);
+        for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+          const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
+          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1))
+            problems.push('clipped: ' + text.textContent);
+        }
+      }
+    }
+    return problems;
+  });
+  assert.deepEqual(problems, [], 'Chat text must remain readable');
+  assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
+  assert.equal(await page.locator('.physical-button').count(), 3);
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+}
+try {
+  server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`,
+    PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server.once('error', e => { startupError = e; });
+  server.stdout.on('data', d => { log += d; }); server.stderr.on('data', d => { log += d; });
+  let ready = false;
+  for (let i = 0; i < 100; i++) {
+    if (startupError) throw startupError; assert.equal(server.exitCode, null, log);
+    try { if ((await fetch(base + '/api/state')).ok) { ready = true; break; } } catch {}
+    await wait(100);
+  }
+  assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
+  for (const stage of ['baby', 'adult']) for (const mode of [
+    { width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
+  ]) {
+    const at = Date.now(), age = (stage === 'baby' ? 1 : 80) * 3600000;
+    await api('import', { schema: 1, revision: 1, species: stage === 'baby' ? 2 : 9, name: '回忆伙伴',
+      createdAt: at - age, hatchedAt: at - age, lastTick: at, sleeping: false,
+      needs: { hunger: 50, mood: 70, clean: 50, energy: 80 }, careCount: 0, logs: [] });
+    await api('action', { kind: 'feed' }); await api('action', { kind: 'clean' });
+    const before = (await api('state')).state;
+    assert.equal(before.growth.stage, stage);
+    assert.deepEqual(before.album.entries.filter(m => m.source === 'shared').map(m => m.kind).sort(), ['bath', 'meal']);
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
+      isMobile: mode.width < 700, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
+    const page = await context.newPage(), writes = [], errors = [], label = `${stage}-${mode.width}-${mode.height}`;
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('request', req => { if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push(req.url()); });
+    await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.fontSize = `${font}px`;
+    }), mode.font);
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor();
+      await open(page);
+      assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      await page.keyboard.press('b'); const first = await page.locator('.quiet-memory-source').innerText();
+      await page.keyboard.press('b'); const second = await page.locator('.quiet-memory-source').innerText();
+      assert.notEqual(first, second);
+      assert([first, second].some(t => t.includes('泡泡里的小陪伴')));
+      assert([first, second].some(t => t.includes('一份暖暖的小饭团')));
+      await page.keyboard.press('b'); assert.equal(await page.locator('.quiet-memory-source').innerText(), first);
+      await readable(page);
+      await page.locator('.button-b').tap();
+      const panel = page.getByRole('region', { name: '无目的互动阅读区' });
+      for (let i = 0; i < 12 && !await panel.evaluate(el => document.activeElement === el); i++) await page.keyboard.press('Shift+Tab');
+      assert(await panel.evaluate(el => document.activeElement === el), 'Native Tab must reach the reading region');
+      const current = await page.locator('.quiet-memory-source').innerText();
+      await page.keyboard.press('Enter'); assert.equal(await page.locator('.quiet-memory-source').innerText(), current);
+      await page.keyboard.press('b'); assert.notEqual(await page.locator('.quiet-memory-source').innerText(), current);
+      await page.locator('.quiet-moment-note').scrollIntoViewIfNeeded(); await readable(page);
+      const box = await page.locator('.quiet-moment-note').boundingBox();
+      assert(box && box.y >= -1 && box.y + box.height <= mode.height + 1, 'Final note must be reachable');
+      await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
+      await page.keyboard.press('a'); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
+      await open(page); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      await page.reload(); await page.locator('.home-caption').waitFor();
+      await open(page); await page.keyboard.press('b');
+      assert.equal(await page.locator('.quiet-memory-source').innerText(), first, 'Reload starts a new conversation');
+      assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+      const after = (await api('state')).state;
+      for (const field of ['album', 'careCount', 'economy']) assert.deepEqual(after[field], before[field], `${field} changed during read-only chat`);
+      results.push({ label, first, second, writes, errors }); console.log('PASS', label);
+    } finally { await context.close(); }
+  }
+} finally {
+  await browser?.close();
+  if (server && server.exitCode === null && server.signalCode === null) {
+    const closed = new Promise(resolve => server.once('exit', resolve)); server.kill('SIGTERM'); await closed;
+  }
+  await writeFile(join(dir, 'server.log'), log);
+  await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2));
+  console.log(JSON.stringify({ dir, groups: results.length, serviceExited: server?.exitCode !== null || server?.signalCode !== null }));
+}

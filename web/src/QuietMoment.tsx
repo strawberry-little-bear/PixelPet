@@ -1,4 +1,5 @@
 import { CareReadingRegion } from "./CareReadingRegion";
+import { quietMemories } from "./quiet-memory";
 import { PetArt } from "./PetArt";
 import type { PetState } from "./types";
 import "./quiet-moment.css";
@@ -9,8 +10,11 @@ export const quietMoments = [
   { title: "说声你好", idle: "它抬起头，等着听你说话。", reply: "它摇了摇身子：你好呀，我一直在这里。", expression: "playful" as const },
 ] as const;
 
-export function QuietMoment({ pet, choice, replied }: { pet: PetState; choice: number; replied: boolean }) {
+export function QuietMoment({ pet, choice, replied, memoryKey = null }: {
+  pet: PetState; choice: number; replied: boolean; memoryKey?: string | null;
+}) {
   const moment = quietMoments[choice] ?? quietMoments[0];
+  const memory = choice === 2 && replied ? quietMemories(pet).find(m => m.key === memoryKey) : undefined;
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied}>
@@ -21,7 +25,8 @@ export function QuietMoment({ pet, choice, replied }: { pet: PetState; choice: n
           accessory={pet.economy?.equipped.accessory} />
       </div>
       <strong>{moment.title}</strong>
-      <p>{replied ? moment.reply : moment.idle}</p>
+      <p>{replied ? memory?.reply ?? moment.reply : moment.idle}</p>
+      {memory && <small className="quiet-memory-source">从纪念册想起：{memory.title}</small>}
       <small className="quiet-moment-note">没有奖励或惩罚，只留下一小会儿陪伴。</small>
     </section>
   </CareReadingRegion>;

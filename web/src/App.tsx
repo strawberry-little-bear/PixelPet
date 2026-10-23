@@ -74,6 +74,7 @@ import { AlbumDirectory, AlbumPanel, albumCategories, type AlbumCategory } from 
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import { QuietMoment } from "./QuietMoment";
+import { nextQuietMemory, quietMemories } from "./quiet-memory";
 import { CareOutcome } from "./CareOutcome";
 import { GameOutcome } from "./GameOutcome";
 import { completedGameOutcome, type GameOutcomeRecord } from "./game-outcome";
@@ -187,6 +188,7 @@ export default function App() {
   const [statusPage, setStatusPage] = useState(0);
   const [quietMomentChoice, setQuietMomentChoice] = useState(0);
   const [quietMomentReplied, setQuietMomentReplied] = useState(false);
+  const [quietMemoryKey, setQuietMemoryKey] = useState<string | null>(null);
   const [page, setPage] = useState<Page>("choose");
   const [chosen, setChosen] = useState(0);
   const [selected, setSelected] = useState(0);
@@ -525,6 +527,8 @@ export default function App() {
     setCareOutcome(null);
     setGameOutcome(null);
     setHomeEcho(null);
+    setQuietMemoryKey(null);
+    setQuietMomentReplied(false);
     seenDiscoveries.current.clear();
     pendingDiscoveryEchoes.current.clear();
     setEvolution(null);
@@ -1796,8 +1800,11 @@ export default function App() {
       if (key === "A") {
         setQuietMomentChoice(value => (value + 1) % 3);
         setQuietMomentReplied(false);
-      } else if (key === "B") setQuietMomentReplied(true);
-      else if (key === "C") setPage("home");
+        setQuietMemoryKey(null);
+      } else if (key === "B") {
+        setQuietMomentReplied(true);
+        if (quietMomentChoice === 2) setQuietMemoryKey(value => nextQuietMemory(quietMemories(pet), value));
+      } else if (key === "C") setPage("home");
       return;
     }
     if (page === "return") {
@@ -1860,6 +1867,7 @@ export default function App() {
       } else if (item.kind === "moment") {
         setQuietMomentChoice(0);
         setQuietMomentReplied(false);
+        setQuietMemoryKey(null);
         setPage("moment");
       } else if (item.kind === "return") {
         if (returnRecap) {
@@ -1928,7 +1936,7 @@ export default function App() {
         (e.key === "ArrowDown" || e.key === " ")) return;
       // Enter on a care or memory reading stop is not a confirmation/page turn.
       // Native activation on physical buttons and explicit A/B/C stay intact.
-      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region,.sleep-home-guidance,.walk-discoveries,.fishing-catches") && e.key === "Enter") return;
+      if (e.target instanceof HTMLElement && e.target.matches(".care-menu-reading,.care-outcome-reading,.memory-reading-region,.quiet-moment-reading,.sleep-home-guidance,.walk-discoveries,.fishing-catches") && e.key === "Enter") return;
       // Enter/Space activate the focused physical key, just like clicking it.
       // In particular the import preview deliberately focuses safe C: never
       // turn that native activation into the global B/confirm shortcut.
@@ -2125,6 +2133,10 @@ export default function App() {
     : page === "game-guide"
       ? pet?.sleeping ? "A 翻页  B 暂不可开始  C 返回选择" : `A 翻页  ${gameStartInstruction(games[arcadeChoice], guideSeen(games[arcadeChoice].id) && !guideReview)}  C 返回选择`
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A 上一页  B 下一页  C 返回" : "";
+  const quietMemoryCount = page === "moment" && pet ? quietMemories(pet).length : 0;
+  const quietMomentHint = quietMomentChoice === 2 && quietMemoryCount
+    ? `A 换回应　 B ${quietMemoryKey ? quietMemoryCount > 1 ? "再聊一段" : "再聊一次" : "聊聊回忆"}　 C 返回`
+    : "A 换回应　 B 陪一会儿　 C 返回";
   const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"
       : uncertain || unavailable ? checking ? "正在读取 · 不重做操作" : "B 读取存档 · 不重做操作"
       : page === "import-preview"
@@ -2168,7 +2180,7 @@ export default function App() {
                       : page === "journal"
                         ? "A 较早　 B 较新　 C 返回"
                         : page === "moment"
-                          ? "A 换回应　 B 陪一会儿　 C 返回"
+                          ? quietMomentHint
                           : "C 返回小窝";
 
   // Use the same reading decision for geometry and successful notices.
@@ -2612,7 +2624,7 @@ export default function App() {
                             <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} rules={careRules} />
                           </CareReadingRegion>
                         )}
-                        {page === "moment" && <QuietMoment pet={pet} choice={quietMomentChoice} replied={quietMomentReplied} />}
+                        {page === "moment" && <QuietMoment pet={pet} choice={quietMomentChoice} replied={quietMomentReplied} memoryKey={quietMemoryKey} />}
                         {page === "growth" && (
                           <GrowthPanel
                             pet={pet}

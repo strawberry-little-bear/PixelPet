@@ -1178,6 +1178,82 @@ describe("quiet companion moments", () => {
     await key("c");
     expect(document.querySelector(".content-home")).toBeTruthy();
   });
+  it("chats through actual memories with B, resets with A/C, and leaves the save untouched", async () => {
+    const at = saved.lastTick - 3000;
+    saved.album = { since: at, legacy: false, entries: [
+      { kind: "hatch", at, source: "saved" },
+      { kind: "meal", at: at + 1000, source: "shared" },
+      { kind: "walk", at: at + 2000, source: "shared" },
+    ] };
+    const before = structuredClone(saved);
+    await mount(); await choose(12); await key("a"); await key("a");
+    expect(screen.getByText("说声你好")).toBeTruthy();
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("B 聊聊回忆");
+    await key("b");
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("公园里走过的第一条小路");
+    expect(screen.getByText(/还记得一起走过的小路/)).toBeTruthy();
+    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("B 再聊一段");
+    const reading = screen.getByRole("region", { name: "无目的互动阅读区" });
+    reading.focus();
+    await act(async () => { fireEvent.keyDown(reading, { key: "Enter" }); });
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("公园里走过的第一条小路");
+    await key("b");
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("一份暖暖的小饭团");
+    await key("b");
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("公园里走过的第一条小路");
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
+    await key("a");
+    expect(screen.getByText("摸摸它")).toBeTruthy();
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    await key("a"); await key("a"); await key("b"); await key("c");
+    await choose(12);
+    expect(screen.getByText("摸摸它")).toBeTruthy();
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    expect(saved).toEqual(before);
+    expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
+  });
+
+  it("keeps the selected memory across synchronization, falls back if removed, and clears on pet replacement", async () => {
+    const at = saved.lastTick - 3000;
+    saved.album = { since: at, legacy: false, entries: [{ kind: "meal", at, source: "shared" }] };
+    await mount(); await choose(12); await key("a"); await key("a"); await key("b");
+    const sync = async () => {
+      saved.revision++;
+      await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    };
+    saved.album.entries.push({ kind: "walk", at: at + 1000, source: "shared" });
+    await sync();
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("一份暖暖的小饭团");
+    await key("b");
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("公园里走过的第一条小路");
+    saved.album.entries = saved.album.entries.filter(m => m.kind !== "walk");
+    await sync();
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    expect(screen.getByText("它摇了摇身子：你好呀，我一直在这里。")).toBeTruthy();
+    await key("b");
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("一份暖暖的小饭团");
+    saved.createdAt--; saved.hatchedAt--; saved.album.entries = [];
+    await sync();
+    expect(document.querySelector(".content-home")).toBeTruthy();
+    await choose(12); await key("a"); await key("a"); await key("b");
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    expect(screen.getByText("它摇了摇身子：你好呀，我一直在这里。")).toBeTruthy();
+    expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
+  });
+
+  it("keeps the original greeting for old saves without shared album entries", async () => {
+    saved.album = { since: saved.lastTick - 100, legacy: true, entries: [
+      { kind: "hatch", at: saved.lastTick - 100, source: "saved" },
+      { kind: "days", at: saved.lastTick, source: "elapsed", days: 7 },
+    ] };
+    await mount(); await choose(12); await key("a"); await key("a"); await key("b");
+    expect(screen.getByText("它摇了摇身子：你好呀，我一直在这里。")).toBeTruthy();
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("B 陪一会儿");
+  });
+
 });
 
 describe("keyboard reading and focus safety", () => {
