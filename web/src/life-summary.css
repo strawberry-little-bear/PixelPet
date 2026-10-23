@@ -9,6 +9,10 @@
 .life-summary-grid strong { font-size: 1.05em; }
 .life-summary-grid span { line-height: 1.3; word-break: keep-all; }
 .life-summary p { margin: 8px 0; }
+.life-summary-comfort { margin: 10px 0; padding: 8px; border: 1px dashed currentColor; border-radius: 2px; }
+.life-summary-comfort strong { display: block; }
+.life-summary-comfort b { display: block; margin-top: 4px; font-size: 1.1em; }
+.life-summary-comfort p { margin: 5px 0 0; line-height: 1.35; }
 .life-summary-memory { margin: 10px 0; padding: 8px; border: 1px solid currentColor; border-radius: 2px; }
 .life-summary-memory strong { display: block; }
 .life-summary-memory time { display: block; margin-top: 2px; font-size: .9em; }

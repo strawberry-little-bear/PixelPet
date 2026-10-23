@@ -21,6 +21,23 @@ function validMoment(value: number | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 8.64e15;
 }
 
+function currentComfort(pet: PetState): number | null {
+  const needs = pet.needs;
+  const values = [needs?.hunger, needs?.mood, needs?.clean, needs?.energy];
+  if (!values.every(value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100)) {
+    return null;
+  }
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function formatComfort(value: number | null) {
+  if (value === null) return "当前状态暂未读到";
+  const percent = value;
+  return percent > 0 && Number(percent.toFixed(1)) === 0
+    ? "<0.1%"
+    : `${percent.toFixed(1)}%`;
+}
+
 function recentMemory(pet: PetState) {
   const memory = albumMemories(pet).filter(entry => validTimestamp(entry.at)).at(-1);
   if (!memory) return null;
@@ -46,6 +63,7 @@ export function lifeSummary(pet: PetState, now: number) {
     recorded: memories.some(entry => entry.kind === game.id || (game.id === "stars" && entry.kind === "perfect-stars")),
   }));
   const lastMemory = recentMemory(pet);
+  const comfort = currentComfort(pet);
   const stage = pet.growth?.stage;
   const nextStep = stage === "adult"
     ? lastMemory
@@ -60,6 +78,7 @@ export function lifeSummary(pet: PetState, now: number) {
     memoryCount: memories.length,
     gameMemories,
     discoveries,
+    currentComfort: comfort,
     completedWalks,
     walkSteps: completedWalks * walkLength,
     fishCaught,
@@ -82,6 +101,11 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       <div><strong>{summary.gameMemories}</strong><span>游戏记忆</span></div>
       <div><strong>{summary.discoveries}</strong><span>真实发现</span></div>
     </div>
+    <section className="life-summary-comfort" aria-label="此刻小窝舒适度">
+      <strong>此刻小窝舒适度</strong>
+      <b data-current-comfort>{formatComfort(summary.currentComfort)}</b>
+      <p>只读取当前四项状态的平均值，用来回看此刻；不是任务、成长点或奖励目标。</p>
+    </section>
     <p>{summary.interest}</p>
     <section className="life-summary-next" aria-label="一起生活的下一步">
       <strong>一起生活的下一步</strong>

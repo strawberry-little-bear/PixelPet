@@ -42,4 +42,37 @@ describe("shared life summary", () => {
   it("never shows a negative day count when the clock runs behind the save", () => {
     expect(lifeSummary(pet(), created - 5 * day).daysTogether).toBe(1);
   });
+
+  it("shows current comfort as a read-only snapshot", () => {
+    const current = pet();
+    current.needs = { hunger: 100, mood: 80, clean: 60, energy: 40 };
+    const before = structuredClone(current);
+    expect(lifeSummary(current, created).currentComfort).toBe(70);
+    const { container } = render(<LifeSummary pet={current} now={created} />);
+    expect(container.querySelector("[data-current-comfort]")?.textContent).toBe("70.0%");
+    expect(container.querySelector(".life-summary-comfort")?.textContent).toContain("不是任务、成长点或奖励目标");
+    expect(current).toEqual(before);
+  });
+
+  it.each([
+    { hunger: 0, mood: 0, clean: 100, energy: 100 },
+    { hunger: 0.01, mood: 0, clean: 0, energy: 0 },
+  ])("keeps comfort within the accepted 0–100 range", needs => {
+    const current = { ...pet(), needs };
+    expect(lifeSummary(current, created).currentComfort).toBe(
+      (needs.hunger + needs.mood + needs.clean + needs.energy) / 4,
+    );
+  });
+
+  it.each([
+    { hunger: Number.NaN, mood: 80, clean: 80, energy: 80 },
+    { hunger: 101, mood: 80, clean: 80, energy: 80 },
+    { hunger: 80, mood: 80, clean: 80 } as unknown as PetState["needs"],
+  ])("does not invent comfort for an invalid live state", needs => {
+    const current = { ...pet(), needs };
+    expect(lifeSummary(current, created).currentComfort).toBeNull();
+    const { container } = render(<LifeSummary pet={current} now={created} />);
+    expect(container.querySelector("[data-current-comfort]")?.textContent).toBe("当前状态暂未读到");
+    expect(container.querySelector("[data-current-comfort]")?.textContent).not.toContain("NaN");
+  });
 });
