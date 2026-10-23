@@ -32,7 +32,9 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
   const directions = ["右", "下", "左", "上"];
   const heading = (snake.direction + (active ? turn : 0) + 4) % 4;
   const head = snake.body[0];
-  const boundaryDistance = heading === 0 ? 11 - head.x : heading === 1 ? 9 - head.y : heading === 2 ? head.x : head.y;
+  const fenceDistances = [11 - head.x, 9 - head.y, head.x, head.y];
+  const boundaryDistance = fenceDistances[heading];
+  const savedFenceDistance = fenceDistances[snake.direction];
   const boundaryHint = active && !snake.paused && !ended && boundaryDistance <= 2
     ? `前方还有 ${boundaryDistance} 格到围栏，提前按 A 左转或 B 右转。`
     : "";
@@ -40,7 +42,7 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
     ? [snakeFoodHint(head, snake.food), boundaryHint].filter(Boolean).join("；")
     : "";
   return <section className="snake-game" aria-label="果园贪吃蛇">
-    <header><strong>果园贪吃蛇</strong><span>果子 {snake.eaten}/8</span></header>
+    <header><strong>果园贪吃蛇</strong><span className="snake-progress" aria-live={paused || ended ? "off" : "polite"} aria-atomic="true">果子 {snake.eaten}/8</span></header>
     <div className="snake-field">
       <svg viewBox="0 0 144 120" role="img" aria-label={`果园棋盘，已吃 ${snake.eaten} 颗果子，朝${directions[snake.direction]}`} aria-describedby={descriptionId} shapeRendering="crispEdges">
         <desc id={descriptionId}>
@@ -60,9 +62,14 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
       </svg>
       {(paused || ended) && <div className="snake-overlay" role="status"><strong>{ended ? snake.end === "won" ? "果篮装满啦！" : "休息一下再来" : "果园已暂停"}</strong><span>{ended ? `吃到 ${snake.eaten} 颗 · A 暂不操作 · B / C 收好本局成绩` : "A / C 继续 · B 放弃确认"}</span><small>{ended ? snake.eaten >= 3 ? "计入陪伴 · 最多 6 金币" : "吃到 3 颗后完成才有奖励" : "刷新、离开不补跑"}</small></div>}
     </div>
-    {navigationHint && <p className="snake-navigation-hint" role="status">{snake.eaten === 0 && snake.step < 3 ? `第一颗果子在前方，先沿直线走；${navigationHint}` : navigationHint}</p>}
+    {/* Coordinates change each beat; keep warnings discrete and readable details quiet. */}
+    <span className="snake-boundary-announcement sr-only" aria-live="polite" aria-atomic="true">{boundaryHint && "快到围栏了，A 左转、B 右转，也可以按 C 暂停看清。"}</span>
+    {navigationHint && <p className="snake-navigation-hint" aria-live="off">{snake.eaten === 0 && snake.step < 3 ? `第一颗果子在前方，先沿直线走；${navigationHint}` : navigationHint}</p>}
     {paused && !ended && <section className="snake-steering-guide" aria-label="继续后的转弯方向" aria-live="polite" aria-atomic="true">
       <strong>蛇头现在朝{directions[snake.direction]}</strong>
+      <p className="snake-paused-position">{snakeFoodHint(head, snake.food)} {savedFenceDistance === 0
+        ? "前面就是围栏，再直行一步会碰到。"
+        : `沿当前朝向，到围栏还有 ${savedFenceDistance} 格；也要留意蛇身。`}</p>
       <p>继续后：</p>
       <ul>
         <li>A 左转：朝{directions[(snake.direction + 3) % 4]}</li>

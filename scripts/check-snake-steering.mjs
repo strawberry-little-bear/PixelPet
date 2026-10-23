@@ -32,7 +32,15 @@ async function key(page, letter) {
 async function inspect(page, mode, tag, heading) {
   const guide = page.getByRole('region', { name: '继续后的转弯方向' });
   await guide.waitFor();
-  const board = await inspectBoardDescription(page, "snake", (await api("state")).state.game.snake);
+  const saved = (await api("state")).state.game.snake;
+  const board = await inspectBoardDescription(page, "snake", saved);
+  assert.equal(await page.locator('.snake-progress').getAttribute('aria-live'), 'off');
+  const position = await page.locator('.snake-paused-position').textContent();
+  const head = saved.body[0], dx = saved.food.x - head.x, dy = saved.food.y - head.y;
+  if (dx) assert(position.includes(`横向 ${Math.abs(dx)} 格`));
+  if (dy) assert(position.includes(`纵向 ${Math.abs(dy)} 格`));
+  const distance = [11 - head.x, 9 - head.y, head.x, head.y][saved.direction];
+  assert(position.includes(distance === 0 ? '前面就是围栏，再直行一步会碰到' : `沿当前朝向，到围栏还有 ${distance} 格`));
   const text = await guide.textContent();
   assert(text.includes(`蛇头现在朝${directions[heading]}`));
   assert(text.includes(`A 左转：朝${directions[(heading + 3) % 4]}`));
@@ -109,6 +117,10 @@ try {
         held = { releasePromise: new Promise(r => { release = r; }), release };
         await key(page, 'c'); await page.locator('.snake-overlay').waitFor({ state: 'hidden' });
         assert.equal(await page.locator('.snake-steering-guide').count(), 0);
+        assert.equal(await page.locator('.snake-navigation-hint').getAttribute('aria-live'), 'off');
+        assert.equal(await page.locator('.snake-navigation-hint').getAttribute('role'), null);
+        assert.equal(await page.locator('.snake-progress').getAttribute('aria-live'), 'polite');
+        const progressBeforeStep = await page.locator('.snake-progress').textContent();
         const previousDescription = await page.locator(".snake-field desc").textContent();
         await key(page, turn < 0 ? 'a' : 'b');
         for (let i = 0; !held.result && i < 120; i++) await wait(25);
@@ -124,6 +136,7 @@ try {
         for (let i = 0; !(await api('state')).state.game.snake.paused && i < 100; i++) await wait(20);
         const before = (await api('state')).state;
         assert(before.game.snake.paused); assert.equal(before.game.snake.step, move);
+        assert.equal(await page.locator('.snake-progress').textContent(), progressBeforeStep, 'a normal move changed live fruit progress');
         await inspect(page, mode, `${tag}-${move}`, heading);
         const written = writes.length;
         await page.locator('.button-b:not(:disabled)').tap(); await page.locator('.game-abandon').waitFor();
@@ -145,6 +158,45 @@ try {
       journeys.push({ mode: mode.name, turn, writes, coins: after.economy.coins, careCount: after.careCount });
     } finally { held?.release(); await context.close(); }
   }
+  // Ordinary automatic movement to the fence: detailed coordinates keep
+  // changing, but the concise warning is written once throughout 2/1/0 cells.
+  const at = Date.now();
+  await api('import', { schema: 1, revision: 1, species: 2, name: '围栏提醒测试', createdAt: at - 3600000,
+    hatchedAt: at - 3600000, lastTick: at, sleeping: false,
+    needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
+  await api('action', { kind: 'play-snake', requestId: crypto.randomUUID() });
+  const ctx = await browser.newContext(), page = await ctx.newPage();
+  try {
+    await page.goto(base); await page.locator('.snake-overlay').waitFor();
+    await page.evaluate(() => {
+      window.snakeReading = { warnings: [], progress: [], distances: [] };
+      const warning = document.querySelector('.snake-boundary-announcement');
+      const progress = document.querySelector('.snake-progress');
+      new MutationObserver(() => window.snakeReading.warnings.push(warning.textContent))
+        .observe(warning, { childList: true, characterData: true, subtree: true });
+      new MutationObserver(() => window.snakeReading.progress.push({ text: progress.textContent, live: progress.getAttribute('aria-live') }))
+        .observe(progress, { childList: true, characterData: true, subtree: true });
+      new MutationObserver(() => {
+        const hint = document.querySelector('.snake-navigation-hint');
+        const match = hint?.textContent.match(/前方还有 (\d+) 格到围栏/);
+        if (match) window.snakeReading.distances.push(Number(match[1]));
+      }).observe(document.querySelector('.snake-game'), { childList: true, characterData: true, subtree: true });
+    });
+    await key(page, 'c');
+    await page.locator('.snake-navigation-hint').waitFor();
+    assert.equal(await page.locator('.snake-navigation-hint').getAttribute('aria-live'), 'off');
+    await page.getByText('休息一下再来', { exact: true }).waitFor();
+    const saved = (await api('state')).state, reading = await page.evaluate(() => window.snakeReading);
+    assert.equal(saved.game.snake.end, 'wall');
+    assert.equal(reading.warnings.filter(Boolean).length, 1);
+    for (const distance of [2, 1, 0]) assert(reading.distances.includes(distance), `missing real fence distance ${distance}`);
+    assert.equal(reading.progress.length, saved.game.snake.eaten);
+    assert(reading.progress.length >= 1, 'first genuine fruit was not collected');
+    assert(reading.progress.every(event => event.live === 'polite'));
+    assert.equal(await page.locator('.snake-progress').getAttribute('aria-live'), 'off');
+    assert.equal(saved.careCount, 0); assert.equal(saved.economy.coins, 0);
+    results.push({ mode: 'desktop', tag: 'straight-fence', reading, eaten: saved.game.snake.eaten });
+  } finally { await ctx.close(); }
   await writeFile(join(dir, 'results.json'), JSON.stringify({ results, journeys }, null, 2));
   console.log(JSON.stringify({ passed: results.length, artifacts: dir }));
 } finally {

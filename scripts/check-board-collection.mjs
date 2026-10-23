@@ -109,6 +109,15 @@ async function prepare(kind){
   }
   assert.fail('no genuine line clear prepared within 40 pieces');
 }
+async function observeSnakeProgress(page) {
+  await page.evaluate(() => {
+    window.snakeProgressChanges = [];
+    const progress = document.querySelector('.snake-progress');
+    new MutationObserver(() => window.snakeProgressChanges.push({
+      text: progress.textContent, live: progress.getAttribute('aria-live'),
+    })).observe(progress, { subtree: true, childList: true, characterData: true });
+  });
+}
 async function trigger(page,kind,turn,held=false){
   if(kind==='snake'){
     await key(page,'c');if(turn)await key(page,turn<0?'a':'b');
@@ -139,21 +148,26 @@ try{
         try{const response=await route.fetch();assert(response.ok());heldReply=await response.json();assert(count(heldReply.state,kind)>count(initial.state,kind));await gate;await route.fulfill({response});}catch(e){failed=e;}
       };
       await page.route('**/api/action',handler);await page.goto(base);await page.locator(`.${kind}-overlay`).waitFor();
+      if(kind==='snake')await observeSnakeProgress(page);
       await trigger(page,kind,initial.turn,true);
       for(let i=0;i<500&&!heldReply&&!failed;i++)await wait(10);if(failed)throw failed;assert(heldReply,'genuine collection reply must be held');
       await page.evaluate(()=>window.dispatchEvent(new Event('blur')));release();
       await page.waitForFunction(kind=>!document.querySelector('.button-b')?.disabled&&document.querySelector(`.${kind}-overlay`),kind);
       assert.equal(await page.locator(`.${kind}-companion`).getAttribute('data-motion'),'waiting','late collection must not play behind a paused board');
+      if(kind==='snake')assert.deepEqual(await page.evaluate(()=>window.snakeProgressChanges), [{text:`果子 ${count(heldReply.state,kind)}/8`,live:'off'}], 'late fruit acknowledgement must be readable without a live announcement');
       const committed=(await api('state')).state;assert.equal(count(committed,kind),count(heldReply.state,kind));assert.equal(committed.careCount,0);assert.equal(committed.economy.coins,initial.state.economy.coins);
       await page.unroute('**/api/action',handler);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
       await wait(200);const writes=actions.length;await wait(1100);assert.equal(actions.length,writes,'no automatic resume after blur');
       // Prepare a second real collection, still without awarding or importing a score.
       const second=await prepare(kind);await page.reload();await page.locator(`.${kind}-overlay`).waitFor();
+      if(kind==='snake')await observeSnakeProgress(page);
       await trigger(page,kind,second.turn);await page.locator(`.${kind}-companion.collecting`).waitFor();
+      if(kind==='snake')assert.deepEqual(await page.evaluate(()=>window.snakeProgressChanges), [{text:`果子 ${count(second.state,kind)+1}/8`,live:'polite'}], 'active fruit must announce once');
       await page.locator('.button-c:not(:disabled)').tap();await page.locator(`.${kind}-overlay`).waitFor();
       assert.equal(await page.locator(`.${kind}-companion`).getAttribute('data-motion'),'waiting','C must clear feedback before the 900ms expiry');
       await page.waitForFunction(()=>!document.querySelector('.button-b')?.disabled);
       await key(page,'c');assert.equal(await page.locator(`.${kind}-companion`).getAttribute('data-motion'),'waiting','resume must not replay the old collection');await key(page,'c');
+      if(kind==='snake')assert.deepEqual(await page.evaluate(()=>window.snakeProgressChanges), [{text:`果子 ${count(second.state,kind)+1}/8`,live:'polite'}], 'resume must not rewrite old progress');
       const after=(await api('state')).state;assert(count(after,kind)>count(second.state,kind));assert.equal(after.careCount,0);assert.equal(after.economy.coins,initial.state.economy.coins);
       assert.equal(await page.locator('.lcd button,.lcd [role="button"]').count(),0);assert.deepEqual(errors,[]);
       await page.screenshot({path:join(artifacts,`${mode.name}-${kind}.png`),fullPage:true});

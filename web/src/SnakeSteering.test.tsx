@@ -60,8 +60,8 @@ describe("paused snake relative steering reminder", () => {
     const state = pet(direction, false);
     state.game!.snake!.body[0] = head;
     const view = render(<SnakeGame pet={state} now={now} active turn={turn} />);
-    expect(view.getByRole("status").textContent).toContain(text);
-    expect(view.getByRole("status").textContent).toContain("A 左转或 B 右转");
+    expect(view.container.querySelector(".snake-navigation-hint")?.textContent).toContain(text);
+    expect(view.container.querySelector(".snake-navigation-hint")?.textContent).toContain("A 左转或 B 右转");
   });
 
   it("uses the queued turn when deciding whether to warn", () => {
@@ -84,5 +84,101 @@ describe("paused snake relative steering reminder", () => {
     expect(state).toEqual(original);
     view.rerender(<SnakeGame pet={pet(3)} now={now} active={false} turn={0} />);
     expect(view.getByRole("region", { name: "继续后的转弯方向" }).textContent).toContain("蛇头现在朝上");
+  });
+});
+
+describe("snake reading without per-step live chatter", () => {
+  it("keeps a concise fence warning stable across the last three positions instead of counting down aloud", () => {
+    const state = pet(0, false); state.game!.snake!.body[0].x = 8;
+    const view = render(<SnakeGame pet={state} now={now} active turn={0} />);
+    const warning = view.container.querySelector(".snake-boundary-announcement")!;
+    expect(warning.textContent).toBe("");
+    expect(warning.getAttribute("aria-live")).toBe("polite");
+    let last = "";
+    for (const x of [9, 10, 11]) {
+      const moved = structuredClone(state); moved.game!.snake!.body[0].x = x;
+      view.rerender(<SnakeGame pet={moved} now={now} active turn={0} />);
+      const current = warning.textContent!;
+      expect(current).toContain("快到围栏了");
+      expect(current).toContain("C 暂停看清");
+      if (last) expect(current).toBe(last);
+      last = current;
+    }
+    view.rerender(<SnakeGame pet={state} now={now} active turn={0} />);
+    expect(warning.textContent).toBe("");
+  });
+
+  it("withdraws the concise warning when a queued turn points away or play pauses", () => {
+    const state = pet(0, false); state.game!.snake!.body[0].x = 10;
+    const view = render(<SnakeGame pet={state} now={now} active turn={0} />);
+    const warning = view.container.querySelector(".snake-boundary-announcement")!;
+    expect(warning.textContent).toContain("快到围栏了");
+    view.rerender(<SnakeGame pet={state} now={now} active turn={-1} />);
+    expect(warning.textContent).toBe("");
+    view.rerender(<SnakeGame pet={state} now={now} active={false} turn={0} />);
+    expect(warning.textContent).toBe("");
+    state.game!.snake!.paused = true;
+    view.rerender(<SnakeGame pet={state} now={now} active turn={0} />);
+    expect(warning.textContent).toBe("");
+  });
+
+  it("keeps moving coordinates readable without announcing each beat, and only updates fruit progress", () => {
+    const state = pet(0, false);
+    const view = render(<SnakeGame pet={state} now={now} active turn={0} />);
+    const navigation = view.container.querySelector(".snake-navigation-hint")!;
+    const progress = view.container.querySelector(".snake-progress")!;
+    expect(navigation.getAttribute("aria-live")).toBe("off");
+    expect(navigation.getAttribute("role")).not.toBe("status");
+    expect(progress.getAttribute("aria-live")).toBe("polite");
+    expect(progress.getAttribute("aria-atomic")).toBe("true");
+    const initialNavigation = navigation.textContent, initialProgress = progress.textContent;
+    const moved = structuredClone(state);
+    moved.game!.snake!.body[0].x++;
+    moved.game!.snake!.step++;
+    view.rerender(<SnakeGame pet={moved} now={now + 650} active turn={0} />);
+    expect(navigation.textContent).not.toBe(initialNavigation);
+    expect(progress.textContent).toBe(initialProgress);
+    moved.game!.snake!.eaten = 1;
+    view.rerender(<SnakeGame pet={moved} now={now + 1300} active turn={0} />);
+    expect(progress.textContent).toBe("果子 1/8");
+  });
+
+  it.each([[0, 7], [1, 4], [2, 4], [3, 5]])("shows saved fruit and fence distances while paused heading %i", (heading, distance) => {
+    const state = pet(heading), before = structuredClone(state);
+    const view = render(<SnakeGame pet={state} now={now} active={false} turn={-1} />);
+    const inspection = view.container.querySelector(".snake-paused-position")!;
+    expect(inspection.textContent).toContain("果子在右下方，横向 5 格、纵向 4 格。");
+    expect(inspection.textContent).toContain(`沿当前朝向，到围栏还有 ${distance} 格`);
+    expect(inspection.textContent).toContain("也要留意蛇身");
+    expect(view.container.querySelector(".snake-progress")?.getAttribute("aria-live")).toBe("off");
+    expect(state).toEqual(before);
+  });
+
+  it("warns on the paused boundary without claiming there is a safe extra step", () => {
+    const state = pet(0); state.game!.snake!.body[0] = { x: 11, y: 5 };
+    const view = render(<SnakeGame pet={state} now={now} active={false} turn={0} />);
+    expect(view.container.querySelector(".snake-paused-position")?.textContent).toContain("前面就是围栏，再直行一步会碰到");
+  });
+
+  it("silences a late fruit acknowledgement during local pause and does not replace saved heading with a queued turn", () => {
+    const state = pet(0, false);
+    const view = render(<SnakeGame pet={state} now={now} active turn={-1} />);
+    const late = structuredClone(state); late.game!.snake!.eaten = 1;
+    view.rerender(<SnakeGame pet={late} now={now + 650} active={false} turn={-1} />);
+    expect(view.container.querySelector(".snake-progress")?.getAttribute("aria-live")).toBe("off");
+    expect(view.container.querySelector(".snake-progress")?.textContent).toBe("果子 1/8");
+    expect(view.container.querySelector(".snake-paused-position")?.textContent).toContain("围栏还有 7 格");
+    view.rerender(<SnakeGame pet={late} now={now + 1300} active turn={0} />);
+    expect(view.container.querySelector(".snake-progress")?.textContent).toBe("果子 1/8");
+    expect(view.container.querySelector(".snake-paused-position")).toBeNull();
+  });
+
+  it.each(["won", "wall", "body", "limit"] as const)("leaves %s announcements to the terminal overlay", end => {
+    const state = pet(0, false); state.game!.snake!.end = end;
+    const view = render(<SnakeGame pet={state} now={now} active turn={0} />);
+    expect(view.container.querySelector(".snake-progress")?.getAttribute("aria-live")).toBe("off");
+    expect(view.container.querySelector(".snake-paused-position")).toBeNull();
+    expect(view.container.querySelector(".snake-navigation-hint")).toBeNull();
+    expect(view.container.querySelector(".snake-overlay")?.getAttribute("role")).toBe("status");
   });
 });
