@@ -24,13 +24,19 @@ export function useTreasureViewport(root: RefObject<HTMLElement | null>, request
       const bottom = viewport.bottom - 12;
       if (box.top < top) container.scrollTop += box.top - top;
       else if (box.bottom > bottom) container.scrollTop += box.bottom - bottom;
+      // On short screens, bring the feedback closer to the keys within the LCD
+      // before moving the page. Otherwise revealing the keys can hide the target.
+      const visible = target.getBoundingClientRect();
+      const missing = dock.getBoundingClientRect().bottom - visible.top - (window.innerHeight - 24);
+      if (missing > 0) container.scrollTop -= Math.min(container.scrollTop, missing, Math.max(0, bottom - visible.bottom));
     }
     const box = target.getBoundingClientRect(), controls = dock.getBoundingClientRect();
     if (!box.width || !box.height) return;
-    if (box.top >= 12 && box.bottom <= Math.min(window.innerHeight, controls.top) - 12) return;
-    // Keep native button focus. A scrollable LCD consumes only its own reading
-    // position; the outer document moves only when the target or key dock is
-    // outside the viewport.
-    window.scrollBy({ top: box.top - 12, behavior: "instant" });
+    // Choose the smallest document movement that reveals both the feedback and
+    // the entire key dock, including the lower B key. Keep native button focus.
+    const lower = Math.max(box.bottom, controls.bottom) - window.innerHeight + 12;
+    const upper = Math.min(box.top, controls.top) - 12;
+    const movement = lower <= upper ? Math.max(lower, Math.min(0, upper)) : box.top - 12;
+    if (movement) window.scrollBy({ top: movement, behavior: "instant" });
   }, [root, request, sessionKey, enabled]);
 }

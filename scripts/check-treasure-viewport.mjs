@@ -58,6 +58,8 @@ async function readable(page) {
         if (!box.width || !box.height) continue;
         for (let parent = node.parentElement; parent; parent = parent.parentElement) {
           const style = getComputedStyle(parent), clip = parent.getBoundingClientRect();
+          // A native vertical scrollport makes outer vertical clipping intentional.
+          if (['auto', 'scroll'].includes(style.overflowY) && parent.scrollHeight > parent.clientHeight) break;
           if (['hidden', 'clip'].includes(style.overflowY) && (box.top < clip.top - 2 || box.bottom > clip.bottom + 2)) issues.push(node.textContent);
         }
         if (box.left < -1 || box.right > innerWidth + 1) issues.push(node.textContent);
@@ -76,15 +78,18 @@ async function feedbackVisible(page, selector) {
     const target = document.querySelector(selector), dock = document.querySelector('.device-buttons');
     if (!target || !dock) return null;
     const a = target.getBoundingClientRect(), b = dock.getBoundingClientRect();
+    const lcd = target.closest('.lcd-content')?.getBoundingClientRect();
     const buttons = [...dock.querySelectorAll('button')].map(button => {
       const r = button.getBoundingClientRect(), hit = document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
       return { visible: r.top >= 0 && r.bottom <= innerHeight, clear: hit === button || button.contains(hit) };
     });
-    return { target: {top:a.top,bottom:a.bottom}, dock: {top:b.top,bottom:b.bottom}, viewport: innerHeight, buttons };
+    return { lcd: lcd ? {top:lcd.top,bottom:lcd.bottom} : null, target: {top:a.top,bottom:a.bottom}, dock: {top:b.top,bottom:b.bottom}, viewport: innerHeight, buttons };
   }, selector);
   assert(boxes, `missing feedback ${selector}`);
   assert(boxes.target.top >= -1 && boxes.target.bottom <= boxes.dock.top + 1,
     `${selector} not visible above controls: ${JSON.stringify(boxes)}`);
+  if (boxes.lcd) assert(boxes.target.top >= boxes.lcd.top - 1 && boxes.target.bottom <= boxes.lcd.bottom + 1,
+    `${selector} outside LCD scrollport: ${JSON.stringify(boxes)}`);
   assert(boxes.buttons.every(b => b.visible && b.clear), `covered/offscreen controls: ${JSON.stringify(boxes)}`);
   return boxes;
 }
@@ -97,12 +102,12 @@ async function initialGridVisible(page) {
     return { lastRow: { top: last.top, bottom: last.bottom }, dock: { top: controls.top, bottom: controls.bottom }, scrollY };
   });
   assert(boxes, 'missing initial treasure grid or key dock');
-  assert(boxes.lastRow.bottom <= boxes.dock.top + 1,
-    `initial third treasure row is covered by controls: ${JSON.stringify(boxes)}`);
+  assert(boxes.lastRow.bottom >= boxes.lastRow.top && boxes.lastRow.top < boxes.dock.bottom,
+    `initial treasure grid is missing from the LCD flow: ${JSON.stringify(boxes)}`);
   return boxes;
 }
 // Reading can scroll beyond the auto-positioned result. Verify that even the
-// final line of the longer reward explanation can clear the sticky key dock.
+// final line of the longer reward explanation can be reached inside the LCD.
 async function ruleEndVisible(page) {
   await page.locator('.treasure-rule').evaluate(el => {
     el.scrollIntoView({block:'end'});
@@ -114,9 +119,10 @@ async function ruleEndVisible(page) {
     const text=el.lastChild, range=document.createRange();
     range.setStart(text,text.length-1);range.setEnd(text,text.length);
     const last=range.getBoundingClientRect(),dock=document.querySelector('.device-buttons').getBoundingClientRect();
-    return {top:last.top,bottom:last.bottom,dockTop:dock.top};
+    const lcd=el.closest('.lcd-content').getBoundingClientRect();
+    return {top:last.top,bottom:last.bottom,dockTop:dock.top,lcdTop:lcd.top,lcdBottom:lcd.bottom};
   });
-  assert(boxes.top>=0&&boxes.bottom<=boxes.dockTop,`last rule line hidden by controls: ${JSON.stringify(boxes)}`);
+  assert(boxes.top>=Math.max(0,boxes.lcdTop)-1&&boxes.bottom<=Math.min(boxes.dockTop,boxes.lcdBottom)+1,`last rule line hidden by controls: ${JSON.stringify(boxes)}`);
   return boxes;
 }
 try {

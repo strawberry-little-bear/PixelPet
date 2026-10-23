@@ -50,9 +50,20 @@ it.each(["selection","result","done"] as const)("reveals explicit %s without foc
   expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({top:-412,behavior:"instant"});
   expect(document.activeElement).toBe(button); button.remove();
 });
-it("a target inside the viewport but covered by the key dock also needs revealing", () => {
-  top=550; render(<View request={destination()}/>);
-  expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({top:538,behavior:"instant"});
+it("reveals the entire key dock even when the feedback is already visible", () => {
+  top=308; height=75; dockTop=700;
+  render(<View request={destination("result")}/>);
+  expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({top:19,behavior:"instant"});
+});
+it("moves feedback lower inside the LCD when a short viewport cannot fit it with the keys", () => {
+  rootScrollHeight=900; rootClientHeight=380; top=250; height=60; dockTop=520;
+  const view=render(<View request={null}/>);
+  const lcd=view.container.querySelector<HTMLElement>(".lcd-content")!;
+  lcd.scrollTop=130;
+  vi.spyOn(window,"innerHeight","get").mockReturnValue(380);
+  view.rerender(<View request={destination()}/>);
+  expect(lcd.scrollTop).toBe(26);
+  expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({top:212,behavior:"instant"});
 });
 it("uses the LCD scroll position for a tall treasure panel before moving the document", () => {
   rootScrollHeight = 800; rootClientHeight = 300; top = 350; height = 80; dockTop = 600;
