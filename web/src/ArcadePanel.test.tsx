@@ -256,9 +256,11 @@ describe("playtest feedback: compact repeat entry", () => {
     failStart = false; await key("b"); expect(saved.game?.kind).toBe("walk");
     expect(actions().map(action => action.kind)).toEqual(["play-walk", "play-walk"]);
   });
-  it("warns about early reels and the block operation menu in the shared lessons", () => {
+  it("keeps the shared lessons explicit about timing-sensitive controls", () => {
     expect(games.find(game => game.id === "fishing")!.lesson).toContain("提前提竿也会用掉这一竿");
     expect(games.find(game => game.id === "tetris")!.lesson).toContain("按 C 打开旋转、落底等操作");
+    expect(games.find(game => game.id === "snake")!.lesson).toContain("果子方向和距离");
+    expect(games.find(game => game.id === "snake")!.lesson).toContain("靠近围栏也会提醒");
   });
 });
 
