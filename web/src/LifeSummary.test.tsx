@@ -71,6 +71,63 @@ describe("shared life summary", () => {
     },
   );
 
+  it("shows the most familiar game as a read-only adult-life thread", () => {
+    const current = {
+      ...pet(),
+      companion: {
+        since: created,
+        interests: [
+          { kind: "fishing" as const, points: 3, lastAt: created },
+          { kind: "walk" as const, points: 1, lastAt: created },
+        ],
+      },
+    };
+    const before = structuredClone(current);
+    const summary = lifeSummary(current, created + day);
+    expect(summary.interestProgress).toEqual({ titles: ["池塘钓鱼"], points: 3 });
+    const { container } = render(<LifeSummary pet={current} now={created + day} />);
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("池塘钓鱼 · 熟悉度 3 / 5");
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("只读记录");
+    expect(current).toEqual(before);
+  });
+
+  it("describes tied familiar games without picking one", () => {
+    const current = {
+      ...pet(),
+      companion: {
+        since: created,
+        interests: [
+          { kind: "fishing" as const, points: 4, lastAt: created },
+          { kind: "walk" as const, points: 4, lastAt: created },
+        ],
+      },
+    };
+    const { container } = render(<LifeSummary pet={current} now={created + day} />);
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("熟悉的游戏不止一种");
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("最高熟悉度 4 / 5");
+  });
+
+  it("does not turn low or invalid interests into a false preference", () => {
+    const current = {
+      ...pet(),
+      companion: {
+        since: created,
+        interests: [
+          { kind: "fishing" as const, points: 1, lastAt: created },
+          { kind: "walk" as const, points: -1, lastAt: created },
+          { kind: "tiles" as const, points: 6, lastAt: created },
+          { kind: "snake" as const, points: 2.5, lastAt: created },
+          { kind: "unknown" as "tiles", points: 5, lastAt: created },
+        ],
+      },
+    };
+    const summary = lifeSummary(current, created + day);
+    expect(summary.interestProgress).toBeNull();
+    const { container } = render(<LifeSummary pet={current} now={created + day} />);
+    expect(container.querySelector(".life-summary-interest")).toBeNull();
+    expect(container.textContent).not.toContain("NaN");
+  });
+
   it("shows current comfort as a read-only snapshot", () => {
     const current = pet();
     current.needs = { hunger: 100, mood: 80, clean: 60, energy: 40 };

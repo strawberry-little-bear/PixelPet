@@ -28,6 +28,13 @@ describe("bounded explainable shared interests", () => {
     const {container}=render(<CompanionPanel companion={c}/>);
     expect(container.querySelector('[data-interest="stars"]')?.getAttribute('data-points')).toBe("5");
   });
+  it("ignores malformed familiarity values in the explanation", () => {
+    const c = fresh();
+    c.interests[0].points = 6;
+    c.interests[1].points = 2.5;
+    c.interests[2].points = -1;
+    expect(interestSummary(c)).toBe("还在慢慢了解彼此，玩喜欢的就好。");
+  });
   it("requires this local settled session, feedback, and one-time delivery", () => {
     const x: GameExperience={kind:"stars",id:"saved-session",at:1},seen=new Set<string>();
     expect(completedExperience(undefined,x,true,seen)).toBeNull();

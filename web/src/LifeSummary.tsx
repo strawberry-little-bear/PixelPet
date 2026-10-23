@@ -1,4 +1,4 @@
-import { interestSummary } from "./companion";
+import { interestLimit, interestSummary, validInterestEntries } from "./companion";
 import { games } from "./games";
 import { albumMemories, memoryWords } from "./AlbumPanel";
 import type { Memory, PetState } from "./types";
@@ -66,6 +66,13 @@ export function lifeSummary(pet: PetState, now: number) {
   }));
   const lastMemory = recentMemory(pet);
   const comfort = currentComfort(pet);
+  const interests = validInterestEntries(pet.companion);
+  const bestInterest = Math.max(0, ...interests.map(entry => entry.points));
+  const interestLeaders = bestInterest >= 2
+    ? interests.filter(entry => entry.points === bestInterest)
+      .map(entry => games.find(game => game.id === entry.kind)?.title)
+      .filter(title => title !== undefined)
+    : [];
   const stage = pet.growth?.stage;
   const nextStep = stage === "adult"
     ? lastMemory
@@ -87,6 +94,9 @@ export function lifeSummary(pet: PetState, now: number) {
     fishSpecies: pet.pond?.fish?.length ?? 0,
     gameStats,
     interest: pet.companion ? interestSummary(pet.companion) : "还没有保存的共同游戏经历，玩喜欢的就好。",
+    interestProgress: interestLeaders.length > 0
+      ? { titles: interestLeaders, points: bestInterest }
+      : null,
     recentMemory: lastMemory,
     nextStep,
   };
@@ -109,6 +119,13 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       <p>只读取当前四项状态的平均值，用来回看此刻；不是任务、成长点或奖励目标。</p>
     </section>
     <p>{summary.interest}</p>
+    {summary.interestProgress && <section className="life-summary-interest" aria-label="共同游戏兴趣进度">
+      <strong>共同游戏兴趣</strong>
+      <p>{summary.interestProgress.titles.length === 1
+        ? `${summary.interestProgress.titles[0]} · 熟悉度 ${summary.interestProgress.points} / ${interestLimit}`
+        : `熟悉的游戏不止一种 · 最高熟悉度 ${summary.interestProgress.points} / ${interestLimit}`}</p>
+      <small>这是共同经历的只读记录，不是任务，也不会改变成年形态。</small>
+    </section>}
     <section className="life-summary-next" aria-label="一起生活的下一步">
       <strong>一起生活的下一步</strong>
       <p>{summary.nextStep}</p>

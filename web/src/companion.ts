@@ -17,10 +17,19 @@ export const experienceWords: Record<CompanionEchoKind, string> = {
   "park-discovery": "刚才路上有新发现，忍不住又回头看了看。",
 };
 
+export function validInterestEntries(c?: Companion) {
+  const interests = c?.interests;
+  if (!Array.isArray(interests)) return [];
+  return interests.filter(entry =>
+    !!entry && games.some(game => game.id === entry.kind) &&
+    Number.isSafeInteger(entry.points) && entry.points >= 0 && entry.points <= interestLimit);
+}
+
 export function interestSummary(c?: Companion) {
-  const best = Math.max(0, ...(c?.interests.map(r => r.points) ?? []));
+  const interests = validInterestEntries(c);
+  const best = Math.max(0, ...interests.map(r => r.points));
   if (best < 2) return "还在慢慢了解彼此，玩喜欢的就好。";
-  const leaders = c!.interests.filter(r => r.points === best);
+  const leaders = interests.filter(r => r.points === best);
   return leaders.length === 1
     ? `目前更熟悉${games.find(g => g.id === leaders[0].kind)?.title}，不是固定性格。`
     : "熟悉的游戏不止一种，不必只玩一种。";
