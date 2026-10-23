@@ -13,6 +13,7 @@ describe("authoritative care outcome", () => {
   render(<CareOutcome feedback={feedback} />);
   const panel = screen.getByRole("region", {name:"上次操作的即时变化"});
   expect(panel.textContent).toContain("喂食");
+  expect(panel.querySelector(".care-outcome-summary")?.textContent).toBe("饭团已吃好。");
   const row = (key: string) => panel.querySelector(`[data-need="${key}"]`)!;
   expect(row("hunger").textContent).toContain("60.00 → 80.00+20.00");
   expect(row("mood").textContent).toContain("99.00 → 100.00+1.00");

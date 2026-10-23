@@ -73,8 +73,12 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
   const milestone = learning ? milestoneText(feedback) : null;
   const action = feedback.kind === "feed" ? "喂食" : feedback.kind === "clean" ? "洗澡" :
     feedback.kind === "sleep" ? feedback.reason === "awake" ? "起床" : "入睡" : "陪玩";
+  const feeling = feedback.kind === "feed" ? "饭团已吃好。" : feedback.kind === "clean" ? "洗得干干净净。" :
+    feedback.kind === "sleep" ? feedback.reason === "awake" ? "欢迎回来，醒来啦。" : "晚安，安心睡一会儿。" :
+      "这局玩得很开心。";
   const outcome = <section className={`care-outcome${embedded ? " care-outcome-embedded" : ""}`} aria-label="上次操作的即时变化">
     <h3>{embedded ? "本局照顾变化" : "本页上次已确认"} · {action}</h3>
+    {!embedded && <p className="care-outcome-summary">{feeling}</p>}
     {!embedded && <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
       year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
     })}（本地时间）</time>}

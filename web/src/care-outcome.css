@@ -1,7 +1,8 @@
 .care-outcome { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #839567; color: #50643e; text-align: left; overflow-wrap: anywhere; }
 .care-outcome h3 { margin: 0 0 4px; }
+.care-outcome-summary { margin: 8px 0 3px; font-size: 1.05em; font-weight: 600; line-height: 1.7; color: #405532; }
 .care-outcome > time, .care-outcome > small { display: block; font-size: .857143rem; line-height: 1.6; }
-.care-outcome-details { margin: 8px 0; }
+.care-outcome-details { margin: 8px 0; font-size: .9em; opacity: .82; }
 .care-outcome dl { margin: 0; }
 .care-outcome dl > div { display: grid; grid-template-columns: 2.5em minmax(0, 1fr); gap: 4px; margin: 4px 0; }
 .care-outcome dd { margin: 0; display: flex; flex-wrap: wrap; gap: 0 8px; justify-content: space-between; min-width: 0; }
