@@ -2445,8 +2445,8 @@ export default function App() {
                             sleeping={pet.sleeping}
                           />
                         )}
-                        {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused economy={pet.economy} shop={shop} now={now} />}
-                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} sleeping={pet.sleeping} economy={pet.economy} shop={shop} now={now} />}
+                        {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused economy={pet.economy} growth={growth} shop={shop} now={now} />}
+                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} sleeping={pet.sleeping} economy={pet.economy} growth={growth} shop={shop} now={now} />}
                         {abandoning && <AbandonGame game={pet.game} />}
                         {page === "shop" && (
                           <ShopPanel

@@ -1,8 +1,9 @@
 import { gameAllowance } from "./games";
 import type { GameInfo } from "./games";
-import type { Economy, Shop } from "./types";
+import type { Economy, Growth, Shop } from "./types";
+import { playHabitGuidance } from "./playHabitGuidance";
 
-export type GuideRewardContext = { economy?: Economy; shop: Shop | null; now: number };
+export type GuideRewardContext = { economy?: Economy; growth?: Growth; shop: Shop | null; now: number };
 
 // Base rules are not a promise of coins. The accepted server snapshot supplies
 // the current constraints; finishing still settles authoritatively on the server.
@@ -17,9 +18,10 @@ export function GameAllowance({ economy, shop, now }: GuideRewardContext) {
   return <p className="guide-allowance" aria-label="当前游戏奖励额度">{note}</p>;
 }
 
-export function GuideReward({ game, ...context }: GuideRewardContext & { game: GameInfo }) {
+export function GuideReward({ game, growth, ...context }: GuideRewardContext & { game: GameInfo }) {
   return <>
     <p className="guide-reward">基础规则：{game.reward}</p>
     <GameAllowance {...context} />
+    <p className="guide-habit" aria-label="当前陪玩习惯">{playHabitGuidance(growth, context.now)}</p>
   </>;
 }
