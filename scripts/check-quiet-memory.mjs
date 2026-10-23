@@ -76,7 +76,7 @@ try {
     assert.equal(before.growth.stage, stage);
     assert.deepEqual(before.album.entries.filter(m => m.source === 'shared').map(m => m.kind).sort(), ['bath', 'meal']);
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
-      isMobile: mode.width < 700, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
+      isMobile: mode.width < 700, reducedMotion: mode.font === 28 ? 'reduce' : 'no-preference', forcedColors: mode.font === 28 ? 'active' : 'none' });
     const page = await context.newPage(), writes = [], errors = [], label = `${stage}-${mode.width}-${mode.height}`;
     page.on('pageerror', e => errors.push(e.message));
     page.on('request', req => { if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push(req.url()); });
@@ -114,7 +114,47 @@ try {
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       const after = (await api('state')).state;
       for (const field of ['album', 'careCount', 'economy']) assert.deepEqual(after[field], before[field], `${field} changed during read-only chat`);
-      results.push({ label, first, second, writes, errors }); console.log('PASS', label);
+      // Sleep/wake happens through a separate client; this page stays read-only.
+      await api('action', { kind: 'sleep' });
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await page.waitForFunction(() => document.querySelector('.quiet-moment')?.dataset.sleeping === 'true');
+      const sleepingBefore = (await api('state')).state;
+      assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
+      assert((await page.locator('.lcd-bottom').innerText()).includes('B 安静陪着'));
+      // Selection is still the third option; wrap through all bedside interactions.
+      for (const title of ['轻声道晚安', '轻轻摸摸', '守着它睡']) {
+        assert.equal(await page.locator('.quiet-moment > strong').innerText(), title);
+        await page.keyboard.press('b');
+        assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+        assert.equal(await page.locator('.quiet-moment .expression-asleep.rig-motion-sleeping').count(), 1);
+        assert.equal(await page.locator('.quiet-moment-pet').evaluate(el => getComputedStyle(el).animationName), 'none');
+        assert.equal(await page.locator('.quiet-moment .sprite-eyes-open').evaluate(el => getComputedStyle(el).opacity), '0');
+        assert.equal(await page.locator('.quiet-moment .sprite-eyes-closed').evaluate(el => getComputedStyle(el).opacity), '1');
+        await readable(page);
+        await page.keyboard.press('a');
+      }
+      await page.locator('.quiet-moment-note').scrollIntoViewIfNeeded();
+      const sleepBox = await page.locator('.quiet-moment-note').boundingBox();
+      assert(sleepBox && sleepBox.y >= -1 && sleepBox.y + sleepBox.height <= mode.height + 1, 'Bedside note must be reachable');
+      await page.screenshot({ path: join(dir, `${label}-sleeping.png`), fullPage: true });
+      const sleepingAfter = (await api('state')).state;
+      assert.equal(sleepingAfter.sleeping, true, 'Quiet company must not wake the pet');
+      for (const field of ['album', 'careCount', 'economy']) assert.deepEqual(sleepingAfter[field], sleepingBefore[field]);
+      await page.reload(); await page.locator('.home-caption').waitFor(); await open(page);
+      assert.equal(await page.locator('.quiet-moment > strong').innerText(), '轻声道晚安');
+      await page.keyboard.press('b');
+      assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      await api('action', { kind: 'sleep' });
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await page.waitForFunction(() => document.querySelector('.quiet-moment')?.dataset.sleeping === 'false');
+      assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
+      assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      assert((await page.locator('.lcd-bottom').innerText()).includes('B 聊聊回忆'));
+      await page.keyboard.press('b');
+      assert.equal(await page.locator('.quiet-memory-source').innerText(), '从纪念册想起：轻轻说一声晚安', 'Waking starts with the latest real memory, including the separate client’s bedtime');
+      assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+      results.push({ label, first, second, sleeping: true, writes, errors }); console.log('PASS', label);
     } finally { await context.close(); }
   }
 } finally {

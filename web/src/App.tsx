@@ -476,6 +476,10 @@ export default function App() {
     const newGeneration = acceptedGeneration.current !== undefined && r.saveGeneration !== undefined && acceptedGeneration.current !== r.saveGeneration;
     if (r.state.revision < latestRevision.current && !(authoritativeRead && newGeneration)) return false;
     latestRevision.current = r.state.revision;
+    if (acceptedPet.current && acceptedPet.current.sleeping !== r.state.sleeping) {
+      setQuietMomentReplied(false);
+      setQuietMemoryKey(null);
+    }
     acceptedPet.current = r.state;
     acceptedGeneration.current = r.saveGeneration;
     const nextStage = r.state.growth?.stage;
@@ -1803,7 +1807,7 @@ export default function App() {
         setQuietMemoryKey(null);
       } else if (key === "B") {
         setQuietMomentReplied(true);
-        if (quietMomentChoice === 2) setQuietMemoryKey(value => nextQuietMemory(quietMemories(pet), value));
+        if (!pet.sleeping && quietMomentChoice === 2) setQuietMemoryKey(value => nextQuietMemory(quietMemories(pet), value));
       } else if (key === "C") setPage("home");
       return;
     }
@@ -2134,7 +2138,9 @@ export default function App() {
       ? pet?.sleeping ? "A 翻页  B 暂不可开始  C 返回选择" : `A 翻页  ${gameStartInstruction(games[arcadeChoice], guideSeen(games[arcadeChoice].id) && !guideReview)}  C 返回选择`
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A 上一页  B 下一页  C 返回" : "";
   const quietMemoryCount = page === "moment" && pet ? quietMemories(pet).length : 0;
-  const quietMomentHint = quietMomentChoice === 2 && quietMemoryCount
+  const quietMomentHint = pet?.sleeping
+    ? "A 换陪伴　 B 安静陪着　 C 返回"
+    : quietMomentChoice === 2 && quietMemoryCount
     ? `A 换回应　 B ${quietMemoryKey ? quietMemoryCount > 1 ? "再聊一段" : "再聊一次" : "聊聊回忆"}　 C 返回`
     : "A 换回应　 B 陪一会儿　 C 返回";
   const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"

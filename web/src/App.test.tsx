@@ -1161,6 +1161,62 @@ describe("real completed-game home echoes", () => {
 });
 
 describe("quiet companion moments", () => {
+  it("keeps all three bedside interactions asleep and read-only, including saved memories", async () => {
+    saved.sleeping = true;
+    saved.album = { since: saved.lastTick - 1000, legacy: false, entries: [
+      { kind: "meal", at: saved.lastTick - 1000, source: "shared" },
+    ] };
+    const before = structuredClone(saved);
+    await mount(); await choose(12);
+    for (const title of ["轻轻摸摸", "守着它睡", "轻声道晚安"]) {
+      expect(screen.getByText(title)).toBeTruthy();
+      expect(document.querySelector(".quiet-moment .expression-asleep.rig-motion-sleeping")).toBeTruthy();
+      expect(document.querySelector(".lcd-bottom")?.textContent).toContain("B 安静陪着");
+      await key("b"); await key("b");
+      expect(document.querySelector(".quiet-memory-source")).toBeNull();
+      expect(document.querySelector(".quiet-moment .expression-asleep.rig-motion-sleeping")).toBeTruthy();
+      expect(document.querySelector(".quiet-moment")?.textContent).not.toMatch(/抬起头|你好呀|眨了眨眼/);
+      expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+      expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
+      await key("a");
+    }
+    await key("c");
+    expect(scene()).toBe("sleeping");
+    expect(saved).toEqual(before);
+    expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
+  });
+
+  it("clears a conversation on synchronized sleep/wake without replaying its old reply", async () => {
+    saved.album = { since: saved.lastTick - 1000, legacy: false, entries: [
+      { kind: "meal", at: saved.lastTick - 1000, source: "shared" },
+    ] };
+    await mount(); await choose(12); await key("a"); await key("a"); await key("b");
+    expect(document.querySelector(".quiet-memory-source")).not.toBeNull();
+    const syncSleep = async (sleeping: boolean) => {
+      saved.sleeping = sleeping; saved.revision++;
+      await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    };
+    await syncSleep(true);
+    expect(screen.getByText("轻声道晚安")).toBeTruthy();
+    expect(document.querySelector(".quiet-moment")?.getAttribute("data-replied")).toBe("false");
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    await key("b");
+    const reading = screen.getByRole("region", { name: "无目的互动阅读区" });
+    reading.focus();
+    await syncSleep(true);
+    expect(document.querySelector(".quiet-moment")?.getAttribute("data-replied")).toBe("true");
+    await syncSleep(false);
+    expect(screen.getByText("说声你好")).toBeTruthy();
+    expect(document.querySelector(".quiet-moment")?.getAttribute("data-replied")).toBe("false");
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("B 聊聊回忆");
+    await act(async () => { fireEvent.keyDown(reading, { key: "Enter" }); });
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    await key("b");
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("一份暖暖的小饭团");
+    expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
+  });
+
   it("offers a no-pressure A/B/C interaction without writing or changing the save", async () => {
     await mount();
     await choose(12);
