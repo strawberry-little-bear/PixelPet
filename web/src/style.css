@@ -1181,9 +1181,32 @@ footer i {
   padding-bottom: 9px;
   margin-bottom: 12px;
 }
-.status-name > .pet-sprite {
-  height: 36px;
-  width: 36px;
+.status-portrait {
+  position: relative;
+  width: 60px;
+  height: 52px;
+  flex: 0 0 60px;
+}
+/* Scale the complete home coordinate system, including species outfit offsets. */
+.status-portrait-canvas {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 130px;
+  height: 112px;
+  transform: scale(.46);
+  transform-origin: left bottom;
+}
+.status-portrait .pet-sprite {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+}
+.status-identity-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .status-name strong {
   font-size: 11px;

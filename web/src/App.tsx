@@ -1,3 +1,4 @@
+import { StatusIdentity } from "./StatusIdentity";
 import { usePhysicalButtonFocus } from "./usePhysicalButtonFocus";
 import { CareReadingRegion } from "./CareReadingRegion";
 import { starsReactionFor, starsReactionMs, type StarsReaction } from "./stars-reaction";
@@ -2676,20 +2677,7 @@ export default function App() {
                         {page === "status" && (
                           <CareReadingRegion className="screen-status" data-status-page={statusPage} label="状态说明阅读区">
                             {statusPage === 0 ? <>
-                            <div className="status-name">
-                              <PetArt
-                                index={index}
-                                stage={growth.stage}
-                                accessory={pet.economy?.equipped.accessory}
-                              />
-                              <div>
-                                <strong>{pet.name}</strong>
-                                <small>
-                                  {stage} · 相识第 {Math.floor(age / 86400000) + 1}{" "}
-                                  天
-                                </small>
-                              </div>
-                            </div>
+                            <StatusIdentity pet={pet} stage={growth.stage} days={Math.floor(age / 86400000) + 1} />
                             {needs.map((n) => (
                               <div className="lcd-meter" key={n.key} {...needMeterAttributes(n.label, pet.needs[n.key])}>
                                 <span>{n.label}</span>
