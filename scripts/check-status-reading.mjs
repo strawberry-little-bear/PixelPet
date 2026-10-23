@@ -38,6 +38,8 @@ async function readable(page) {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
       if (!text.textContent.trim()) continue;
+      const element = text.parentElement;
+      if (element?.matches('[data-care-reading-start]') && getComputedStyle(element).clipPath !== 'none') continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
