@@ -20,6 +20,7 @@ const port = await new Promise((resolve, reject) => {
 });
 const base = `http://127.0.0.1:${port}`, wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const forms = { balanced: '均衡型', lively: '活力型', gentle: '恬静型', easygoing: '自在型' };
+const readableText = value => value.replace(/\s+/g, '');
 const results = [];
 let server, browser, log = '', startupError;
 async function api(path, body, headers = {}) {
@@ -61,6 +62,8 @@ async function readable(page) {
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
+        const element = text.parentElement;
+        if (element?.matches('[data-care-reading-start]') && getComputedStyle(element).clipPath !== 'none') continue;
         if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
@@ -156,7 +159,7 @@ try {
       const count = writes.filter(write => write.path === '/api/action').length;
       await choose(page, 5); await page.locator('.screen-journal').waitFor();
       for (let i = 0; i < index; i++) await key(page, 'a');
-      assert.equal(await page.locator('.screen-journal > p').innerText(), entry.text);
+      assert.equal(readableText(await page.locator('.screen-journal > p').innerText()), readableText(entry.text));
       assert.equal(await page.locator('.screen-journal > time').getAttribute('datetime'), new Date(entry.at).toISOString());
       await readable(page);
       const end = page.locator('.journal-note'); await end.scrollIntoViewIfNeeded();

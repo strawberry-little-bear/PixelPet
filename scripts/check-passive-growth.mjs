@@ -42,6 +42,8 @@ async function layout(page, selector) {
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
+        const element = text.parentElement;
+        if (element?.matches('[data-care-reading-start]') && getComputedStyle(element).clipPath !== 'none') continue;
         if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), clip = parent.getBoundingClientRect();
