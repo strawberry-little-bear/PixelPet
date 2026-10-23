@@ -75,7 +75,7 @@ import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import { QuietMoment } from "./QuietMoment";
 import { nextQuietMemory, quietMemories } from "./quiet-memory";
-import { CareOutcome } from "./CareOutcome";
+import { CareOutcome, hasCareOutcome } from "./CareOutcome";
 import { GameOutcome } from "./GameOutcome";
 import { completedGameOutcome, type GameOutcomeRecord } from "./game-outcome";
 import {
@@ -232,7 +232,7 @@ export default function App() {
   // Keep the last received receipt readable after the short growth toast.
   // It is page-local history, never reconstructed from later need readings.
   const [careOutcome, setCareOutcome] = useState<Feedback | null>(null);
-  // Ordinary reads and care keep this last acknowledged game result unchanged.
+  // Ordinary reads keep this last acknowledged game result unchanged.
   const [gameOutcome, setGameOutcome] = useState<GameOutcomeRecord | null>(null);
   // A page-local visual window, independent of saved dates and server clock anchors.
   const [homeEcho, setHomeEcho] = useState<{ kind: CompanionEchoKind; monotonicUntil: number } | null>(null);
@@ -1855,7 +1855,16 @@ export default function App() {
         setAbandonGame(sessionKey);
         return;
       }
-      if (page === "hatch") setPage("choose");
+      if (page === "home") {
+        // C during a clip was consumed above. A separate home C acknowledges
+        // the page-local receipt; it never deletes saved diary/album entries.
+        if (document.activeElement?.matches(".care-outcome-reading"))
+          document.querySelector<HTMLButtonElement>(".physical-button.button-c")?.focus({ preventScroll: true });
+        setCareFeedback(null);
+        setCareOutcome(null);
+        setGameOutcome(null);
+        setMessage("");
+      } else if (page === "hatch") setPage("choose");
       else if (pet.hatchedAt) setPage("home");
       return;
     }
@@ -2177,7 +2186,9 @@ export default function App() {
               : page === "home"
                 ? clip
                   ? `${clip.kind === "feed" ? "吃得香香" : clip.kind === "clean" ? "泡泡时间" : clip.kind === "wake" ? "伸个懒腰" : clip.kind === "evolve" ? "长大啦" : "好开心呀"} · C 跳过`
-                  : "A / B 打开菜单"
+                  : gameOutcome || hasCareOutcome(careOutcome)
+                    ? "A / B 菜单　 C 收起回执"
+                    : careFeedback || message ? "A / B 菜单　 C 收起提示" : "A / B 打开菜单"
                 : page === "menu"
                   ? "A 选择　 B 确认　 C 返回"
                   : page === "game"

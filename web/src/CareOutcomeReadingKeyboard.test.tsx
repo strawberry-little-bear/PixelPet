@@ -98,3 +98,43 @@ it("does not create an empty reading stop before care or for an old receipt with
   cleanup(); render(<CareOutcome feedback={{ kind: "feed", reason: "credited", points: .25, habitGain: 1 }} readable />);
   expect(screen.queryByRole("region", { name: "照顾结果阅读区" })).toBeNull();
 });
+
+it.each(["feed", "clean", "wake"] as const)("C dismisses the acknowledged %s receipt from its reading stop without changing the save", async kind => {
+  await care(kind);
+  const region = reading(), before = structuredClone(saved);
+  expect(document.querySelector(".lcd-bottom")?.textContent).toContain("C 收起回执");
+  region.focus();
+  await key("c", region);
+  expect(screen.queryByRole("region", { name: "照顾结果阅读区" })).toBeNull();
+  expect(document.querySelector(".care-outcome")).toBeNull();
+  expect(document.querySelector("[data-feedback=idle]")).toBeTruthy();
+  expect(document.activeElement).toBe(document.querySelector(".button-c"));
+  expect(document.querySelector(".lcd-bottom")?.textContent).not.toContain("收起");
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  await menu(4);
+  expect(document.querySelector(".care-outcome")).toBeNull();
+  expect(saved).toEqual(before); expect(writes()).toHaveLength(1);
+});
+
+it("returning from status keeps the receipt until a separate C on home", async () => {
+  await care(); await menu(4); await key("c");
+  expect(reading()).toBeTruthy();
+  await key("c");
+  expect(screen.queryByRole("region", { name: "照顾结果阅读区" })).toBeNull();
+  await menu(4); expect(document.querySelector(".care-outcome")).toBeNull();
+  expect(writes()).toHaveLength(1);
+});
+
+it("C skips the action clip first, then dismisses its receipt, and a later care creates a new one", async () => {
+  await care();
+  feedback = { ...feedback, kind: "clean", habit: "clean" };
+  await menu(2);
+  expect(document.querySelector(".pet-scene")?.getAttribute("data-motion")).toBe("bathing");
+  expect(document.querySelector(".lcd-bottom")?.textContent).toContain("C 跳过");
+  await key("c"); expect(reading()).toBeTruthy();
+  expect(document.querySelector(".lcd-bottom")?.textContent).toContain("C 收起回执");
+  await key("c"); expect(document.querySelector(".care-outcome")).toBeNull();
+  feedback = { ...feedback, kind: "feed", habit: "nutrition" };
+  await menu(0); await key("c"); expect(reading()).toBeTruthy();
+  expect(writes()).toHaveLength(3);
+});

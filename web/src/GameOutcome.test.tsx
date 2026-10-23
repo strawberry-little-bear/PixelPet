@@ -270,3 +270,24 @@ describe("acknowledged game result reading position", () => {
     await poll(); expect(window.scrollBy).toHaveBeenCalledTimes(1);
   });
 });
+
+it("home C dismisses the entire game result and its short message without replay or writes", async () => {
+  await mount(); await key("b");
+  expect(outcome()).toBeTruthy();
+  expect(document.querySelector(".lcd-bottom")?.textContent).toContain("C 收起回执");
+  const before = structuredClone(saved);
+  await key("c");
+  expect(outcome()).toBeNull();
+  expect(document.querySelector(".toast")).toBeNull();
+  await poll(); await key("a"); for (let i=0;i<4;i++) await key("a"); await key("b");
+  expect(outcome()).toBeNull();
+  expect(saved).toEqual(before); expect(writes()).toHaveLength(1);
+});
+
+it("closing help with C preserves the result until C is pressed again on home", async () => {
+  await mount(); await key("b");
+  fireEvent.click(screen.getByRole("button", { name: "玩法说明" }));
+  await key("c"); expect(outcome()).toBeTruthy();
+  await key("c"); expect(outcome()).toBeNull();
+  expect(writes()).toHaveLength(1);
+});

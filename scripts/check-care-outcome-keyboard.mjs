@@ -54,6 +54,9 @@ async function focusedKey(page) {
   return page.evaluate(() => ['a', 'b', 'c'].find(k => document.activeElement?.classList.contains(`button-${k}`)) ?? null);
 }
 async function nativeStop(page, panel) {
+  // Bedtime has no clip to skip, so confirmation leaves focus on B.
+  // Reach C with native Tab without activating its new dismissal behavior.
+  if (await focusedKey(page) === 'b') await page.keyboard.press('Tab');
   assert.equal(await focusedKey(page), 'c');
   for (let i = 0; i < 10 && !await panel.evaluate(el => document.activeElement === el); i++) await page.keyboard.press('Shift+Tab');
   assert(await panel.evaluate(el => document.activeElement === el), 'Native Tab must reach the read-only care-outcome region');
@@ -120,8 +123,10 @@ try {
         await key(page, 'B'); const ack = await (await reply).json();
         assert(ack.careFeedback?.effect, 'Real acknowledged care effect required');
         assert.equal(ack.state.sleeping, care==='bedtime');
-        // C skips only the current clip; it does not navigate away from home.
-        await key(page, 'C'); await page.locator('.care-outcome').waitFor();
+        // Bedtime has no clip. Only use C to skip when the LCD promises it;
+        // a second C on idle home now explicitly dismisses the receipt.
+        await page.locator('.care-outcome').waitFor();
+        if ((await page.locator('.lcd-bottom').innerText()).includes('C 跳过')) await key(page, 'C');
         const panel = page.getByRole('region', {name:'照顾结果阅读区'});
         // Fail precisely here against the old build, not on a later scroll timeout.
         assert.equal(await panel.count(), 1, 'Home receipt needs its named read-only Tab stop');
@@ -203,6 +208,25 @@ try {
           assert.deepEqual(writes,[kind], 'Reading the diary must not write care');
           assert.deepEqual(errors,[]);
         }
+        // Returning from diary/menu preserves the receipt; only the next home C dismisses it.
+        await page.keyboard.press('c'); await panel.waitFor();
+        assert((await page.locator('.lcd-bottom').innerText()).includes('C 收起回执'));
+        await nativeStop(page, panel);
+        const savedBeforeDismiss = (await api('state')).state;
+        await page.keyboard.press('c');
+        assert.equal(await panel.count(), 0, 'Home C must dismiss the receipt reading stop');
+        assert.equal(await page.locator('.care-outcome,.sleep-summary').count(), 0);
+        assert.equal(await focusedKey(page), 'c', 'Removed reading stop returns focus to the physical C key');
+        assert.equal(await page.locator('.growth-feedback').getAttribute('data-feedback'), 'idle');
+        assert(!(await page.locator('.lcd-bottom').innerText()).includes('收起'));
+        await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await wait(250);
+        assert.equal(await panel.count(), 0, 'A read must not reconstruct a dismissed receipt');
+        const savedAfterDismiss = (await api('state')).state;
+        for (const field of ['logs', 'album', 'economy', 'careCount', 'sleeping'])
+          assert.deepEqual(savedAfterDismiss[field], savedBeforeDismiss[field], `Dismissal changed saved ${field}`);
+        assert.deepEqual(writes, [kind], 'Dismissal must not submit an action');
+        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+        await page.screenshot({ path: join(dir, `dismissed-${label}.png`), fullPage: true });
         results.push({care,...mode,movements,confirm,writes,feedback:ack.careFeedback});
       } catch(e) {
         await page.screenshot({path:join(dir,`failure-${label}.png`),fullPage:true});

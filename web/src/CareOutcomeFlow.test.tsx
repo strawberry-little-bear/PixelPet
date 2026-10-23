@@ -26,7 +26,7 @@ beforeEach(() => {
   needs:{hunger:60,mood:80,clean:60,energy:30},careCount:0,growth:emptyGrowth(),logs:[]};
  actionFeedback=structuredClone(receipt);
  api.mockImplementation(async path => {
-  if(path==="action") {saved.revision++;saved.careCount++;if(actionFeedback?.effect)saved.needs=structuredClone(actionFeedback.effect.after);return {...result(),careFeedback:structuredClone(actionFeedback)};}
+  if(path==="action") {saved.revision++;saved.careCount++;if(actionFeedback?.effect)saved.needs=structuredClone(actionFeedback.effect.after);if(actionFeedback?.kind==="sleep")saved.sleeping=actionFeedback.reason==="resting";return {...result(),careFeedback:structuredClone(actionFeedback)};}
   return result();
  });
 });
@@ -74,7 +74,7 @@ describe("three-key care outcome lifetime", () => {
  it.each(["resting","awake"] as const)("sleep %s reports only the toggle, not earlier elapsed recovery", async reason => {
   saved.sleeping=reason==="awake";
   actionFeedback={kind:"sleep",reason,points:0,habitGain:0,effect:{...effect,before:{...effect.before,energy:44},after:{...effect.before,energy:44}}};
-  await mount();await menu(3);await key("c");
+  await mount();await menu(3);if(reason==="awake")await key("c");
   expect(outcome()?.textContent).toContain(reason==="awake"?"起床":"入睡");
   expect(outcome()?.textContent).toContain("44.00 → 44.00不变");
  });
@@ -116,4 +116,35 @@ describe("three-key care outcome lifetime", () => {
   }
   expect(outcome()).toBeNull();expect(writes()).toHaveLength(2);
  });
+});
+
+it("an older reply without effect metadata only offers to dismiss its short hint", async () => {
+  actionFeedback = { ...receipt, effect: undefined };
+  await mount(); await feed();
+  expect(outcome()).toBeNull();
+  expect(document.querySelector(".lcd-bottom")?.textContent).toContain("C 收起提示");
+  await key("c");
+  expect(document.querySelector(".lcd-bottom")?.textContent).not.toContain("收起");
+  expect(document.querySelector("[data-feedback=idle]")).toBeTruthy();
+  expect(writes()).toHaveLength(1);
+});
+
+it("invalid effect metadata does not leave an empty receipt hint after the short toast", async () => {
+  actionFeedback = { ...receipt, effect: { ...effect, at: NaN } };
+  await mount(); await feed(); await poll();
+  expect(outcome()).toBeNull();
+  expect(document.querySelector(".lcd-bottom")?.textContent).not.toContain("收起");
+  expect(writes()).toHaveLength(1);
+});
+
+it("bedtime has no skippable clip, so home C dismisses the receipt while the pet stays asleep", async () => {
+  actionFeedback = { kind: "sleep", reason: "resting", points: 0, habitGain: 0,
+    effect: { ...effect, after: effect.before } };
+  await mount(); await menu(3);
+  expect(outcome()).toBeTruthy();
+  expect(document.querySelector(".lcd-bottom")?.textContent).toContain("C 收起回执");
+  await key("c");
+  expect(outcome()).toBeNull(); expect(saved.sleeping).toBe(true);
+  expect(document.querySelector(".pet-scene")?.getAttribute("data-motion")).toBe("sleeping");
+  expect(writes()).toHaveLength(1);
 });

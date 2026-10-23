@@ -158,6 +158,21 @@ try {
       assert.equal(writes.length, count, 'reading/navigating the result must not write');
       assert.equal(await page.locator('.physical-button').count(), 3);
       assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
+      // C returns from status first; a separate home C acknowledges the result.
+      await key(page, 'C'); assert.equal(await receipt.innerText(), text);
+      assert((await page.locator('.lcd-bottom').innerText()).includes('C 收起回执'));
+      const savedBeforeDismiss = (await api('state')).state;
+      await page.keyboard.press('c');
+      assert.equal(await receipt.count(), 0, 'Home C dismisses the complete game receipt');
+      assert.equal(await page.locator('.care-outcome,.toast').count(), 0);
+      assert(!(await page.locator('.lcd-bottom').innerText()).includes('收起'));
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await wait(250);
+      assert.equal(await receipt.count(), 0, 'Ordinary reads must not reconstruct a dismissed result');
+      const savedAfterDismiss = (await api('state')).state;
+      for (const field of ['logs', 'album', 'economy', 'careCount', 'companion'])
+        assert.deepEqual(savedAfterDismiss[field], savedBeforeDismiss[field], `Dismissal changed saved ${field}`);
+      assert.equal(writes.length, count, 'Dismissing a result must not write');
+      await page.screenshot({ path: join(dir, `${label}-dismissed.png`), fullPage: true });
       await page.reload(); await page.locator('.home-caption').waitFor();
       assert.equal(await receipt.count(), 0, 'never reconstruct historical result from a read');
       const reloaded = (await api('state')).state;

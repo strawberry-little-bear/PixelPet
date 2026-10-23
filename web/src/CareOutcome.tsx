@@ -22,6 +22,11 @@ function validEffect(effect: CareFeedback["effect"]): effect is NonNullable<Care
   return !!effect && Number.isSafeInteger(effect.at) && effect.at > 0 && effect.at <= 8.64e15 &&
     validNeeds(effect.before) && validNeeds(effect.after);
 }
+// Share visibility with the home C hint so older/malformed replies never
+// advertise a receipt that the component cannot render.
+export function hasCareOutcome(feedback: CareFeedback | null): feedback is CareFeedback & { effect: NonNullable<CareFeedback["effect"]> } {
+  return !!feedback && validEffect(feedback.effect);
+}
 const change = (n: number) => n === 0 ? "不变" : `${n > 0 ? "+" : "−"}${careAmount(Math.abs(n))}`;
 
 // This is the acknowledged action's snapshot, not a recalculation from the
@@ -62,7 +67,7 @@ function milestoneText(f: CareFeedback): string | null {
 }
 
 export function CareOutcome({ feedback, readable = false, embedded = false }: { feedback: CareFeedback | null; readable?: boolean; embedded?: boolean }) {
-  if (!feedback || !validEffect(feedback.effect)) return null;
+  if (!hasCareOutcome(feedback)) return null;
   const { before, after, at } = feedback.effect;
   const learning = learningSummary(feedback);
   const milestone = learning ? milestoneText(feedback) : null;
