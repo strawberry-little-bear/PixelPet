@@ -31,9 +31,17 @@ const render = () => {
   if (!playing) $('phase').textContent = state?.status === 'done' ? 'B 重开独立练习；不会收取奖励。' : '回来后须明确继续，不补跑旧拍。';
   $('progress').setAttribute('aria-valuenow', '0'); $('progress').firstElementChild.style.width = '0%';
   $('network').textContent = anchor ? `最近实测往返约 ${Math.round(rtt)}ms · 不是单程或成绩凭据` : '等待连接测量…';
-  const last = state?.observations.at(-1);
+  const observations = state?.observations ?? [];
+  const last = observations.at(-1);
   $('last').textContent = last ? `上次方向${last.directionMatches ? '一致' : '不同'}；收包${arrivalLabel(last.arrival)}（只做观测，不判失误）。` : '看形状和文字即可，不需要声音。';
-  $('observations').replaceChildren(...(state?.observations ?? []).map((o, i) => {
+  if (observations.length) {
+    const matching = observations.filter(o => o.directionMatches).length;
+    const inside = observations.filter(o => o.arrival === 'inside').length;
+    $('summary').textContent = `已记录 ${observations.length} / 12 次：方向一致 ${matching} 次 · 窗口内 ${inside} 次（只做观察，不评成绩）。`;
+  } else {
+    $('summary').textContent = '尚无观测；按 B / C 开始后，每拍只记录第一次 A / B 输入。';
+  }
+  $('observations').replaceChildren(...observations.map((o, i) => {
     const li = document.createElement('li');
     li.textContent = `${i + 1}. 提示 ${o.expected} / 回应 ${o.key} · 方向${o.directionMatches ? '一致' : '不同'} · ${arrivalLabel(o.arrival)}（相对目标 ${o.arrivalDeltaMs >= 0 ? '+' : ''}${o.arrivalDeltaMs}ms）`;
     return li;

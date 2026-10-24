@@ -11,13 +11,14 @@
       <div class="cue" aria-label="当前提示"><span id="symbol" aria-hidden="true">◇</span><strong id="direction">请稍等</strong><p id="phase">这里不读写宠物存档。</p></div>
       <div id="progress" role="progressbar" aria-label="本拍预告" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
       <p id="last">看形状和文字即可，不需要声音。</p>
+      <p id="summary" class="summary">尚无观测；按 B / C 开始后，每拍只记录第一次 A / B 输入。</p>
       <div id="pause" hidden><strong id="pause-title">暂停选择</strong><p id="selection">继续练习</p><small id="pause-help">A 切换继续 / 重开 · B 确认 · C 继续</small></div>
       <p id="network">等待连接测量…</p>
 
     </div>
     <div class="keys" aria-label="仅三个操作键"><button type="button" data-key="A" aria-label="A 左侧回应">A</button><button type="button" data-key="B" aria-label="B 右侧回应或确认">B</button><button type="button" data-key="C" aria-label="C 暂停或继续">C</button></div>
   </section>
-  <section class="rules"><h2>原型边界（只读说明）</h2><p>A 回应左侧圆形，B 回应右侧三角，C 随时暂停。预告后再回应；每拍只记录第一次输入。连按、按住不补拍。聚焦机身键后 Enter / 空格操作该键，按住或松开不追加操作。</p><p>只观察方向和收包时序，不评成绩、不发资源；“窗口内/早到/晚到”不是玩家得分。本机时钟估计与单次往返不是真实单程测量。</p><p>连接往返超过 600ms、掉线、后台或窗口失焦会暂停，回来不自动继续。同一标签刷新会核对本局并暂停，不重放旧拍；B / C 明确继续。</p></section>
+  <section class="rules"><h2>原型边界（只读说明）</h2><p>A 回应左侧圆形，B 回应右侧三角，C 随时暂停。每拍先有约 1.8 秒准备，再进入约 1.8 秒回应观察；进度条是本地估计提示，不是成绩条。每拍只记录第一次输入，连按、按住不补拍。</p><p>只观察方向和收包时序，不评成绩、不发资源；“窗口内/早到/晚到”不是玩家得分。本机时钟估计与单次往返不是真实单程测量。</p><p>连接往返超过 600ms、掉线、后台或窗口失焦会暂停，回来不自动继续。同一标签刷新会核对本局并暂停，不重放旧拍；B / C 明确继续。</p></section>
   <section class="report" aria-label="本局观测"><h2>本局观测 · 不是成绩</h2><p>观测仅在实验服务内存中保留；同一标签刷新可核对，明确重开才清空。闲置十分钟或服务重启后无法恢复，不是永久存档。以下到达时间由独立实验服务记录，不是客户端命中数。</p><ol id="observations"></ol></section>
 </main>
 </body></html>

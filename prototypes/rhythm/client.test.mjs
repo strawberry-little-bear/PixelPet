@@ -79,6 +79,7 @@ test('normal preview and response are unchanged; C remains pause, not an answer'
   for (let i = 0; i < 3; i++) await c.advance(600);
   await c.press('A'); assert.equal(c.state().observations.length, 1);
   assert.equal(c.state().observations[0].directionMatches, true);
+  assert.match(c.element('summary').textContent, /已记录 1 \/ 12 次：方向一致 1 次 · 窗口内 1 次/);
   await c.press('C'); assert.equal(c.state().status, 'paused');
   assert.deepEqual(c.commands.map(x => x.kind), ['create', 'resume', 'answer', 'pause']);
 });
