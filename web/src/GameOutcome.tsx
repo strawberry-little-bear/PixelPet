@@ -3,7 +3,7 @@ import { completionLabel } from "./game-history";
 import type { GameOutcomeRecord } from "./game-outcome";
 import type { CareFeedback } from "./types";
 import { CareReadingRegion } from "./CareReadingRegion";
-import { CareOutcome, hasCareOutcome } from "./CareOutcome";
+import { CareOutcome } from "./CareOutcome";
 import "./game-outcome.css";
 
 function interestCooldownEstimate(interest: NonNullable<GameOutcomeRecord["gameReceipt"]>["interest"], at: number): string {
@@ -19,6 +19,7 @@ export function GameOutcome({ outcome, careFeedback = null, readable = false }: 
 }) {
   if (!outcome) return null;
   const walk = outcome.gameReceipt?.walk, interest = outcome.gameReceipt?.interest;
+  // Per-game familiarity and the shared play habit have independent boundaries.
   const interestNext = interestCooldownEstimate(interest, outcome.at);
   const receipt = <section className="game-outcome" aria-label="本页最近一次游戏结算">
     <h3>本页最近一次结算 · {games.find(g => g.id === outcome.kind)?.title}</h3>
@@ -38,8 +39,8 @@ export function GameOutcome({ outcome, careFeedback = null, readable = false }: 
       <p>{interest.reason === "credited" ? "本局熟悉度 +1，一起玩过的经验又多了一点。"
         : interest.reason === "cooldown" ? "本局结算时，这款游戏的熟悉度仍在 30 分钟间隔内，没有增加；想玩仍可继续。"
         : "熟悉度已满，本局仍记录共同经历，可以继续一起玩。"}</p>
-      {interestNext && !hasCareOutcome(careFeedback) &&
-        <small className="game-interest-next">{interestNext}</small>}
+      {interestNext &&
+        <small className="game-interest-next">这款游戏的熟悉度：{interestNext}</small>}
       <small>熟悉度按每款游戏分别记录；陪玩习惯与成长以本局照顾变化为准。</small>
     </div>}
     <p>{outcome.shared === true ? interest ? "本局共同游戏已记录。" : "本局共同游戏已记录；不代表本次兴趣或成长增加。"

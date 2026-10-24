@@ -82,10 +82,14 @@ try {
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
 
   const modes = [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 28 }, { width: 320, height: 380, font: 28 }];
-  const cases = modes.flatMap(mode => [false, true].map(exhausted => ({ ...mode, exhausted, familiarity: 'credited' })));
-  for (const familiarity of ['cooldown', 'familiar']) cases.push({ ...modes[2], exhausted: true, familiarity });
+  const cases = [
+    { ...modes[2], exhausted: true, familiarity: 'cooldown' },
+    { ...modes[0], exhausted: true, familiarity: 'cooldown', playHabit: 'credited' },
+    ...modes.flatMap(mode => [false, true].map(exhausted => ({ ...mode, exhausted, familiarity: 'credited' }))),
+    { ...modes[2], exhausted: true, familiarity: 'familiar' },
+  ];
   for (const mode of cases) {
-    const { exhausted, familiarity } = mode;
+    const { exhausted, familiarity, playHabit = 'cooldown' } = mode;
     const at = Date.now();
     const initial = await api('import', { schema: 1, species: 2, name: '把陪玩收好', createdAt: at - 4 * 3600000,
       hatchedAt: at - 4 * 3600000, lastTick: at, sleeping: false, needs: { hunger: 70, mood: 70, energy: 80, clean: 80 }, careCount: 0, logs: [] });
@@ -95,12 +99,12 @@ try {
     fixture.economy.coins = 12;
     // Explicit imported history, not natural multi-hour play. Finish below is real.
     fixture.growth.care.play = 1;
-    fixture.growth.care.lastPlay = initial.serverTime - 60000;
+    fixture.growth.care.lastPlay = initial.serverTime - (playHabit === 'credited' ? 31 * 60000 : 60000);
     fixture.companion.since = fixture.createdAt;
     if (familiarity !== 'credited') {
       const interest = fixture.companion.interests.find(i => i.kind === 'treasure');
       interest.points = familiarity === 'familiar' ? 5 : 1;
-      interest.lastAt = initial.serverTime - 60000;
+      interest.lastAt = initial.serverTime - 20 * 60000;
       fixture.companion.recent = { kind: 'treasure', id: 'a'.repeat(32), at: interest.lastAt };
     }
     await api('import', fixture);
@@ -111,7 +115,7 @@ try {
       document.documentElement.style.fontSize = `${font}px`; localStorage.setItem('pixelpet-guide-v1-treasure', 'seen');
     }), mode.font);
     const page = await context.newPage(), errors = [], writes = [];
-    const label = `${familiarity}-${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
+    const label = `${familiarity}-${playHabit}-${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
     page.on('pageerror', e => errors.push(e.message));
     page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
     page.on('request', r => { if (r.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(r.url()).pathname)) writes.push({ path: new URL(r.url()).pathname, body: r.postDataJSON() }); });
@@ -159,9 +163,19 @@ try {
       const interestPanel = receipt.getByLabel('本局游戏熟悉度');
       assert.match(await interestPanel.innerText(), familiarity === 'credited' ? /本局熟悉度 \+1/ : familiarity === 'cooldown' ? /仍在 30 分钟间隔内/ : /熟悉度已满/);
       assert.match(await interestPanel.innerText(), /熟悉度按每款游戏分别记录/);
-      assert.equal(confirmed.careFeedback.habitGain, 0, 'Familiarity is independent of shared habit cooldown');
-      assert.equal(confirmed.careFeedback.points, 0);
-      assert.equal(confirmed.state.growth.care.play, before.growth.care.play);
+      const learning = receipt.getByLabel('本次成长与习惯');
+      assert.equal(confirmed.careFeedback.reason, playHabit);
+      assert.equal(confirmed.careFeedback.habitGain, playHabit === 'credited' ? 1 : 0, 'Familiarity is independent of shared habit cooldown');
+      assert.equal(confirmed.careFeedback.points, playHabit === 'credited' ? .25 : 0);
+      assert.equal(confirmed.state.growth.care.play, before.growth.care.play + (playHabit === 'credited' ? 1 : 0));
+      const minutesAtReceipt = retryAt => Math.max(1, Math.ceil((retryAt - confirmed.serverTime) / 60000));
+      if (familiarity === 'cooldown') {
+        const minutes = minutesAtReceipt(confirmed.gameReceipt.interest.retryAt);
+        assert((await interestPanel.innerText()).includes(`这款游戏的熟悉度：记录时约还需 ${minutes} 分钟`), 'A care receipt must not hide familiarity timing');
+        if (playHabit === 'cooldown') assert.notEqual(minutes, minutesAtReceipt(confirmed.careFeedback.retryAt), 'Imported fixture must have different historical interval boundaries');
+      } else assert.equal(await interestPanel.locator('.game-interest-next').count(), 0);
+      if (playHabit === 'cooldown') assert((await learning.innerText()).includes(`记录时约还需 ${minutesAtReceipt(confirmed.careFeedback.retryAt)} 分钟`));
+      else assert((await learning.innerText()).includes('本次成长：+0.25 点'));
       assert(!confirmed.state.game);
       if (exhausted) assert.equal(confirmed.state.economy.coins, before.economy.coins);
       else assert(confirmed.state.economy.coins > before.economy.coins);
