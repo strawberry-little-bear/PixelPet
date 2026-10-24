@@ -2433,3 +2433,13 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 这批只修正验收可靠性，没有新增玩法或改动成长、奖励、存档和三键约束；自然多日养成、实体手机和真人读屏仍需真人复测。
 
 本批日志：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-playtest-entry-uSxtnv/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-snake-steering-6Ow6Ty/`；独立构建：`/tmp/pixelpet-continuation-20261024/`。
+
+## 2026-10-24 · 试玩反馈后的隔离 Chrome 复验
+
+- 接续外部试玩记录，复验七款小游戏的首次说明、重复进入、暂停／准备状态、提前提竿、刷新保持、320px 小屏和 200% 根字号；`scripts/check-playtest-feedback.mjs` **28/28 组**通过，未发现新的高置信度功能、状态机或布局问题。
+- 复验外部工具／弹层、失焦、窗口隐藏、键盘恢复、Tab 焦点和 Enter／Space 原生激活边界；`scripts/check-physical-focus.mjs` **64/64 组**通过，键盘 A/B/C 没有出现因焦点落在普通按钮而失效的回归。
+- 复验生活回顾固定高度与内部滚动：1200px、390px、320px，正常与 200% 根字号，睡眠与非睡眠存档均覆盖；`scripts/check-return-layout.mjs` **12/12 组**通过。第 1、2 页设备高度一致，第 2 页末尾建议可滚到，页码头部保持可见，页面无横向溢出。
+- 复验睡眠状态下七款小游戏的说明页和准备页：主提示改为不可开始，B 不产生开局写入，A 仍可回看规则，C 可返回；`scripts/check-game-readiness.mjs` **15/15 组**通过。
+- 本批只做验证和记录，没有改产品代码、成长速度、奖励、存档格式或三键映射。所有测试使用临时 SQLite、随机端口和隔离构建，未访问／修改玩家 `data/pixelpet.db`、18102 服务、共享 `web/dist` 或 `bin`；浏览器视口与根字号为自动化模拟，真实手机、真人读屏和自然多日陪伴仍需继续体验。
+
+本批浏览器产物：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-playtest-entry-isdv5W/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-physical-focus-o5rkQb/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-return-layout-d7zXpm/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-game-readiness-fdoEHT/`。
