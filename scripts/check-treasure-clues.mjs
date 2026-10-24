@@ -68,13 +68,19 @@ async function readable(page) {
     const errors = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       const text = walker.currentNode; if (!text.textContent.trim()) continue;
+      const scrollParent = text.parentElement?.closest('.lcd-content');
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
         if (box.left < -1 || box.right > innerWidth + 1) errors.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const style = getComputedStyle(parent), b = parent.getBoundingClientRect();
-          if (/hidden|clip/.test(style.overflowY) && (box.top < b.top - 2 || box.bottom > b.bottom + 2)) errors.push('vertical: ' + text.textContent);
+          // The LCD shell clips its child by design. A treasure panel inside
+          // the scrollable LCD may legitimately have lines outside the
+          // current scroll window; those lines must be checked at the bottom
+          // below instead of treated as permanently clipped.
+          const clipsScrollableLcd = scrollParent && parent.contains(scrollParent);
+          if (!clipsScrollableLcd && /hidden|clip/.test(style.overflowY) && (box.top < b.top - 2 || box.bottom > b.bottom + 2)) errors.push('vertical: ' + text.textContent);
           if (/hidden|clip/.test(style.overflowX) && (box.left < b.left - 2 || box.right > b.right + 2)) errors.push('horizontal: ' + text.textContent);
         }
       }
@@ -82,6 +88,24 @@ async function readable(page) {
     return [...new Set(errors)];
   });
   assert.deepEqual(clipped, [], 'treasure text clipped');
+  const bottomReadable = await page.locator('.lcd-content').evaluate(container => {
+    const previous = container.scrollTop;
+    const rule = container.querySelector('.treasure-rule')?.getBoundingClientRect();
+    const viewport = container.getBoundingClientRect();
+    // The app may render a daily allowance panel after the game. Scroll to
+    // the game's own rule footer rather than blindly using the LCD's absolute
+    // bottom, which could place the footer just above that following panel.
+    if (rule) container.scrollTop = Math.max(0, Math.min(container.scrollHeight - container.clientHeight,
+      previous + rule.bottom - viewport.bottom));
+    const after = container.getBoundingClientRect();
+    const visibleRule = container.querySelector('.treasure-rule')?.getBoundingClientRect();
+    const status = container.querySelector('.treasure-status')?.getBoundingClientRect();
+    const visible = (box) => !!box && box.top < after.bottom + 1 && box.bottom > after.top - 1;
+    container.scrollTop = previous;
+    return { rule: visible(visibleRule), status: visible(status) };
+  });
+  assert.equal(bottomReadable.rule, true, 'treasure rule cannot be read at LCD bottom');
+  assert.equal(bottomReadable.status, true, 'treasure status cannot be read at LCD bottom');
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
 }

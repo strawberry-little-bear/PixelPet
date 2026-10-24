@@ -80,6 +80,34 @@
   .device-stage.treasure-mode .lcd-content { height: 284px; }
 }
 .treasure-result { margin: 6px 0; }
+/* The generic reading rules enlarge every small/strong/span in the LCD. That
+   is useful for prose, but it makes the nine-cell board grow until its status
+   and rule text sit outside the visible LCD on a large phone font. Keep the
+   game feedback readable while giving the board its own compact rhythm; the
+   LCD remains scrollable for the complete rule text. */
+.reading-mode .lcd-content .treasure-game { font-size: .785714rem; line-height: 1.55; }
+.reading-mode .lcd-content .treasure-game > header { font-size: .857143rem; line-height: 1.5; }
+.reading-mode .lcd-content .treasure-game > header span { font-size: .714286rem; line-height: 1.5; }
+.reading-mode .lcd-content .treasure-game :is(.treasure-clue, .treasure-result, .treasure-status, .treasure-rule, .treasure-pause-hint) {
+  font-size: max(16px, .714286rem);
+  line-height: 1.55;
+}
+.reading-mode .lcd-content .treasure-grid [role=gridcell] {
+  font-size: max(16px, .571429rem);
+  line-height: 1.35;
+}
+.reading-mode .lcd-content .treasure-grid small {
+  font-size: max(12px, .5rem);
+  line-height: 1.25;
+}
+.reading-mode .lcd-content .treasure-grid strong {
+  font-size: max(20px, 1rem);
+  line-height: 1.2;
+}
+.reading-mode .lcd-content .treasure-grid span {
+  font-size: max(13px, .571429rem);
+  line-height: 1.35;
+}
 /* Game feedback already lives in the LCD; a transient toast must not cover keys. */
 .treasure-view > .toast { animation: none; }
 .treasure-view > .toast:not(.error) { position: static; transform: none; margin: 16px auto; }
