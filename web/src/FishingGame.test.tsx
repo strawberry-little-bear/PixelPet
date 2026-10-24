@@ -128,7 +128,7 @@ describe("home response after a newly discovered fish", () => {
 
 describe("actual discoveries and anatomical companions", () => {
   it("shows only known silhouettes, real first dates/counts, and no fabricated legacy fish", () => {
-    render(<FishAlbum pet={saved} page={0} />); expect(document.querySelectorAll(".fish-album text")).toHaveLength(6); expect(screen.getByText("还未遇见的小鱼")).toBeTruthy(); cleanup();
+    render(<FishAlbum pet={saved} page={0} />); expect(document.querySelectorAll(".fish-album text")).toHaveLength(6); expect(document.querySelector("[data-fish-page]")?.textContent).toBe("第 1 / 6 页"); expect(screen.getByText("还未遇见的小鱼")).toBeTruthy(); cleanup();
     saved.pond!.fish = [{ id: "reed-minnow", count: 2, firstAt: Date.parse("2026-10-18T08:00:00Z"), lastAt: Date.now() }]; render(<FishAlbum pet={saved} page={0} />); expect(screen.getByText("青苇小鲦")).toBeTruthy(); expect(screen.getByText(/2026\/10\/18.*2 次/)).toBeTruthy(); expect(document.querySelectorAll(".fish-album text")).toHaveLength(5);
   });
   it.each(fishCatalog)("renders a distinct $shape fish shape", fish => {

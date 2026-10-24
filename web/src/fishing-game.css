@@ -2,6 +2,8 @@
 .fishing-game header, .fish-album header { display:flex; justify-content:space-between; align-items:center; height:22px; }
 .fishing-game header strong, .fish-album header strong { font-size:11px; }
 .fishing-game header span, .fish-album header span { font-size:9px; }
+.fish-album header { height:auto; min-height:22px; flex-wrap:wrap; gap:4px; }
+.fish-album header span[data-fish-page] { margin-left:auto; }
 .pond-scene { position:relative; height:102px; border:1px solid #798f66; overflow:hidden; }
 .pond-background { position:absolute; inset:0; width:100%; height:100%; }
 .fishing-companion { position:absolute; left:0; bottom:17px; width:68px; height:74px; }

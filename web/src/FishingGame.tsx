@@ -119,7 +119,7 @@ export function FishAlbum({ pet, page }: { pet: PetState; page: number; }) {
   const fish = catalog[selected];
   const discovery = pet.pond?.fish?.find(d => d.id === fish.id);
   return <section className="fish-album" aria-label="池塘鱼图鉴">
-    <header data-collection-reading-start><strong>池塘鱼图鉴</strong><span>已发现 {pet.pond?.fish?.filter(d => catalog.some(f => f.id === d.id)).length ?? 0} / {catalog.length}</span></header>
+    <header data-collection-reading-start><strong>池塘鱼图鉴</strong><span>已发现 {pet.pond?.fish?.filter(d => catalog.some(f => f.id === d.id)).length ?? 0} / {catalog.length}</span><span data-fish-page>第 {selected + 1} / {catalog.length} 页</span></header>
     <div className="fish-album-grid" style={{ gridTemplateColumns: `repeat(${catalog.length}, minmax(0, 1fr))` }}>{catalog.map((f, i) => <div key={f.id} aria-current={i === selected} className={i === selected ? "selected" : ""}><FishArt id={f.id} hidden={!pet.pond?.fish?.some(d => d.id === f.id)} /></div>)}</div>
     <h3>{discovery ? fish.name : "还未遇见的小鱼"}</h3>
     <p>{discovery ? fish.story : "真实钓到以后，才会留下模样和发现日期。"}</p>
