@@ -142,10 +142,34 @@ describe.each(["snake", "tetris"] as const)("%s automatic step pause ordering", 
   });
   await clock(5000);expect(calls()).toHaveLength(2);
  });
- it.each(["blur","help","tools","hidden"])("invalidates pending C after %s",async interruption=>{
+ it("revalidates once on pageshow without resuming the paused board", async () => {
+  await mount();
+  const before = api.mock.calls.length;
+  await act(async () => {
+   window.dispatchEvent(new Event("pagehide"));
+   window.dispatchEvent(new Event("pageshow"));
+   await Promise.resolve();
+  });
+  expect(api.mock.calls.slice(before).some(([path]) => path === "visit" || path === "state")).toBe(true);
+  expect(calls()).toHaveLength(0);
+  expect(model().paused).toBe(true);
+ });
+ it("does not restore a queued pause when pagehide is followed by pageshow", async () => {
+  const p = await pendingStep();
+  await key("c");
+  await act(async () => {
+   window.dispatchEvent(new Event("pagehide"));
+   window.dispatchEvent(new Event("pageshow"));
+  });
+  await act(async () => { p.resolve(await p.normal("action", calls()[1])); });
+  await clock(5000);
+  expect(calls()).toHaveLength(2);
+ });
+ it.each(["blur","help","tools","hidden","pagehide"])("invalidates pending C after %s",async interruption=>{
   const p=await pendingStep();await key("c");expect(overlay()).toBeTruthy();
   await act(async()=>{
    if(interruption==="blur")window.dispatchEvent(new Event("blur"));
+   else if(interruption==="pagehide")window.dispatchEvent(new Event("pagehide"));
    else if(interruption==="help")fireEvent.click(screen.getByRole("button",{name:"玩法说明"}));
    else if(interruption==="tools")fireEvent.click(screen.getByRole("button",{name:"存档盒"}));
    else {Object.defineProperty(document,"hidden",{configurable:true,value:true});document.dispatchEvent(new Event("visibilitychange"));}

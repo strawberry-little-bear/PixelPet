@@ -814,15 +814,34 @@ export default function App() {
       if (document.hidden) left();
       else returned();
     };
+    // Mobile browsers can freeze and restore a page without delivering a
+    // useful focus transition. Treat pagehide as leaving the machine so an
+    // in-flight automatic step cannot continue after a restore, then perform
+    // the same authoritative read on pageshow that a visible return uses.
+    const pageHide = () => {
+      windowActive.current = false;
+      setWindowFocused(false);
+      left();
+    };
+    const pageShow = () => {
+      if (document.hidden) return;
+      windowActive.current = true;
+      setWindowFocused(true);
+      returned();
+    };
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("focus", windowFocus);
     window.addEventListener("blur", windowBlur);
+    window.addEventListener("pagehide", pageHide);
+    window.addEventListener("pageshow", pageShow);
     return () => {
       returnReadPending.current = false;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("focus", windowFocus);
       window.removeEventListener("blur", windowBlur);
+      window.removeEventListener("pagehide", pageHide);
+      window.removeEventListener("pageshow", pageShow);
     };
   }, [refresh]);
   useEffect(() => {
@@ -1444,9 +1463,11 @@ export default function App() {
     };
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("blur", blur);
+    window.addEventListener("pagehide", stop);
     return () => {
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("blur", blur);
+      window.removeEventListener("pagehide", stop);
       // A pulse may resolve after the component is gone; never write a queued
       // pause from a disposed page (including StrictMode cleanup).
       fishingEpoch.current++;
