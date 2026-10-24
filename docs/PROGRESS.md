@@ -2410,3 +2410,12 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 已目视对照上批与本批成年间隔桌面及 320×380 双倍根字号截图，确认成长说明提前且记录完整。成年与习惯历史为构造夹具，手机为模拟视口，不代表自然多日陪伴或真人舒适度验收。临时服务已关闭，未访问玩家数据库、18102 服务或共享构建，未部署玩家进程。更新[游戏结算说明](GAME_OUTCOME.md)，持续迭代目标保留。
 
 本批日志：`/tmp/pixelpet-outcome-order-{targeted,full,type,build,browser}.log`；独立网页：`/tmp/pixelpet-outcome-order-20261024-web`；浏览器产物：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-game-outcome-L7N7ea/`。
+
+## 2026-10-24 · 闲聊回忆显示轮换位置
+
+- 「陪它一会儿」聊起已保存经历时新增“闲聊回忆 1 / N”位置提示。它反映当前合并去重后的纪念册与最近共同游戏回忆序列，B 继续轮换、末段回到第一段；普通问候、A 切换互动、C 返回和睡眠状态不显示，未增加玩法控件、奖励、存档字段或写请求。
+- 继续保持数据边界：位置只根据实际可读的回忆列表计算，不把熟悉度、累计局数或时间推断成“最近喜欢”；最近共同游戏与首局纪念在同一时间仍只保留一个入口。
+- 扩展 `scripts/check-quiet-memory.mjs` 与 `scripts/check-game-history.mjs`，覆盖 1/2、2/2、循环回 1/2、切换互动及睡眠清除；320px 双倍字号和强制颜色下目视确认提示与来源文字完整可读、无横向溢出。定向前端 87 项 / 7 文件、全量 5535 项 / 209 文件、TypeScript、独立 Vite 构建、两个真实 Chrome 隔离回归和脚本语法检查通过。
+- 使用独立临时 SQLite、随机端口和隔离网页构建；未访问或修改玩家存档、18102 服务、共享 `web/dist` 或 `bin`，未部署玩家进程。阶段和游戏历史仍为测试夹具，浏览器视口为模拟视口，不代表自然多日陪伴或实体手机真人验收。
+
+本批日志：`/tmp/pixelpet-quiet-position-{targeted,full,type,build,browser,history}.log`；独立网页：`/tmp/pixelpet-quiet-position-20261024-web`；浏览器产物：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-quiet-memory-NzT4pp/`。

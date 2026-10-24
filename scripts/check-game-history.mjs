@@ -36,6 +36,8 @@ async function quietRecent(page, expected, label) {
   assert.equal(await page.locator('.quiet-memory-source').count(),0,'Opening chat must not replay a response');
   await key(page,'b');
   const source=page.locator('.quiet-memory-source'), first=await source.innerText();
+  const position=page.locator('.quiet-memory-position'), firstPosition=await position.innerText();
+  assert.match(firstPosition,/^闲聊回忆 1 \/ [2-9][0-9]*$/,'Recent completion and album share one sequence');
   assert(first.includes('从共同游戏记录想起：最近一次一起玩「接星星」'),first);
   assert.equal(await source.locator('time').getAttribute('datetime'),new Date(expected.at).toISOString());
   assert(!(await page.locator('.quiet-moment-copy > p').innerText()).match(/今天|刚才|昨天|奖励|成长|金币/));
@@ -56,8 +58,10 @@ async function quietRecent(page, expected, label) {
   await page.screenshot({path:join(dir,`quiet-recent-${label}.png`),fullPage:true});
   const stop=page.getByRole('region',{name:'无目的互动阅读区'});await stop.focus();await page.keyboard.press('Enter');assert.equal(await source.innerText(),first);
   await key(page,'b');assert((await source.innerText()).startsWith('从纪念册想起：'),'First-game album remains available');
+  assert.equal(await position.innerText(),firstPosition.replace(' 1 /',' 2 /'));
   for(let i=0;i<before.album.entries.length+1 && await source.innerText()!==first;i++)await key(page,'b');
   assert.equal(await source.innerText(),first,'B cycles back to the same recorded completion');
+  assert.equal(await position.innerText(),firstPosition,'Position wraps with the selected memory');
   assert.equal(await page.locator('.physical-button').count(),3);assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await key(page,'c');await page.locator('.home-caption').waitFor();

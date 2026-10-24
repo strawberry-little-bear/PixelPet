@@ -286,12 +286,16 @@ try {
       await page.locator('.quiet-moment-pet').scrollIntoViewIfNeeded();
       await page.screenshot({ path: join(dir, `${label}-appearance.png`) });
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      assert.equal(await page.locator('.quiet-memory-position').count(), 0);
       await physical(page, 'b'); const first = await page.locator('.quiet-memory-source').innerText();
+      assert.equal(await page.locator('.quiet-memory-position').innerText(), '闲聊回忆 1 / 2');
       await physical(page, 'b'); const second = await page.locator('.quiet-memory-source').innerText();
+      assert.equal(await page.locator('.quiet-memory-position').innerText(), '闲聊回忆 2 / 2');
       assert.notEqual(first, second);
       assert([first, second].some(t => t.includes('泡泡里的小陪伴')));
       assert([first, second].some(t => t.includes('一份暖暖的小饭团')));
       await physical(page, 'b'); assert.equal(await page.locator('.quiet-memory-source').innerText(), first);
+      assert.equal(await page.locator('.quiet-memory-position').innerText(), '闲聊回忆 1 / 2');
       await readable(page);
       await page.screenshot({ path: join(dir, `${label}-reply-viewport.png`) });
       await physical(page, 'b');
@@ -306,6 +310,7 @@ try {
       assert(box && box.y >= -1 && box.y + box.height <= mode.height + 1, 'Final note must be reachable');
       await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
       await physical(page, 'a'); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      assert.equal(await page.locator('.quiet-memory-position').count(), 0);
       await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
       await open(page); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       await page.reload(); await page.locator('.home-caption').waitFor();
@@ -330,6 +335,7 @@ try {
       await sameAppearance(page, homeAppearance, before);
       if (stage === 'adult') assert.equal(await page.locator('.quiet-moment .growth-form-emblem').evaluate(el => getComputedStyle(el).opacity), '0.4');
       assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      assert.equal(await page.locator('.quiet-memory-position').count(), 0);
       assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
       assert((await page.locator('.lcd-bottom').innerText()).includes('B 安静陪着'));
       // Selection is still the third option; wrap through all bedside interactions.
