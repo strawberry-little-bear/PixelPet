@@ -2750,6 +2750,7 @@ export default function App() {
                             hint={tileHint}
                             message={message}
                             now={now}
+                            processing={busyAction === "tile-pick" || busyAction === "tile-clear"}
                           />
                         )}
                         {page === "game" && !abandoning && pet.game && !pet.game.kind && (

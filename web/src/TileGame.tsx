@@ -83,6 +83,7 @@ export function TileGame({
   hint = null,
   message,
   now,
+  processing = false,
 }: {
   pet: PetState;
   cursor: number;
@@ -90,6 +91,7 @@ export function TileGame({
   hint?: TileHint | null;
   message: string;
   now: number;
+  processing?: boolean;
 }) {
   const descriptionId = useId();
   const tiles = pet.game?.tiles;
@@ -197,6 +199,7 @@ export function TileGame({
           虚线是示例路径，可以连通但不会自动收好。虚线短暂显示，文字保留到下次选牌。
         </p>}
       </div>
+      {processing && <p className="tile-processing" role="status" aria-live="polite" aria-atomic="true">正在处理上一手选择，请稍等。</p>}
       <p className="tile-message">
         {message || "同图案，最多拐两次弯；可绕棋盘外。"}
       </p>

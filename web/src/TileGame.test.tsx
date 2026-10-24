@@ -215,6 +215,30 @@ describe("three-key pet tile matching", () => {
     expect(screen.queryByRole("note")).toBeNull();
     expect(actions()).toHaveLength(writes + (boundary === "clear" ? 1 : 0));
   });
+  it("shows that a rapid tile choice is still being processed", async () => {
+    saved.game = game();
+    await mount();
+    let resolve!: (r: Result) => void;
+    api.mockImplementationOnce(() => new Promise<Result>(r => { resolve = r; }));
+    await key("b");
+    expect(screen.getByText("正在处理上一手选择，请稍等。")).toBeTruthy();
+    expect(actions()).toHaveLength(1);
+    await act(async () => { resolve(result()); });
+    expect(screen.queryByText("正在处理上一手选择，请稍等。")).toBeNull();
+  });
+
+  it("removes the processing notice when a tile action is rejected", async () => {
+    saved.game = game();
+    await mount();
+    api.mockImplementationOnce(() => new Promise<Result>((_, reject) => {
+      setTimeout(() => reject(new RequestFailure("请重选", "rejected")), 1);
+    }));
+    await key("b");
+    expect(screen.getByText("正在处理上一手选择，请稍等。")).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2); });
+    expect(screen.queryByText("正在处理上一手选择，请稍等。")).toBeNull();
+  });
+
   it("does not reveal rejected tile actions", async () => {
     const scroll = feedbackGeometry(); saved.game = game(); await mount();
     api.mockRejectedValueOnce(new RequestFailure("请重选", "rejected"));
