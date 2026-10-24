@@ -15,6 +15,7 @@ import {
   stagePoints,
   stagePointsReading,
   growthPageCount,
+  nextGrowthGoal,
   formRules,
   formConditions,
 } from "./growth";
@@ -75,8 +76,7 @@ export function GrowthPanel({
   page: number;
   rules?: CareRules | null;
 }) {
-  const form = tendency(g),
-    target = g.stage === "growing" ? 72 : 24;
+  const form = tendency(g);
   const current = stagePoints(g);
   const record = g.stage === "adult" ? g.formRecord : undefined;
   const evidenceCare = record ?? g.care;
@@ -121,7 +121,7 @@ export function GrowthPanel({
           <p className="growth-next">
             {g.stage === "egg" ? "孵化后开始成长旅程。" : g.stage === "adult"
               ? formDescriptions[form]
-              : `还需 ${(Math.ceil(Math.max(0, target - g.points) * 10) / 10).toFixed(1)} 点，进入${g.stage === "baby" ? "成长期" : "成年期"}`}
+              : nextGrowthGoal(g)}
           </p>
           <small className="growth-panel-note">
             {g.stage === "adult"

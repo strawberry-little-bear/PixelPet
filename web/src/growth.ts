@@ -98,7 +98,12 @@ export function nextGrowthGoal(g: Growth): string {
   if (g.stage === "adult") return `${formNames[g.form || "balanced"]}已定型，继续温柔陪伴`;
   if (g.stage === "egg") return "按 B 迎接小伙伴，开始成长旅程";
   const target = g.stage === "growing" ? 72 : 24;
-  const remaining = Math.ceil(Math.max(0, target - g.points) * 100) / 100;
+  const gap = Math.max(0, target - g.points);
+  // Subtraction can put an exact decimal gap just above a cent boundary
+  // (72 - 71.96). Remove only arithmetic noise before rounding upwards.
+  // A real positive gap must still display at least 0.01 until stage changes.
+  const tolerance = Number.EPSILON * target * 100;
+  const remaining = gap > 0 ? Math.max(1, Math.ceil(gap * 100 - tolerance)) / 100 : 0;
   return `距${g.stage === "baby" ? "成长期" : "成年期"}还差 ${remaining.toFixed(2)} 点`;
 }
 

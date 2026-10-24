@@ -45,6 +45,17 @@ describe("honest growth feedback", () => {
     expect(feedbackText(f, emptyGrowth("adult")).detail).toContain("形态不变");
     expect(feedbackText(f, emptyGrowth("adult")).detail).not.toContain("+0.25");
   });
+  it.each([
+    ["baby", 23.96, "0.04"], ["growing", 71.96, "0.04"],
+    ["baby", 23.99, "0.01"], ["growing", 71.99, "0.01"],
+    ["baby", 23.959999999, "0.05"], ["growing", 71.959999999, "0.05"],
+    ["baby", 24 - Number.EPSILON * 24, "0.01"],
+    ["growing", 72 - Number.EPSILON * 72, "0.01"],
+  ] as const)("rounds the %s/%s gap up without adding a cent for floating-point noise", (stage, points, reading) => {
+    const g = { ...emptyGrowth(stage), points };
+    expect(nextGrowthGoal(g)).toBe(`距${stage === "baby" ? "成长期" : "成年期"}还差 ${reading} 点`);
+    expect(g.points).toBe(points);
+  });
   it("keeps a real target until the server changes stages", () => {
     expect(nextGrowthGoal({ ...emptyGrowth(), points: 23.999 })).toBe("距成长期还差 0.01 点");
     expect(nextGrowthGoal({ ...emptyGrowth("growing"), points: 24 })).toBe("距成年期还差 48.00 点");

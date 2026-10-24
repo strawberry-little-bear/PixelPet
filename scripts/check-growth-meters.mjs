@@ -52,7 +52,11 @@ async function layout(page,selector){
  const errors=await page.locator(selector).evaluate(el=>{
   const content=el.closest('.lcd-content')??el,box=content.getBoundingClientRect(),footer=document.querySelector('.lcd-bottom').getBoundingClientRect(),errors=[];
   const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let n;
-  while((n=walker.nextNode())){if(!n.textContent.trim()||n.parentElement.closest('[aria-hidden="true"]'))continue;const range=document.createRange();range.selectNodeContents(n);
+  while((n=walker.nextNode())){if(!n.textContent.trim()||n.parentElement.closest('[aria-hidden="true"]'))continue;
+   // Reading hints are intentionally hidden until keyboard focus. Check their
+   // geometry only when visible, as in the care/growth journey regression.
+   if(n.parentElement.matches('[data-care-reading-start]')&&getComputedStyle(n.parentElement).clipPath!=='none')continue;
+   const range=document.createRange();range.selectNodeContents(n);
    for(const r of range.getClientRects()){
     if(!r.width||!r.height)continue;
     if(r.left<box.left-1||r.right>box.right+1||r.top<box.top-1||r.bottom>(el.closest('.lcd-content')?Math.min(box.bottom,footer.top):box.bottom)+1)errors.push(n.textContent);
@@ -114,7 +118,7 @@ try{
   }catch(e){await p.screenshot({path:join(dir,`failure-natural-${mode.width}-${mode.height}-${mode.font}.png`),fullPage:true});throw e;}
   finally{await c.close();}
  }
- const cases=[['baby',0],['baby',.0001],['baby',.12],['baby',.24],['baby',23.999999],['growing',24],['growing',24.0001],['growing',24.25],['growing',24.5],['growing',71.999999],['adult',72],['legacy',1],['legacy-adult',72]];
+ const cases=[['baby',0],['baby',.0001],['baby',.12],['baby',.24],['baby',23.96],['baby',23.999999],['growing',24],['growing',24.0001],['growing',24.25],['growing',24.5],['growing',71.96],['growing',71.999999],['adult',72],['legacy',1],['legacy-adult',72]];
  for(const width of [1200,320])for(const scale of [1,2]){
   const fixtureNow=Date.now();
   const c=await browser.newContext({viewport:{width,height:700},isMobile:width===320,hasTouch:true,reducedMotion:'reduce',forcedColors:scale===2?'active':'none'}),p=await c.newPage(),errors=[];let fixture;
@@ -125,8 +129,16 @@ try{
    for(const [stage,points]of cases){
     fixture=structuredClone(fixtures[stage==='legacy'?'baby':stage==='legacy-adult'?'adult':stage]);fixture.state.sleeping=false;fixture.state.growth.points=points;
     if(stage.startsWith('legacy')){fixture.state.schema=1;fixture.state.lastTick=fixtureNow;fixture.state.hatchedAt=fixtureNow-(stage==='legacy-adult'?80:1)*3600000;delete fixture.state.growth;}
-    await p.goto(base);await p.locator('.home-caption').waitFor();await open(p);
+    await p.goto(base);await p.locator('.home-caption').waitFor();
+    const homeGoal=await p.locator('.growth-feedback small').innerText();await open(p);
     const side=await check(p,'.companion-growth',fixture.state),lcd=await check(p,'.growth-panel',fixture.state);assert.equal(side.text,lcd.text);
+    if(lcd.stage!=='adult')assert.equal(await p.locator('.growth-panel .growth-next').innerText(),homeGoal,'handbook changed the remaining home goal');
+    if(stage==='baby'&&points>23||stage==='growing'&&points>71){
+     const goal=`距${stage==='baby'?'成长期':'成年期'}还差 ${points===23.96||points===71.96?'0.04':'0.01'} 点`;
+     assert.equal(homeGoal,goal,'remaining growth gained a cent through rounding');
+     await p.reload();await p.locator('.home-caption').waitFor();assert.equal(await p.locator('.growth-feedback small').innerText(),goal);
+     await open(p);assert.equal(await p.locator('.growth-panel .growth-next').innerText(),goal);
+    }
     await layout(p,'.growth-panel');await layout(p,'.companion-growth');
     const size=await p.locator('.growth-next').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));assert.equal(size,12*scale);
     if(stage==='baby'&&points>23||stage==='adult'||points===.0001||points===24.0001)await p.screenshot({path:join(dir,`${stage}-${points}-${width}-${scale}.png`),fullPage:true});

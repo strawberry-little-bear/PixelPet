@@ -71,3 +71,26 @@ it("initial adults stay complete, and eggs do not invent trace progress", async 
   saved.hatchedAt=0; saved.growth=emptyGrowth("egg"); await mount();
   expect(document.querySelector('.companion-growth')).toBeNull();
 });
+
+// A player opening the handbook from the home goal must see the same remaining
+// distance, including a fractional last step; opening/refreshing cannot add it.
+it.each([
+  ["baby", 23.96, "距成长期还差 0.04 点"],
+  ["baby", 23.999, "距成长期还差 0.01 点"],
+  ["growing", 71.96, "距成年期还差 0.04 点"],
+  ["growing", 71.999, "距成年期还差 0.01 点"],
+] as const)("home and handbook keep the same remaining goal at %s/%s", async (stage, points, goal) => {
+  saved.growth = emptyGrowth(stage); saved.growth.points = points;
+  const before = structuredClone(saved);
+  await mount();
+  expect(document.querySelector(".growth-feedback small")?.textContent).toBe(goal);
+  await handbook();
+  expect(document.querySelector(".growth-panel .growth-next")?.textContent).toBe(goal);
+  await tick(15000);
+  expect(document.querySelector(".growth-panel .growth-next")?.textContent).toBe(goal);
+  cleanup(); await mount(); await handbook();
+  expect(document.querySelector(".growth-panel .growth-next")?.textContent).toBe(goal);
+  expect(saved).toEqual(before);
+  expect(api.mock.calls.every(([path]) => ["state", "visit"].includes(path))).toBe(true);
+  expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+});
