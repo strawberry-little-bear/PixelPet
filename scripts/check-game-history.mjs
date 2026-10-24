@@ -24,6 +24,54 @@ async function play(page,n) {
  for(let i=0;i<5;i++) { await wait(950);const ack=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/action'&&r.request().method()==='POST'&&r.request().postDataJSON()?.kind==='catch');await key(page,'b');const response=await ack;assert(response.ok(),await response.text()); }
  await page.locator('.game-outcome').waitFor();assert((await page.locator('.game-completion-count').textContent()).includes(`已记录 ${n} 局共同游戏`));await key(page,'c');await key(page,'c');
 }
+// The recent game below comes from actual completions, not fabricated interest.
+async function quietRecent(page, expected, label) {
+ const writes=[];
+ const onRequest=req=>{if(req.method()!=='GET'&&!['/api/state','/api/visit'].includes(new URL(req.url()).pathname))writes.push(req.url());};
+ page.on('request',onRequest);
+ try {
+  const before=(await api('state')).state;
+  await key(page,'a');for(let i=0;i<12;i++)await key(page,'a');await key(page,'b');
+  await page.locator('.quiet-moment').waitFor();await key(page,'a');await key(page,'a');
+  assert.equal(await page.locator('.quiet-memory-source').count(),0,'Opening chat must not replay a response');
+  await key(page,'b');
+  const source=page.locator('.quiet-memory-source'), first=await source.innerText();
+  assert(first.includes('从共同游戏记录想起：最近一次一起玩「接星星」'),first);
+  assert.equal(await source.locator('time').getAttribute('datetime'),new Date(expected.at).toISOString());
+  assert(!(await page.locator('.quiet-moment-copy > p').innerText()).match(/今天|刚才|昨天|奖励|成长|金币/));
+  // Read each wrapped source line through native document scrolling, including
+  // date/time at 200% root size. Visibility alone would miss clipped text.
+  await source.evaluate(el=>{
+   const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let text;
+   while((text=walker.nextNode())){
+    if(!text.textContent.trim())continue;
+    const range=document.createRange();range.selectNodeContents(text);
+    const lines=Array.from(range.getClientRects(),r=>({left:r.left,top:r.top+scrollY,width:r.width,height:r.height}));
+    for(const line of lines){window.scrollTo({top:line.top-12,behavior:'instant'});const y=line.top-scrollY;
+     const hit=document.elementFromPoint(line.left+line.width/2,y+line.height/2);
+     if(line.left < -1 || line.left+line.width>innerWidth+1 || y<0 || y+line.height>innerHeight || !hit || !text.parentElement.contains(hit))throw new Error('Unreachable recent-game source: '+text.textContent);
+    }
+   }
+  });
+  await page.screenshot({path:join(dir,`quiet-recent-${label}.png`),fullPage:true});
+  const stop=page.getByRole('region',{name:'无目的互动阅读区'});await stop.focus();await page.keyboard.press('Enter');assert.equal(await source.innerText(),first);
+  await key(page,'b');assert((await source.innerText()).startsWith('从纪念册想起：'),'First-game album remains available');
+  for(let i=0;i<before.album.entries.length+1 && await source.innerText()!==first;i++)await key(page,'b');
+  assert.equal(await source.innerText(),first,'B cycles back to the same recorded completion');
+  assert.equal(await page.locator('.physical-button').count(),3);assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await key(page,'c');await page.locator('.home-caption').waitFor();
+  await home(page);
+  const after=(await api('state')).state;
+  assert.deepEqual(after.companion,before.companion);assert.deepEqual(after.album,before.album);assert.equal(after.careCount,before.careCount);
+  assert.equal(after.economy.coins,before.economy.coins);assert.equal(after.growth.points,before.growth.points);assert.deepEqual(after.growth.formRecord,before.growth.formRecord);
+  await key(page,'a');for(let i=0;i<12;i++)await key(page,'a');await key(page,'b');await key(page,'a');await key(page,'a');
+  assert.equal(await page.locator('.quiet-memory-source').count(),0,'Refresh must not replay a chat');
+  await key(page,'b');assert.equal(await page.locator('.quiet-memory-source time').getAttribute('datetime'),new Date(expected.at).toISOString());await key(page,'c');
+  assert.deepEqual(writes,[],'Chat and reading must not perform actions');
+  results.push({quietRecent:label,source:'real second stars completion',timestamp:expected.at,readOnly:true,refresh:'manual conversation'});
+ } finally {page.off('request',onRequest);}
+}
 async function layout(page) {
  assert.equal(await page.locator('.physical-button').count(),3);
  assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
@@ -96,6 +144,7 @@ try {
  assert.equal(afterReload.careCount,adultSaved.careCount);
  await key(page,'c');
  results.push({adultSuggestion:'uses actual completed game, not capped interest',realKeyboardGames:2,familiarity:{fishing:5,stars:1},refresh:'preserved',form:'unchanged'});
+ await quietRecent(page,adultSaved.companion.recent,'desktop');
  assert.deepEqual(errors,[]);await context.close();
  const modes=[{width:1200,height:850,font:14},{width:390,height:844,font:14},{width:320,height:568,font:28},{width:320,height:380,font:28,forcedColors:'active'}];
  for(const mode of modes){
@@ -103,7 +152,7 @@ try {
   await p.addInitScript(font=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize=font+'px'),mode.font);
   await p.goto(base);await p.locator('.home-caption').waitFor();await key(p,'c');await summary(p);await count(p,2);
   const next=await p.locator('.life-summary-next').textContent();assert(next.includes('最近一次一起玩过的是「接星星」')&&next.includes('目前更熟悉的是「池塘钓鱼」'),next);
-  await p.screenshot({path:join(dir,`summary-${mode.width}-${mode.height}.png`),fullPage:true});await layout(p);assert.deepEqual(pageErrors,[]);results.push({layout:mode});await ctx.close();
+  await p.screenshot({path:join(dir,`summary-${mode.width}-${mode.height}.png`),fullPage:true});await layout(p);if(mode.width===320&&mode.height===380)await quietRecent(p,adultSaved.companion.recent,'320-380-double');assert.deepEqual(pageErrors,[]);results.push({layout:mode});await ctx.close();
  }
  // Constructed upper-bound display; this is not actual lifetime play.
  const extreme=structuredClone(adultSaved);for(const row of extreme.companion.history.completions)row.count=Number.MAX_SAFE_INTEGER;await api('import',extreme);

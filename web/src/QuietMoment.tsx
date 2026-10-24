@@ -46,7 +46,11 @@ export function QuietMoment({ pet, shop, choice, replied, memoryKey = null }: {
         {growth && <small className="quiet-growth-label">{stageNames[stage]}{stage === "adult" && form ? ` · ${formNames[form]}` : ""}</small>}
         <strong>{words.title}</strong>
         <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
-        {memory && <small className="quiet-memory-source">从纪念册想起：{memory.title}</small>}
+        {memory && <small className="quiet-memory-source">{memory.source === "game" ? "从共同游戏记录想起：" : "从纪念册想起："}{memory.title}
+          {memory.source === "game" && <> · <time dateTime={new Date(memory.at).toISOString()}>{new Date(memory.at).toLocaleString("zh-CN", {
+            year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+          })}</time>（本地时间）</>}
+        </small>}
       </div>
       <small className="quiet-moment-note">{pet.sleeping ? "它还在睡觉，陪伴不会叫醒它，也没有奖励或惩罚。" : "没有奖励或惩罚，只留下一小会儿陪伴。"}</small>
     </section>
