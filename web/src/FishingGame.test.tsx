@@ -132,7 +132,7 @@ describe("actual discoveries and anatomical companions", () => {
     saved.pond!.fish = [{ id: "reed-minnow", count: 2, firstAt: Date.parse("2026-10-18T08:00:00Z"), lastAt: Date.now() }]; render(<FishAlbum pet={saved} page={0} />); expect(screen.getByText("青苇小鲦")).toBeTruthy(); expect(screen.getByText(/2026\/10\/18.*2 次/)).toBeTruthy(); expect(document.querySelectorAll(".fish-album text")).toHaveLength(5);
   });
   it.each(fishCatalog)("renders a distinct $shape fish shape", fish => {
-    saved.schema = 15; saved.pond!.fish = [{ id: fish.id, count: 1, firstAt: Date.now(), lastAt: Date.now() }]; render(<FishAlbum pet={saved} page={fishCatalog.indexOf(fish)} />); expect(screen.getByText(fish.name)).toBeTruthy(); expect(document.querySelector(`.fish-${fish.shape}`)).toBeTruthy();
+    saved.schema = 20; saved.pond!.fish = [{ id: fish.id, count: 1, firstAt: Date.now(), lastAt: Date.now() }]; render(<FishAlbum pet={saved} page={fishCatalog.indexOf(fish)} />); expect(screen.getByText(fish.name)).toBeTruthy(); expect(document.querySelector(`.fish-${fish.shape}`)).toBeTruthy();
   });
   it.each(fishingCompanions.flatMap((companion, index) => ["baby", "growing", "adult"].map(stage => ({ companion, index, stage }))))("uses $companion.rig own $stage anatomy and handling method", ({ companion, index, stage }) => {
     saved.species = index; saved.growth!.stage = stage as "baby" | "growing" | "adult"; saved.game!.fishing!.phase = "wait"; render(<FishingGame pet={saved} active choice={0} />);
@@ -275,14 +275,17 @@ describe("quiet waiting feedback without false bites", () => {
 });
 
 describe("rain fish catalogue compatibility", () => {
-  it.each([8, 14, 15])("wraps the schema %i catalogue with A/B and returns to the unchanged pause", async schema => {
+  it.each([8, 14, 15, 19, 20])("wraps the schema %i catalogue with A/B and returns to the unchanged pause", async schema => {
     saved.schema = schema; saved.game!.fishing!.paused = true;
     await mount(); await key("a"); await key("b");
-    const count = schema >= 15 ? 7 : 6;
+    const count = schema >= 20 ? 8 : schema >= 15 ? 7 : 6;
     expect(document.querySelectorAll(".fish-album-grid > div")).toHaveLength(count);
     expect(screen.getByText(`已发现 0 / ${count}`)).toBeTruthy();
     for (let i = 1; i < count; i++) await key("b");
-    if (schema >= 15) {
+    if (schema >= 20) {
+      expect(screen.getByText(/仅在芦苇湾的晴 \/ 云景遇见/)).toBeTruthy();
+      expect(screen.queryByText("雨珠小鲤")).toBeNull();
+    } else if (schema >= 15) {
       expect(screen.getByText(/每竿 1\/8/)).toBeTruthy();
       expect(screen.getByText(/不看现实天气/)).toBeTruthy();
       expect(screen.queryByText("雨珠小鲤")).toBeNull();

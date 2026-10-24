@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { FishAlbum } from "./FishingGame";
 import { ParkAlbum } from "./WalkingGame";
-import { fishCatalog } from "./fishing";
+import { fishCatalogFor } from "./fishing";
 import { parkCatalog } from "./walk";
 import type { PetState } from "./types";
 
@@ -21,7 +21,7 @@ const cases: [string, Collections][] = [
   ["empty arrays", { pond: { since: now, fish: [] }, park: { since: now, finds: [], walks: 0, lastWalkAt: 0 } }],
 ];
 for (const [label, collections] of cases) {
-  it.each(fishCatalog.map((_, page) => page))(`renders ${label} fish page %i without inventing discoveries or changing state`, page => {
+  it.each(fishCatalogFor({ schema: 17 }).map((_, page) => page))(`renders ${label} fish page %i without inventing discoveries or changing state`, page => {
     const saved = pet(collections), before = structuredClone(saved);
     render(<FishAlbum pet={saved} page={page} />);
     expect(screen.getByText("已发现 0 / 7")).toBeTruthy();

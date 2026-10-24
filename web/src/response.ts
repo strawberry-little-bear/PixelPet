@@ -1,5 +1,5 @@
 import { validGameResponse } from "./gameResponse";
-import { fishCatalog } from "./fishing";
+import { fishCatalogFor } from "./fishing";
 import { parkCatalog } from "./walk";
 import { outingMemoryWords } from "./outing-memory";
 import type { Memory, Result } from "./types";
@@ -84,8 +84,8 @@ function validDiscoveries(value: unknown, ids: readonly { id: string }[]): boole
     timestamp(discovery.firstAt) && timestamp(discovery.lastAt) &&
     count(discovery.count) && discovery.count > 0));
 }
-function validPond(value: unknown): boolean {
-  return value == null || (record(value) && timestamp(value.since) && validDiscoveries(value.fish, fishCatalog));
+function validPond(value: unknown, schema: number): boolean {
+  return value == null || (record(value) && timestamp(value.since) && validDiscoveries(value.fish, fishCatalogFor({ schema })));
 }
 function validPark(value: unknown): boolean {
   return value == null || (record(value) && timestamp(value.since) && count(value.walks) &&
@@ -95,11 +95,12 @@ function validPark(value: unknown): boolean {
 // Empty Go catches may be null or omitted even in an active session. Do not
 // confuse them with malformed supplied arrays or an absent fishing model.
 // This only guards display shape; phase/credit/sky rules stay on the server.
-function validFishingResponse(value: unknown): boolean {
+function validFishingResponse(value: unknown, schema: number): boolean {
   if (!record(value) || value.kind !== "fishing") return true;
   const n = value.fishing;
+  const catalog = fishCatalogFor({ schema });
   return record(n) && (n.catches == null || (Array.isArray(n.catches) && n.catches.length <= 3 &&
-    n.catches.every(id => fishCatalog.some(fish => fish.id === id))));
+    n.catches.every(id => catalog.some(fish => fish.id === id))));
 }
 
 // Cosmetics and shop data are optional on legacy servers, but supplied models
@@ -174,11 +175,12 @@ function validNeeds(value: unknown): boolean {
 export function validCoreResponse(value: unknown): value is Result {
   if (!record(value) || !record(value.state)) return false;
   const state = value.state;
-  return count(state.schema) && state.schema > 0 &&
-    count(state.revision) && count(state.species) &&
+  const schema = state.schema;
+  if (!count(schema) || schema <= 0) return false;
+  return count(state.revision) && count(state.species) &&
     typeof state.name === "string" && typeof state.sleeping === "boolean" &&
     timestamp(state.createdAt) && timestamp(state.hatchedAt) && timestamp(state.lastTick) &&
-    count(state.careCount) && validEconomy(state.economy) && validShop(value.shop) && validGameResponse(state.game) && validTreasureResponse(state.game) && validFishingResponse(state.game) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond) && validPark(state.park) &&
+    count(state.careCount) && validEconomy(state.economy) && validShop(value.shop) && validGameResponse(state.game) && validTreasureResponse(state.game) && validFishingResponse(state.game, schema) && validGrowth(state.growth) && validCompanion(state.companion) && validAlbum(state.album) && validPond(state.pond, schema) && validPark(state.park) &&
     validNeeds(state.needs) &&
     // A nil Go log slice is valid legacy data and is rendered as no entries.
     (state.logs == null || (Array.isArray(state.logs) && state.logs.every(log =>

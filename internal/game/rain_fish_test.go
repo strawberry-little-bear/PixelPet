@@ -11,7 +11,7 @@ import (
 func rainID(prefix int) string { return fmt.Sprintf("%06x00000000000000000000000000", prefix) }
 
 func TestRainFishPoolsExactWeightsAndLegacy(t *testing.T) {
-	for _, schema := range []int{8, 14, 15} {
+	for _, schema := range []int{8, 14, 15, 19, 20} {
 		for sky := 0; sky < 48; sky++ {
 			for spot := 0; spot < 3; spot++ {
 				pool := fishingPool(schema, rainID(sky), spot)
@@ -20,12 +20,16 @@ func TestRainFishPoolsExactWeightsAndLegacy(t *testing.T) {
 					counts[id]++
 				}
 				rainy := schema >= 15 && sky%3 == 2
+				reedClear := schema >= 20 && sky%3 != 2 && spot == 0
 				size, common := 3, 1
 				if rainy {
 					size, common = 24, 7
 					if counts["rain-koi"] != 3 {
 						t.Fatal("rain chance must be exactly 1/8", counts)
 					}
+				}
+				if reedClear {
+					size = 4
 				}
 				if len(pool) != size {
 					t.Fatal("pool size", schema, sky, spot, pool)
@@ -38,6 +42,9 @@ func TestRainFishPoolsExactWeightsAndLegacy(t *testing.T) {
 				if !rainy && counts["rain-koi"] != 0 {
 					t.Fatal("rain fish outside rain", counts)
 				}
+				if counts["willow-darter"] != btoi(reedClear) {
+					t.Fatal("willow fish availability", schema, sky, spot, counts)
+				}
 			}
 		}
 	}
@@ -45,6 +52,55 @@ func TestRainFishPoolsExactWeightsAndLegacy(t *testing.T) {
 		if len(fishingPool(15, id, 0)) != 3 {
 			t.Fatal("invalid sky enabled rarity", id)
 		}
+	}
+}
+
+func btoi(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
+}
+
+func TestWillowDarterSchemaBoundaryAndRealDiscovery(t *testing.T) {
+	s, now := fishingState(t)
+	s.Game.ID = rainID(0)
+	fishDo(t, &s, now, "fish-cast")
+	s.Game.Fishing.Candidate = "willow-darter"
+	s.Game.Fishing.Phase = "bite"
+	if err := s.Validate(now); err != nil {
+		t.Fatal("schema20 clear-sky candidate rejected", err)
+	}
+	fishDo(t, &s, now, "fish-reel")
+	if len(s.Pond.Fish) != 1 || s.Pond.Fish[0].ID != "willow-darter" || s.Pond.Fish[0].Count != 1 {
+		t.Fatal("willow discovery", s.Pond.Fish)
+	}
+
+	legacy := copyState(s)
+	legacy.Schema = 19
+	if legacy.Validate(now) == nil {
+		t.Fatal("schema19 accepted new fish")
+	}
+	rainy := copyState(s)
+	rainy.Game = nil
+	rainy.Schema = 20
+	rainy.Pond.Fish = nil
+	rainy.Game = &MiniGame{Kind: "fishing", ID: rainID(2), StartedAt: now.UnixMilli(), LastBeat: -1, Fishing: &Fishing{Spot: 0, Casts: 1, Catches: []string{}, Phase: "bite", Step: 0, WaitMS: 32000, Candidate: "willow-darter", LastPulseAt: now.UnixMilli()}}
+	if rainy.Validate(now) == nil {
+		t.Fatal("rainy session accepted willow fish")
+	}
+}
+
+func TestSchemaNineteenMigrationAddsCatalogWithoutChangingSession(t *testing.T) {
+	s, now := fishingState(t)
+	s.Schema = 19
+	before := s
+	if !s.Upgrade(now) || s.Schema != 20 {
+		t.Fatal("schema19 did not migrate", s.Schema)
+	}
+	before.Schema = 20
+	if !reflect.DeepEqual(before, s) {
+		t.Fatal("catalog migration changed saved state")
 	}
 }
 

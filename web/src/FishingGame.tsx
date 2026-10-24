@@ -10,12 +10,12 @@ import "./fishing-game.css";
 
 export function FishArt({ id, hidden = false }: { id: string; hidden?: boolean; }) {
   const fish = fishInfo(id) ?? fishCatalog[0];
-  const long = fish.shape === "long", slim = fish.shape === "slim";
+  const long = fish.shape === "long", slim = fish.shape === "slim", willow = fish.shape === "willow";
   return <svg className={`fish-art fish-${fish.shape}`} viewBox="0 0 56 36" aria-hidden="true" shapeRendering="crispEdges">
     <g fill={hidden ? "#7c8c66" : fish.color} stroke="#4b5e42" strokeWidth="1.5">
-      <path d={long ? "M9 15h32v3h5v6H11v-3H7v-3h2z" : slim ? "M12 12h25v3h8v9h-8v3H12z" : "M16 7h17v4h8v6h5v6h-5v6h-8v3H16v-5h-6V13h6z"} />
+      <path d={long ? "M9 15h32v3h5v6H11v-3H7v-3h2z" : slim ? "M12 12h25v3h8v9h-8v3H12z" : willow ? "M13 9h24v4h7v5h5v7h-8v4H13v-3H7v-5h4v-8h2z" : "M16 7h17v4h8v6h5v6h-5v6h-8v3H16v-5h-6V13h6z"} />
       <path d="M11 16L2 9v20l9-7z" />
-      {!hidden && <><path d={fish.shape === "petal" ? "M22 8V2h5v3h5v6M22 27v7h7v-5" : "M18 11V5h10v6M19 27v5h8v-5"} /><path d="M20 17h8v6h-8z" fill="#e0d9ac" stroke="none" />{fish.shape === "striped" && <path d="M18 10v17m9-17v17m8-14v12" fill="none" stroke="#4e5d76" strokeWidth="3" />}{fish.shape === "rain" && <path d="M18 13l-2 4h4zm9 7l-2 4h4zm5-9l-2 4h4z" fill="#d7ecdf" stroke="none" />}{fish.shape === "spotted" && <path d="M17 12h3v3h-3zm10 10h3v3h-3zm5-9h3v3h-3z" fill="#594f38" stroke="none" />}<path d="M38 16h3v3h-3z" fill="#2f3e2b" stroke="none" /></>}
+      {!hidden && <><path d={fish.shape === "petal" ? "M22 8V2h5v3h5v6M22 27v7h7v-5" : "M18 11V5h10v6M19 27v5h8v-5"} /><path d="M20 17h8v6h-8z" fill="#e0d9ac" stroke="none" />{fish.shape === "striped" && <path d="M18 10v17m9-17v17m8-14v12" fill="none" stroke="#4e5d76" strokeWidth="3" />}{fish.shape === "rain" && <path d="M18 13l-2 4h4zm9 7l-2 4h4zm5-9l-2 4h4z" fill="#d7ecdf" stroke="none" />} {fish.shape === "willow" && <path d="M18 12h4v5h-4zm11 7h4v5h-4zm7-8h4v5h-4z" fill="#b8d2a9" stroke="none" /> }{fish.shape === "spotted" && <path d="M17 12h3v3h-3zm10 10h3v3h-3zm5-9h3v3h-3z" fill="#594f38" stroke="none" />}<path d="M38 16h3v3h-3z" fill="#2f3e2b" stroke="none" /></>}
     </g>{hidden && <text x="28" y="25" textAnchor="middle" fontSize="16" fill="#e4e9c9">?</text>}
   </svg>;
 }
@@ -123,7 +123,7 @@ export function FishAlbum({ pet, page }: { pet: PetState; page: number; }) {
     <div className="fish-album-grid" style={{ gridTemplateColumns: `repeat(${catalog.length}, minmax(0, 1fr))` }}>{catalog.map((f, i) => <div key={f.id} aria-current={i === selected} className={i === selected ? "selected" : ""}><FishArt id={f.id} hidden={!pet.pond?.fish?.some(d => d.id === f.id)} /></div>)}</div>
     <h3>{discovery ? fish.name : "还未遇见的小鱼"}</h3>
     <p>{discovery ? fish.story : "真实钓到以后，才会留下模样和发现日期。"}</p>
-    <small>{fish.id === "rain-koi" ? "仅游戏内虚构雨景，三处钓点均可遇见 · 每竿 1/8，不是必出。" : <>可在{fish.spots.map(s => fishingSpots[s]).join(" / ")}遇见 · {pet.schema >= 15 ? "晴 / 云景三种等概率；虚构雨景时每种 7/24。" : "各钓点三种鱼等概率"}</>}</small>
+    <small>{fish.id === "rain-koi" ? "仅游戏内虚构雨景，三处钓点均可遇见 · 每竿 1/8，不是必出。" : fish.id === "willow-darter" ? "仅在芦苇湾的晴 / 云景遇见 · 与该钓点其他三种鱼等概率；雨景不出现。" : <>可在{fish.spots.map(s => fishingSpots[s]).join(" / ")}遇见 · {pet.schema >= 20 && fish.spots.some(s => s === 0) ? "晴 / 云景时芦苇湾四种等概率；虚构雨景时每种 7/24。" : pet.schema >= 15 ? "晴 / 云景三种等概率；虚构雨景时每种 7/24。" : "各钓点三种鱼等概率"}</>}</small>
     <p className="fish-record">{discovery ? `初次：${new Date(discovery.firstAt).toLocaleDateString("zh-CN")} · 共遇见 ${discovery.count} 次` : "没有鱼饵付费，也不用按时打卡。"}</p>
     {fish.id === "rain-koi" && <small>不看现实天气，不用按时上线；鱼种不影响金币。</small>}
     <small>A 上一页 · B 下一页 · C 返回{pet.game?.kind === "fishing" ? "暂停菜单" : "小窝"}</small>

@@ -16,13 +16,17 @@ const fishingStepLimit = 1000000
 
 // Each spot has three common species. In schema15 fictional rainy sessions,
 // each cast has a 1/8 rain-koi chance; the common fish split the remaining 7/8.
-// No real weather/time gate, bait purchases, extra rewards or offline catches.
+// Schema20 adds one fourth, clear-sky species to Reed Bay only. Rainy sessions
+// deliberately keep the existing pool so rain-koi remains the sole weather note.
 var spotFish = [3][3]string{{"reed-minnow", "sun-carp", "ribbon-loach"}, {"sun-carp", "lotus-fish", "moon-perch"}, {"reed-minnow", "moon-perch", "pebble-goby"}}
-var fishIDs = [...]string{"reed-minnow", "sun-carp", "ribbon-loach", "lotus-fish", "moon-perch", "pebble-goby", "rain-koi"}
+var fishIDs = [...]string{"reed-minnow", "sun-carp", "ribbon-loach", "lotus-fish", "moon-perch", "pebble-goby", "rain-koi", "willow-darter"}
 
 // A deterministic ticket pool keeps the actual crypto/rand draw and the exact
 // probabilities separate. It is evaluated once per cast, never on resume.
 func fishingPool(schema int, gameID string, spot int) []string {
+	if schema >= 20 && spot == 0 && outingWeatherFor(gameID) != "rain" {
+		return []string{"reed-minnow", "sun-carp", "ribbon-loach", "willow-darter"}
+	}
 	if schema < 15 || outingWeatherFor(gameID) != "rain" {
 		return spotFish[spot][:]
 	}
@@ -36,7 +40,7 @@ func fishingPool(schema int, gameID string, spot int) []string {
 }
 
 func (s State) sessionFish(id string) bool {
-	return knownFish(id, s.Schema) && (id != "rain-koi" || outingWeatherFor(s.Game.ID) == "rain")
+	return knownFish(id, s.Schema) && (id != "rain-koi" || outingWeatherFor(s.Game.ID) == "rain") && (id != "willow-darter" || (s.Schema >= 20 && outingWeatherFor(s.Game.ID) != "rain"))
 }
 
 type FishDiscovery struct {
@@ -221,6 +225,9 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 }
 func knownFish(id string, schema int) bool {
 	if id == "rain-koi" && schema < 15 {
+		return false
+	}
+	if id == "willow-darter" && schema < 20 {
 		return false
 	}
 	for _, v := range fishIDs {

@@ -1,12 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { request } from "./api";
 import { validCoreResponse } from "./response";
-import { fishCatalog } from "./fishing";
+import { fishCatalogFor } from "./fishing";
 import { parkCatalog } from "./walk";
 const now = Date.now();
 const discovery = { id: "reed-minnow", firstAt: now, lastAt: now, count: 1 };
 const models = [
-  { field: "pond", entries: "fish", ids: fishCatalog.map(f => f.id), metadata: { since: now } },
+  { field: "pond", entries: "fish", ids: fishCatalogFor({ schema: 17 }).map(f => f.id), metadata: { since: now } },
   { field: "park", entries: "finds", ids: parkCatalog.map(f => f.id), metadata: { since: now, walks: 0, lastWalkAt: 0 } },
 ] as const;
 function reply(field: string, value: unknown) {

@@ -49,7 +49,7 @@ func TestSchema18HistoryMigrationSnapshotsOnceAndCountsOnlyFutureSettlements(t *
 		if err != nil {
 			t.Fatal(err)
 		}
-		if r.State.Schema != 19 || r.State.Companion.History.Since != now.UnixMilli() || !reflect.DeepEqual(r.State.Game, old.Game) || !reflect.DeepEqual(r.State.Companion.Interests, old.Companion.Interests) || !reflect.DeepEqual(r.State.Album, old.Album) {
+		if r.State.Schema != game.Schema || r.State.Companion.History.Since != now.UnixMilli() || !reflect.DeepEqual(r.State.Game, old.Game) || !reflect.DeepEqual(r.State.Companion.Interests, old.Companion.Interests) || !reflect.DeepEqual(r.State.Album, old.Album) {
 			t.Fatal("migration changed past")
 		}
 		for _, entry := range r.State.Companion.History.Completions {

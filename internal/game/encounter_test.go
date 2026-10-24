@@ -231,6 +231,10 @@ func TestEncounterDoesNotAlterDiscoveryOrSettlement(t *testing.T) {
 			ordinary.Companion.Interests = ordinary.Companion.Interests[:6]
 			// Equal cast fixtures compare the same fish/wait draw, not independent RNG.
 			if kind == "fishing" {
+				// Reed Bay has a schema20-only species; use the shared second
+				// spot so the legacy schema13 comparison remains valid.
+				rare.Game.Fishing.Spot = 1
+				ordinary.Game.Fishing.Spot = 1
 				for i := 0; i < 3; i++ {
 					fishDo(t, &rare, now, "fish-cast")
 					fishDo(t, &ordinary, now, "fish-cast")

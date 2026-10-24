@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { request } from "./api";
-import { fishCatalog } from "./fishing";
+import { fishCatalogFor } from "./fishing";
 import { validCoreResponse } from "./response";
 const now = Date.now();
 function reply(fishing: unknown) {
@@ -26,7 +26,7 @@ it.each(invalid)("rejects %s rather than treating damaged catches as empty", asy
   await expect(request("state")).rejects.toMatchObject({ outcome: "unavailable" });
   await expect(request("action", { kind: "fish-reel" })).rejects.toMatchObject({ outcome: "unknown" });
 });
-it.each([undefined, null, [], ...fishCatalog.map(f => [f.id]), ["reed-minnow", "reed-minnow", "rain-koi"]])("accepts empty or known catches unchanged (%j)", catches => {
+it.each([undefined, null, [], ...fishCatalogFor({ schema: 17 }).map(f => [f.id]), ["reed-minnow", "reed-minnow", "rain-koi"]])("accepts empty or known catches unchanged (%j)", catches => {
   const r = reply({ ...session, ...(catches === undefined ? {} : { catches }) }), before = structuredClone(r);
   // Display-shape checks, not a second validator for casts, rain or discovery credit.
   expect(validCoreResponse(r)).toBe(true); expect(r).toEqual(before);
@@ -35,4 +35,11 @@ it("does not make the optional legacy game mandatory", () => {
   const r = reply(null);
   expect(validCoreResponse({ ...r, state: { ...r.state, game: null } })).toBe(true);
   expect(validCoreResponse({ ...r, state: { ...r.state, game: undefined } })).toBe(true);
+});
+
+it("accepts the schema20 fish while rejecting it for schema19", () => {
+  const newFish = { ...reply({ ...session, catches: ["willow-darter"] }), state: { ...reply({ ...session, catches: ["willow-darter"] }).state, schema: 20 } };
+  expect(validCoreResponse(newFish)).toBe(true);
+  const old = { ...newFish, state: { ...newFish.state, schema: 19 } };
+  expect(validCoreResponse(old)).toBe(false);
 });

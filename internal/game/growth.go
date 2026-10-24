@@ -162,6 +162,12 @@ func (s *State) Upgrade(now time.Time) bool {
 		s.Companion.History = newGameHistory(now)
 		s.Schema = 19
 	}
+	if s.Schema == 19 {
+		// Add the clear-sky Reed Bay species without rerolling existing casts or
+		// fabricating a past discovery. The new fish is available to future
+		// sessions after this version boundary only.
+		s.Schema = 20
+	}
 	return true
 }
 

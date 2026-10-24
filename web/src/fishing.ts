@@ -10,9 +10,10 @@ export const fishCatalog = [
   { id: "moon-perch", name: "月纹小鲈", spots: [1, 2], color: "#8285a0", shape: "striped", story: "身上弯弯的纹路，让人想起安静的月亮。" },
   { id: "pebble-goby", name: "石斑虾虎", spots: [2], color: "#9b8d68", shape: "spotted", story: "在圆圆的石头旁，发现了圆圆的小邻居。" },
   { id: "rain-koi", name: "雨珠小鲤", spots: [0, 1, 2], color: "#718f9b", shape: "rain", story: "把虚构雨景里的小水珠，悄悄藏进了银蓝色的鳞片。" },
+  { id: "willow-darter", name: "柳影小鳉", spots: [0], color: "#6f8b72", shape: "willow", story: "躲在柳影和芦苇根间，安静地陪你看水面发亮。" },
 ] as const;
 // Older servers cannot catch the new fish: do not advertise an impossible page.
-export const fishCatalogFor = (pet: Pick<PetState, "schema">) => pet.schema >= 15 ? fishCatalog : fishCatalog.slice(0, 6);
+export const fishCatalogFor = (pet: Pick<PetState, "schema">) => pet.schema >= 20 ? fishCatalog : pet.schema >= 15 ? fishCatalog.slice(0, 7) : fishCatalog.slice(0, 6);
 export const fishInfo = (id?: string) => fishCatalog.find(f => f.id === id);
 export const fishingMenu = ["继续钓鱼", "看看鱼图鉴", "放弃本局", "风景手记", "玩法说明"];
 // Different real limb groups take part; birds/fins use a rod rest rather than
