@@ -119,6 +119,92 @@ async function repeatedResponses(page, reduced) {
   for (let i = 0; i < 3; i++) await physical(page, 'a');
   assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
 }
+// Two representative viewports cover interruptions without multiplying the
+// stage/appearance matrix. Network failure is injected into this page only.
+async function interruptedResponses(page, reduced, label) {
+  const panel = page.getByRole('region', { name: '无目的互动阅读区' });
+  async function rememberReply() {
+    const previous = await page.locator('.quiet-memory-source').allTextContents();
+    await page.keyboard.press('b');
+    assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'true');
+    assert.equal(await page.locator('.quiet-memory-source').count(), 1);
+    assert.notDeepEqual(await page.locator('.quiet-memory-source').allTextContents(), previous,
+      'Each explicit B, including after tool closure, must advance the real memory');
+    await panel.evaluate(el => { window.__quietInterruptedRegion = el; });
+    await page.locator('.quiet-moment-pet').evaluate(async (el, reduced) => {
+      window.__quietInterruptedMotion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      if (reduced ? window.__quietInterruptedMotion : window.__quietInterruptedMotion?.playState !== 'running')
+        throw new Error('An explicit B after an interruption must respect the motion preference');
+      if (window.__quietInterruptedMotion) await window.__quietInterruptedMotion.finished;
+    }, reduced);
+    return {
+      text: await page.locator('.quiet-moment-copy').innerText(),
+      scrollCalls: await page.evaluate(() => window.__quietScrollCalls),
+    };
+  }
+  async function unchanged(reply) {
+    assert.equal(await page.locator('.quiet-moment-copy').innerText(), reply.text,
+      'Opening and closing a tool must retain the selected reply');
+    assert(await panel.evaluate(el => el === window.__quietInterruptedRegion),
+      'An overlay must retain the reading region');
+    assert.equal(await page.evaluate(() => window.__quietScrollCalls), reply.scrollCalls,
+      'Closing a tool must not replay the old reply location');
+    assert(await page.locator('.quiet-moment-pet').evaluate((el, reduced) => {
+      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      return reduced ? !motion : motion === window.__quietInterruptedMotion && motion.playState === 'finished';
+    }, reduced), 'Closing a tool must not replay a completed animation');
+  }
+  let reply = await rememberReply();
+  for (const overlay of ['help', 'reset', 'tools']) {
+    if (overlay === 'help') await page.getByRole('button', { name: '玩法说明', exact: true }).click();
+    else {
+      await page.getByRole('button', { name: '存档盒', exact: true }).click();
+      if (overlay === 'reset') await page.getByRole('button', { name: '重新开始', exact: true }).click();
+    }
+    await page.keyboard.press('a'); await page.keyboard.press('b');
+    assert.equal(await page.locator('.quiet-moment-copy').innerText(), reply.text,
+      'Overlay keys must not act on company behind the tool');
+    await page.keyboard.press(overlay === 'reset' ? 'Escape' : 'c');
+    if (overlay !== 'tools') {
+      await page.getByRole('dialog').waitFor({ state: 'hidden' });
+      assert(await page.locator('.button-c').evaluate(el => document.activeElement === el),
+        'A closed dialog must return focus to the physical C key');
+    }
+    await unchanged(reply);
+    reply = await rememberReply();
+  }
+  // Fail actual browser reads; the separate HTTP client/server stay connected.
+  const reads = /\/api\/(state|visit)$/;
+  await page.route(reads, route => route.abort('connectionfailed'));
+  try {
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.locator('.save-recovery').waitFor();
+    assert.equal(await page.locator('.quiet-moment').count(), 0);
+    await page.screenshot({ path: join(dir, `${label}-offline.png`), fullPage: true });
+  } finally { await page.unroute(reads); }
+  const scrollCalls = await page.evaluate(() => window.__quietScrollCalls);
+  await page.keyboard.press('b'); await page.locator('.quiet-moment').waitFor();
+  assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false',
+    'Reconnection must discard the interrupted reply');
+  assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+  assert.equal(await page.locator('.quiet-moment-pet').evaluate(el => el.getAnimations().length), 0,
+    'Reconnection must not animate without an explicit B');
+  assert.equal(await page.evaluate(() => window.__quietScrollCalls), scrollCalls,
+    'Reconnection must not jump to a discarded reply');
+  await panel.focus();
+  await page.keyboard.press('b'); await responseVisible(page);
+  assert(await panel.evaluate(el => document.activeElement === el), 'B works again with reading focus after recovery');
+  assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'true');
+  assert.equal(await page.locator('.quiet-memory-source').count(), 1);
+  assert(await page.locator('.quiet-moment-pet').evaluate((el, reduced) => {
+    const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+    return reduced ? !motion : motion?.playState === 'running';
+  }, reduced), 'Only the next explicit B starts a new response');
+  await page.screenshot({ path: join(dir, `${label}-reconnected.png`), fullPage: true });
+  await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
+  await open(page);
+  assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
+}
 async function readable(page) {
   const problems = await page.locator('.quiet-moment').evaluate(panel => {
     const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT), problems = [];
@@ -194,6 +280,8 @@ try {
       const homeAppearance = await appearance(page, '.pet-scene');
       await open(page);
       await repeatedResponses(page, mode.font === 28);
+      const interruptions = stage === 'baby' && (mode.width === 1200 || mode.height === 380);
+      if (interruptions) await interruptedResponses(page, mode.font === 28, label);
       await sameAppearance(page, homeAppearance, before);
       await page.locator('.quiet-moment-pet').scrollIntoViewIfNeeded();
       await page.screenshot({ path: join(dir, `${label}-appearance.png`) });
@@ -282,7 +370,7 @@ try {
       await page.keyboard.press('b');
       assert.equal(await page.locator('.quiet-memory-source').innerText(), '从纪念册想起：轻轻说一声晚安', 'Waking starts with the latest real memory, including the separate client’s bedtime');
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
-      results.push({ label, first, second, sleeping: true, writes, errors }); console.log('PASS', label);
+      results.push({ label, first, second, sleeping: true, interruptions, writes, errors }); console.log('PASS', label);
     } finally { await context.close(); }
   }
   // Controlled ownership only supplies fixture inventory. Actual equip/remove
