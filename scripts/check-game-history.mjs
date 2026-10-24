@@ -19,6 +19,29 @@ async function key(page,k) { await page.locator('.button-'+k+':not([disabled])')
 async function home(page) { await page.reload();await page.locator('.home-caption').waitFor();await key(page,'c'); }
 async function summary(page) { await key(page,'a');for(let i=0;i<4;i++)await key(page,'a');await key(page,'b');await key(page,'a');await page.locator('.life-summary-games').waitFor(); }
 async function count(page,n) { assert.equal(await page.locator('[data-completion-count=stars]').textContent(),`共同游戏 ${n} 局`); }
+async function companion(page, expected) {
+ const writes=[];
+ const onRequest=req=>{if(req.method()==='POST'&&new URL(req.url()).pathname.startsWith('/api/'))writes.push(req.url());};
+ page.on('request',onRequest);
+ try {
+  await key(page,'a');for(let i=0;i<6;i++)await key(page,'a');await key(page,'b');
+  for(let i=0;i<3;i++)await key(page,'b');
+  const panel=page.locator('.companion-panel');await panel.waitFor();
+  assert.equal(await panel.locator('[aria-label="共同游戏完成总数"]').textContent(),`共同完成 ${expected} 局 · 只统计已经收好的游戏`);
+  assert.equal(await page.locator('.physical-button').count(),3);
+  assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'companion page overflow');
+  const clipped=await panel.evaluate(el=>{
+   const b=el.getBoundingClientRect(),walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),bad=[];let node;
+   while((node=walker.nextNode())){if(!node.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(node);for(const r of range.getClientRects())if(r.width&&r.height&&(r.left<b.left-1||r.right>b.right+1))bad.push(node.textContent);}
+   return bad;
+  });
+  assert.deepEqual(clipped,[],'companion text clipped');
+  await panel.locator('.companion-since').scrollIntoViewIfNeeded();assert(await panel.locator('.companion-since').isVisible());
+  assert.deepEqual(writes,[],'companion reading must not write');
+ } finally {page.off('request',onRequest);}
+ await key(page,'c');
+}
 async function play(page,n) {
  await key(page,'a');await key(page,'a');await key(page,'b');await page.locator('.arcade-card').first().waitFor();await key(page,'b');await page.locator('.game-guide').waitFor();await key(page,'b');await page.locator('.star-game').waitFor();
  for(let i=0;i<5;i++) { await wait(950);const ack=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/action'&&r.request().method()==='POST'&&r.request().postDataJSON()?.kind==='catch');await key(page,'b');const response=await ack;assert(response.ok(),await response.text()); }
@@ -146,7 +169,7 @@ try {
  const afterReload=(await api('state')).state;
  assert.deepEqual(afterReload.companion,adultSaved.companion);
  assert.equal(afterReload.careCount,adultSaved.careCount);
- await key(page,'c');
+ await key(page,'c');await companion(page,2);
  results.push({adultSuggestion:'uses actual completed game, not capped interest',realKeyboardGames:2,familiarity:{fishing:5,stars:1},refresh:'preserved',form:'unchanged'});
  await quietRecent(page,adultSaved.companion.recent,'desktop');
  assert.deepEqual(errors,[]);await context.close();
@@ -156,7 +179,7 @@ try {
   await p.addInitScript(font=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize=font+'px'),mode.font);
   await p.goto(base);await p.locator('.home-caption').waitFor();await key(p,'c');await summary(p);await count(p,2);
   const next=await p.locator('.life-summary-next').textContent();assert(next.includes('最近一次一起玩过的是「接星星」')&&next.includes('目前更熟悉的是「池塘钓鱼」'),next);
-  await p.screenshot({path:join(dir,`summary-${mode.width}-${mode.height}.png`),fullPage:true});await layout(p);if(mode.width===320&&mode.height===380)await quietRecent(p,adultSaved.companion.recent,'320-380-double');assert.deepEqual(pageErrors,[]);results.push({layout:mode});await ctx.close();
+  await p.screenshot({path:join(dir,`summary-${mode.width}-${mode.height}.png`),fullPage:true});await layout(p);await companion(p,2);if(mode.width===320&&mode.height===380)await quietRecent(p,adultSaved.companion.recent,'320-380-double');assert.deepEqual(pageErrors,[]);results.push({layout:mode,companion:'readable'});await ctx.close();
  }
  // Constructed upper-bound display; this is not actual lifetime play.
  const extreme=structuredClone(adultSaved);for(const row of extreme.companion.history.completions)row.count=Number.MAX_SAFE_INTEGER;await api('import',extreme);

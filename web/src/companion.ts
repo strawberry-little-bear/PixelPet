@@ -35,6 +35,25 @@ export function interestSummary(c?: Companion) {
     : "熟悉的游戏不止一种，不必只玩一种。";
 }
 
+// Completion history is optional in legacy saves. Only expose it when the
+// complete, ordered seven-game record is structurally valid; familiarity and
+// memories must never be used to reconstruct missing totals.
+export function validCompanionHistory(c?: Companion) {
+  const history = c?.history;
+  if (!history || !Number.isSafeInteger(c?.since) || c.since <= 0 || c.since > 8.64e15 ||
+      !Number.isSafeInteger(history.since) || history.since <= 0 ||
+      history.since > 8.64e15 || history.since < c.since ||
+      !Array.isArray(history.completions) || history.completions.length !== games.length ||
+      !history.completions.every((entry, index) => entry && entry.kind === games[index].id &&
+        Number.isSafeInteger(entry.count) && entry.count >= 0)) return null;
+  return history;
+}
+
+export function companionCompletionTotal(c?: Companion) {
+  const history = validCompanionHistory(c);
+  return history ? history.completions.reduce((total, entry) => total + BigInt(entry.count), 0n).toString() : null;
+}
+
 // A read/refresh cannot create an echo. Match the local session being settled,
 // require saved care feedback, and suppress duplicate response delivery.
 export function completedExperience(

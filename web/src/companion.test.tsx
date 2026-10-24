@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { games } from "./games";
-import { completedExperience, experienceWords, interestSummary, recordNewDiscoveries, takeDiscoveryEcho } from "./companion";
+import { companionCompletionTotal, completedExperience, experienceWords, interestSummary, recordNewDiscoveries, takeDiscoveryEcho } from "./companion";
 import { CompanionPanel } from "./CompanionPanel";
 import { PetScene } from "./PetScene";
 import type { Companion, GameExperience } from "./types";
@@ -34,6 +34,22 @@ describe("bounded explainable shared interests", () => {
     c.interests[1].points = 2.5;
     c.interests[2].points = -1;
     expect(interestSummary(c)).toBe("还在慢慢了解彼此，玩喜欢的就好。");
+  });
+  it("shows the saved total only for a complete ordered game history", () => {
+    const c = fresh();
+    expect(companionCompletionTotal(c)).toBeNull();
+    c.history = { since: c.since, completions: games.map((game, index) => ({ kind: game.id, count: index })) };
+    expect(companionCompletionTotal(c)).toBe("21");
+    const { container } = render(<CompanionPanel companion={c} />);
+    expect(container.querySelector('[aria-label="共同游戏完成总数"]')?.textContent).toContain("共同完成 21 局");
+  });
+
+  it("does not invent a total from malformed or partial history", () => {
+    const c = fresh();
+    c.history = { since: c.since, completions: games.slice(0, -1).map((game) => ({ kind: game.id, count: 3 })) };
+    expect(companionCompletionTotal(c)).toBeNull();
+    const { container } = render(<CompanionPanel companion={c} />);
+    expect(container.querySelector('[aria-label="共同游戏完成总数"]')).toBeNull();
   });
   it("requires this local settled session, feedback, and one-time delivery", () => {
     const x: GameExperience={kind:"stars",id:"saved-session",at:1},seen=new Set<string>();

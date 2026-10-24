@@ -9,6 +9,7 @@
   .guide-steps { font-size: 12px; line-height: 1.6; }
   .game-guide .guide-reward, .game-guide > small { font-size: 10px; }
   .companion-panel .companion-summary { font-size: 10px; line-height: 15px; min-height: 30px; }
+  .companion-panel .companion-completion-total { font-size: 10px; line-height: 15px; }
   .companion-rows { font-size: 10px; line-height: 15px; gap: 1px; }
   .companion-rules, .companion-since { font-size: 9px; line-height: 13px; }
   .walking-game .walk-warning { font-size: 12px; line-height: 18px; }

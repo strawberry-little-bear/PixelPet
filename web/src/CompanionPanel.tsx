@@ -1,10 +1,11 @@
 import { games } from "./games";
-import { interestLimit, interestSummary } from "./companion";
+import { companionCompletionTotal, interestLimit, interestSummary } from "./companion";
 import type { Companion } from "./types";
 
 export function CompanionPanel({ companion: c }: { companion?: Companion }) {
   const recent = c?.recent;
   const recentGame = games.find(game => game.id === recent?.kind);
+  const completionTotal = companionCompletionTotal(c);
   return (
     <section className="companion-panel" aria-label="共同游戏与兴趣">
       <div className="habit-heading">
@@ -13,6 +14,7 @@ export function CompanionPanel({ companion: c }: { companion?: Companion }) {
       <p className="companion-summary">
         {c ? interestSummary(c) : "更新服务后，从新的真实经历开始记录。"}
       </p>
+      {completionTotal !== null && <p className="companion-completion-total" aria-label="共同游戏完成总数">共同完成 {completionTotal} 局 · 只统计已经收好的游戏</p>}
       <div className="companion-rows">
         {games.map(game => {
           const points = c?.interests.find(r => r.kind === game.id)?.points ?? 0;

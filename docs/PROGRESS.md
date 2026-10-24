@@ -2454,3 +2454,12 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 三项测试均使用临时数据库，临时服务已关闭；未访问、重启或覆盖玩家 `data/pixelpet.db`、18102 服务、共享 `web/dist` 或 `bin`。持续迭代目标保留，下一轮优先继续观察真实长时间陪伴反馈和可靠性问题。
 
 本批日志：`/tmp/pixelpet-game-history-*.log`、`/tmp/pixelpet-status-reading-*.log`、`/tmp/pixelpet-quiet-memory-*.log`；浏览器产物：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-game-history-N9ralq/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-status-reading-AKv5pv/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-quiet-memory-jTs1nR/`。
+
+## 2026-10-24 · 成长手册显示共同完成总数
+
+- 成长手册「共同游戏 · 兴趣记录」页新增只读的「共同完成 N 局 · 只统计已经收好的游戏」。总数由七款游戏完整、按固定顺序保存的 `history.completions` 使用精确整数合计；缺历史、旧档、部分历史或结构异常时返回未知并隐藏合计，不从兴趣点数、纪念册或最近经历推算。
+- 没有新增存档字段、菜单项、LCD 点击控件或写请求，保持 A / B / C 三键阅读和旧存档兼容。同步补充共同游戏文档，说明总数来源及未知边界。
+- 新增成长手册页的真实 Chrome 断言：`scripts/check-game-history.mjs` 在临时 SQLite、随机端口和隔离构建下共 **11/11 组**通过；覆盖实际完成两局、刷新、导入导出、旧档不补造、1200／390／320px、320×380 双倍字号、强制颜色、文本不裁切、三键无 LCD 控件和只读无写请求。新增字段展示的组件定向测试与 TypeScript、生产构建也已通过。
+- 测试没有访问、修改或重启玩家 `data/pixelpet.db`、18102 服务、共享 `web/dist` 或 `bin`；浏览器中的成年历史和极大数值是显式夹具，不代表自然多日游玩。持续迭代目标保留，后续继续观察真实长期陪伴反馈。
+
+本批独立构建：`/tmp/pixelpet-companion-total-cPdDVB/`；浏览器产物：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-game-history-EqWZ6k/`。

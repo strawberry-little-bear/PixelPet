@@ -396,6 +396,7 @@
   font-size: 8px;
   line-height: 11px;
 }
+.companion-completion-total { margin: 4px 0 3px; font-size: 8px; line-height: 10px; }
 .companion-rows { display: grid; gap: 1px; font-size: 8px; line-height: 10px; }
 .companion-rows > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: start; }
 .companion-rows > div > span:last-child { color: #547149; letter-spacing: 3px; white-space: nowrap; }
