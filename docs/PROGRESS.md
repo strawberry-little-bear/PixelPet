@@ -2443,3 +2443,14 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 本批只做验证和记录，没有改产品代码、成长速度、奖励、存档格式或三键映射。所有测试使用临时 SQLite、随机端口和隔离构建，未访问／修改玩家 `data/pixelpet.db`、18102 服务、共享 `web/dist` 或 `bin`；浏览器视口与根字号为自动化模拟，真实手机、真人读屏和自然多日陪伴仍需继续体验。
 
 本批浏览器产物：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-playtest-entry-isdv5W/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-physical-focus-o5rkQb/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-return-layout-d7zXpm/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-game-readiness-fdoEHT/`。
+
+## 2026-10-24 · 成年长期陪伴与闲聊回忆隔离回归
+
+- 接续外部试玩记录中关于连续游戏成长反馈、共同经历和成年后方向的观察，使用独立临时 SQLite、随机端口、隔离网页构建和真实 Chrome 复验三条只读／陪伴路径：共同游戏历史、状态页阶段显示、以及「陪它一会儿」的闲聊回忆与重复轻动回应。
+- `scripts/check-game-history.mjs` **11/11 组**通过：幼年／成年共同游戏记录、刷新、导出导入、旧档不补造历史、真实最近游戏来源、320px 双倍字号、原生滚动、B 轮换和 C 返回均保持正确。
+- `scripts/check-status-reading.mjs` **48/48 组**通过：幼年期、成长期、成年期，清醒／睡眠，1200px、320px、320×380 短屏、双倍字号、强制配色和 Asia/Shanghai／America/Los_Angeles 时区均可读；没有横向溢出、裁切或伪造时间。
+- `scripts/check-quiet-memory.mjs` **14/14 组**通过：闲聊来源与位置、最近共同游戏轮换、睡眠清除、刷新后不自动重播、帮助／重置取消不穿透、四槽物品回忆、重复摸摸／发呆／闲聊轻动、减少动态效果和 320×380 大字号均保持三键语义。
+- 本轮没有发现新的高置信度产品 Bug，也没有为了“持续提交”改动成长速度、奖励、每日任务、游戏数量或存档结构。成年阶段、熟悉度、共同游戏历史和装备来自明确构造夹具；模拟视口与自动化结果不替代自然多日陪伴、实体手机后台切换、真人读屏或真人文案舒适度验收。
+- 三项测试均使用临时数据库，临时服务已关闭；未访问、重启或覆盖玩家 `data/pixelpet.db`、18102 服务、共享 `web/dist` 或 `bin`。持续迭代目标保留，下一轮优先继续观察真实长时间陪伴反馈和可靠性问题。
+
+本批日志：`/tmp/pixelpet-game-history-*.log`、`/tmp/pixelpet-status-reading-*.log`、`/tmp/pixelpet-quiet-memory-*.log`；浏览器产物：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-game-history-N9ralq/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-status-reading-AKv5pv/`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-quiet-memory-jTs1nR/`。
