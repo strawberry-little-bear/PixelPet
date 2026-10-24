@@ -62,6 +62,21 @@ describe("paused snake relative steering reminder", () => {
     const view = render(<SnakeGame pet={state} now={now} active turn={turn} />);
     expect(view.container.querySelector(".snake-navigation-hint")?.textContent).toContain(text);
     expect(view.container.querySelector(".snake-navigation-hint")?.textContent).toContain("A 左转或 B 右转");
+    expect(view.container.querySelector(".snake-field")?.getAttribute("data-fence-warning")).toBe("near");
+  });
+
+  it("uses a quieter border cue two cells away and removes it when the warning is no longer active", () => {
+    const state = pet(0, false);
+    state.game!.snake!.body[0] = { x: 9, y: 5 };
+    const view = render(<SnakeGame pet={state} now={now} active turn={0} />);
+    expect(view.container.querySelector(".snake-field")?.getAttribute("data-fence-warning")).toBe("ahead");
+    state.game!.snake!.body[0] = { x: 8, y: 5 };
+    view.rerender(<SnakeGame pet={state} now={now} active turn={0} />);
+    expect(view.container.querySelector(".snake-field")?.hasAttribute("data-fence-warning")).toBe(false);
+    state.game!.snake!.paused = true;
+    state.game!.snake!.body[0] = { x: 10, y: 5 };
+    view.rerender(<SnakeGame pet={state} now={now} active turn={0} />);
+    expect(view.container.querySelector(".snake-field")?.hasAttribute("data-fence-warning")).toBe(false);
   });
 
   it("uses the queued turn when deciding whether to warn", () => {

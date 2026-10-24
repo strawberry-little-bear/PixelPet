@@ -2,6 +2,15 @@
 .snake-game header { display: flex; justify-content: space-between; align-items: center; height: 20px; }
 .snake-game header strong { font-size: 11px; }
 .snake-field { position: relative; width: 146px; height: 122px; margin: 0 auto; border: 1px solid #556b45; background: #b7c496; }
+.snake-field[data-fence-warning="ahead"] { border-color: #8a7348; }
+.snake-field[data-fence-warning="near"] { border-color: #b54e45; animation: snake-fence-flash 800ms steps(2, end) infinite; }
+@keyframes snake-fence-flash {
+  0%, 100% { border-color: #b54e45; box-shadow: 0 0 0 1px #b54e45; }
+  50% { border-color: #556b45; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snake-field[data-fence-warning="near"] { animation: none; border-color: #b54e45; box-shadow: 0 0 0 1px #b54e45; }
+}
 .snake-field > svg { width: 144px; height: 120px; display: block; }
 .snake-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: #e3e7c5ee; text-align: center; }
 .snake-overlay strong { font-size: 13px; }

@@ -49,7 +49,8 @@ export function SnakeGame({ pet, now, active, turn, stepping = false }: { pet: P
   const fenceDistances = [11 - head.x, 9 - head.y, head.x, head.y];
   const boundaryDistance = fenceDistances[heading];
   const savedFenceDistance = fenceDistances[snake.direction];
-  const boundaryHint = active && !snake.paused && !ended && boundaryDistance <= 2
+  const boundaryWarning = active && !snake.paused && !ended && boundaryDistance <= 2;
+  const boundaryHint = boundaryWarning
     ? `前方还有 ${boundaryDistance} 格到围栏，提前按 A 左转或 B 右转。`
     : "";
   const navigationHint = active && !snake.paused && !ended
@@ -57,7 +58,10 @@ export function SnakeGame({ pet, now, active, turn, stepping = false }: { pet: P
     : "";
   return <section className="snake-game" aria-label="果园贪吃蛇">
     <header><strong>果园贪吃蛇</strong><span className="snake-progress" aria-live={paused || ended ? "off" : "polite"} aria-atomic="true">果子 {snake.eaten}/8</span></header>
-    <div className="snake-field">
+    <div
+      className="snake-field"
+      data-fence-warning={boundaryWarning ? boundaryDistance === 1 ? "near" : "ahead" : undefined}
+    >
       <svg viewBox="0 0 144 120" role="img" aria-label={`果园棋盘，已吃 ${snake.eaten} 颗果子，朝${directions[snake.direction]}`} aria-describedby={descriptionId} shapeRendering="crispEdges">
         <desc id={descriptionId}>
           棋盘 10 行 12 列，行从上到下、列从左到右，均从 1 开始。
