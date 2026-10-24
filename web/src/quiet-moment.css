@@ -14,3 +14,6 @@
 .quiet-moment[data-replied="true"]:not([data-sleeping="true"]) .quiet-moment-pet { animation: quiet-moment-breathe 900ms ease both; }
 @keyframes quiet-moment-breathe { 0% { transform: translateY(2px) scale(.98); } 55% { transform: translateY(-2px) scale(1.02); } 100% { transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .quiet-moment[data-replied="true"]:not([data-sleeping="true"]) .quiet-moment-pet { animation: none; } }
+
+.quiet-atmosphere { max-width: 260px; margin-top: 5px; font-size: .625rem; line-height: 1.6; opacity: .82; }
+.quiet-atmosphere span { margin-right: 4px; font-family: var(--mono); opacity: .72; }

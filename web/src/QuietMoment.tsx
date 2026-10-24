@@ -3,6 +3,7 @@ import { quietMemories } from "./quiet-memory";
 import { PetArt, petRigClass } from "./PetArt";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
 import { stageNames, formNames } from "./growth";
+import { quietAtmosphere } from "./quiet-atmosphere";
 import type { PetState, Shop } from "./types";
 import "./growth.css";
 import "./quiet-moment.css";
@@ -19,8 +20,8 @@ const sleepingMoments = [
   { title: "轻声道晚安", idle: "回忆等醒来再聊，现在轻声说句晚安吧。", reply: "你轻声说了晚安，它还在甜甜地睡着。" },
 ] as const;
 
-export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memoryKey = null }: {
-  pet: PetState; shop?: Shop | null; choice: number; replied: boolean; responseId?: number; memoryKey?: string | null;
+export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memoryKey = null, now = Date.now() }: {
+  pet: PetState; shop?: Shop | null; choice: number; replied: boolean; responseId?: number; memoryKey?: string | null; now?: number;
 }) {
   const growth = pet.growth;
   const stage = growth?.stage ?? "baby";
@@ -30,6 +31,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
   const memories = !pet.sleeping && choice === 2 && replied ? quietMemories(pet, shop) : [];
   const memoryIndex = memories.findIndex(m => m.key === memoryKey);
   const memory = memories[memoryIndex];
+  const atmosphere = !pet.sleeping ? quietAtmosphere(pet.species, stage, form, now) : null;
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
@@ -47,6 +49,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
       <div className="quiet-moment-copy">
         {growth && <small className="quiet-growth-label">{stageNames[stage]}{stage === "adult" && form ? ` · ${formNames[form]}` : ""}</small>}
         <strong>{words.title}</strong>
+        {atmosphere && <small className="quiet-atmosphere" data-period={atmosphere.period}><span>{atmosphere.label}</span>{atmosphere.text}</small>}
         {memory && <small className="quiet-memory-position">闲聊回忆 {memoryIndex + 1} / {memories.length}</small>}
         <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
         {memory && <small className="quiet-memory-source">{memory.source === "game" ? "从共同游戏记录想起：" : "从纪念册想起："}{memory.title}

@@ -82,3 +82,17 @@ it("does not invent a saved stage/form for legacy data, or dress an egg as an ad
   expect(container.querySelector(".growth-outfit")).toBeNull();
   expect(container.querySelector(".growth-form-emblem")).toBeNull();
 });
+it("shows a present local-time atmosphere without adding a control or changing the pet", () => {
+  const saved = pet(); const before = structuredClone(saved);
+  const { container } = render(<QuietMoment pet={saved} choice={1} replied={false} now={new Date(2026, 9, 24, 18).getTime()} />);
+  expect(container.querySelector(".quiet-atmosphere")?.getAttribute("data-period")).toBe("dusk");
+  expect(container.querySelector(".quiet-atmosphere")?.textContent).toContain("晚霞");
+  expect(container.querySelector("button,a,input,[role=button]")).toBeNull();
+  expect(saved).toEqual(before);
+});
+
+it("does not show present-time atmosphere while the pet is sleeping", () => {
+  const saved = { ...pet(), sleeping: true };
+  const { container } = render(<QuietMoment pet={saved} choice={1} replied={false} now={new Date(2026, 9, 24, 18).getTime()} />);
+  expect(container.querySelector(".quiet-atmosphere")).toBeNull();
+});
