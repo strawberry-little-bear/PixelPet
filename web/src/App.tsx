@@ -2531,6 +2531,7 @@ export default function App() {
                             choice={arcadeChoice}
                             economy={pet.economy}
                             companion={pet.companion}
+                            growth={growth}
                             shop={shop}
                             now={now}
                             sleeping={pet.sleeping}

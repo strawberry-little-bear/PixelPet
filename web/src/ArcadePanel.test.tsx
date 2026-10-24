@@ -194,6 +194,20 @@ describe("saved game familiarity", () => {
     const view = render(<ArcadePanel choice={0} companion={companion} now={Date.now()} shop={rules} economy={saved.economy} />);
     expect(view.container.querySelector('[aria-label="共同游戏熟悉度"]')).toBeNull();
   });
+
+  it("shows a read-only game preference from saved growth habits", () => {
+    const growth = emptyGrowth("growing"); growth.care.play = 3;
+    const view = render(<ArcadePanel choice={2} growth={growth} now={Date.now()} shop={rules} economy={saved.economy} />);
+    expect(screen.getByLabelText("成长倾向游戏提示").textContent).toContain("贪吃蛇");
+    expect(screen.getByLabelText("成长倾向游戏提示").textContent).toContain("这款正合它的心情");
+    expect(view.container.querySelector("button,a,input,[role=button]")).toBeNull();
+  });
+
+  it("keeps the preference quiet until growing habits have evidence", () => {
+    const growth = emptyGrowth("growing");
+    const view = render(<ArcadePanel choice={0} growth={growth} now={Date.now()} shop={rules} economy={saved.economy} />);
+    expect(view.container.querySelector('[aria-label="成长倾向游戏提示"]')).toBeNull();
+  });
 });
 
 describe("guide and confirmation edge cases", () => {
