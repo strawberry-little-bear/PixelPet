@@ -89,8 +89,35 @@ export function lifeSummary(pet: PetState, now: number) {
     interestLeaders.length > 0 ? `目前更熟悉的是「${interestLeaders.join("」和「")}」` : null,
   ].filter(Boolean).join("；");
   const stage = pet.growth?.stage;
+  const adultDirections = stage === "adult" ? [
+    {
+      id: "review",
+      label: "回看",
+      text: lastMemory
+        ? `可以再翻看「${lastMemory.title}」，让这段回忆留在想起它的时候。`
+        : memories.length > 0
+          ? `纪念册里已经有 ${memories.length} 段回忆，什么时候想起时再翻看就好。`
+          : "等真正想留下的时刻，再把它放进纪念册。",
+    },
+    {
+      id: "explore",
+      label: "探索",
+      text: discoveries > 0
+        ? `池塘和公园里已经遇见 ${discoveries} 种真实发现，想散步或等待时再去看看。`
+        : "想探索时，可以去池塘边等一会儿，或一起走走；遇见什么都算一次小发现。",
+    },
+    {
+      id: "together",
+      label: "一起玩",
+      text: recentGame
+        ? `最近一起玩的是「${recentGame.title}」，想玩时可以从熟悉的节奏开始。`
+        : interestLeaders.length > 0
+          ? `熟悉的是「${interestLeaders.join("」和「")}」，按今天的心情再选它也可以。`
+          : "今天想玩的时候，按心情从喜欢的游戏里选一个就好。",
+    },
+  ] as const : null;
   const nextStep = stage === "adult"
-    ? `形态已经固定${adultThread ? `，${adultThread}` : ""}。想继续时，可以回看纪念册、布置小窝，或按心情一起玩喜欢的游戏。成年后的日子没有必须完成的目标。`
+    ? `形态已经固定${adultThread ? `，${adultThread}` : ""}。成年后的日子没有必须完成的目标。`
     : stage === "baby" || stage === "growing"
       ? "按它当下的需要慢慢照顾，等它准备好再看看成长记录；不必为了数字重复操作。"
       : "先从今天的相遇开始，等真正发生的照顾和游戏自然留下回忆。";
@@ -112,6 +139,7 @@ export function lifeSummary(pet: PetState, now: number) {
       ? { titles: interestLeaders, points: bestInterest }
       : null,
     recentMemory: lastMemory,
+    adultDirections,
     nextStep,
   };
 }
@@ -140,9 +168,14 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
         : `熟悉的游戏不止一种 · 最高熟悉度 ${summary.interestProgress.points} / ${interestLimit}`}</p>
       <small>这是共同经历的只读记录，不是任务，也不会改变成年形态。</small>
     </section>}
-    <section className="life-summary-next" aria-label="一起生活的下一步">
-      <strong>一起生活的下一步</strong>
+    <section className="life-summary-next" aria-label={summary.adultDirections ? "可以继续的方向" : "一起生活的下一步"}>
+      <strong>{summary.adultDirections ? "可以继续的方向" : "一起生活的下一步"}</strong>
       <p>{summary.nextStep}</p>
+      {summary.adultDirections && <ul className="life-summary-directions" data-adult-directions>
+        {summary.adultDirections.map(direction => <li key={direction.id}>
+          <b>{direction.label}</b><span>{direction.text}</span>
+        </li>)}
+      </ul>}
       <small>这是陪伴提示，不是任务；按你们的心情来就好。</small>
     </section>
     <section className="life-summary-experiences" aria-label="共同经历统计">

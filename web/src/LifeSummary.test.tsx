@@ -237,6 +237,45 @@ describe("adult-life suggestions from saved experiences", () => {
     };
   }
 
+  it("shows three soft adult directions from saved memories, discoveries, and games", () => {
+    const current = adult();
+    current.album = { since: created, legacy: false, entries: [{ kind: "walk", at: created + day, source: "shared" }] };
+    current.pond = { since: created, fish: [{ id: "reed-minnow", firstAt: created, lastAt: created, count: 2 }] };
+    current.park = { since: created, finds: [{ id: "leaf", firstAt: created, lastAt: created, count: 1 }], walks: 1, lastWalkAt: created };
+    const before = structuredClone(current);
+    const summary = lifeSummary(current, current.lastTick);
+    expect(summary.adultDirections?.map(direction => direction.id)).toEqual(["review", "explore", "together"]);
+    expect(summary.adultDirections?.[0].text).toContain("公园里走过的第一条小路");
+    expect(summary.adultDirections?.[1].text).toContain("2 种真实发现");
+    expect(summary.adultDirections?.[2].text).toContain("公园散步");
+    const { container } = render(<LifeSummary pet={current} now={current.lastTick} />);
+    expect(container.querySelectorAll("[data-adult-directions] li")).toHaveLength(3);
+    expect(container.querySelector(".life-summary-next")?.textContent).toContain("可以继续的方向");
+    expect(current).toEqual(before);
+  });
+
+  it("keeps an adult with no saved experiences open without inventing a history", () => {
+    const current = adult();
+    delete current.companion;
+    const summary = lifeSummary(current, current.lastTick);
+    expect(summary.adultDirections).toHaveLength(3);
+    expect(summary.adultDirections?.[0].text).toContain("真正想留下的时刻");
+    expect(summary.adultDirections?.[1].text).toContain("想探索时");
+    expect(summary.adultDirections?.[2].text).toContain("按心情");
+    expect(summary.adultDirections?.[0].text).not.toContain("最近");
+    const { container } = render(<LifeSummary pet={current} now={current.lastTick} />);
+    expect(container.querySelectorAll("[data-adult-directions] li")).toHaveLength(3);
+    expect(container.textContent).not.toContain("最近一次一起玩过");
+  });
+
+  it.each(["baby", "growing"] as const)("does not show adult directions during %s", stage => {
+    const current = adult();
+    current.growth = emptyGrowth(stage);
+    expect(lifeSummary(current, current.lastTick).adultDirections).toBeNull();
+    const { container } = render(<LifeSummary pet={current} now={current.lastTick} />);
+    expect(container.querySelector("[data-adult-directions]")).toBeNull();
+  });
+
   it("separates the last completed game from a capped lifetime interest", () => {
     const current = adult(), before = structuredClone(current);
     const { container } = render(<LifeSummary pet={current} now={current.lastTick} />);

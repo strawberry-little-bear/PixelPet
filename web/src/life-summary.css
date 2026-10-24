@@ -46,3 +46,7 @@
 .life-summary-games > small { display: block; line-height: 1.35; }
 
 .life-summary-tracking { margin-top: 6px; }
+.life-summary-directions { display: grid; gap: 6px; margin: 7px 0 5px; padding: 0; list-style: none; }
+.life-summary-directions li { display: grid; grid-template-columns: 4em minmax(0, 1fr); gap: 6px; align-items: baseline; }
+.life-summary-directions b { white-space: nowrap; }
+.life-summary-directions span { line-height: 1.35; }
