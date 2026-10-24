@@ -27,7 +27,28 @@ export function nextTile(board: number[], cursor: number) {
   return 0;
 }
 export type TileLink = { path: TilePoint[]; tile: number; id: number };
-export type TileHint = { path: TilePoint[]; id: number };
+export type TileHint = { path: TilePoint[]; id: number; traceHidden?: boolean };
+
+// Describe the server's supplied route, never search for another legal pair.
+// Missing/stale endpoints must not become a fabricated pattern or position.
+function hintDescription(board: number[], path: TilePoint[]): string | null {
+  if (path.length < 2 || path.length > 4 || path.some(p =>
+    !Number.isInteger(p.x) || !Number.isInteger(p.y) || p.x < 0 || p.x > 5 || p.y < 0 || p.y > 5)) return null;
+  const index = (p: TilePoint) => p.x >= 1 && p.x <= 4 && p.y >= 1 && p.y <= 4
+    ? (p.y - 1) * 4 + p.x - 1 : -1;
+  const first = index(path[0]), last = index(path[path.length - 1]);
+  if (first < 0 || last < 0 || first === last || !board[first] || board[first] !== board[last] || !tileNames[board[first]]) return null;
+  let previous = "", turns = 0;
+  for (let i = 1; i < path.length; i++) {
+    const dx = path[i].x - path[i - 1].x, dy = path[i].y - path[i - 1].y;
+    if ((dx === 0) === (dy === 0)) return null;
+    const direction = dx ? `x${Math.sign(dx)}` : `y${Math.sign(dy)}`;
+    if (previous && previous !== direction) turns++;
+    previous = direction;
+  }
+  const outside = path.some(p => p.x === 0 || p.x === 5 || p.y === 0 || p.y === 5);
+  return `示例：${tilePosition(first)}和${tilePosition(last)}· ${tileNames[board[first]]}；${turns ? `拐 ${turns} 次弯` : "直线连通"}${outside ? "，经过棋盘外沿" : ""}。`;
+}
 export function TileIcon({ value }: { value: number }) {
   const paths = [
     "",
@@ -74,6 +95,7 @@ export function TileGame({
   const tiles = pet.game?.tiles;
   if (!tiles) return null;
   const growth = petGrowth(pet, now);
+  const example = hint && !link ? hintDescription(tiles.board, hint.path) : null;
   return (
     <section
       className="tile-game"
@@ -114,7 +136,7 @@ export function TileGame({
               )}
             </g>
           ))}
-          {hint && hint.path.length > 0 && !link && (
+          {hint && !hint.traceHidden && hint.path.length > 0 && !link && (
             <polyline
               className="tile-hint"
               data-hint-id={hint.id}
@@ -169,11 +191,12 @@ export function TileGame({
         <p>{tilePosition(cursor)}· {tileNames[tiles.board[cursor]]}</p>
         <p>{tiles.pick >= 0 ? `已选${tilePosition(tiles.pick)}· ${tileNames[tiles.board[tiles.pick]]}` : "B 选中"}</p>
       </div>
-      {hint && !link && (
-        <p className="tile-hint-note" role="note">
-          虚线是示例路径，可以连通但不会自动收好。
-        </p>
-      )}
+      <div className="tile-hint-announcement" aria-live="polite" aria-atomic="true">
+        {hint && !link && <p className="tile-hint-note" role="note">
+          {example && <span>{example}<br /></span>}
+          虚线是示例路径，可以连通但不会自动收好。虚线短暂显示，文字保留到下次选牌。
+        </p>}
+      </div>
       <p className="tile-message">
         {message || "同图案，最多拐两次弯；可绕棋盘外。"}
       </p>

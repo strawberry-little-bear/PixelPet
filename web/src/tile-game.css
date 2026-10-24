@@ -191,6 +191,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .tile-link,
+  .tile-hint,
   .collected-tile,
   .tile-companion.collecting .tile-pet {
     animation: none;
@@ -223,4 +224,6 @@
   .tile-cell.picked rect { fill: Canvas; stroke: CanvasText; stroke-dasharray: 2 1; }
   .tile-pick-mark { stroke: Highlight; }
   .tile-link { stroke: LinkText; }
+  .tile-hint { stroke: LinkText; opacity: 1; }
+  .tile-hint-note { color: CanvasText; }
 }

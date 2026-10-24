@@ -220,10 +220,66 @@ try {
       const other = tiles.findIndex(v => v !== tiles[0]); await move(page,other); await key(page,'b');
       assert.equal(await page.locator('.tile-cell.picked').getAttribute('data-cell'),'0');
       assert.deepEqual(await board(page),tiles); await visibleFeedback(page, '.tile-message');
+      const note = page.locator('.tile-hint-note'); await note.waitFor();
+      const explanation = await note.textContent();
+      assert.match(explanation, /示例：第 \d+ 格（\d 行 \d 列）和第 \d+ 格（\d 行 \d 列）·/);
+      assert.match(explanation, /直线连通|拐 [12] 次弯/);
+      assert.match(explanation, /文字保留到下次选牌/);
+      assert.equal(await note.locator('..').getAttribute('aria-live'), 'polite');
+      assert.equal(await note.locator('..').getAttribute('aria-atomic'), 'true');
+      const trace = page.locator('.tile-hint');
+      assert.equal(await trace.count(), 1, 'inspect reduced-motion/contrast styles before the trace fades');
+      {
+        assert.equal(await trace.evaluate(el => getComputedStyle(el).animationName), 'none');
+        if (mode.contrast) {
+          const colors = await trace.evaluate(el => {
+            const sample = document.createElement('span'); sample.style.color = 'LinkText'; document.body.append(sample);
+            const expected = getComputedStyle(sample).color; sample.remove();
+            return {stroke:getComputedStyle(el).stroke, opacity:getComputedStyle(el).opacity, expected};
+          });
+          assert.equal(colors.stroke, colors.expected); assert.equal(colors.opacity, '1');
+        }
+      }
+      await page.waitForFunction(() => !document.querySelector('.tile-hint'));
+      assert.equal(await note.textContent(), explanation, 'fading must leave live text unchanged');
+      assert.deepEqual((await inspect(page)).clipped, []);
+      assert.equal((await inspect(page)).overflow, false);
+      // Explicit scripted reading, not an automatic scroll or real screen reader.
+      // Every wrapped line must be reachable above the sticky three-key dock.
+      const lines = await note.evaluate(el => {
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), boxes = []; let node;
+        while ((node = walker.nextNode())) {
+          if (!node.textContent.trim()) continue;
+          const range = document.createRange(); range.selectNodeContents(node);
+          for (const r of range.getClientRects()) if (r.width && r.height)
+            boxes.push({left:r.left,right:r.right,top:r.top+scrollY,bottom:r.bottom+scrollY});
+        }
+        return boxes;
+      });
+      assert(lines.length > 0);
+      for (const line of lines) {
+        const visible = await page.evaluate(line => {
+          window.scrollTo({top:line.top-16,behavior:'instant'});
+          const y = (line.top+line.bottom)/2-scrollY, x = (line.left+line.right)/2;
+          const dock = document.querySelector('.device-buttons').getBoundingClientRect();
+          return line.top-scrollY >= 0 && line.bottom-scrollY <= Math.min(innerHeight,dock.top) &&
+            !!document.elementFromPoint(x,y)?.closest('.tile-hint-note');
+        }, line);
+        assert(visible, `hint line obscured by dock: ${JSON.stringify({mode:mode.name,line})}`);
+      }
+      results.at(-1).hint = {text:explanation,readableLines:lines.length,reducedMotion:true,forcedColors:!!mode.contrast};
+      await note.evaluate(el => el.scrollIntoView({block:'center',behavior:'instant'}));
+      await page.screenshot({path:join(artifacts,mode.name+'-hint.png'),fullPage:true});
+      const hintWrites = writes.length; await key(page,'a');
+      assert.equal(await note.textContent(), explanation, 'cursor navigation is read-only and retains the example');
+      assert.equal(writes.length, hintWrites);
+      await move(page,other);
       await page.screenshot({path:join(artifacts,mode.name+'-selected.png'),fullPage:false});
       await key(page,'c'); assert.equal(await page.locator('.tile-cell.picked').count(),0);
+      assert.equal(await note.count(),0, 'C clearing a selection clears the example');
       await visibleFeedback(page, '.tile-message'); await key(page,'b');
       await page.reload(); await page.locator('.tile-board').waitFor();
+      assert.equal(await note.count(),0, 'refresh cannot reconstruct a local example');
       assert.equal(await page.locator('.tile-cell.picked').getAttribute('data-cell'),String(other));
       assert((await page.locator('.tile-status').textContent()).includes(`已选第 ${other+1} 格`));
       const readWrites = writes.length;

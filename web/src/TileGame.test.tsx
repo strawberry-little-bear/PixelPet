@@ -151,8 +151,7 @@ describe("three-key pet tile matching", () => {
             ...result(),
             tileHint: [
               { x: 1, y: 1 },
-              { x: 1, y: 3 },
-              { x: 4, y: 3 },
+              { x: 2, y: 1 },
             ],
           };
         }
@@ -163,10 +162,58 @@ describe("three-key pet tile matching", () => {
     await key("a");
     await key("a");
     await key("b");
-    expect(document.querySelector(".tile-hint")?.getAttribute("points")).toBe("20,20 20,60 80,60");
+    expect(document.querySelector(".tile-hint")?.getAttribute("points")).toBe("20,20 40,20");
     expect(screen.getByRole("note").textContent).toContain("不会自动收好");
     await act(async () => { await vi.advanceTimersByTimeAsync(3200); });
     expect(document.querySelector(".tile-hint")).toBeNull();
+    expect(screen.getByRole("note").textContent).toContain("第 1 格（1 行 1 列）和第 2 格（1 行 2 列）· 草莓");
+    const writes = actions().length;
+    await key("a");
+    expect(screen.getByRole("note").textContent).toContain("示例");
+    expect(actions()).toHaveLength(writes);
+    await key("b");
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+  it("keeps a valid new hint returned with a changed authoritative board", async () => {
+    saved.game = game(); saved.game.tiles!.pick = 0;
+    api.mockImplementation(async (path, body) => {
+      if (path === "action" && (body as { kind: string }).kind === "tile-pick") {
+        // Another client's pair has already changed the server board.
+        saved.game!.tiles!.board[14] = 0; saved.game!.tiles!.board[15] = 0;
+        saved.game!.tiles!.pairs = 1; saved.revision++;
+        return { ...result(), tileHint: [{ x: 1, y: 1 }, { x: 2, y: 1 }] };
+      }
+      return result();
+    });
+    await mount(); await key("a"); await key("a"); await key("b");
+    expect(screen.getByRole("note").textContent).toContain("第 1 格（1 行 1 列）和第 2 格（1 行 2 列）· 草莓");
+    expect(document.querySelector(".tile-hint")).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(screen.getByRole("note").textContent).toContain("示例");
+    expect(actions()).toHaveLength(1);
+  });
+  it.each(["clear", "sync", "help", "blur", "reload"])("clears the readable hint on %s without replaying it", async boundary => {
+    saved.game = game(); saved.game.tiles!.pick = 0;
+    api.mockImplementation(async (path, body) => path === "action" && (body as { kind: string }).kind === "tile-pick"
+      ? { ...result(), tileHint: [{ x: 1, y: 1 }, { x: 2, y: 1 }] } : result());
+    await mount(); await key("a"); await key("a"); await key("b");
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    // A same-board poll must preserve the readable explanation after fading.
+    expect(screen.getByRole("note").textContent).toContain("文字保留到下次选牌");
+    const writes = actions().length;
+    if (boundary === "clear") await key("c");
+    else if (boundary === "sync") {
+      saved.game.tiles!.board[0] = 0; saved.game.tiles!.board[1] = 0;
+      saved.game.tiles!.pairs = 1; saved.game.tiles!.pick = -1; saved.revision++;
+      await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    } else if (boundary === "help") fireEvent.click(screen.getByRole("button", { name: "玩法说明" }));
+    else if (boundary === "blur") await act(async () => { fireEvent(window, new Event("blur")); });
+    else { cleanup(); await mount(); }
+    expect(screen.queryByRole("note")).toBeNull();
+    if (boundary === "help") fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    if (boundary === "blur") await act(async () => { fireEvent(window, new Event("focus")); });
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(actions()).toHaveLength(writes + (boundary === "clear" ? 1 : 0));
   });
   it("does not reveal rejected tile actions", async () => {
     const scroll = feedbackGeometry(); saved.game = game(); await mount();

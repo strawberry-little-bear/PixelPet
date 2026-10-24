@@ -307,7 +307,7 @@ export default function App() {
   const [tileCursor, setTileCursor] = useState(0);
   const [tileLink, setTileLink] = useState<TileLink | null>(null);
   const tileLinkSequence = useRef(0);
-  const [tileHint, setTileHint] = useState<TileHint | null>(null);
+  const [tileHint, setTileHint] = useState<(TileHint & { boardKey: string }) | null>(null);
   const tileHintSequence = useRef(0);
   const tileHintShownFor = useRef("");
   const [tileDestination, setTileDestination] = useState<TileDestination | null>(null);
@@ -849,14 +849,23 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [tileLink]);
   useEffect(() => {
-    if (!tileHint) return;
-    const timer = setTimeout(() => setTileHint(null), 3200);
+    const id = tileHint?.id;
+    if (id === undefined) return;
+    // Fade the visual trace, but leave its explanation readable without a
+    // deadline. Do not change live-region text or restart on the fade update.
+    const timer = setTimeout(() => setTileHint(current => current?.id === id
+      ? { ...current, traceHidden: true } : current), 3200);
     return () => clearTimeout(timer);
-  }, [tileHint]);
+  }, [tileHint?.id]);
   useEffect(() => {
     tileHintShownFor.current = "";
     setTileHint(null);
   }, [pet?.game?.id]);
+  useEffect(() => {
+    // Accepted changes from another tab also invalidate a local example.
+    const boardKey = pet?.game?.tiles?.board.join(",");
+    setTileHint(current => current?.boardKey === boardKey ? current : null);
+  }, [pet?.game?.tiles?.board.join(",")]);
   useEffect(() => {
     const board = pet?.game?.tiles?.board;
     if (board && !board[tileCursor]) setTileCursor(nextTile(board, tileCursor));
@@ -1104,7 +1113,7 @@ export default function App() {
   async function act(kind: string, extra: Record<string, unknown> = {}) {
     if (busyRef.current || uncertainRef.current || unavailableRef.current || corruptRef.current) return false;
     syncEpoch.current++;
-    if (kind === "tile-pick") setTileHint(null);
+    if (kind === "tile-pick" || kind === "tile-clear") setTileHint(null);
     setCareFeedback(null);
     setCareOutcome(null);
     // A new acknowledged action starts a fresh receipt window. The previous
@@ -1229,7 +1238,7 @@ export default function App() {
         && r.state.game?.tiles && tileKey === gameSessionKey(pet.game)
         && activeBoardEpoch === boardEpoch.current && !document.hidden && windowActive.current) {
         tileHintShownFor.current = tileKey;
-        setTileHint({ path: r.tileHint, id: ++tileHintSequence.current });
+        setTileHint({ path: r.tileHint, id: ++tileHintSequence.current, boardKey: r.state.game.tiles.board.join(",") });
       }
       setCareFeedback(r.careFeedback ?? null);
       setCareOutcome(r.careFeedback ?? null);

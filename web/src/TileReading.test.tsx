@@ -55,3 +55,34 @@ it("shows a server-provided legal route as a temporary example", () => {
   expect(screen.getByRole("note").textContent).toContain("示例路径");
   expect(container.querySelectorAll("button,input,a,[role=button],[tabindex]")).toHaveLength(0);
 });
+
+it("explains a server route by both endpoint coordinates and pattern name", () => {
+  render(view(pet, 3, { id: 8, path: [{ x: 3, y: 1 }, { x: 4, y: 1 }] }));
+  const note = screen.getByRole("note");
+  expect(note.textContent).toContain("第 3 格（1 行 3 列）和第 4 格（1 行 4 列）· 嫩叶");
+  expect(note.textContent).toContain("直线连通");
+  expect(note.textContent).toContain("文字保留到下次选牌");
+  expect(note.parentElement?.getAttribute("aria-live")).toBe("polite");
+  expect(note.parentElement?.getAttribute("aria-atomic")).toBe("true");
+});
+it("explains one and two turns without guessing a route from the board", () => {
+  const state = structuredClone(pet);
+  state.game!.tiles!.board = [1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1];
+  const { rerender } = render(view(state, 0, { id: 9, path: [{ x: 1, y: 1 }, { x: 1, y: 4 }, { x: 4, y: 4 }] }));
+  expect(screen.getByRole("note").textContent).toContain("拐 1 次弯");
+  expect(screen.getByRole("note").textContent).toContain("第 16 格（4 行 4 列）· 草莓");
+  rerender(view(state, 0, { id: 10, path: [{ x: 1, y: 1 }, { x: 1, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 1 }] }));
+  expect(screen.getByRole("note").textContent).toContain("拐 2 次弯，经过棋盘外沿");
+});
+it("retains the same readable announcement after the brief trace fades", () => {
+  const hint = { id: 11, path: [{ x: 3, y: 1 }, { x: 4, y: 1 }] };
+  const { container, rerender } = render(view(pet, 3, hint));
+  const text = screen.getByRole("note").textContent;
+  rerender(view(pet, 3, { ...hint, traceHidden: true }));
+  expect(container.querySelector(".tile-hint")).toBeNull();
+  expect(screen.getByRole("note").textContent).toBe(text);
+});
+it("does not describe stale endpoints as a known pair or reveal a replacement solution", () => {
+  render(view(pet, 3, { id: 12, path: [{ x: 1, y: 1 }, { x: 4, y: 3 }] }));
+  expect(screen.getByRole("note").textContent).not.toMatch(/示例：|拐 \d 次弯|直线连通/);
+});
