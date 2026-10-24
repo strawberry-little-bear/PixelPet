@@ -26,14 +26,17 @@ export function RoomDecoration({ id }: { id?: string; }) {
 // decoration slot. Unique pattern IDs also permit several previews on a page.
 export function RoomSurfaceArt({ id }: { id?: string; }) {
   const pattern = useId().replace(/:/g, "");
-  if (!id || !["meadow-wall", "starlit-wall", "honey-floor", "mint-floor"].includes(id)) return null;
+  if (!id || !["meadow-wall", "starlit-wall", "autumn-wall", "honey-floor", "mint-floor", "winter-floor"].includes(id)) return null;
   const wall = id.endsWith("wall");
   return <svg className={`room-surface surface-${wall ? "wallpaper" : "floor"} surface-${id}`} data-item={id} aria-hidden="true" shapeRendering="crispEdges" preserveAspectRatio="none">
     <defs><pattern id={pattern} width={id === "honey-floor" ? 48 : 32} height={wall ? 32 : 16} patternUnits="userSpaceOnUse">
       {id === "meadow-wall" ? <><path d="M0 0h32v32H0z" fill="#dce3bd" /><path d="M8 11V7h5v4h3v4h-5v-4zm12 12v-4h5v4h3v4h-5v-4z" fill="#a9bf8d" /><path d="M12 15v5m12 7v4" stroke="#b6c798" /></>
-        : id === "starlit-wall" ? <><path d="M0 0h32v32H0z" fill="#c7d4cd" /><path d="M8 5h2v3h3v2h-3v3H8v-3H5V8h3zm15 18h2v2h-2z" fill="#f4e8bd" /><path d="M23 5h2v2h-2zM7 25h2v2H7z" fill="#97afaa" /></>
+        : id === "starlit-wall" ? <><path d="M0 0h32v32H0z" fill="#c7d4cd" /><path d="M8 5h2v3h3v2h-3v3H8v-3H5V8h3zm15 18h2v2h-2z" fill="#f4e8bd" /><path d="M23 5h2v2h-2zM7 25h2v2H7z" fill="#97afaa" />
+            </>
+          : id === "autumn-wall" ? <><path d="M0 0h32v32H0z" fill="#e3c69b" /><path d="M7 6h4v4h3v4h-4v-3H7zm18 14h4v4h-3v4h-4v-4h3z" fill="#b86d4f" /><path d="M14 24h3v3h-3zm5-12h3v3h-3z" fill="#d59a55" /><path d="M4 17h3v2H4zm20-13h3v2h-3z" fill="#8b7656" /></>
           : id === "honey-floor" ? <><path d="M0 0h48v16H0z" fill="#d3bc8f" /><path d="M0 0h48M0 8h48M12 0v8m24 0v8" stroke="#b1986e" /><path d="M19 4h10M2 12h6m33 0h4" stroke="#e6d1a7" /></>
-            : <><path d="M0 0h32v16H0z" fill="#cdd8bb" /><path d="M0 0h16v8H0zm16 8h16v8H16z" fill="#aec4a1" /><path d="M0 0h32M0 8h32M16 0v16" stroke="#e6e5c9" /></>}
+            : id === "mint-floor" ? <><path d="M0 0h32v16H0z" fill="#cdd8bb" /><path d="M0 0h16v8H0zm16 8h16v8H16z" fill="#aec4a1" /><path d="M0 0h32M0 8h32M16 0v16" stroke="#e6e5c9" /></>
+              : <><path d="M0 0h48v16H0z" fill="#d7d1c8" /><path d="M0 0h16v8H0zm32 0h16v8H32zM16 8h16v8H16z" fill="#b7c7d0" /><path d="M0 0h48M0 8h48M16 0v8m16 0v8" stroke="#f0eadb" /></>}
     </pattern></defs>
     <rect width="100%" height="100%" fill={`url(#${pattern})`} />
   </svg>;

@@ -38,7 +38,9 @@ func ShopRules() Shop {
 		{"sky-bow", "晴空领结", "accessory", 22, "带着浅蓝色的风，继续一起散步。"},
 		{"meadow-wall", "小叶墙纸", "wallpaper", 18, "让墙上长出小叶子，窗户仍望向外面。"},
 		{"starlit-wall", "晚星墙纸", "wallpaper", 24, "把几颗晚星留在墙上，白天也能看见。"},
+		{"autumn-wall", "秋叶墙纸", "wallpaper", 26, "把窗外的秋色留在小窝里，慢慢看叶影换色。"},
 		{"honey-floor", "蜂蜜木地板", "floor", 18, "一条条温暖木纹，不占小窝摆件的位置。"},
+		{"winter-floor", "雪夜地毯", "floor", 28, "柔软的雪花格纹，让冬日的小脚也有暖处。"},
 		{"mint-floor", "薄荷方砖", "floor", 22, "浅浅的绿格子，和喜欢的地毯一起铺好。"},
 	}}
 }

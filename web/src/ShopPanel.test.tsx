@@ -179,10 +179,12 @@ describe("three-key categorized shop previews", () => {
     }
   });
   it("gives coexisting pattern previews unique IDs and rejects unknown surface art", () => {
-    const view = render(<><RoomSurfaceArt id="meadow-wall" /><RoomSurfaceArt id="meadow-wall" /><RoomSurfaceArt id="fake" /></>);
+    const view = render(<><RoomSurfaceArt id="meadow-wall" /><RoomSurfaceArt id="autumn-wall" /><RoomSurfaceArt id="winter-floor" /><RoomSurfaceArt id="meadow-wall" /><RoomSurfaceArt id="fake" /></>);
     const patterns = [...view.container.querySelectorAll('pattern')];
-    expect(patterns).toHaveLength(2);
+    expect(patterns).toHaveLength(4);
     expect(patterns[0].id).not.toBe(patterns[1].id);
+    expect(view.container.querySelector('.surface-autumn-wall.surface-wallpaper')).not.toBeNull();
+    expect(view.container.querySelector('.surface-winter-floor.surface-floor')).not.toBeNull();
   });
   it.each(["wallpaper", "floor"] as const)("preserves the actual first %s pattern in memory", kind => {
     const p = pet();

@@ -10,7 +10,7 @@ func TestFourCosmeticSlotsReplaceAndToggleIndependently(t *testing.T) {
 	s, now := economyPet(t)
 	s.Economy.Coins = 1000
 	beforeGrowth, beforeNeeds, beforeCare := *s.Growth, s.Needs, s.CareCount
-	groups := [][]string{{"leaf-pin", "sunflower-pin", "sky-bow"}, {"clover-pot", "moon-lamp"}, {"meadow-wall", "starlit-wall"}, {"honey-floor", "mint-floor"}}
+	groups := [][]string{{"leaf-pin", "sunflower-pin", "sky-bow"}, {"clover-pot", "moon-lamp"}, {"meadow-wall", "starlit-wall", "autumn-wall"}, {"honey-floor", "mint-floor", "winter-floor"}}
 	for _, group := range groups {
 		for _, id := range group {
 			previous := s.Economy.Equipped
@@ -76,7 +76,7 @@ func TestFourCosmeticSlotsReplaceAndToggleIndependently(t *testing.T) {
 }
 
 func TestNewCosmeticsRequireOwnershipMatchingSlotAndSchema(t *testing.T) {
-	for _, id := range []string{"sunflower-pin", "sky-bow", "meadow-wall", "starlit-wall", "honey-floor", "mint-floor"} {
+	for _, id := range []string{"sunflower-pin", "sky-bow", "meadow-wall", "starlit-wall", "autumn-wall", "honey-floor", "mint-floor", "winter-floor"} {
 		t.Run(id, func(t *testing.T) {
 			s, now := economyPet(t)
 			s.Economy.Coins = 100
