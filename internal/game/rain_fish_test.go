@@ -95,10 +95,10 @@ func TestSchemaNineteenMigrationAddsCatalogWithoutChangingSession(t *testing.T) 
 	s, now := fishingState(t)
 	s.Schema = 19
 	before := s
-	if !s.Upgrade(now) || s.Schema != 20 {
+	if !s.Upgrade(now) || s.Schema != Schema {
 		t.Fatal("schema19 did not migrate", s.Schema)
 	}
-	before.Schema = 20
+	before.Schema = Schema
 	if !reflect.DeepEqual(before, s) {
 		t.Fatal("catalog migration changed saved state")
 	}

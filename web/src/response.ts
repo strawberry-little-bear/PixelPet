@@ -60,7 +60,7 @@ const memoryKinds: Record<Memory["kind"], unknown> = {
   ...outingMemoryWords,
   hatch: true, growing: true, adult: true, meal: true, bath: true, goodnight: true, rested: true,
   stars: true, "perfect-stars": true, days: true, outfit: true, decoration: true,
-  wallpaper: true, floor: true, tiles: true, snake: true, tetris: true, fishing: true, walk: true, treasure: true,
+  wallpaper: true, floor: true, tiles: true, snake: true, tetris: true, fishing: true, walk: true, treasure: true, keepsake: true,
 };
 function validAlbum(value: unknown): boolean {
   return value == null || (record(value) && timestamp(value.since) && typeof value.legacy === "boolean" &&

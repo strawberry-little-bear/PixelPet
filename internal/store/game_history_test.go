@@ -39,6 +39,7 @@ func TestSchema18HistoryMigrationSnapshotsOnceAndCountsOnlyFutureSettlements(t *
 	}
 	old := r.State
 	old.Schema = 18
+	old.Album.Entries = beforeKeepsakes(old.Album.Entries)
 	old.Companion.History = nil
 	raw, _ := json.Marshal(old)
 	if _, err = db.db.Exec("UPDATE saves SET body=? WHERE id=1", string(raw)); err != nil {

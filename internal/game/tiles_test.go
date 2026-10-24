@@ -180,7 +180,7 @@ func TestTileGamesAlwaysFinishAndOnlyCompletePays(t *testing.T) {
 		if s.Economy.Equipped.Accessory != "leaf-pin" || s.Economy.Equipped.Room != "moon-lamp" {
 			t.Fatal("equipment lost")
 		}
-		if len(s.Album.Entries) != 2 || s.Album.Entries[1].Kind != "tiles" {
+		if len(s.Album.Entries) != 3 || s.Album.Entries[1].Kind != "tiles" {
 			t.Fatal("missing memory", s.Album)
 		}
 		if err := s.Validate(now); err != nil {
@@ -261,7 +261,7 @@ func TestTileSharedCoinCapGrowthCooldownAndFirstMemory(t *testing.T) {
 	if s.Economy.Coins != 30 || s.Economy.GameCoins != 30 || s.Growth.Care.Play != 1 || s.CareCount != 5 {
 		t.Fatal(s.Economy, s.Growth, s.CareCount)
 	}
-	if len(s.Album.Entries) != 4 || !reflect.DeepEqual(first, s.Album.Entries[1]) {
+	if len(s.Album.Entries) != 6 || !reflect.DeepEqual(first, s.Album.Entries[1]) {
 		t.Fatal("first shared memory overwritten")
 	}
 	for i := 0; i < 40; i++ {

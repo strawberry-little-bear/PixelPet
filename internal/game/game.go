@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 20
+const Schema = 21
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -351,6 +351,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			s.CareCount++
 			s.recordCare("play", 0, now)
 			s.remember(Memory{Kind: "stars", At: now.UnixMilli(), Source: "shared", Score: score})
+			s.rememberGameKeepsake("stars", now)
 			if score == 5 {
 				s.remember(Memory{Kind: "perfect-stars", At: now.UnixMilli(), Source: "shared", Score: 5})
 			}

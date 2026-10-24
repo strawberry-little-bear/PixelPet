@@ -188,6 +188,22 @@ func TestRestedMemoryAllowsAll33AlbumCardsAndKeepsOldLimit(t *testing.T) {
 	if len(s.Album.Entries) != 33 || !s.validAlbum(end) {
 		t.Fatalf("full album rejected: %d cards", len(s.Album.Entries))
 	}
+	// Schema 21 retains all old cards alongside seven independent keepsakes.
+	full := copyState(s)
+	full.Companion.Recent = &GameExperience{Kind: "stars", ID: "00000000000000000000000000000001", At: now.UnixMilli()}
+	for i := range full.Companion.History.Completions {
+		full.Companion.History.Completions[i].Count = 1
+	}
+	for _, k := range gameKeepsakes {
+		full.rememberGameKeepsake(k.game, now)
+	}
+	if len(full.Album.Entries) != 40 || !full.validAlbum(end) {
+		t.Fatal("full keepsake album rejected")
+	}
+	full.Schema = 20
+	if full.validAlbum(end) {
+		t.Fatal("old schema accepted keepsake capacity")
+	}
 	s.Schema = 17
 	if s.Companion != nil {
 		s.Companion.History = nil

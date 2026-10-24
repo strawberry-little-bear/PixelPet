@@ -88,6 +88,7 @@ func TestSchema18GameHistoryStartsEmptyAndPreservesActualPastAndActiveGame(t *te
 	for _, kind := range companionGames {
 		t.Run(kind, func(t *testing.T) {
 			s, now := economyPet(t)
+			s.Schema = 20 // Build historical experience before keepsakes existed.
 			finishExperience(t, &s, &now, "tiles", true)
 			start := map[string]string{"stars": "play", "tiles": "play-tiles", "snake": "play-snake", "tetris": "play-tetris", "fishing": "play-fishing", "walk": "play-walk", "treasure": "play-treasure"}[kind]
 			s.Needs.Energy = 90

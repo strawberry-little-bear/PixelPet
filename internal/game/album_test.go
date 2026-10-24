@@ -137,7 +137,7 @@ func TestAlbumOnlyCompleteGamesRememberAndKeepFirstScore(t *testing.T) {
 		t.Fatal("first game was overwritten")
 	}
 	at = completeStars(t, &s, at.Add(time.Second), 5)
-	if len(s.Album.Entries) != 3 {
+	if len(s.Album.Entries) != 4 {
 		t.Fatal("perfect reward repeated")
 	}
 	if err := s.Validate(at); err != nil {

@@ -1,3 +1,4 @@
+import { gameKeepsakes } from "./game-keepsakes";
 import { games } from "./games";
 import { savedGameHistory } from "./game-history";
 import type { GameInfo } from "./games";
@@ -10,6 +11,7 @@ export type GameOutcomeRecord = {
   shared: boolean | null;
   gameReceipt?: GameReceipt;
   completedCount?: number;
+  keepsake?: string;
 };
 const finishActions: Record<GameInfo["id"], string> = {
   stars: "catch", tiles: "tile-pick", snake: "snake-finish", tetris: "tetris-finish",
@@ -32,6 +34,12 @@ export function completedGameOutcome(action: string, before: PetState | null, re
   if (record.shared && recent?.at === result.serverTime) {
     const count = savedGameHistory(after)?.completions.find(entry => entry.kind === kind)?.count;
     if (count !== undefined && count > 0) record.completedCount = count;
+  }
+  const item = gameKeepsakes.find(entry => entry.game === kind)?.item;
+  if (record.shared && recent?.at === result.serverTime && before.album && after.schema >= 21 && item &&
+      !before.album.entries.some(m => m.kind === "keepsake" && m.item === item) &&
+      after.album?.entries.some(m => m.kind === "keepsake" && m.item === item && m.source === "shared" && m.at === result.serverTime)) {
+    record.keepsake = item;
   }
   const walk = kind === "walk" ? validWalkReceipt(result.gameReceipt?.walk) : undefined;
   const interest = record.shared && recent?.at === result.serverTime

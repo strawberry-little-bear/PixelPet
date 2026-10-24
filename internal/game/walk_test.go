@@ -146,6 +146,7 @@ func TestWalkingWideResponseWindowAndNoPenalties(t *testing.T) {
 }
 func TestWalkSchemaTenUpgradePreservesFiveInterestsAndActiveSession(t *testing.T) {
 	s, now := economyPet(t)
+	s.Schema = 20 // Build historical experience before keepsakes existed.
 	finishExperience(t, &s, &now, "tiles", true)
 	s.Apply(Action{Kind: "play-fishing"}, now)
 	s.Schema = 10

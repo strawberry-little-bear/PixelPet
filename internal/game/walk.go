@@ -109,6 +109,7 @@ func (s *State) applyWalking(a Action, now time.Time) (string, error) {
 		s.Park.LastWalkAt = now.UnixMilli()
 		s.recordGameExperience("walk", now)
 		s.sharedMemory("walk", now)
+		s.rememberGameKeepsake("walk", now)
 		cleared := n.Cleared
 		s.Game = nil
 		s.Needs.Mood = clamp(s.Needs.Mood + 12)

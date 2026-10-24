@@ -185,7 +185,8 @@ export type Memory = {
     | "tetris"
     | "fishing"
     | "walk"
-    | "treasure";
+    | "treasure"
+    | "keepsake";
   at: number;
   source: "shared" | "saved" | "elapsed";
   form?: AdultForm;

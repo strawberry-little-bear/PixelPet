@@ -229,6 +229,7 @@ func (s *State) applyTreasure(a Action, now time.Time) (string, error) {
 	}
 	s.recordGameExperience("treasure", now)
 	s.sharedMemory("treasure", now)
+	s.rememberGameKeepsake("treasure", now)
 	s.Game = nil
 	s.Needs.Mood = clamp(s.Needs.Mood + 10)
 	s.Needs.Energy = clamp(s.Needs.Energy - 3)

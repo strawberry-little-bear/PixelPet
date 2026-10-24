@@ -1,3 +1,4 @@
+import { gameKeepsake } from "./game-keepsakes";
 import { games } from "./games";
 import { completionLabel } from "./game-history";
 import type { GameOutcomeRecord } from "./game-outcome";
@@ -21,12 +22,14 @@ export function GameOutcome({ outcome, careFeedback = null, readable = false }: 
   const walk = outcome.gameReceipt?.walk, interest = outcome.gameReceipt?.interest;
   // Per-game familiarity and the shared play habit have independent boundaries.
   const interestNext = interestCooldownEstimate(interest, outcome.at);
+  const keepsake = gameKeepsake(outcome.keepsake);
   const receipt = <section className="game-outcome" aria-label="本页最近一次游戏结算">
     <h3>本页最近一次结算 · {games.find(g => g.id === outcome.kind)?.title}</h3>
     <time dateTime={new Date(outcome.at).toISOString()}>{new Date(outcome.at).toLocaleString("zh-CN", {
       year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
     })}（本地时间）</time>
     <p className="game-outcome-message">{outcome.message}</p>
+    {keepsake && <p className="game-keepsake-result">一起收好了「{keepsake.title}」，可以到纪念册「一起玩过」翻看。每种只留一件，不必集齐。</p>}
     <CareOutcome feedback={careFeedback} embedded />
     {walk && <div className="walk-reward-breakdown" aria-label="散步奖励拆解">
       <strong>散步奖励拆解</strong>

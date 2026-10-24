@@ -28,7 +28,7 @@
 - [共同游戏记录与有限兴趣](COMPANION.md)
 - [金币、每日问候与小窝商店](ECONOMY.md)
 - [永久纪念册分类浏览](ALBUM_BROWSING.md) · [成长日记阅读](JOURNAL_READING.md)
-- [睡饱后的永久纪念](RESTED_MEMORY.md)
+- [睡饱后的永久纪念](RESTED_MEMORY.md) · [游戏小纪念物](GAME_KEEPSAKES.md)
 - [照顾结果留在近期日记](CARE_DIARY.md) · [睡眠小结与起床日记](SLEEP_SUMMARY.md)
 
 ### 七款正式小游戏

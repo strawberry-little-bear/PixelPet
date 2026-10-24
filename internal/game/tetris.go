@@ -194,6 +194,7 @@ func (s *State) applyTetris(a Action, now time.Time) (string, error) {
 			s.CareCount++
 			s.recordCare("play", 0, now)
 			s.sharedMemory("tetris", now)
+			s.rememberGameKeepsake("tetris", now)
 			coins = s.rewardGame(min(lines, 6), now)
 		}
 		msg := fmt.Sprintf("一起拼好了 %d 行积木！", lines)

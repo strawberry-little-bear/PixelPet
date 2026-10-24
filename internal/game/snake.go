@@ -104,6 +104,7 @@ func (s *State) applySnake(a Action, now time.Time) (string, error) {
 			s.CareCount++
 			s.recordCare("play", 0, now)
 			s.sharedMemory("snake", now)
+			s.rememberGameKeepsake("snake", now)
 			coins = s.rewardGame(min(eaten, 6), now)
 		}
 		msg := fmt.Sprintf("一起吃到 %d 颗果子！", eaten)

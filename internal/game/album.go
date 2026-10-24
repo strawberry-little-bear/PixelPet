@@ -23,6 +23,45 @@ type Memory struct {
 
 var albumDays = [...]int{1, 7, 30, 100, 365, 1000}
 
+var gameKeepsakes = [...]struct{ game, item string }{
+	{game: "stars", item: "star-ribbon"},
+	{game: "tiles", item: "tile-basket"},
+	{game: "snake", item: "fruit-leaf"},
+	{game: "tetris", item: "block-garden"},
+	{game: "fishing", item: "pond-shell"},
+	{game: "walk", item: "path-button"},
+	{game: "treasure", item: "forest-token"},
+}
+
+func keepsakeItem(game string) string {
+	for _, keepsake := range gameKeepsakes {
+		if keepsake.game == game {
+			return keepsake.item
+		}
+	}
+	return ""
+}
+
+func keepsakeGame(item string) string {
+	for _, keepsake := range gameKeepsakes {
+		if keepsake.item == item {
+			return keepsake.game
+		}
+	}
+	return ""
+}
+
+// A keepsake records a qualifying completion after the feature was enabled.
+// It has no economy or growth effect and requires schema 21.
+func (s *State) rememberGameKeepsake(game string, now time.Time) {
+	if s.Schema < 21 || s.Album == nil {
+		return
+	}
+	if item := keepsakeItem(game); item != "" {
+		s.remember(Memory{Kind: "keepsake", Item: item, At: now.UnixMilli(), Source: "shared"})
+	}
+}
+
 const dayMillis = int64(24 * time.Hour / time.Millisecond)
 
 func (s *State) remember(m Memory) {
@@ -30,7 +69,11 @@ func (s *State) remember(m Memory) {
 		return
 	}
 	for _, old := range s.Album.Entries {
-		if old.Kind == m.Kind && old.Days == m.Days {
+		sameMemory := old.Kind == m.Kind && old.Days == m.Days
+		if m.Kind == "keepsake" {
+			sameMemory = sameMemory && old.Item == m.Item
+		}
+		if sameMemory {
 			return
 		}
 	}
@@ -69,6 +112,18 @@ func (s *State) openLegacyAlbum(now time.Time) {
 	}
 }
 
+func hasGameCompletion(s State, game string) bool {
+	if s.Companion == nil || s.Companion.History == nil {
+		return false
+	}
+	for _, completion := range s.Companion.History.Completions {
+		if completion.Kind == game {
+			return completion.Count > 0
+		}
+	}
+	return false
+}
+
 func (s State) validAlbum(now time.Time) bool {
 	if s.Schema < 3 {
 		return s.Album == nil
@@ -86,6 +141,9 @@ func (s State) validAlbum(now time.Time) bool {
 	}
 	if s.Schema >= 18 {
 		limit++
+	}
+	if s.Schema >= 21 {
+		limit += len(gameKeepsakes)
 	}
 	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > limit {
 		return false
@@ -116,17 +174,21 @@ func (s State) validAlbum(now time.Time) bool {
 		if m.OutingID != "" && m.Kind != "encounter-fishing-stars" && m.Kind != "encounter-walk-kite" {
 			return false
 		}
-		if m.Kind != "outfit" && m.Kind != "decoration" && m.Kind != "wallpaper" && m.Kind != "floor" && m.Item != "" {
+		if m.Kind != "outfit" && m.Kind != "decoration" && m.Kind != "wallpaper" && m.Kind != "floor" && m.Kind != "keepsake" && m.Item != "" {
 			return false
 		}
 		if (m.Kind != "adult" && m.Form != "") || (m.Kind != "days" && m.Days != 0) || (m.Kind != "stars" && m.Kind != "perfect-stars" && m.Score != 0) {
 			return false
 		}
 		if m.Kind != "days" {
-			if seen[m.Kind] {
+			key := m.Kind
+			if m.Kind == "keepsake" {
+				key += ":" + m.Item
+			}
+			if seen[key] {
 				return false
 			}
-			seen[m.Kind] = true
+			seen[key] = true
 		}
 		switch m.Kind {
 		case "hatch":
@@ -184,6 +246,11 @@ func (s State) validAlbum(now time.Time) bool {
 			if s.Schema < 18 || m.Source != "shared" {
 				return false
 			}
+		case "keepsake":
+			game := keepsakeGame(m.Item)
+			if s.Schema < 21 || m.Source != "shared" || game == "" || !hasGameCompletion(s, game) {
+				return false
+			}
 		case "meal", "bath", "goodnight":
 			if m.Source != "shared" {
 				return false
@@ -205,6 +272,23 @@ func (s State) validAlbum(now time.Time) bool {
 			if !s.validOutingMemory(m) {
 				return false
 			}
+		}
+	}
+	for _, keepsake := range gameKeepsakes {
+		if !seen["keepsake:"+keepsake.item] {
+			continue
+		}
+		var gameAt, itemAt int64
+		for _, m := range a.Entries {
+			if m.Kind == keepsake.game {
+				gameAt = m.At
+			}
+			if m.Kind == "keepsake" && m.Item == keepsake.item {
+				itemAt = m.At
+			}
+		}
+		if !seen[keepsake.game] || itemAt < gameAt || itemAt < s.Companion.History.Since || s.Companion.Recent == nil || itemAt > s.Companion.Recent.At {
+			return false
 		}
 	}
 	return seen["hatch"] && (s.Growth.GrowingAt == 0 || seen["growing"]) && (s.Growth.AdultAt == 0 || seen["adult"]) && (!seen["perfect-stars"] || seen["stars"])

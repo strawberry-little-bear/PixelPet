@@ -145,6 +145,7 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 			s.CareCount++
 			s.recordCare("play", 0, now)
 			s.sharedMemory("fishing", now)
+			s.rememberGameKeepsake("fishing", now)
 			coins = s.rewardGame(max(3, 2*caught), now)
 		}
 		msg := fmt.Sprintf("一起在池塘发现 %d 条鱼！", caught)

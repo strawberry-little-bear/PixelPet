@@ -184,6 +184,7 @@ func TestCompanionValidationRejectsMalformedHistory(t *testing.T) {
 }
 func TestSchemaNineMigrationDoesNotBackfillGamesOrChangeLockedForm(t *testing.T) {
 	s, now := economyPet(t)
+	s.Schema = 20 // Build historical experience before keepsakes existed.
 	finishExperience(t, &s, &now, "tiles", true)
 	s.Schema = 9
 	s.Companion = nil

@@ -205,6 +205,7 @@ func (s *State) applyTile(a Action, now time.Time) (string, error) {
 		s.CareCount++
 		s.recordCare("play", 0, now)
 		s.sharedMemory("tiles", now)
+		s.rememberGameKeepsake("tiles", now)
 		coins := s.rewardGame(TileCoins, now)
 		msg := "一起连好八对图案！" + coinMessage(coins)
 		s.Log(now, msg)

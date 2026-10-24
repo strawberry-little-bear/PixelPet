@@ -168,6 +168,11 @@ func (s *State) Upgrade(now time.Time) bool {
 		// sessions after this version boundary only.
 		s.Schema = 20
 	}
+	if s.Schema == 20 {
+		// Game keepsakes are earned only by future qualifying settlements.
+		// Existing game cards and completion history remain untouched.
+		s.Schema = 21
+	}
 	return true
 }
 

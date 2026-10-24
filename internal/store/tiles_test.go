@@ -121,7 +121,7 @@ func TestTileSessionPersistsSelectionAndPaysExactlyOnce(t *testing.T) {
 		t.Fatal("finished game replayed after eviction")
 	}
 	r, _ = s.Do(nil, nil, false, now)
-	if r.State.Economy.Coins != game.TileCoins || r.State.CareCount != 1 || len(r.State.Album.Entries) != 2 {
+	if r.State.Economy.Coins != game.TileCoins || r.State.CareCount != 1 || len(r.State.Album.Entries) != 3 {
 		t.Fatal("double award", r)
 	}
 	r, _ = s.Do(&game.Action{Kind: "play-tiles"}, nil, false, now)

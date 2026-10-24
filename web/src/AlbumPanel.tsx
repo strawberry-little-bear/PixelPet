@@ -1,3 +1,5 @@
+import { gameKeepsake } from "./game-keepsakes";
+import { GameKeepsakeArt } from "./GameKeepsakeArt";
 import { isOutingMemory, outingMemoryWords } from "./outing-memory";
 import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
 import { BookOpen, Heart, Moon, Sparkles, Utensils, Waves } from "lucide-react";
@@ -19,9 +21,9 @@ export const albumCategories = [
 ] as const;
 export type AlbumCategory = typeof albumCategories[number]["id"];
 const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
-  treasure: "play", hatch: "growth", growing: "growth", adult: "growth",
+  hatch: "growth", growing: "growth", adult: "growth",
   meal: "care", bath: "care", goodnight: "care", rested: "care",
-  stars: "play", "perfect-stars": "play", tiles: "play", snake: "play", tetris: "play", fishing: "play", walk: "play",
+  stars: "play", "perfect-stars": "play", tiles: "play", snake: "play", tetris: "play", fishing: "play", walk: "play", treasure: "play", keepsake: "play",
   outfit: "home", decoration: "home", wallpaper: "home", floor: "home",
   days: "days",
   "scenery-fishing-clear": "scenery", "scenery-fishing-cloud": "scenery", "scenery-fishing-rain": "scenery",
@@ -31,7 +33,7 @@ const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
 // Filter/sort copies: browsing never edits or reorders the saved event array.
 export const albumMemories = (pet: PetState, category: AlbumCategory = "all") => (pet.album?.entries ?? [])
   .filter(memory => category === "all" || memoryCategory[memory.kind] === category)
-  .sort((a, b) => a.at - b.at || a.kind.localeCompare(b.kind));
+  .sort((a, b) => a.at - b.at || a.kind.localeCompare(b.kind) || (a.item ?? "").localeCompare(b.item ?? ""));
 export const albumPageCount = (pet: PetState, category: AlbumCategory = "all") => 1 + albumMemories(pet, category).length;
 export function AlbumDirectory({ pet, choice }: { pet: PetState; choice: number }) {
   const selected = albumCategories[choice] ?? albumCategories[0];
@@ -48,6 +50,9 @@ export function memoryWords(m: Memory, legacy: boolean) {
   if (isOutingMemory(m.kind)) return outingMemoryWords[m.kind];
   switch (m.kind) {
     case "treasure": return { title: "林间的小小发现", story: "第一次一起收好森林探索的经历。不必找齐，陪伴本身就值得纪念。" };
+    case "keepsake": {
+      return gameKeepsake(m.item) ?? { title: "一起收好的小纪念物", story: "这件纪念物的说明暂不可用，保存的记录仍在。" };
+    }
     case "hatch": return { title: "小小的初次相遇", story: "从这一天起，小窝里多了一位等你回来的伙伴。" };
     case "growing": return { title: "一起走进成长期", story: "从小小一团到勇敢迈步，这段长大被好好留了下来。" };
     case "adult": return { title: "长大了，也陪着你", story: `${m.form ? `成为了${formNames[m.form]}` : "已经长成成年伙伴"}。模样已经定下，往后的日子仍能一起慢慢过。` };
@@ -90,12 +95,12 @@ export function AlbumPanel({ pet, shop, now, page, category = "all", missing = f
   const isPortrait = !memory || ["hatch", "growing", "adult"].includes(memory.kind);
   // Milestones use only their saved form; the cover shows the current companion.
   const portraitForm = memory?.kind === "adult" ? memory.form : !memory && stage === "adult" ? pet.growth?.form : undefined;
-  const Icon = memory && isOutingMemory(memory.kind) ? BookOpen : memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : (memory?.kind === "goodnight" || memory?.kind === "rested") ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
+  const Icon = memory && isOutingMemory(memory.kind) ? BookOpen : memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : (memory?.kind === "goodnight" || memory?.kind === "rested") ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles" || memory?.kind === "keepsake") ? Sparkles : Heart;
   return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage} data-album-category={category} data-album-kind={memory?.kind}>
     <header><strong>{category !== "all" ? categoryLabel : memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
     {missing && <small role="status" className="album-source">同步时未找到刚才那条回忆，已返回本类封面。</small>}
     <div className={`album-picture ${isPortrait ? "album-portrait" : ""}`} aria-hidden="true">
-      {isPortrait ? <PetArt index={pet.species} stage={stage} expression="still" /> : memory?.kind === "wallpaper" || memory?.kind === "floor" ? <RoomSurfaceArt id={memory.item} /> : memory?.kind === "decoration" ? <RoomDecoration id={memory.item} /> : memory?.kind === "outfit" ? <PetArt index={pet.species} stage={pet.growth?.stage || "baby"} accessory={memory.item} /> : <Icon size={30} strokeWidth={1.5} />}
+      {memory?.kind === "keepsake" ? <GameKeepsakeArt item={memory.item} /> : isPortrait ? <PetArt index={pet.species} stage={stage} expression="still" /> : memory?.kind === "wallpaper" || memory?.kind === "floor" ? <RoomSurfaceArt id={memory.item} /> : memory?.kind === "decoration" ? <RoomDecoration id={memory.item} /> : memory?.kind === "outfit" ? <PetArt index={pet.species} stage={pet.growth?.stage || "baby"} accessory={memory.item} /> : <Icon size={30} strokeWidth={1.5} />}
       {portraitForm && <span className="album-form" data-album-form={portraitForm}><FormEmblem form={portraitForm} /></span>}
     </div>
     {memory && words ? <>
@@ -105,7 +110,7 @@ export function AlbumPanel({ pet, shop, now, page, category = "all", missing = f
       {memorySlot && <p className="album-item">当时选用：{memoryItem?.name.trim() || "名称暂不可用"}</p>}
       <small className="album-source">{isOutingMemory(memory.kind) ? "来自真实发现时的虚构风景 · 同类只记录一次" : memory.source === "saved"
         ? memory.kind === "hatch" ? "沿用旧存档的相遇日期，不补写照顾经历。" : "旧存档记录时间，可能来自旧版迁移；不补写当时细节。"
-        : memory.source === "elapsed" ? "按相遇日期计算，不代表连续登录。" : "来自已保存的真实经历 · 只记录一次"}</small>
+        : memory.kind === "keepsake" ? "一起玩过留下的小纪念物 · 每种只留一件，不必集齐" : memory.source === "elapsed" ? "按相遇日期计算，不代表连续登录。" : "来自已保存的真实经历 · 只记录一次"}</small>
     </> : <>
       <h3>{meeting === null ? "与你相识的每一天" : meeting === 0 ? "今天刚刚相识" : `与你相识 ${meeting} 天`}</h3>
       {memories.length === 0 && pet.album

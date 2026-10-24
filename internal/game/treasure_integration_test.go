@@ -62,7 +62,7 @@ func TestTreasureSettlementRequiresActualSearchAndExplicitFinish(t *testing.T) {
 			if s.Game != nil || s.CareCount != 1 || s.Economy.Coins != 3+finds || s.Companion.Recent.Kind != "treasure" || s.Companion.Recent.ID != id || s.Companion.Interests[6].Points != 1 {
 				t.Fatal("bad settlement", s)
 			}
-			if len(s.Album.Entries) == 0 || s.Album.Entries[len(s.Album.Entries)-1].Kind != "treasure" {
+			if !hasMemory(s, "treasure") {
 				t.Fatal("missing shared memory")
 			}
 		})
@@ -116,6 +116,7 @@ func TestSchemaFifteenUpgradePreservesEveryActiveGame(t *testing.T) {
 	for _, kind := range companionGames[:6] {
 		t.Run(kind, func(t *testing.T) {
 			s, now := economyPet(t)
+			s.Schema = 20 // Build historical experience before keepsakes existed.
 			finishExperience(t, &s, &now, "tiles", true)
 			s.Needs.Energy = 90
 			start := map[string]string{"stars": "play", "tiles": "play-tiles", "snake": "play-snake", "tetris": "play-tetris", "fishing": "play-fishing", "walk": "play-walk"}[kind]
