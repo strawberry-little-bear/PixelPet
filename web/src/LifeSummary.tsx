@@ -77,15 +77,20 @@ export function lifeSummary(pet: PetState, now: number) {
       .map(entry => games.find(game => game.id === entry.kind)?.title)
       .filter(title => title !== undefined)
     : [];
+  // Familiarity is a capped lifetime record; it cannot say what was played
+  // recently. Only the saved completion supplies that part of the suggestion.
+  const recent = pet.companion?.recent;
+  const recentGame = recent && validTimestamp(recent.at) && validTimestamp(pet.companion?.since) &&
+    recent.at >= Math.max(pet.companion!.since, pet.hatchedAt) && recent.at <= pet.lastTick
+      ? games.find(game => game.id === recent.kind) : undefined;
+  const adultThread = [
+    recentGame ? `最近一次一起玩过的是「${recentGame.title}」`
+      : lastMemory ? `最近留下的是「${lastMemory.title}」` : null,
+    interestLeaders.length > 0 ? `目前更熟悉的是「${interestLeaders.join("」和「")}」` : null,
+  ].filter(Boolean).join("；");
   const stage = pet.growth?.stage;
   const nextStep = stage === "adult"
-    ? interestLeaders.length > 0 && lastMemory
-      ? `形态已经固定，最近留下的是「${lastMemory.title}」，常一起玩的是「${interestLeaders.join("」和「")}」。想继续时，可以再玩一局，也可以回看纪念册或换个心情去散步。`
-      : interestLeaders.length > 0
-        ? `形态已经固定，最近常一起玩的是「${interestLeaders.join("」和「")}」。想继续时，可以再玩一局，也可以回看纪念册或换个心情去散步。`
-        : lastMemory
-          ? `形态已经固定，最近留下的是「${lastMemory.title}」。想继续时，可以回看纪念册、布置小窝，或按心情一起玩喜欢的游戏。`
-          : "形态已经固定，可以按心情回看纪念册、布置小窝，或一起玩喜欢的游戏。成年后的日子没有必须完成的目标。"
+    ? `形态已经固定${adultThread ? `，${adultThread}` : ""}。想继续时，可以回看纪念册、布置小窝，或按心情一起玩喜欢的游戏。成年后的日子没有必须完成的目标。`
     : stage === "baby" || stage === "growing"
       ? "按它当下的需要慢慢照顾，等它准备好再看看成长记录；不必为了数字重复操作。"
       : "先从今天的相遇开始，等真正发生的照顾和游戏自然留下回忆。";

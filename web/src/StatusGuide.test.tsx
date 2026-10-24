@@ -174,7 +174,7 @@ describe("共同生活回顾", () => {
     const before = structuredClone(current);
     const { container } = render(<StatusGuide pet={current} rules={rules} now={at + 2 * 86400000} />);
     const next = container.querySelector(".life-summary-next")?.textContent ?? "";
-    expect(next).toContain("最近常一起玩的是「俄罗斯方块」");
+    expect(next).toContain("目前更熟悉的是「俄罗斯方块」");
     expect(next).toContain("不是任务");
     expect(current).toEqual(before);
   });

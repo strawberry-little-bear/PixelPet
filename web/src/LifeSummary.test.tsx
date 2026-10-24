@@ -224,3 +224,69 @@ describe("saved shared-game completion counts", () => {
     },
   );
 });
+
+
+describe("adult-life suggestions from saved experiences", () => {
+  function adult(): PetState {
+    return { ...pet(), lastTick: created + 3 * day,
+      growth: { ...emptyGrowth("adult"), points: 72, form: "gentle" },
+      companion: { since: created, interests: [
+        { kind: "fishing", points: 5, lastAt: created + day },
+        { kind: "walk", points: 1, lastAt: created + 2 * day },
+      ], recent: { kind: "walk", id: "saved-walk-session", at: created + 2 * day } },
+    };
+  }
+
+  it("separates the last completed game from a capped lifetime interest", () => {
+    const current = adult(), before = structuredClone(current);
+    const { container } = render(<LifeSummary pet={current} now={current.lastTick} />);
+    const next = container.querySelector(".life-summary-next")?.textContent;
+    expect(next).toContain("最近一次一起玩过的是「公园散步」");
+    expect(next).toContain("目前更熟悉的是「池塘钓鱼」");
+    expect(next).not.toContain("最近常一起玩");
+    expect(next).toContain("不是任务");
+    expect(current).toEqual(before);
+    expect(container.querySelector("button,a,input,[tabindex]")).toBeNull();
+  });
+
+  it("updates the suggestion after another completion even when interests do not change", () => {
+    const current = adult();
+    const { container, rerender } = render(<LifeSummary pet={current} now={current.lastTick} />);
+    const next = structuredClone(current);
+    next.companion!.recent = { kind: "fishing", id: "another-saved-session", at: next.lastTick };
+    rerender(<LifeSummary pet={next} now={next.lastTick} />);
+    expect(container.querySelector(".life-summary-next")?.textContent).toContain("最近一次一起玩过的是「池塘钓鱼」");
+    expect(container.querySelector(".life-summary-next")?.textContent).not.toContain("公园散步");
+    expect(next.companion!.interests).toEqual(current.companion!.interests);
+    expect(next.growth).toEqual(current.growth);
+  });
+
+  it("retains saved memories when a legacy response has no recent game", () => {
+    const current = adult(); delete current.companion!.recent;
+    current.album = { since: created, legacy: false, entries: [{kind: "walk", at: created + day, source: "shared"}] };
+    const text = lifeSummary(current, current.lastTick).nextStep;
+    expect(text).toContain("最近留下的是「公园里走过的第一条小路」");
+    expect(text).toContain("目前更熟悉的是「池塘钓鱼」");
+    expect(text).not.toContain("最近一次一起玩过");
+    expect(text).not.toContain("最近常一起玩");
+  });
+
+  it("keeps tied familiarity separate from the most recent game", () => {
+    const current = adult(); current.companion!.interests[1].points = 5;
+    const text = lifeSummary(current, current.lastTick).nextStep;
+    expect(text).toContain("最近一次一起玩过的是「公园散步」");
+    expect(text).toContain("目前更熟悉的是「池塘钓鱼」和「公园散步」");
+  });
+
+  it.each(["baby", "growing"] as const)("keeps %s care advice instead of an adult-life suggestion", stage => {
+    const current = adult(); current.growth = emptyGrowth(stage);
+    const text = lifeSummary(current, current.lastTick).nextStep;
+    expect(text).toContain("按它当下的需要慢慢照顾");
+    expect(text).not.toContain("最近一次一起玩过");
+  });
+
+  it.each([created - 1, created + 4 * day, Number.NaN])("does not infer a recent game from invalid saved time %s", at => {
+    const current = adult(); current.companion!.recent!.at = at;
+    expect(lifeSummary(current, current.lastTick).nextStep).not.toContain("最近一次一起玩过");
+  });
+});

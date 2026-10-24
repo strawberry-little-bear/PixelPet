@@ -1,5 +1,6 @@
 // Isolated SQLite/HTTP/Chrome. Two real keyboard-played stars games verify
-// saved counts. Old-schema and extreme-number layouts use explicit fixtures.
+// saved counts. An adult fixture also separates capped familiarity from two
+// real completions. Old-schema and extreme-number layouts use explicit fixtures.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -27,11 +28,11 @@ async function layout(page) {
  assert.equal(await page.locator('.physical-button').count(),3);
  assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow');
- const clipped=await page.locator('.life-summary-games').evaluate(el=>{
+ const clipped=await page.locator('.life-summary-games,.life-summary-next').evaluateAll(elements=>elements.flatMap(el=>{
   const b=el.getBoundingClientRect(),walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),bad=[];let node;
   while((node=walker.nextNode())){const range=document.createRange();range.selectNodeContents(node);for(const r of range.getClientRects())if(r.width&&r.height&&(r.left<b.left-1||r.right>b.right+1))bad.push(node.textContent);}
   return bad;
- });assert.deepEqual(clipped,[],'game history text clipped');
+ }));assert.deepEqual(clipped,[],'game history or next-step text clipped');
  const titleLines=await page.locator('.life-summary-games li span').evaluateAll(elements=>elements.map(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length;}));assert(titleLines.every(n=>n<=2),'game titles broken into narrow vertical columns');
  const last=page.locator('.life-summary-games > small').last();await last.scrollIntoViewIfNeeded();assert(await last.isVisible());
  await page.locator('.button-c').scrollIntoViewIfNeeded();await key(page,'c');await page.locator('.home-caption').waitFor();
@@ -54,17 +55,58 @@ try {
  const old=structuredClone(backup);old.schema=18;delete old.companion.history;
  const migrated=(await api('import',old)).state;assert.equal(migrated.schema,19);assert.equal(migrated.companion.history.completions[0].count,0);assert.deepEqual(migrated.companion.interests,backup.companion.interests);assert.deepEqual(migrated.album,backup.album);
  await home(page);await summary(page);await count(page,0);assert((await page.locator('.life-summary-tracking').textContent()).includes('之前的局数未知'));await key(page,'c');results.push({legacyFixture:'no invented past games'});
- await api('import',backup);
+ // Construct an adult with an older, capped fishing interest. This is an
+ // explicit history fixture, not five naturally played fishing sessions.
+ const adultAt=Date.now();
+ const adult=(await api('import',{schema:1,revision:0,species:2,name:'成年陪伴伙伴',createdAt:adultAt-80*3600000,hatchedAt:adultAt-80*3600000,lastTick:adultAt,sleeping:false,needs:{hunger:80,mood:80,clean:80,energy:80},careCount:0,logs:[]})).state;
+ assert.equal(adult.growth.stage,'adult');
+ adult.companion.since=adult.hatchedAt;
+ const fishing=adult.companion.interests.find(row=>row.kind==='fishing');
+ fishing.points=5;fishing.lastAt=adultAt-3600000;
+ adult.companion.recent={kind:'fishing',id:backup.companion.recent.id,at:fishing.lastAt};
+ const adultBefore=(await api('import',adult)).state;
+ await home(page);await summary(page);
+ const suggestion=()=>page.locator('.life-summary-next').textContent();
+ assert((await suggestion()).includes('最近一次一起玩过的是「池塘钓鱼」'));
+ assert((await suggestion()).includes('目前更熟悉的是「池塘钓鱼」'));
+ await key(page,'c');
+ let firstAdult;
+ for(const n of [1,2]){
+  await play(page,n);await summary(page);
+  const text=await suggestion();
+  assert(text.includes('最近一次一起玩过的是「接星星」'),text);
+  assert(text.includes('目前更熟悉的是「池塘钓鱼」'),text);
+  assert(!text.includes('最近常一起玩'),text);
+  const saved=(await api('state')).state;
+  assert.equal(saved.companion.interests.find(row=>row.kind==='fishing').points,5);
+  assert.equal(saved.companion.interests.find(row=>row.kind==='stars').points,1);
+  assert.equal(saved.companion.history.completions[0].count,n);
+  assert.equal(saved.companion.recent.kind,'stars');
+  assert.equal(saved.growth.stage,'adult');assert.equal(saved.growth.points,72);
+  assert.equal(saved.growth.form,adultBefore.growth.form);assert.deepEqual(saved.growth.formRecord,adultBefore.growth.formRecord);
+  if(n===1)firstAdult=saved.companion.recent;
+  else{assert.notEqual(saved.companion.recent.id,firstAdult.id);assert(saved.companion.recent.at>firstAdult.at);}
+  await key(page,'c');
+ }
+ const adultSaved=(await api('state')).state;
+ await home(page);await summary(page);await count(page,2);
+ assert((await suggestion()).includes('最近一次一起玩过的是「接星星」'));
+ const afterReload=(await api('state')).state;
+ assert.deepEqual(afterReload.companion,adultSaved.companion);
+ assert.equal(afterReload.careCount,adultSaved.careCount);
+ await key(page,'c');
+ results.push({adultSuggestion:'uses actual completed game, not capped interest',realKeyboardGames:2,familiarity:{fishing:5,stars:1},refresh:'preserved',form:'unchanged'});
  assert.deepEqual(errors,[]);await context.close();
  const modes=[{width:1200,height:850,font:14},{width:390,height:844,font:14},{width:320,height:568,font:28},{width:320,height:380,font:28,forcedColors:'active'}];
  for(const mode of modes){
   const ctx=await browser.newContext({viewport:{width:mode.width,height:mode.height},forcedColors:mode.forcedColors||'none',reducedMotion:'reduce'}),p=await ctx.newPage(),pageErrors=[];p.on('pageerror',e=>pageErrors.push(e.message));
   await p.addInitScript(font=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize=font+'px'),mode.font);
   await p.goto(base);await p.locator('.home-caption').waitFor();await key(p,'c');await summary(p);await count(p,2);
+  const next=await p.locator('.life-summary-next').textContent();assert(next.includes('最近一次一起玩过的是「接星星」')&&next.includes('目前更熟悉的是「池塘钓鱼」'),next);
   await p.screenshot({path:join(dir,`summary-${mode.width}-${mode.height}.png`),fullPage:true});await layout(p);assert.deepEqual(pageErrors,[]);results.push({layout:mode});await ctx.close();
  }
  // Constructed upper-bound display; this is not actual lifetime play.
- const extreme=structuredClone(backup);for(const row of extreme.companion.history.completions)row.count=Number.MAX_SAFE_INTEGER;await api('import',extreme);
+ const extreme=structuredClone(adultSaved);for(const row of extreme.companion.history.completions)row.count=Number.MAX_SAFE_INTEGER;await api('import',extreme);
  const ctx=await browser.newContext({viewport:{width:320,height:568}}),p=await ctx.newPage();await p.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize='28px'));await p.goto(base);await p.locator('.home-caption').waitFor();await key(p,'c');await summary(p);assert((await p.locator('[data-completion-count=stars]').textContent()).includes('≥'));await layout(p);await ctx.close();results.push({extremeNumberFixture:'wraps and shows lower bound'});
  await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({passed:results.length,artifacts:dir,results},null,2));
 } finally {await browser?.close();if(server&&server.exitCode===null){server.kill('SIGTERM');await new Promise(r=>server.once('exit',r));}}
