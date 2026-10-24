@@ -51,6 +51,12 @@ async function readable(page, selector) {
     let node;
     while ((node = walker.nextNode())) {
       if (!node.textContent.trim()) continue;
+      // Reading guidance is intentionally screen-reader-only until the region
+      // receives keyboard focus. Do not mistake its 1px clipped box for a
+      // product layout failure; when focused, clipPath becomes none and the
+      // normal bounds checks below still verify the visible hint.
+      if (node.parentElement?.matches('[data-care-reading-start]') &&
+          getComputedStyle(node.parentElement).clipPath !== 'none') continue;
       const range = document.createRange(); range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
