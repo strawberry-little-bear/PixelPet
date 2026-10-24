@@ -102,7 +102,7 @@ try {
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
   // Controlled save fixtures verify rendering; these are not natural growth journeys.
-  for (const fixture of [
+  if (!process.argv.includes('--items-only')) for (const fixture of [
     { stage: 'baby', species: 2, age: 1 },
     { stage: 'growing', species: 3, age: 30 },
     { stage: 'adult', species: 9, age: 80 },
@@ -229,6 +229,64 @@ try {
       assert.equal(await page.locator('.quiet-memory-source').innerText(), '从纪念册想起：轻轻说一声晚安', 'Waking starts with the latest real memory, including the separate client’s bedtime');
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       results.push({ label, first, second, sleeping: true, writes, errors }); console.log('PASS', label);
+    } finally { await context.close(); }
+  }
+  // Controlled ownership only supplies fixture inventory. Actual equip/remove
+  // requests create all four shared memories through the real service.
+  for (const mode of [
+    { label: 'items-desktop', width: 1200, height: 700, font: 14 },
+    { label: 'items-phone-large', width: 320, height: 380, font: 28 },
+  ]) {
+    const at = Date.now(), since = at - 80 * 3600000;
+    const seeded = await api('import', { schema: 1, revision: 1, species: 2, name: '小窝回忆伙伴',
+      createdAt: since, hatchedAt: since, lastTick: at, sleeping: false,
+      needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
+    const items = ['accessory', 'room', 'wallpaper', 'floor'].map(slot => seeded.shop.catalog.find(item => item.slot === slot));
+    assert(items.every(Boolean));
+    const alternate = seeded.shop.catalog.find(item => item.slot === 'accessory' && item.id !== items[0].id);
+    assert(alternate);
+    seeded.state.economy.owned = [...items.map(item => item.id), alternate.id];
+    await api('import', seeded.state);
+    for (const item of items) {
+      await api('action', { kind: 'equip', item: item.id });
+      await api('action', { kind: 'equip', item: item.id });
+    }
+    await api('action', { kind: 'equip', item: alternate.id });
+    const before = (await api('state')).state;
+    const memories = before.album.entries.filter(m => m.source === 'shared')
+      .sort((a, b) => b.at - a.at || a.kind.localeCompare(b.kind));
+    assert.equal(memories.length, 4);
+    assert.equal(before.economy.equipped.accessory, alternate.id);
+    const names = new Map(items.map(item => [item.id, item.name]));
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height },
+      hasTouch: true, isMobile: mode.width < 700, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
+    const page = await context.newPage(), writes = [], errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', req => {
+      if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push(req.url());
+    });
+    await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.fontSize = `${font}px`;
+    }), mode.font);
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor(); await open(page);
+      for (const memory of [...memories, memories[0]]) {
+        await physical(page, 'b');
+        const reply = await page.locator('.quiet-moment-copy > p').innerText();
+        assert(reply.includes(`「${names.get(memory.item)}」`), reply);
+        assert(!reply.includes(alternate.name), 'Current equipment must not replace the saved memory');
+        await readable(page);
+      }
+      await page.screenshot({ path: join(dir, `${mode.label}-reply.png`), fullPage: true });
+      await page.reload(); await page.locator('.home-caption').waitFor(); await open(page); await physical(page, 'b');
+      assert((await page.locator('.quiet-moment-copy > p').innerText()).includes(`「${names.get(memories[0].item)}」`));
+      await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
+      const after = (await api('state')).state;
+      for (const field of ['album', 'economy', 'careCount', 'companion']) assert.deepEqual(after[field], before[field]);
+      assert.equal(after.growth.form, before.growth.form);
+      assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+      results.push({ label: mode.label, memories: memories.map(m => m.item), current: alternate.id, writes, errors });
+      console.log('PASS', mode.label);
     } finally { await context.close(); }
   }
 } finally {

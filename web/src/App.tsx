@@ -2679,7 +2679,7 @@ export default function App() {
                             <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} rules={careRules} />
                           </CareReadingRegion>
                         )}
-                        {page === "moment" && <QuietMoment pet={pet} choice={quietMomentChoice} replied={quietMomentReplied} memoryKey={quietMemoryKey} />}
+                        {page === "moment" && <QuietMoment pet={pet} shop={shop} choice={quietMomentChoice} replied={quietMomentReplied} memoryKey={quietMemoryKey} />}
                         {page === "growth" && (
                           <GrowthPanel
                             pet={pet}

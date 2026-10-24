@@ -1,8 +1,9 @@
 import { isOutingMemory, outingMemoryWords } from "./outing-memory";
 import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
 import { BookOpen, Heart, Moon, Sparkles, Utensils, Waves } from "lucide-react";
-import type { Memory, PetState, Shop, ShopItem } from "./types";
+import type { Memory, PetState, Shop } from "./types";
 import { formNames } from "./growth";
+import { memoryItemSlots, recordedMemoryItem } from "./memory-item";
 import { PetArt } from "./PetArt";
 import { FormEmblem } from "./GrowthOutfit";
 import "./album.css";
@@ -74,9 +75,6 @@ const dateLabel = (at: number) => new Date(at).toLocaleDateString("zh-CN", { yea
 const meetingDays = (now: number, hatchedAt: number) => Number.isFinite(now) && Number.isFinite(hatchedAt)
   ? Math.max(0, Math.floor((now - hatchedAt) / 86400000))
   : null;
-const memorySlots: Partial<Record<Memory["kind"], ShopItem["slot"]>> = {
-  outfit: "accessory", decoration: "room", wallpaper: "wallpaper", floor: "floor",
-};
 export function AlbumPanel({ pet, shop, now, page, category = "all", missing = false }: { pet: PetState; shop?: Shop | null; now: number; page: number; category?: AlbumCategory; missing?: boolean }) {
   const memories = albumMemories(pet, category);
   const meeting = meetingDays(now, pet.hatchedAt);
@@ -85,8 +83,8 @@ export function AlbumPanel({ pet, shop, now, page, category = "all", missing = f
   const memory = currentPage > 0 ? memories[currentPage - 1] : undefined;
   // Resolve only the recorded item, never today's equipment. Names come from
   // the current server catalog, not a fabricated historical name snapshot.
-  const memorySlot = memory && memorySlots[memory.kind];
-  const memoryItem = memorySlot && shop?.catalog?.find(item => item.id === memory?.item && item.slot === memorySlot);
+  const memorySlot = memory && memoryItemSlots[memory.kind];
+  const memoryItem = recordedMemoryItem(memory, shop);
   const words = memory ? memoryWords(memory, pet.album?.legacy ?? false) : undefined;
   const stage = memory?.kind === "hatch" ? "baby" : memory?.kind === "growing" ? "growing" : memory?.kind === "adult" ? "adult" : pet.growth?.stage || "baby";
   const isPortrait = !memory || ["hatch", "growing", "adult"].includes(memory.kind);

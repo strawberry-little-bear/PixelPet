@@ -3,7 +3,7 @@ import { quietMemories } from "./quiet-memory";
 import { PetArt, petRigClass } from "./PetArt";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
 import { stageNames, formNames } from "./growth";
-import type { PetState } from "./types";
+import type { PetState, Shop } from "./types";
 import "./growth.css";
 import "./quiet-moment.css";
 
@@ -19,15 +19,15 @@ const sleepingMoments = [
   { title: "轻声道晚安", idle: "回忆等醒来再聊，现在轻声说句晚安吧。", reply: "你轻声说了晚安，它还在甜甜地睡着。" },
 ] as const;
 
-export function QuietMoment({ pet, choice, replied, memoryKey = null }: {
-  pet: PetState; choice: number; replied: boolean; memoryKey?: string | null;
+export function QuietMoment({ pet, shop, choice, replied, memoryKey = null }: {
+  pet: PetState; shop?: Shop | null; choice: number; replied: boolean; memoryKey?: string | null;
 }) {
   const growth = pet.growth;
   const stage = growth?.stage ?? "baby";
   const form = growth?.form ?? "";
   const moment = quietMoments[choice] ?? quietMoments[0];
   const words = pet.sleeping ? sleepingMoments[choice] ?? sleepingMoments[0] : moment;
-  const memory = !pet.sleeping && choice === 2 && replied ? quietMemories(pet).find(m => m.key === memoryKey) : undefined;
+  const memory = !pet.sleeping && choice === 2 && replied ? quietMemories(pet, shop).find(m => m.key === memoryKey) : undefined;
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>

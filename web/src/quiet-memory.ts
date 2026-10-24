@@ -1,6 +1,7 @@
 import { memoryWords } from "./AlbumPanel";
 import { isOutingMemory } from "./outing-memory";
-import type { Memory, PetState } from "./types";
+import { recordedMemoryItem } from "./memory-item";
+import type { Memory, PetState, Shop } from "./types";
 
 // Speak about a saved experience without assigning it to today or promising a reward.
 const replies = {
@@ -26,7 +27,14 @@ const replies = {
 } satisfies Partial<Record<Memory["kind"], string>>;
 
 export type QuietMemory = { key: string; title: string; reply: string };
-export function quietMemories(pet: PetState): QuietMemory[] {
+const itemReplies = {
+  outfit: (name: string) => `它开心地晃了晃：还记得你选的「${name}」，那份心意一直暖暖的。`,
+  wallpaper: (name: string) => `它望着你：还记得一起铺好「${name}」的时光，小窝里的回忆也收好了。`,
+  floor: (name: string) => `它轻轻靠近：还记得一起选的「${name}」，那时布置小窝的心意也留着呢。`,
+  decoration: (name: string) => `它望着你：还记得一起摆好的「${name}」，那份小小的温暖一直留着。`,
+} satisfies Partial<Record<Memory["kind"], (name: string) => string>>;
+
+export function quietMemories(pet: PetState, shop?: Shop | null): QuietMemory[] {
   if (!Number.isSafeInteger(pet.lastTick) || pet.lastTick <= 0) return [];
   return (pet.album?.entries ?? [])
     .filter(m => m.source === "shared" && m.kind !== "days"
@@ -34,9 +42,12 @@ export function quietMemories(pet: PetState): QuietMemory[] {
     .slice().sort((a, b) => b.at - a.at || a.kind.localeCompare(b.kind))
     .flatMap(m => {
       const words = memoryWords(m, pet.album?.legacy ?? false);
-      const reply = isOutingMemory(m.kind)
+      const itemName = recordedMemoryItem(m, shop)?.name.trim();
+      const itemReply = itemName && Object.hasOwn(itemReplies, m.kind)
+        ? itemReplies[m.kind as keyof typeof itemReplies](itemName) : undefined;
+      const reply = itemReply ?? (isOutingMemory(m.kind)
         ? "它翻着风景手记：那一页里的小小惊喜，想和你再记起一次。"
-        : Object.hasOwn(replies, m.kind) ? replies[m.kind as keyof typeof replies] : undefined;
+        : Object.hasOwn(replies, m.kind) ? replies[m.kind as keyof typeof replies] : undefined);
       return words && reply ? [{ key: `${m.kind}:${m.at}`, title: words.title, reply }] : [];
     });
 }
