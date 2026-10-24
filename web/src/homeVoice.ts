@@ -1,4 +1,5 @@
-import type { AdultForm, GrowthStage } from "./types";
+import { tendency } from "./growth";
+import type { AdultForm, Growth, GrowthStage } from "./types";
 
 // Present-tense companionship, not a claimed memory, event or care reward.
 // Only use a recorded stage; legacy saves without growth keep their old cue.
@@ -122,6 +123,19 @@ const adultVoices: readonly Record<AdultForm, string>[] = [
   },
 ];
 
+const growingTendencySuffix: Record<AdultForm, Voice> = {
+  balanced: { content: "，和你待着刚刚好", quiet: "，今天慢慢来" },
+  lively: { content: "，想和你动一动", quiet: "，歇够了再出发" },
+  gentle: { content: "，想安静靠近你", quiet: "，把这一刻放慢" },
+  easygoing: { content: "，按自己的节奏来", quiet: "，不赶时间就好" },
+};
+
+function hasGrowingEvidence(growth: Growth) {
+  const care = growth.care;
+  return [growth.trackedHours, care?.nutrition, care?.play, care?.clean, care?.rest]
+    .some(value => typeof value === "number" && Number.isFinite(value) && value > 0);
+}
+
 export function homeVoice(species: number, stage: GrowthStage | undefined, kind: string, form?: AdultForm | ""): string | null {
   if (!Number.isInteger(species) || species < 0 || !["baby", "growing", "adult"].includes(stage ?? "") ||
       (kind !== "content" && kind !== "quiet")) return null;
@@ -130,4 +144,13 @@ export function homeVoice(species: number, stage: GrowthStage | undefined, kind:
     return adultVoices[species]?.[form] ?? null;
   }
   return voices[species]?.[stage as LivingStage]?.[kind] ?? null;
+}
+
+// A growing tendency is only a present-tense hint after the saved habit
+// counters contain evidence. Empty/legacy growth keeps the stable stage voice;
+// this avoids turning elapsed time alone into a personality claim.
+export function growingHomeVoice(species: number, growth: Growth | undefined, kind: string): string | null {
+  const base = homeVoice(species, growth?.stage, kind, growth?.stage === "adult" ? growth.form : undefined);
+  if (!base || growth?.stage !== "growing" || !hasGrowingEvidence(growth)) return base;
+  return `${base}${growingTendencySuffix[tendency(growth)][kind as keyof Voice]}`;
 }
