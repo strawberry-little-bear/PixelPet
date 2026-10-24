@@ -80,12 +80,27 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
   const feeling = feedback.kind === "feed" ? "饭团已吃好。" : feedback.kind === "clean" ? "洗得干干净净。" :
     feedback.kind === "sleep" ? feedback.reason === "awake" ? "欢迎回来，醒来啦。" : "晚安，安心睡一会儿。" :
       "这局玩得很开心。";
+  // A game result explains this round's growth before the exact need deltas.
+  // Standalone care keeps its feeling and immediate needs first.
+  const growthDetails = <>
+    {learning && <div className="care-learning" role="group" aria-label="本次成长与习惯">
+      <strong>本次成长：+{careAmount(feedback.points)} 点</strong>
+      <span>{learning.habit}</span>
+      <p>{learning.reason}</p>
+      <small>习惯可继续记录；成年形态不会因之后照顾重选。</small>
+    </div>}
+    {milestone && <div className="care-learning care-milestone" role="group" aria-label="本次照顾的成长阶段">
+      <strong>{milestone}</strong>
+      <small>这是本次已确认的阶段变化，不含操作前的自然成长；之后读取不会改写这条回执。</small>
+    </div>}
+  </>;
   const outcome = <section className={`care-outcome${embedded ? " care-outcome-embedded" : ""}`} aria-label="上次操作的即时变化">
     <h3>{embedded ? "本局照顾变化" : "本页上次已确认"} · {action}</h3>
     {!embedded && <p className="care-outcome-summary">{feeling}</p>}
     {!embedded && <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
       year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
     })}（本地时间）</time>}
+    {embedded && growthDetails}
     <div className="care-outcome-details" aria-label="即时状态变化">
       {embedded ? <div className="care-outcome-compact" aria-label="本局照顾后的状态变化">
         {needLabels.map(([key, label]) => <span key={key} data-need={key}>
@@ -98,16 +113,7 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
         </div>)}
       </dl>}
     </div>
-    {learning && <div className="care-learning" role="group" aria-label="本次成长与习惯">
-      <strong>本次成长：+{careAmount(feedback.points)} 点</strong>
-      <span>{learning.habit}</span>
-      <p>{learning.reason}</p>
-      <small>习惯可继续记录；成年形态不会因之后照顾重选。</small>
-    </div>}
-    {milestone && <div className="care-learning care-milestone" role="group" aria-label="本次照顾的成长阶段">
-      <strong>{milestone}</strong>
-      <small>这是本次已确认的阶段变化，不含操作前的自然成长；之后读取不会改写这条回执。</small>
-    </div>}
+    {!embedded && growthDetails}
     {!embedded && feedback.kind === "sleep" && <p>入睡和起床不立即恢复体力；睡着期间才逐步恢复，到满为止。</p>}
     {!embedded && <small>以上仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>}
     {!embedded && <SleepSummary feedback={feedback} />}

@@ -27,6 +27,7 @@ export function GameOutcome({ outcome, careFeedback = null, readable = false }: 
       year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
     })}（本地时间）</time>
     <p className="game-outcome-message">{outcome.message}</p>
+    <CareOutcome feedback={careFeedback} embedded />
     {walk && <div className="walk-reward-breakdown" aria-label="散步奖励拆解">
       <strong>散步奖励拆解</strong>
       <p>路线完成奖励：+{walk.routeCoins} 金币</p>
@@ -48,7 +49,6 @@ export function GameOutcome({ outcome, careFeedback = null, readable = false }: 
       : "这份回复未提供共同游戏记录，不作推测。"}</p>
     {outcome.completedCount !== undefined && <p className="game-completion-count">这款游戏已记录 {completionLabel(outcome.completedCount)}共同游戏；可从生活回顾查看各款记录。局数从开始记录时累计，不补算旧版游玩。</p>}
     <small>上方是服务端已确认的结算原文，不是当前额度或下一局预测；兴趣记录可从成长手册查看。本页暂存，刷新后不保留。</small>
-    <CareOutcome feedback={careFeedback} embedded />
   </section>;
   // Status already supplies a reading stop; only home needs its own.
   return readable ? <CareReadingRegion className="game-outcome-reading" label="游戏结算阅读区"
