@@ -1,5 +1,6 @@
 import { CareReadingRegion } from "./CareReadingRegion";
 import { quietMemories } from "./quiet-memory";
+import { interestCue } from "./companion";
 import { PetArt, petRigClass } from "./PetArt";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
 import { stageNames, formNames } from "./growth";
@@ -32,6 +33,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
   const memoryIndex = memories.findIndex(m => m.key === memoryKey);
   const memory = memories[memoryIndex];
   const atmosphere = !pet.sleeping ? quietAtmosphere(pet.species, stage, form, now) : null;
+  const interest = !pet.sleeping && choice === 1 && replied ? interestCue(pet.companion) : null;
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
@@ -53,6 +55,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
         {atmosphere && <small className="quiet-event" data-season={atmosphere.season}><span>{atmosphere.seasonLabel}小事</span>{atmosphere.event}</small>}
         {memory && <small className="quiet-memory-position">闲聊回忆 {memoryIndex + 1} / {memories.length}</small>}
         <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
+        {interest && <small className="quiet-interest" data-game={interest.kind}><span>一起玩久了</span>{interest.text}</small>}
         {memory && <small className="quiet-memory-source">{memory.source === "game" ? "从共同游戏记录想起：" : "从纪念册想起："}{memory.title}
           {memory.source === "game" && <> · <time dateTime={new Date(memory.at).toISOString()}>{new Date(memory.at).toLocaleString("zh-CN", {
             year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,

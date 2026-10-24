@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { games } from "./games";
-import { companionCompletionTotal, completedExperience, experienceWords, interestSummary, recordNewDiscoveries, takeDiscoveryEcho } from "./companion";
+import { companionCompletionTotal, completedExperience, experienceWords, interestCue, interestSummary, recordNewDiscoveries, takeDiscoveryEcho } from "./companion";
 import { CompanionPanel } from "./CompanionPanel";
 import { PetScene } from "./PetScene";
 import type { Companion, GameExperience } from "./types";
@@ -34,6 +34,20 @@ describe("bounded explainable shared interests", () => {
     c.interests[1].points = 2.5;
     c.interests[2].points = -1;
     expect(interestSummary(c)).toBe("还在慢慢了解彼此，玩喜欢的就好。");
+  });
+  it("turns one meaningful shared interest into a passive quiet cue", () => {
+    const c = fresh();
+    c.interests.find(entry => entry.kind === "fishing")!.points = 2;
+    expect(interestCue(c)).toEqual({ kind: "fishing", text: "它已经很熟悉池塘边的等待，发呆时也会听一会儿水声。" });
+    c.interests.find(entry => entry.kind === "walk")!.points = 2;
+    expect(interestCue(c)).toBeNull();
+  });
+  it("does not create a quiet cue before familiarity is meaningful or from malformed data", () => {
+    const c = fresh();
+    c.interests[0].points = 1;
+    expect(interestCue(c)).toBeNull();
+    c.interests[0].points = 2.5;
+    expect(interestCue(c)).toBeNull();
   });
   it("shows the saved total only for a complete ordered game history", () => {
     const c = fresh();

@@ -98,3 +98,15 @@ it("does not show present-time atmosphere while the pet is sleeping", () => {
   const { container } = render(<QuietMoment pet={saved} choice={1} replied={false} now={new Date(2026, 9, 24, 18).getTime()} />);
   expect(container.querySelector(".quiet-atmosphere")).toBeNull();
 });
+
+it("lets one saved game interest surface as a passive quiet response", () => {
+  const saved = pet();
+  saved.companion = { since: 1000, interests: [{ kind: "fishing", points: 3, lastAt: 1500 }] };
+  const before = structuredClone(saved);
+  const { container, rerender } = render(<QuietMoment pet={saved} choice={1} replied now={2000} />);
+  expect(container.querySelector(".quiet-interest")?.getAttribute("data-game")).toBe("fishing");
+  expect(container.querySelector(".quiet-interest")?.textContent).toContain("池塘边的等待");
+  expect(saved).toEqual(before);
+  rerender(<QuietMoment pet={{ ...saved, sleeping: true }} choice={1} replied now={2000} />);
+  expect(container.querySelector(".quiet-interest")).toBeNull();
+});
