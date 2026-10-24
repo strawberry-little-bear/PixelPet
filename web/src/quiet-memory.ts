@@ -1,3 +1,4 @@
+import { gameKeepsake, type GameKeepsakeItem } from "./game-keepsakes";
 import { games } from "./games";
 import { memoryWords } from "./AlbumPanel";
 import { isOutingMemory } from "./outing-memory";
@@ -27,7 +28,7 @@ const replies = {
   decoration: "它环顾小窝：一起挑过的小摆件，让回忆也有了住处。",
 } satisfies Partial<Record<Memory["kind"], string>>;
 
-export type QuietMemory = { key: string; title: string; reply: string; at: number; source: "album" | "game" };
+export type QuietMemory = { key: string; title: string; reply: string; at: number; source: "album" | "game"; keepsake?: GameKeepsakeItem };
 const itemReplies = {
   outfit: (name: string) => `它开心地晃了晃：还记得你选的「${name}」，那份心意一直暖暖的。`,
   wallpaper: (name: string) => `它望着你：还记得一起铺好「${name}」的时光，小窝里的回忆也收好了。`,
@@ -40,16 +41,18 @@ export function quietMemories(pet: PetState, shop?: Shop | null): QuietMemory[] 
   const memories: QuietMemory[] = (pet.album?.entries ?? [])
     .filter(m => m.source === "shared" && m.kind !== "days"
       && Number.isSafeInteger(m.at) && m.at > 0 && m.at <= pet.lastTick)
-    .slice().sort((a, b) => b.at - a.at || a.kind.localeCompare(b.kind))
+    .slice().sort((a, b) => b.at - a.at || a.kind.localeCompare(b.kind) || (a.item ?? "").localeCompare(b.item ?? ""))
     .flatMap(m => {
+      const keepsake = m.kind === "keepsake" && pet.schema >= 21 ? gameKeepsake(m.item) : undefined;
+      if (m.kind === "keepsake" && !keepsake) return [];
       const words = memoryWords(m, pet.album?.legacy ?? false);
       const itemName = recordedMemoryItem(m, shop)?.name.trim();
       const itemReply = itemName && Object.hasOwn(itemReplies, m.kind)
         ? itemReplies[m.kind as keyof typeof itemReplies](itemName) : undefined;
-      const reply = itemReply ?? (isOutingMemory(m.kind)
+      const reply = keepsake?.reply ?? itemReply ?? (isOutingMemory(m.kind)
         ? "它翻着风景手记：那一页里的小小惊喜，想和你再记起一次。"
         : Object.hasOwn(replies, m.kind) ? replies[m.kind as keyof typeof replies] : undefined);
-      return words && reply ? [{ key: `${m.kind}:${m.at}`, title: words.title, reply, at: m.at, source: "album" as const }] : [];
+      return words && reply ? [{ key: `${m.kind}:${m.at}${keepsake ? `:${keepsake.item}` : ""}`, title: words.title, reply, at: m.at, source: "album" as const, ...(keepsake && { keepsake: keepsake.item }) }] : [];
     });
   // A repeated completion can remain meaningful after the first-game album
   // entry or capped familiarity stops changing. Use only the saved session,

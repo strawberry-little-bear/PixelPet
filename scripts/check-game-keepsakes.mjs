@@ -31,9 +31,9 @@ async function album(page) {
  for(let i=0;i<3;i++)await key(page,'a');assert.equal(await page.locator('[data-album-directory]').getAttribute('data-album-directory'),'play');
  await key(page,'b');
 }
-async function readable(page) {
+async function readable(page, panel = ".album-panel", targets = [".album-panel > header", ".album-source:last-child"]) {
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'horizontal overflow');
- const clipped=await page.locator('.album-panel').evaluate(el=>{
+ const clipped=await page.locator(panel).evaluate(el=>{
   const bad=[],walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let node;
   while((node=walker.nextNode())){if(!node.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(node);for(const b of range.getClientRects()){
    if(!b.width||!b.height)continue;
@@ -41,11 +41,30 @@ async function readable(page) {
    for(let p=node.parentElement;p;p=p.parentElement){const style=getComputedStyle(p),clip=p.getBoundingClientRect();if(['hidden','clip','auto','scroll'].includes(style.overflowY)&&(b.top<clip.top-2||b.bottom>clip.bottom+2))bad.push(node.textContent);}
   }}return [...new Set(bad)];
  });assert.deepEqual(clipped,[],'card text clipped');
- for(const selector of ['.album-panel > header','.album-source:last-child','.button-a','.button-b','.button-c']) {
+ for(const selector of [...targets,'.button-a','.button-b','.button-c']) {
   const el=page.locator(selector);await el.scrollIntoViewIfNeeded();assert(await el.evaluate(el=>{const b=el.getBoundingClientRect();return b.top>=-1&&b.bottom<=innerHeight+1;}),`${selector} unreachable`);
  }
  assert.equal(await page.locator('.physical-button').count(),3);
  assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
+}
+async function quiet(page, touch = false) {
+ await key(page,'a');for(let i=0;i<12;i++)await key(page,'a');await key(page,'b');await page.locator('.quiet-moment').waitFor();
+ await key(page,'a');await key(page,'a');
+ assert.equal(await page.locator('.quiet-keepsake').count(),0,'a keepsake needs an explicit conversation');
+ // Complete the cycle using only B; no LCD controls or synthetic page-state edits.
+ const saved=(await api('state')).state;
+ for(let i=0;i<saved.album.entries.length+1 && !(await page.locator('.quiet-keepsake').count());i++) {
+  if(touch)await page.locator('.button-b').tap();else await key(page,'b');
+ }
+ assert.equal(await page.locator('.quiet-keepsake [data-keepsake-art]').getAttribute('data-keepsake-art'),'star-ribbon');
+ assert.match(await page.locator('.quiet-moment-copy > p').innerText(),/一起接过的星光/);
+ assert.match(await page.locator('.quiet-memory-source').innerText(),/从纪念册想起：接星星的小缎带/);
+ assert.equal(await page.locator('.quiet-memory-source time').getAttribute('datetime'),new Date(cards(saved)[0].at).toISOString());
+ await readable(page,'.quiet-moment',['.quiet-moment > header','.quiet-keepsake','.quiet-moment-copy > p','.quiet-memory-source','.quiet-moment-note']);
+ await page.screenshot({path:join(dir,`quiet-keepsake-${page.viewportSize().width}-${page.viewportSize().height}.png`),fullPage:true});
+ await key(page,'a');assert.equal(await page.locator('.quiet-keepsake').count(),0,'another interaction clears the recollection');
+ await key(page,'c');await page.locator('.home-caption').waitFor();
+ await page.reload();await page.locator('.home-caption').waitFor();assert.equal(await page.locator('.quiet-keepsake').count(),0,'reload must not replay a recollection');
 }
 try {
  server=spawn(binary,[],{env:{...process.env,PIXELPET_ADDR:`127.0.0.1:${port}`,PIXELPET_DB:join(dir,'test.db'),PIXELPET_WEB:web},stdio:['ignore','pipe','pipe']});
@@ -64,11 +83,11 @@ try {
  const restored=await api('import',backup);assert.deepEqual(cards(restored.state),first);
  assert.deepEqual(errors,[]);await context.close();results.push({check:'real-completions-repeat-reload-backup',passed:true});
  for(const mode of [{width:1200,height:850,font:14},{width:320,height:700,font:28},{width:320,height:380,font:28}]) {
-  const ctx=await browser.newContext({viewport:{width:mode.width,height:mode.height},reducedMotion:'reduce',forcedColors:mode.font===28?'active':'none'}),p=await ctx.newPage(),writes=[],failures=[];
+  const ctx=await browser.newContext({viewport:{width:mode.width,height:mode.height},hasTouch:mode.font===28,reducedMotion:'reduce',forcedColors:mode.font===28?'active':'none'}),p=await ctx.newPage(),writes=[],failures=[];
   p.on('pageerror',e=>failures.push(e.message));
   p.on('request',r=>{if(r.method()==='POST'&&!['/api/state','/api/visit'].includes(new URL(r.url()).pathname))writes.push(r.url());});
   await p.addInitScript(font=>document.addEventListener('DOMContentLoaded',()=>{document.documentElement.style.fontSize=`${font}px`;}),mode.font);
-  await p.goto(base);await p.locator('.home-caption').waitFor();await album(p);
+  await p.goto(base);await p.locator('.home-caption').waitFor();await quiet(p,mode.font===28);await album(p);
   for(let i=0;i<backup.album.entries.length+1 && !(await p.locator('[data-keepsake-art]').count());i++)await key(p,'a');
   assert.equal(await p.locator('[data-keepsake-art]').getAttribute('data-keepsake-art'),'star-ribbon');
   assert.match(await p.locator('.album-panel h3').innerText(),/接星星的小缎带/);await readable(p);
@@ -76,7 +95,7 @@ try {
   assert.equal(await p.locator('.album-panel').getAttribute('data-album-page'),selected,'reverse must return to same saved item');
   await p.screenshot({path:join(dir,`keepsake-${mode.width}-${mode.height}.png`),fullPage:true});
   assert.deepEqual(writes,[]);assert.deepEqual(failures,[]);assert.deepEqual(cards((await api('state')).state),first);
-  results.push({...mode,passed:true});await ctx.close();
+  results.push({check:"album-and-keepsake-conversation",...mode,touch:mode.font===28,passed:true});await ctx.close();
  }
  await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({artifacts:dir,results},null,2));
 } finally { if(browser)await browser.close();if(server){server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));} }

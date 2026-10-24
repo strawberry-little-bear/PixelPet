@@ -26,3 +26,7 @@
 
 .quiet-event { max-width: 260px; margin-top: 4px; font-size: .625rem; line-height: 1.6; opacity: .78; }
 .quiet-event span { margin-right: 4px; font-family: var(--mono); opacity: .72; }
+
+/* The saved keepsake stays with its recollection, without displacing the pet. */
+.quiet-keepsake { display: flex; justify-content: center; margin-top: 5px; flex-shrink: 0; }
+.quiet-keepsake > svg { width: 28px; height: 28px; }
