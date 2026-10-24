@@ -47,6 +47,28 @@ it.each(["balanced", "lively", "gentle", "easygoing"] as AdultForm[])("keeps sav
   expect(saved).toEqual(before);
 });
 
+
+it.each([
+  ["balanced", "它安稳地陪在你身边"],
+  ["lively", "发呆完就想和你去冒险"],
+  ["gentle", "把动作放得很轻"],
+  ["easygoing", "按自己的节奏眨眨眼"],
+] as const)("shows the saved adult tendency in quiet company: %s", (form, words) => {
+  const saved = pet(); saved.growth = emptyGrowth("adult"); saved.growth.form = form;
+  const { container } = render(<QuietMoment pet={saved} choice={1} replied />);
+  expect(container.querySelector(`.quiet-form-line[data-form="${form}"]`)?.textContent).toContain(words);
+});
+
+it.each([
+  ["baby", ""], ["growing", ""], ["adult", "gentle"],
+] as const)("only shows a saved adult tendency after the quiet reply: %s", (stage, form) => {
+  const saved = pet(); saved.growth = emptyGrowth(stage); saved.growth.form = form;
+  const { container, rerender } = render(<QuietMoment pet={saved} choice={1} replied={false} />);
+  expect(container.querySelector(".quiet-form-line")).toBeNull();
+  rerender(<QuietMoment pet={saved} choice={0} replied />);
+  expect(container.querySelector(".quiet-form-line")).toBeNull();
+});
+
 it("keeps one equipped accessory in place of the default outfit, with the adult emblem", () => {
   const saved = pet(); saved.growth = emptyGrowth("adult"); saved.growth.form = "gentle";
   saved.economy = { coins: 0, lastDailyAt: 0, lastGameAt: 0, gameCoins: 0, owned: ["leaf-pin"],

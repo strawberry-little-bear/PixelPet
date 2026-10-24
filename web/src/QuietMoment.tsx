@@ -4,8 +4,8 @@ import { interestCue } from "./companion";
 import { PetArt, petRigClass } from "./PetArt";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
 import { stageNames, formNames } from "./growth";
+import type { AdultForm, GrowthStage, PetState, Shop } from "./types";
 import { quietAtmosphere } from "./quiet-atmosphere";
-import type { PetState, Shop } from "./types";
 import "./growth.css";
 import "./quiet-moment.css";
 
@@ -14,6 +14,17 @@ export const quietMoments = [
   { title: "陪它发呆", idle: "阳光慢慢挪过屏幕，谁也不用急。", reply: "它轻轻呼了一口气，和你一起发呆。", expression: "quiet" as const },
   { title: "说声你好", idle: "它抬起头，等着听你说话。", reply: "它摇了摇身子：你好呀，我一直在这里。", expression: "playful" as const },
 ] as const;
+
+const adultFormQuietLines: Record<AdultForm, string> = {
+  balanced: "它安稳地陪在你身边，玩一会儿、休息一会儿都刚刚好。",
+  lively: "它的眼神亮了一下，像是发呆完就想和你去冒险。",
+  gentle: "它把动作放得很轻，静静靠在你身边。",
+  easygoing: "它按自己的节奏眨眨眼，连安静也觉得很自在。",
+};
+
+export function quietFormLine(stage: GrowthStage, form: AdultForm | "", choice: number, replied: boolean) {
+  return stage === "adult" && form && choice === 1 && replied ? adultFormQuietLines[form] : null;
+}
 
 const sleepingMoments = [
   { title: "轻轻摸摸", idle: "它睡得正香，你可以轻轻陪着。", reply: "你轻轻摸了摸它，它仍闭着眼睛，呼吸安稳。" },
@@ -34,6 +45,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
   const memory = memories[memoryIndex];
   const atmosphere = !pet.sleeping ? quietAtmosphere(pet.species, stage, form, now) : null;
   const interest = !pet.sleeping && choice === 1 && replied ? interestCue(pet.companion) : null;
+  const formLine = !pet.sleeping ? quietFormLine(stage, form, choice, replied) : null;
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
@@ -55,6 +67,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
         {atmosphere && <small className="quiet-event" data-season={atmosphere.season}><span>{atmosphere.seasonLabel}小事</span>{atmosphere.event}</small>}
         {memory && <small className="quiet-memory-position">闲聊回忆 {memoryIndex + 1} / {memories.length}</small>}
         <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
+        {formLine && <small className="quiet-form-line" data-form={form}><span>成长留下的样子</span>{formLine}</small>}
         {interest && <small className="quiet-interest" data-game={interest.kind}><span>一起玩久了</span>{interest.text}</small>}
         {memory && <small className="quiet-memory-source">{memory.source === "game" ? "从共同游戏记录想起：" : "从纪念册想起："}{memory.title}
           {memory.source === "game" && <> · <time dateTime={new Date(memory.at).toISOString()}>{new Date(memory.at).toLocaleString("zh-CN", {
