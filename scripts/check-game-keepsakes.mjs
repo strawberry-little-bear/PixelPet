@@ -66,12 +66,54 @@ async function quiet(page, touch = false) {
  await key(page,'c');await page.locator('.home-caption').waitFor();
  await page.reload();await page.locator('.home-caption').waitFor();assert.equal(await page.locator('.quiet-keepsake').count(),0,'reload must not replay a recollection');
 }
+async function corner(page, touch = false) {
+ // The read-only checks leave us on an album card. Return through its directory.
+ await key(page,'c');await key(page,'c');await page.locator('.home-caption').waitFor();
+ const before=(await api('state')).state;
+ async function openCorner() {
+  await key(page,'a');for(let i=0;i<8;i++)await key(page,'a');await key(page,'b');
+  for(let i=0;i<7;i++)await key(page,'a');
+  assert.equal(await page.locator('[data-album-directory]').getAttribute('data-album-directory'),'keepsakes');
+  await key(page,'b');await page.locator('.keepsake-corner').waitFor();
+ }
+ async function confirm() {
+  const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/action'&&r.request().postDataJSON()?.kind==='display-keepsake');
+  if(touch)await page.locator('.button-b').tap();else await key(page,'b');
+  assert((await response).ok());await page.waitForFunction(()=>!document.querySelector('.button-b')?.disabled);
+ }
+ await openCorner();await key(page,'a');
+ assert.equal(await page.locator('.keepsake-corner').getAttribute('data-corner-choice'),'star-ribbon');
+ assert.match(await page.locator('.corner-action').innerText(),/B 摆在小窝/);
+ assert.equal(await page.locator('.corner-date time').getAttribute('datetime'),new Date(cards(before)[0].at).toISOString());
+ await readable(page,'.keepsake-corner',['.keepsake-corner > header','.corner-preview','.corner-action','.keepsake-corner > small']);
+ await page.screenshot({path:join(dir,`corner-${page.viewportSize().width}-${page.viewportSize().height}.png`),fullPage:true});
+ await confirm();const placed=await api('backup');assert.equal(placed.album.displayItem,'star-ribbon');
+ assert.equal(placed.careCount,before.careCount);assert.deepEqual(placed.logs,before.logs);assert.deepEqual(cards(placed),cards(before));
+ assert.equal(placed.economy.coins,before.economy.coins);
+ await key(page,'c');await key(page,'c');await page.locator('.home-keepsake').waitFor();
+ await page.reload();await page.locator('.home-keepsake').waitFor();
+ assert.equal(await page.locator('.home-keepsake [data-keepsake-art]').getAttribute('data-keepsake-art'),'star-ribbon');
+ await readable(page,'.home-keepsake',['.home-keepsake']);
+ await page.screenshot({path:join(dir,`home-corner-${page.viewportSize().width}-${page.viewportSize().height}.png`),fullPage:true});
+ // A second real page sees the same saved display, with no replay or extra rewards.
+ const other=await page.context().newPage();await other.goto(base);await other.locator('.home-keepsake').waitFor();await other.close();await page.bringToFront();
+ await openCorner();await key(page,'a');assert.equal(await page.locator('.keepsake-corner').getAttribute('data-corner-choice'),'');
+ await confirm();assert.equal((await api('state')).state.album.displayItem,undefined);
+ await key(page,'c');await key(page,'c');assert.equal(await page.locator('.home-keepsake').count(),0);
+ // Backup restores the chosen decoration; unowned choices remain a refusal.
+ await api('import',placed);await page.reload();await page.locator('.home-keepsake').waitFor();
+ const rejected=await fetch(base+'/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'display-keepsake',item:'pond-shell',requestId:crypto.randomUUID()})});
+ assert.equal(rejected.status,400);assert.equal((await api('state')).state.album.displayItem,'star-ribbon');
+ await openCorner();await key(page,'a');await confirm();await key(page,'c');await key(page,'c');
+ assert.equal(await page.locator('.home-keepsake').count(),0);
+ assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
+}
 try {
  server=spawn(binary,[],{env:{...process.env,PIXELPET_ADDR:`127.0.0.1:${port}`,PIXELPET_DB:join(dir,'test.db'),PIXELPET_WEB:web},stdio:['ignore','pipe','pipe']});
  server.once('error',e=>startupError=e);server.stdout.on('data',d=>log+=d);server.stderr.on('data',d=>log+=d);
  let ready=false;for(let i=0;i<100;i++){if(startupError)throw startupError;assert.equal(server.exitCode,null,log);try{if((await fetch(base+'/api/state')).ok){ready=true;break;}}catch{}await wait(100);}assert(ready,log);
  const now=Date.now();const initial=await api('import',{schema:1,revision:0,species:2,name:'小纪念伙伴',createdAt:now-3600000,hatchedAt:now-3600000,lastTick:now,sleeping:false,needs:{hunger:80,mood:80,clean:80,energy:80},careCount:0,logs:[]});
- assert.equal(initial.state.schema,21);assert.deepEqual(cards(initial.state),[]);
+ assert.equal(initial.state.schema,22);assert.deepEqual(cards(initial.state),[]);
  browser=await chromium.launch({channel:'chrome',headless:true});
  const context=await browser.newContext({viewport:{width:1200,height:850},reducedMotion:'reduce'}),page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));await page.goto(base);await page.locator('.home-caption').waitFor();
@@ -95,7 +137,9 @@ try {
   assert.equal(await p.locator('.album-panel').getAttribute('data-album-page'),selected,'reverse must return to same saved item');
   await p.screenshot({path:join(dir,`keepsake-${mode.width}-${mode.height}.png`),fullPage:true});
   assert.deepEqual(writes,[]);assert.deepEqual(failures,[]);assert.deepEqual(cards((await api('state')).state),first);
-  results.push({check:"album-and-keepsake-conversation",...mode,touch:mode.font===28,passed:true});await ctx.close();
+  results.push({check:"album-and-keepsake-conversation",...mode,touch:mode.font===28,passed:true});
+  await corner(p,mode.font===28);assert.deepEqual(failures,[]);
+  results.push({check:"keepsake-corner-persistence-backup-and-three-keys",...mode,touch:mode.font===28,passed:true});await ctx.close();
  }
  await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({artifacts:dir,results},null,2));
 } finally { if(browser)await browser.close();if(server){server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));} }

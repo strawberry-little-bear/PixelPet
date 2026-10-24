@@ -1,3 +1,4 @@
+import { HomeKeepsake, KeepsakeCorner, keepsakeOptions } from "./KeepsakeCorner";
 import { StatusIdentity } from "./StatusIdentity";
 import { usePhysicalButtonFocus } from "./usePhysicalButtonFocus";
 import { CareReadingRegion } from "./CareReadingRegion";
@@ -72,7 +73,7 @@ import { previewBackup, backupSizeLimit } from "./backup";
 import { ImportPreview, type PendingImport } from "./ImportPreview";
 import { RecoveryPoints, type RecoveryPointSource } from "./RecoveryPoints";
 import { albumView, nextAlbum, previousAlbum, reconcileAlbum, startAlbum } from "./album-reading";
-import { AlbumDirectory, AlbumPanel, albumCategories, type AlbumCategory } from "./AlbumPanel";
+import { AlbumDirectory, AlbumPanel, albumDestinations, type AlbumCategory } from "./AlbumPanel";
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import { QuietMoment } from "./QuietMoment";
@@ -116,6 +117,7 @@ type Page =
   | "growth"
   | "return"
   | "album"
+  | "keepsakes"
   | "shop"
   | "fish-album"
   | "park-album"
@@ -342,6 +344,7 @@ export default function App() {
   const returningToPause = albumReturnSession !== null && albumReturnSession === sessionKey;
   const [albumCursor, setAlbumCursor] = useState(startAlbum);
   const [albumChoice, setAlbumChoice] = useState(0);
+  const [keepsakeChoice, setKeepsakeChoice] = useState("");
   const [albumCategory, setAlbumCategory] = useState<AlbumCategory | null>(null);
   const albumReading = pet && albumCategory !== null ? albumView(pet, albumCategory, albumCursor) : null;
   const [returnRecap, setReturnRecap] = useState<ReturnRecap | null>(null);
@@ -472,6 +475,16 @@ export default function App() {
     !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
   const navigateQuietReading = (choice: number) => {
     setQuietReadingDestination({ petKey: careReadingKey, choice });
+  };
+
+  const [cornerReadingDestination, setCornerReadingDestination] = useState<{ petKey: string | null; choice: string } | null>(null);
+  useReadingViewport(readingRoot, cornerReadingDestination, ".keepsake-corner > header",
+    !!careReadingKey && cornerReadingDestination?.petKey === careReadingKey && page === "keepsakes" &&
+    cornerReadingDestination?.choice === keepsakeChoice && !pet?.game &&
+    !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
+  const navigateCornerReading = (choice: string) => {
+    setKeepsakeChoice(choice);
+    setCornerReadingDestination({ petKey: careReadingKey, choice });
   };
 
   const [returnReadingDestination, setReturnReadingDestination] = useState<{ petKey: string | null; recapId: string; page: number } | null>(null);
@@ -1575,12 +1588,23 @@ export default function App() {
       }
       return;
     }
+    if (page === "keepsakes") {
+      const options = keepsakeOptions(pet);
+      const selectedItem = options.find(item => item === keepsakeChoice) ?? "";
+      if (key === "A") navigateCornerReading(options[(options.indexOf(selectedItem) + 1) % options.length]);
+      else if (key === "B" && (pet.schema ?? 0) >= 22 && selectedItem !== (pet.album?.displayItem ?? ""))
+        void act("display-keepsake", { item: selectedItem });
+      else if (key === "C") { setPage("album"); setAlbumCategory(null); navigateAlbumReading(null); }
+      return;
+    }
     if (page === "album") {
       if (albumCategory === null) {
-        if (key === "A") { setAlbumChoice(v => (v + 1) % albumCategories.length); navigateAlbumReading(null); }
+        if (key === "A") { setAlbumChoice(v => (v + 1) % albumDestinations(pet).length); navigateAlbumReading(null); }
         else if (key === "B") {
-          const category = albumCategories[albumChoice].id;
-          setAlbumCategory(category); setAlbumCursor(startAlbum()); navigateAlbumReading(category);
+          const category = (albumDestinations(pet)[albumChoice] ?? albumDestinations(pet)[0]).id;
+          if (category === "keepsakes") {
+            setPage("keepsakes"); navigateCornerReading(pet.album?.displayItem ?? "");
+          } else { setAlbumCategory(category); setAlbumCursor(startAlbum()); navigateAlbumReading(category); }
         }
         else if (key === "C") setPage("home");
       } else if (key === "C") {
@@ -2249,6 +2273,8 @@ export default function App() {
                       ? "A 换页　 B / C 回小窝"
                       : page === "album"
                       ? albumCategory === null ? "A 换分类  B 进入  C 返回小窝" : returningToPause ? "A 上一页  B 下一页  C 返回暂停" : "A 上一页  B 下一页  C 返回分类"
+                      : page === "keepsakes"
+                      ? "A 换物件  B 摆放 / 收起  C 返回分类"
                       : page === "growth"
                       ? "A 上一页  B 下一页  C 返回"
                       : page === "journal"
@@ -2469,7 +2495,7 @@ export default function App() {
                             ? "CARE MENU"
                             : page === "shop"
                               ? "LITTLE SHOP"
-                              : page === "album"
+                              : (page === "album" || page === "keepsakes")
                                 ? "OUR MEMORIES"
                                 : page === "return"
                                   ? "WELCOME BACK"
@@ -2558,6 +2584,9 @@ export default function App() {
                         {page === "fish-album" && <CareReadingRegion className="memory-reading-region" label="池塘鱼图鉴阅读区">
                           <FishAlbum pet={pet} page={fishPage} />
                         </CareReadingRegion>}
+                        {page === "keepsakes" && <CareReadingRegion className="memory-reading-region" label="小窝纪念角阅读区">
+                          <KeepsakeCorner pet={pet} choice={keepsakeChoice} />
+                        </CareReadingRegion>}
                         {page === "album" && <CareReadingRegion className="memory-reading-region" label="永久纪念册阅读区">
                           {albumCategory === null ? <AlbumDirectory pet={pet} choice={albumChoice} /> : <AlbumPanel pet={pet} shop={shop} now={now} page={albumReading?.page ?? 0} missing={albumReading?.cursor.missing} category={albumCategory} />}
                         </CareReadingRegion>}
@@ -2627,6 +2656,7 @@ export default function App() {
                               equipped={pet.economy?.equipped}
                               dirty={pet.needs.clean < 35}
                             />
+                            <HomeKeepsake pet={pet} />
                             <CareFeedback
                               rules={careRules}
                               growthRecorded={!!pet.growth}

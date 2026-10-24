@@ -173,6 +173,10 @@ func (s *State) Upgrade(now time.Time) bool {
 		// Existing game cards and completion history remain untouched.
 		s.Schema = 21
 	}
+	if s.Schema == 21 {
+		// Leave the keepsake corner empty; retain every saved memory and game.
+		s.Schema = 22
+	}
 	return true
 }
 

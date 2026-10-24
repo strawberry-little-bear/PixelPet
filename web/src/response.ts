@@ -64,6 +64,7 @@ const memoryKinds: Record<Memory["kind"], unknown> = {
 };
 function validAlbum(value: unknown): boolean {
   return value == null || (record(value) && timestamp(value.since) && typeof value.legacy === "boolean" &&
+    (value.displayItem === undefined || typeof value.displayItem === "string") &&
     // A nil Go slice is a legitimate empty legacy/egg album.
     (value.entries == null || (Array.isArray(value.entries) && value.entries.every(memory =>
       record(memory) && typeof memory.kind === "string" && Object.hasOwn(memoryKinds, memory.kind) &&

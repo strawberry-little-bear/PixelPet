@@ -1,0 +1,11 @@
+.keepsake-corner { padding: 4px 12px 10px; text-align: center; overflow-wrap: anywhere; }
+.keepsake-corner > header { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed currentColor; padding-bottom: 5px; font-size: .8rem; }
+.keepsake-corner > header span { white-space: nowrap; font-size: .65rem; }
+.keepsake-corner p { font-size: .75rem; line-height: 1.65; margin: 8px 0; }
+.keepsake-corner h3 { font-size: .85rem; line-height: 1.5; margin: 5px 0; }
+.keepsake-corner > small { display: block; font-size: .65rem; line-height: 1.6; }
+.corner-preview { display: flex; justify-content: center; align-items: center; min-height: 48px; font-size: 32px; }
+.home-keepsake { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 3px 8px 7px; padding: 5px; border-block: 1px dashed currentColor; }
+.home-keepsake > svg { width: 26px; height: 26px; flex-shrink: 0; }
+.home-keepsake > span { min-width: 0; text-align: left; overflow-wrap: anywhere; }
+.home-keepsake small, .home-keepsake strong { display: block; font-size: .625rem; line-height: 1.6; }

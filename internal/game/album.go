@@ -1,13 +1,17 @@
 package game
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // Album is independent of the rolling diary. Each kind (or elapsed-day
 // milestone) is recorded once; nothing here awards points or changes a form.
 type Album struct {
-	Since   int64    `json:"since"`
-	Legacy  bool     `json:"legacy"`
-	Entries []Memory `json:"entries"`
+	DisplayItem string   `json:"displayItem,omitempty"`
+	Since       int64    `json:"since"`
+	Legacy      bool     `json:"legacy"`
+	Entries     []Memory `json:"entries"`
 }
 
 type Memory struct {
@@ -148,8 +152,11 @@ func (s State) validAlbum(now time.Time) bool {
 	if a == nil || a.Since < s.CreatedAt || a.Since > s.LastTick || a.Since > now.UnixMilli() || len(a.Entries) > limit {
 		return false
 	}
+	if (s.Schema < 22 && a.DisplayItem != "") || (a.DisplayItem != "" && keepsakeGame(a.DisplayItem) == "") {
+		return false
+	}
 	if s.HatchedAt == 0 {
-		return !a.Legacy && len(a.Entries) == 0
+		return !a.Legacy && len(a.Entries) == 0 && a.DisplayItem == ""
 	}
 	if (a.Legacy && a.Since < s.HatchedAt) || (!a.Legacy && a.Since > s.HatchedAt) {
 		return false
@@ -291,5 +298,30 @@ func (s State) validAlbum(now time.Time) bool {
 			return false
 		}
 	}
-	return seen["hatch"] && (s.Growth.GrowingAt == 0 || seen["growing"]) && (s.Growth.AdultAt == 0 || seen["adult"]) && (!seen["perfect-stars"] || seen["stars"])
+	return (a.DisplayItem == "" || seen["keepsake:"+a.DisplayItem]) && seen["hatch"] && (s.Growth.GrowingAt == 0 || seen["growing"]) && (s.Growth.AdultAt == 0 || seen["adult"]) && (!seen["perfect-stars"] || seen["stars"])
+}
+
+// An explicit set (including empty to put away) is safe to repeat. Placing a
+// memento is decoration only: it never fabricates ownership or a diary entry.
+func (s *State) displayKeepsake(item string) (string, error) {
+	if s.Schema < 22 || s.Album == nil {
+		return "", errors.New("请更新服务后再布置纪念角")
+	}
+	if item != "" {
+		owned := false
+		for _, m := range s.Album.Entries {
+			if m.Kind == "keepsake" && m.Item == item && m.Source == "shared" && keepsakeGame(item) != "" {
+				owned = true
+				break
+			}
+		}
+		if !owned {
+			return "", errors.New("只能摆放已经收好的小游戏纪念物")
+		}
+	}
+	s.Album.DisplayItem = item
+	if item == "" {
+		return "纪念物已收回纪念册，回忆仍在。", nil
+	}
+	return "小纪念物摆好了，回小窝就能看到。", nil
 }

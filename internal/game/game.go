@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 21
+const Schema = 22
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -199,11 +199,13 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 	if s.Game != nil && !(strings.HasPrefix(a.Kind, "snake-") || strings.HasPrefix(a.Kind, "tetris-") || strings.HasPrefix(a.Kind, "fish-") || strings.HasPrefix(a.Kind, "walk-") || strings.HasPrefix(a.Kind, "treasure-")) && a.Kind != "catch" && a.Kind != "tile-pick" && a.Kind != "tile-clear" {
 		return "", errors.New("请先完成小游戏，或通过放弃确认返回")
 	}
-	if s.Sleeping && a.Kind != "sleep" && a.Kind != "rename" {
+	if s.Sleeping && a.Kind != "sleep" && a.Kind != "rename" && a.Kind != "display-keepsake" {
 		return "", errors.New("它正在睡觉，先把它叫醒吧")
 	}
 	var msg, diary string
 	switch a.Kind {
+	case "display-keepsake":
+		return s.displayKeepsake(a.Item)
 	case "daily", "buy", "equip":
 		var err error
 		msg, err = s.applyEconomy(a, now)

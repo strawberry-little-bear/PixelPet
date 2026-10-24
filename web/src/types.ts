@@ -195,7 +195,7 @@ export type Memory = {
   item?: string;
   outingId?: string;
 };
-export type Album = { since: number; legacy: boolean; entries: Memory[] };
+export type Album = { displayItem?: string; since: number; legacy: boolean; entries: Memory[] };
 
 export type Equipment = { accessory: string; room: string; wallpaper?: string; floor?: string };
 export type Economy = {

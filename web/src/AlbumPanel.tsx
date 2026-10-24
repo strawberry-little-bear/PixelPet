@@ -20,6 +20,9 @@ export const albumCategories = [
   { id: "scenery", label: "风景手记", detail: "真实发现时的虚构风景，不对应现实天气。" },
 ] as const;
 export type AlbumCategory = typeof albumCategories[number]["id"];
+export const albumDestinations = (pet: PetState) => (pet.schema ?? 0) >= 22
+  ? [...albumCategories, { id: "keepsakes" as const, label: "小窝纪念角", detail: "挑一件已经收好的游戏纪念物，摆在小窝里。" }]
+  : [...albumCategories];
 const memoryCategory: Record<Memory["kind"], Exclude<AlbumCategory, "all">> = {
   hatch: "growth", growing: "growth", adult: "growth",
   meal: "care", bath: "care", goodnight: "care", rested: "care",
@@ -36,10 +39,11 @@ export const albumMemories = (pet: PetState, category: AlbumCategory = "all") =>
   .sort((a, b) => a.at - b.at || a.kind.localeCompare(b.kind) || (a.item ?? "").localeCompare(b.item ?? ""));
 export const albumPageCount = (pet: PetState, category: AlbumCategory = "all") => 1 + albumMemories(pet, category).length;
 export function AlbumDirectory({ pet, choice }: { pet: PetState; choice: number }) {
-  const selected = albumCategories[choice] ?? albumCategories[0];
+  const destinations = albumDestinations(pet);
+  const selected = destinations[choice] ?? destinations[0];
   return <section className="album-panel album-directory" aria-label="纪念册分类" data-album-directory={selected.id}>
     <header><strong>我们的纪念册</strong><span>回忆分类</span></header>
-    <ul>{albumCategories.map(category => <li key={category.id} aria-current={selected.id === category.id ? "true" : undefined}>
+    <ul>{destinations.map(category => <li key={category.id} aria-current={selected.id === category.id ? "true" : undefined}>
       <span aria-hidden="true">{selected.id === category.id ? "▸" : ""}</span>{category.label}
     </li>)}</ul>
     <p>{selected.detail}</p>
