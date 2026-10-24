@@ -22,7 +22,7 @@ func TestHTTPCareMilestoneSurvivesIdempotentReplayNotStateReads(t *testing.T) {
 				action := game.Action{Kind: kind, RequestID: "milestone-action"}
 				r := j.resultRequest("POST", "/api/action", action, initial.SaveGeneration, "")
 				f := r.CareFeedback
-				if f == nil || f.Milestone == nil || f.Effect == nil || f.Reason != "credited" || f.Points <= 0 || f.Points > .25 || (age > 24*time.Hour && f.Points >= .25) || f.HabitGain != 1 {
+				if f == nil || f.Milestone == nil || f.Effect == nil || f.Reason != "credited" || f.Points <= 0 || f.Points > .25 || (age > 24*time.Hour && f.Points >= .25) || f.HabitGain != 1 || f.GrowthComplete {
 					t.Fatalf("missing action receipt: %+v", f)
 				}
 				want := game.CareMilestone{Stage: r.State.Growth.Stage, At: j.clock.Load()}
@@ -91,8 +91,8 @@ func TestHTTPCareMilestoneDoesNotClaimPassiveGrowthOrAdultHabits(t *testing.T) {
 				if r.State.Growth.Stage != before.Stage || r.State.Growth.AdultAt != before.AdultAt || r.State.Growth.Form != before.Form || !reflect.DeepEqual(r.State.Growth.FormRecord, before.FormRecord) {
 					t.Fatal("care rewrote an existing milestone")
 				}
-				if before.Stage == "adult" && r.CareFeedback.Points != 0 {
-					t.Fatal("adult habit added growth")
+				if before.Stage == "adult" && (r.CareFeedback.Points != 0 || !r.CareFeedback.GrowthComplete) {
+					t.Fatal("adult habit changed growth or omitted its explanation")
 				}
 			})
 		}

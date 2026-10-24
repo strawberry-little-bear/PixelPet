@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -152,5 +153,55 @@ func TestCareFeedbackPreservesFractionalLegacyHabitCredit(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// This checks response metadata through JSON so absent fields remain compatible
+// with old clients and portable saves need no new schema.
+func TestAdultHabitFeedbackExplainsCompletedGrowth(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	s := babyAt(now)
+	s.Needs.Hunger = 60
+	_, young, err := s.ApplyWithFeedback(Action{Kind: "feed"}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Growth = &Growth{Stage: "growing", Points: 71.9, GrowingAt: now.UnixMilli()}
+	s.Needs.Clean = 60
+	_, crossing, err := s.ApplyWithFeedback(Action{Kind: "clean"}, now)
+	if err != nil || s.Growth.Stage != "adult" {
+		t.Fatalf("boundary: %+v %v", crossing, err)
+	}
+	s.Needs.Hunger = 60
+	_, adult, err := s.ApplyWithFeedback(Action{Kind: "feed"}, now.Add(31*time.Minute))
+	if err != nil || adult.Reason != "credited" || adult.HabitGain != 1 || adult.Points != 0 {
+		t.Fatalf("adult: %+v %v", adult, err)
+	}
+	s.Needs.Hunger = 60
+	_, interval, err := s.ApplyWithFeedback(Action{Kind: "feed"}, now.Add(32*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		f    *CareFeedback
+		want bool
+	}{
+		{"young", young, false}, {"crossing", crossing, false}, {"adult", adult, true}, {"interval", interval, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, _ := json.Marshal(tc.f)
+			var got map[string]any
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatal(err)
+			}
+			if tc.want {
+				if got["growthComplete"] != true {
+					t.Fatalf("adult explanation missing: %s", data)
+				}
+			} else if _, exists := got["growthComplete"]; exists {
+				t.Fatalf("unearned adult explanation: %s", data)
+			}
+		})
 	}
 }

@@ -44,7 +44,9 @@ function learningSummary(f: CareFeedback): { habit: string; reason: string } | n
   if (!habit || f.habit !== habit) return null;
   const label = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" }[habit];
   if (f.reason === "credited" && habitGain === 1)
-    return { habit: `${label}：+1`, reason: "本次习惯已计入；成长点按实际增加量显示。" };
+    return { habit: `${label}：+1`, reason: f.growthComplete === true && f.points === 0 && !f.milestone
+      ? "已经成年，成长点不再增加；本次习惯仍已计入，可以继续温柔陪伴。"
+      : "本次习惯已计入；成长点按实际增加量显示。" };
   if (habitGain !== 0 || f.points !== 0) return null;
   if (f.reason === "not-needed" && (f.kind === "feed" || f.kind === "clean"))
     return { habit: `${label}：+0`, reason: `记录时${f.kind === "feed" ? "饱食" : "清洁"}已满足，本次不计习惯。` };

@@ -89,6 +89,7 @@ export type CareFeedback = {
   effect?: { at: number; before: Needs; after: Needs };
   sleepSummary?: SleepSummary;
   milestone?: { stage: "growing" | "adult"; at: number; form?: AdultForm | "" };
+  growthComplete?: boolean;
 };
 export type CareActionEffects = { feed: Needs; clean: Needs };
 export type GrowthRuleBasis = { basePerHour: number; comfortPerHour: number; restEnergyPerHabit: number; restPointsPerHabit: number };

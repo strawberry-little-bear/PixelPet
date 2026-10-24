@@ -82,3 +82,55 @@ func TestOlderCachedCareAcknowledgementDoesNotInventEffect(t *testing.T) {
 		t.Fatalf("old receipt fabricated or care replayed: %+v %v", replay, err)
 	}
 }
+
+func TestAdultGrowthExplanationReplayAndOlderCachedReply(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "adult-receipt.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { s.Close() }()
+	now := time.Now().Truncate(time.Millisecond)
+	born := now.Add(-80 * time.Hour).UnixMilli()
+	legacy := game.State{Schema: 1, Species: 2, Name: "成年回执伙伴", CreatedAt: born,
+		HatchedAt: born, LastTick: now.UnixMilli(), Needs: game.Needs{Hunger: 60, Mood: 80, Clean: 60, Energy: 80}, Logs: []game.Log{}}
+	if _, err := s.Do(nil, &legacy, false, now); err != nil {
+		t.Fatal(err)
+	}
+	a := &game.Action{Kind: "feed", RequestID: "adult-meal"}
+	first, err := s.Do(a, nil, false, now)
+	if err != nil || first.CareFeedback == nil || !first.CareFeedback.GrowthComplete || first.CareFeedback.Points != 0 || first.CareFeedback.HabitGain != 1 {
+		t.Fatalf("missing adult explanation: %+v %v", first, err)
+	}
+	s.Close()
+	s, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := s.Do(a, nil, false, now.Add(time.Hour))
+	if err != nil || replay.CareFeedback == nil || !replay.CareFeedback.GrowthComplete || replay.State.CareCount != first.State.CareCount {
+		t.Fatalf("restart changed adult receipt: %+v %v", replay, err)
+	}
+	read, err := s.Do(nil, nil, false, now.Add(time.Hour))
+	if err != nil || read.CareFeedback != nil || read.State.CareCount != first.State.CareCount {
+		t.Fatalf("read fabricated care: %+v %v", read, err)
+	}
+	var saved string
+	if err := s.db.QueryRow("SELECT body FROM saves WHERE id=1").Scan(&saved); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(saved, `"growthComplete"`) || read.State.Schema != game.Schema {
+		t.Fatal("response explanation leaked into save/schema")
+	}
+	// An old cached adult reply must remain old; never reconstruct metadata
+	// from the current state, even when adulthood is now known.
+	first.CareFeedback.GrowthComplete = false
+	old, _ := json.Marshal(first)
+	if _, err := s.db.Exec("UPDATE requests SET body=? WHERE id=?", string(old), a.RequestID); err != nil {
+		t.Fatal(err)
+	}
+	replay, err = s.Do(a, nil, false, now.Add(2*time.Hour))
+	if err != nil || replay.CareFeedback == nil || replay.CareFeedback.GrowthComplete || replay.State.CareCount != first.State.CareCount {
+		t.Fatalf("old reply gained a new explanation or repeated care: %+v %v", replay, err)
+	}
+}

@@ -82,17 +82,19 @@ try {
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
 
   const modes = [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 28 }, { width: 320, height: 380, font: 28 }];
-  const cases = [
+  const baseCases = [
     { ...modes[2], exhausted: true, familiarity: 'cooldown' },
     { ...modes[0], exhausted: true, familiarity: 'cooldown', playHabit: 'credited' },
     ...modes.flatMap(mode => [false, true].map(exhausted => ({ ...mode, exhausted, familiarity: 'credited' }))),
     { ...modes[2], exhausted: true, familiarity: 'familiar' },
   ];
+  const adultCases = [modes[0], modes[2]].map(mode => ({ ...mode, adult: true, exhausted: true, familiarity: 'credited', playHabit: 'credited' }));
+  const cases = process.argv.includes('--adult-only') ? adultCases : [...baseCases, ...adultCases];
   for (const mode of cases) {
     const { exhausted, familiarity, playHabit = 'cooldown' } = mode;
-    const at = Date.now();
-    const initial = await api('import', { schema: 1, species: 2, name: '把陪玩收好', createdAt: at - 4 * 3600000,
-      hatchedAt: at - 4 * 3600000, lastTick: at, sleeping: false, needs: { hunger: 70, mood: 70, energy: 80, clean: 80 }, careCount: 0, logs: [] });
+    const at = Date.now(), age = (mode.adult ? 80 : 4) * 3600000;
+    const initial = await api('import', { schema: 1, species: 2, name: '把陪玩收好', createdAt: at - age,
+      hatchedAt: at - age, lastTick: at, sleeping: false, needs: { hunger: 70, mood: 70, energy: 80, clean: 80 }, careCount: 0, logs: [] });
     const fixture = initial.state;
     fixture.economy.lastGameAt = initial.serverTime;
     fixture.economy.gameCoins = exhausted ? initial.shop.gameDailyLimit : 0;
@@ -115,7 +117,7 @@ try {
       document.documentElement.style.fontSize = `${font}px`; localStorage.setItem('pixelpet-guide-v1-treasure', 'seen');
     }), mode.font);
     const page = await context.newPage(), errors = [], writes = [];
-    const label = `${familiarity}-${playHabit}-${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
+    const label = `${mode.adult ? 'adult-' : ''}${familiarity}-${playHabit}-${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
     page.on('pageerror', e => errors.push(e.message));
     page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
     page.on('request', r => { if (r.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(r.url()).pathname)) writes.push({ path: new URL(r.url()).pathname, body: r.postDataJSON() }); });
@@ -166,7 +168,13 @@ try {
       const learning = receipt.getByLabel('本次成长与习惯');
       assert.equal(confirmed.careFeedback.reason, playHabit);
       assert.equal(confirmed.careFeedback.habitGain, playHabit === 'credited' ? 1 : 0, 'Familiarity is independent of shared habit cooldown');
-      assert.equal(confirmed.careFeedback.points, playHabit === 'credited' ? .25 : 0);
+      assert.equal(confirmed.careFeedback.points, playHabit === 'credited' && !mode.adult ? .25 : 0);
+      assert.equal(confirmed.careFeedback.growthComplete === true, !!mode.adult && playHabit === 'credited');
+      if (mode.adult) {
+        assert((await learning.innerText()).includes('已经成年，成长点不再增加；本次习惯仍已计入'));
+        for (const field of ['points', 'stage', 'form', 'adultAt', 'formRecord'])
+          assert.deepEqual(confirmed.state.growth[field], before.growth[field], `Adult ${field} must remain fixed`);
+      }
       assert.equal(confirmed.state.growth.care.play, before.growth.care.play + (playHabit === 'credited' ? 1 : 0));
       const minutesAtReceipt = retryAt => Math.max(1, Math.ceil((retryAt - confirmed.serverTime) / 60000));
       if (familiarity === 'cooldown') {
@@ -175,7 +183,7 @@ try {
         if (playHabit === 'cooldown') assert.notEqual(minutes, minutesAtReceipt(confirmed.careFeedback.retryAt), 'Imported fixture must have different historical interval boundaries');
       } else assert.equal(await interestPanel.locator('.game-interest-next').count(), 0);
       if (playHabit === 'cooldown') assert((await learning.innerText()).includes(`记录时约还需 ${minutesAtReceipt(confirmed.careFeedback.retryAt)} 分钟`));
-      else assert((await learning.innerText()).includes('本次成长：+0.25 点'));
+      else assert((await learning.innerText()).includes(`本次成长：+${mode.adult ? '0.00' : '0.25'} 点`));
       assert(!confirmed.state.game);
       if (exhausted) assert.equal(confirmed.state.economy.coins, before.economy.coins);
       else assert(confirmed.state.economy.coins > before.economy.coins);

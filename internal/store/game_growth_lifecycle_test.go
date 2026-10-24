@@ -424,7 +424,7 @@ func TestSevenGameGrowthLifecycleAcrossAbsenceAndRestart(t *testing.T) {
 				eligible := finish && kind != "snake" && kind != "tetris"
 				if eligible {
 					f := j.r.CareFeedback
-					if settled.CareCount != 1 || settled.Growth.Care.Play != 1 || settled.Economy.Coins <= 0 || settled.Companion.Recent == nil || settled.Companion.Recent.ID != id || f == nil || f.HabitGain != 1 || f.Points != 0 || f.Milestone != nil {
+					if settled.CareCount != 1 || settled.Growth.Care.Play != 1 || settled.Economy.Coins <= 0 || settled.Companion.Recent == nil || settled.Companion.Recent.ID != id || f == nil || f.HabitGain != 1 || f.Points != 0 || f.Milestone != nil || !f.GrowthComplete {
 						t.Fatal("adult completion credited the wrong care/growth/experience", j.r)
 					}
 				} else if settled.CareCount != 0 || settled.Growth.Care.Play != 0 || settled.Economy.Coins != 0 || settled.Companion.Recent != nil || j.r.CareFeedback != nil {
