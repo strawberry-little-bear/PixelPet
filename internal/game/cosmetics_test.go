@@ -59,7 +59,7 @@ func TestFourCosmeticSlotsReplaceAndToggleIndependently(t *testing.T) {
 			s.Apply(Action{Kind: "equip", Item: id}, now)
 		}
 	}
-	if s.Economy.Equipped != (Equipment{"sky-bow", "moon-lamp", "starlit-wall", "mint-floor"}) {
+	if s.Economy.Equipped != (Equipment{"sky-bow", "moon-lamp", "autumn-wall", "winter-floor"}) {
 		t.Fatal(s.Economy.Equipped)
 	}
 	if beforeGrowth != *s.Growth || beforeNeeds != s.Needs || beforeCare != s.CareCount {
