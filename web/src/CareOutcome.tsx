@@ -43,16 +43,18 @@ function learningSummary(f: CareFeedback): { habit: string; reason: string } | n
     ["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"].includes(f.kind) ? "play" : null;
   if (!habit || f.habit !== habit) return null;
   const label = { nutrition: "喂食习惯", clean: "清洁习惯", play: "陪玩习惯" }[habit];
+  const adult = f.growthComplete === true && f.points === 0 && !f.milestone;
   if (f.reason === "credited" && habitGain === 1)
-    return { habit: `${label}：+1`, reason: f.growthComplete === true && f.points === 0 && !f.milestone
+    return { habit: `${label}：+1`, reason: adult
       ? "已经成年，成长点不再增加；本次习惯仍已计入，可以继续温柔陪伴。"
       : "本次习惯已计入；成长点按实际增加量显示。" };
   if (habitGain !== 0 || f.points !== 0) return null;
+  const adultReason = adult ? "已经成年，成长点不再增加。" : "";
   if (f.reason === "not-needed" && (f.kind === "feed" || f.kind === "clean"))
-    return { habit: `${label}：+0`, reason: `记录时${f.kind === "feed" ? "饱食" : "清洁"}已满足，本次不计习惯。` };
+    return { habit: `${label}：+0`, reason: `${adultReason}记录时${f.kind === "feed" ? "饱食" : "清洁"}已满足，本次不计习惯。` };
   if (f.reason === "cooldown") {
     const estimate = cooldownEstimate(f);
-    return { habit: `${label}：+0`, reason: `记录时同类习惯仍在间隔内；本次不计入，不代表状态没有改善。${estimate ? ` ${estimate}` : ""}` };
+    return { habit: `${label}：+0`, reason: `${adultReason}记录时同类习惯仍在间隔内；本次不计入，不代表状态没有改善。${habit === "play" ? "七款游戏共用陪玩习惯间隔。" : ""}${estimate ? ` ${estimate}` : ""}` };
   }
   return null;
 }

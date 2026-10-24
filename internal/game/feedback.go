@@ -32,7 +32,7 @@ type CareFeedback struct {
 	Effect       *CareEffect    `json:"effect,omitempty"`
 	SleepSummary *SleepSummary  `json:"sleepSummary,omitempty"`
 	Milestone    *CareMilestone `json:"milestone,omitempty"`
-	// True only when this credited habit began after adulthood; response-only.
+	// True when this care action began and ended in adulthood with no growth; response-only.
 	GrowthComplete bool `json:"growthComplete,omitempty"`
 }
 
@@ -94,11 +94,11 @@ func (s *State) ApplyWithFeedback(a Action, now time.Time) (string, *CareFeedbac
 	}
 	if f.HabitGain > 0 {
 		f.Reason = "credited"
-		f.GrowthComplete = before.Stage == "adult" && s.Growth.Stage == "adult" && f.Points == 0
 	} else if f.Reason == "" {
 		f.Reason = "cooldown"
 		f.RetryAt = last + int64(30*time.Minute/time.Millisecond)
 	}
+	f.GrowthComplete = before.Stage == "adult" && s.Growth.Stage == "adult" && f.Points == 0
 	if f.Reason == "credited" {
 		g := s.Growth
 		if before.Stage == "baby" && g.Stage == "growing" {

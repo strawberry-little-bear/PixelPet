@@ -187,7 +187,7 @@ func TestAdultHabitFeedbackExplainsCompletedGrowth(t *testing.T) {
 		f    *CareFeedback
 		want bool
 	}{
-		{"young", young, false}, {"crossing", crossing, false}, {"adult", adult, true}, {"interval", interval, false},
+		{"young", young, false}, {"crossing", crossing, false}, {"adult", adult, true}, {"interval", interval, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			data, _ := json.Marshal(tc.f)
@@ -203,5 +203,57 @@ func TestAdultHabitFeedbackExplainsCompletedGrowth(t *testing.T) {
 				t.Fatalf("unearned adult explanation: %s", data)
 			}
 		})
+	}
+}
+
+func TestAdultUncreditedFeedbackPreservesGrowthExplanation(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	for _, kind := range []string{"feed", "clean", "catch"} {
+		for _, reason := range []string{"cooldown", "not-needed"} {
+			if kind == "catch" && reason == "not-needed" {
+				continue
+			}
+			t.Run(kind+"/"+reason, func(t *testing.T) {
+				s := babyAt(now)
+				s.Growth = &Growth{Stage: "growing", Points: 71.9, GrowingAt: now.UnixMilli()}
+				s.Needs.Hunger = 60
+				if _, _, err := s.ApplyWithFeedback(Action{Kind: "feed"}, now); err != nil || s.Growth.Stage != "adult" {
+					t.Fatal("adult setup", err)
+				}
+				s.Needs.Hunger, s.Needs.Clean = 60, 60
+				s.Growth.Care.LastFeed, s.Growth.Care.LastClean, s.Growth.Care.LastPlay = now.UnixMilli(), now.UnixMilli(), now.UnixMilli()
+				if reason == "not-needed" {
+					s.Needs.Hunger, s.Needs.Clean = 80, 80
+				}
+				before := *s.Growth
+				var f *CareFeedback
+				var err error
+				if kind == "catch" {
+					if _, _, err = s.ApplyWithFeedback(Action{Kind: "play"}, now); err != nil {
+						t.Fatal(err)
+					}
+					for i := 0; i < 5; i++ {
+						_, f, err = s.ApplyWithFeedback(Action{Kind: "catch", GameID: s.Game.ID, Lane: i % 3}, now.Add(time.Duration(i)*900*time.Millisecond))
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+				} else {
+					_, f, err = s.ApplyWithFeedback(Action{Kind: kind}, now.Add(time.Minute))
+				}
+				if err != nil || f == nil || f.Reason != reason || f.HabitGain != 0 || f.Points != 0 || !f.GrowthComplete || f.Milestone != nil {
+					t.Fatalf("adult explanation lost or credit invented: %+v %v", f, err)
+				}
+				if s.Growth.Points != before.Points || s.Growth.Form != before.Form || s.Growth.Care != before.Care {
+					t.Fatal("explanation changed growth, locked form or habits")
+				}
+				for _, reason := range []string{"resting", "awake"} {
+					_, f, err = s.ApplyWithFeedback(Action{Kind: "sleep"}, now.Add(2*time.Minute))
+					if err != nil || f == nil || f.Reason != reason || f.GrowthComplete {
+						t.Fatal("sleep gained an action growth explanation", f, err)
+					}
+				}
+			})
+		}
 	}
 }

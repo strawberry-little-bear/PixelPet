@@ -88,7 +88,7 @@ try {
     ...modes.flatMap(mode => [false, true].map(exhausted => ({ ...mode, exhausted, familiarity: 'credited' }))),
     { ...modes[2], exhausted: true, familiarity: 'familiar' },
   ];
-  const adultCases = [modes[0], modes[2]].map(mode => ({ ...mode, adult: true, exhausted: true, familiarity: 'credited', playHabit: 'credited' }));
+  const adultCases = [modes[0], modes[2]].flatMap(mode => ['credited', 'cooldown'].map(playHabit => ({ ...mode, adult: true, exhausted: true, familiarity: 'credited', playHabit })));
   const cases = process.argv.includes('--adult-only') ? adultCases : [...baseCases, ...adultCases];
   for (const mode of cases) {
     const { exhausted, familiarity, playHabit = 'cooldown' } = mode;
@@ -169,9 +169,10 @@ try {
       assert.equal(confirmed.careFeedback.reason, playHabit);
       assert.equal(confirmed.careFeedback.habitGain, playHabit === 'credited' ? 1 : 0, 'Familiarity is independent of shared habit cooldown');
       assert.equal(confirmed.careFeedback.points, playHabit === 'credited' && !mode.adult ? .25 : 0);
-      assert.equal(confirmed.careFeedback.growthComplete === true, !!mode.adult && playHabit === 'credited');
       if (mode.adult) {
-        assert((await learning.innerText()).includes('已经成年，成长点不再增加；本次习惯仍已计入'));
+        assert((await learning.innerText()).includes('已经成年，成长点不再增加'), 'Adult zero growth must be explained even when the play habit is cooling down');
+        if (playHabit === 'credited') assert((await learning.innerText()).includes('本次习惯仍已计入'));
+        assert.equal(confirmed.careFeedback.growthComplete, true);
         for (const field of ['points', 'stage', 'form', 'adultAt', 'formRecord'])
           assert.deepEqual(confirmed.state.growth[field], before.growth[field], `Adult ${field} must remain fixed`);
       }
@@ -182,7 +183,10 @@ try {
         assert((await interestPanel.innerText()).includes(`这款游戏的熟悉度：记录时约还需 ${minutes} 分钟`), 'A care receipt must not hide familiarity timing');
         if (playHabit === 'cooldown') assert.notEqual(minutes, minutesAtReceipt(confirmed.careFeedback.retryAt), 'Imported fixture must have different historical interval boundaries');
       } else assert.equal(await interestPanel.locator('.game-interest-next').count(), 0);
-      if (playHabit === 'cooldown') assert((await learning.innerText()).includes(`记录时约还需 ${minutesAtReceipt(confirmed.careFeedback.retryAt)} 分钟`));
+      if (playHabit === 'cooldown') {
+        assert((await learning.innerText()).includes(`记录时约还需 ${minutesAtReceipt(confirmed.careFeedback.retryAt)} 分钟`));
+        assert((await learning.innerText()).includes('七款游戏共用'), 'Changing games must not imply a new play-habit interval');
+      }
       else assert((await learning.innerText()).includes(`本次成长：+${mode.adult ? '0.00' : '0.25'} 点`));
       assert(!confirmed.state.game);
       if (exhausted) assert.equal(confirmed.state.economy.coins, before.economy.coins);
