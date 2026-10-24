@@ -27,6 +27,14 @@ describe("treasure companion art", () => {
     render(<TreasureCompanion pet={fixture(2, "baby")} paused={false} done reaction={{...reaction, item}}/>);
     expect(document.querySelector(".treasure-object")?.getAttribute("data-item")).toBe(String(item));
   });
+  it("reflects the saved adult tendency without changing the treasure controls", () => {
+    const pet = fixture(2, "adult");
+    pet.growth!.form = "gentle";
+    render(<TreasureCompanion pet={pet} paused={false} done={false} />);
+    expect(document.querySelector('.treasure-companion[data-form="gentle"]')).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("安静观察着");
+    expect(document.querySelector("button,a,input,[role=button]")).toBeNull();
+  });
   it("empty final exploration never displays any revealed object", () => {
     render(<TreasureCompanion pet={fixture(3, "adult")} paused={false} done reaction={{...reaction, cell: 8, item: 0}}/>);
     expect(screen.getByRole("status").textContent).toContain("这里是空地");

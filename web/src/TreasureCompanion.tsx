@@ -1,5 +1,6 @@
 import { PetArt, petRigKind } from "./PetArt";
 import { petGrowth } from "./growth";
+import { gameCompanionVoice } from "./gameCompanionVoice";
 import type { PetState } from "./types";
 import { treasureItems } from "./treasure";
 import type { TreasureReaction } from "./treasure-reaction";
@@ -11,11 +12,12 @@ const methods = [
 export function TreasureCompanion({ pet, paused, done, reaction }: {
   pet: PetState; paused: boolean; done: boolean; reaction?: TreasureReaction | null;
 }) {
-  const stage = petGrowth(pet, pet.lastTick).stage, rig = petRigKind(pet.species, stage);
+  const growth = petGrowth(pet, pet.lastTick), stage = growth.stage, rig = petRigKind(pet.species, stage);
+  const companionVoice = gameCompanionVoice(growth, "treasure");
   const live = reaction && reaction.gameId === pet.game?.id && reaction.step === pet.game?.treasure?.step && !paused ? reaction : null;
   const method = methods[pet.species] ?? "一起看看林间";
   const activity = live ? live.item > 0 ? "found" : "empty" : "quiet";
-  return <div className="treasure-companion" data-rig={rig} data-reaction={activity} data-paused={paused}>
+  return <div className="treasure-companion" data-rig={rig} data-reaction={activity} data-paused={paused} data-form={companionVoice?.form}>
     <div className="treasure-actor" key={live?.serial ?? "quiet"} aria-hidden="true">
       <svg className="treasure-ground" viewBox="0 0 96 88" shapeRendering="crispEdges">
         <path d="M4 66h88v17H4z" fill={rig === "dolphin" ? "#9ebfb5" : "#b4c59a"}/>
@@ -27,6 +29,6 @@ export function TreasureCompanion({ pet, paused, done, reaction }: {
         <path d={live.item === 1 ? "M10 13h12m-13 6h14" : live.item === 2 ? "M9 26L24 8" : "M12 13h9"} fill="none" stroke="#536449" strokeWidth="2"/>
       </svg>}
     </div>
-    <p className="treasure-companion-note" role="status">{live ? `${method}，${live.item > 0 ? `找到${treasureItems[live.item]}了！` : "这里是空地，把线索记下来。"}` : done ? "不必找齐，每次陪伴都值得收好。" : paused ? "等你准备好，再一起慢慢找。" : `${method}，陪你慢慢找。`}</p>
+    <p className="treasure-companion-note" role="status">{live ? `${method}，${live.item > 0 ? `找到${treasureItems[live.item]}了！` : "这里是空地，把线索记下来。"}` : done ? "不必找齐，每次陪伴都值得收好。" : paused ? "等你准备好，再一起慢慢找。" : `${method}，陪你慢慢找。`}{companionVoice && <small className="game-companion-voice">{companionVoice.text}</small>}</p>
   </div>;
 }

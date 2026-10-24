@@ -1,6 +1,7 @@
 import { starsReactionMatches, type StarsReaction } from "./stars-reaction";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
+import { gameCompanionVoice } from "./gameCompanionVoice";
 import type { PetState } from "./types";
 
 const positions = ["左边", "中间", "右边"];
@@ -9,6 +10,8 @@ export function StarsGame({ pet, now, lane, target, message, reaction }: {
 }) {
   if (!pet.game || pet.game.kind) return null;
   const caught = starsReactionMatches(reaction, pet.game, lane);
+  const growth = petGrowth(pet, now);
+  const companionVoice = gameCompanionVoice(growth, "stars");
   return (
     <section className="star-game" aria-label="接星星">
       <header className="game-score">
@@ -17,7 +20,7 @@ export function StarsGame({ pet, now, lane, target, message, reaction }: {
       </header>
       <div className="game-lanes" role="img" aria-label={`星星在${positions[target]}；伙伴在${positions[lane]}`}>
         {[0, 1, 2].map(i => (
-          <div key={i} className={`game-lane ${i === lane ? "lane-selected" : ""}`}>
+          <div key={i} className={`game-lane ${i === lane ? "lane-selected" : ""}`} data-form={i === lane ? companionVoice?.form : undefined}>
             <span className={`falling-star ${target === i ? "visible" : ""}`} aria-hidden="true">★</span>
             {lane === i ? <PetArt index={pet.species} stage={petGrowth(pet, now).stage}
               motion={caught ? "celebrating" : "idle"} expression={caught ? "content" : "awake"}
@@ -25,7 +28,7 @@ export function StarsGame({ pet, now, lane, target, message, reaction }: {
           </div>
         ))}
       </div>
-      <p className="star-position">伙伴：{positions[lane]}</p>
+      <p className="star-position">伙伴：{positions[lane]}{companionVoice && <small className="game-companion-voice">{companionVoice.text}</small>}</p>
       <p className="star-method">移到亮星下面就能按 B，不必等落到底。每个节拍只接一次，接空也算一轮；等待不扣轮次。</p>
       <div className="game-message">{message || "移到星星下面，按 B 接住！"}</div>
     </section>

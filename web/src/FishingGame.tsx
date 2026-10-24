@@ -3,6 +3,7 @@ import { outingScenery } from "./outing";
 import { OutingCaption, OutingEncounterNote, OutingSky } from "./OutingScenery";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
+import { gameCompanionVoice } from "./gameCompanionVoice";
 import { fishCatalog, fishCatalogFor, fishInfo, fishingCompanions, fishingMenu, fishingSpots, fishingWaitNotes } from "./fishing";
 import type { Fishing, PetState } from "./types";
 import "./fishing-game.css";
@@ -72,6 +73,8 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
     "查看玩法说明，C 返回暂停；不会继续本局。",
   ][choice];
   const scenery = outingScenery(pet.game);
+  const growth = petGrowth(pet, pet.lastTick);
+  const companionVoice = gameCompanionVoice(growth, "fishing");
   const companion = fishingCompanions[pet.species] ?? fishingCompanions[0];
   const caught = n.outcome === "caught", bite = n.phase === "bite" && !paused;
   const state = paused ? "paused" : bite ? "bite" : caught ? "caught" : n.phase === "wait" ? "waiting" : "ready";
@@ -81,7 +84,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
   const fish = fishInfo(n.lastFish);
   return <section className="fishing-game" aria-label="池塘钓鱼">
     <header><strong>池塘钓鱼 · {fishingSpots[n.spot]}</strong><span>已抛 {n.casts} / 3 竿 · {caughtCount} 鱼</span></header>
-    <div className="pond-scene" data-motion={state} data-rig={companion.rig} data-method={companion.method}>
+    <div className="pond-scene" data-motion={state} data-rig={companion.rig} data-method={companion.method} data-form={companionVoice?.form}>
       <svg className="pond-background" viewBox="0 0 240 102" preserveAspectRatio="none" aria-hidden="true" shapeRendering="crispEdges">
         <path d="M0 62h240v40H0z" fill="#88ac94" /><path d="M0 0h240v62H0z" fill={scenery?.light.sky ?? "#c6d5ac"} />
         <OutingSky scenery={scenery} />
@@ -98,7 +101,7 @@ export function FishingGame({ pet, active, choice }: { pet: PetState; active: bo
         </g>}
         {timed && <g className="fishing-bobber"><path d="M163 69h10v6h-10z" fill="#b27c68" /><path d="M163 75h10v4h-10z" fill="#eee4bf" /><path d="M157 83h22" stroke="#c8ddbd" strokeWidth="2" /></g>}
       </svg>
-      <div className="fishing-companion" aria-label={companion.waiting}><PetArt index={pet.species} stage={petGrowth(pet, pet.lastTick).stage} expression={caught ? "content" : "awake"} motion="fishing" accessory={pet.economy?.equipped.accessory} /></div>
+      <div className="fishing-companion" aria-label={`${companion.waiting}${companionVoice ? ` ${companionVoice.text}` : ""}`}><PetArt index={pet.species} stage={growth.stage} expression={caught ? "content" : "awake"} motion="fishing" accessory={pet.economy?.equipped.accessory} /></div>
       {!paused && n.phase !== "done" && <OutingCaption scenery={scenery} compact />}
       {caught && <div className="fishing-catch"><FishArt id={n.lastFish!} /></div>}
       {bite && <strong className="fishing-bite" role="status">咬钩啦！按 B 提竿</strong>}

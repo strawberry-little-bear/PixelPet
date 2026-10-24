@@ -2,6 +2,7 @@ import { useId } from "react";
 import { PetArt } from "./PetArt";
 import { RoomDecoration } from "./EquipmentArt";
 import { petGrowth } from "./growth";
+import { gameCompanionVoice } from "./gameCompanionVoice";
 import type { PetState, TilePoint } from "./types";
 import "./tile-game.css";
 
@@ -97,6 +98,7 @@ export function TileGame({
   const tiles = pet.game?.tiles;
   if (!tiles) return null;
   const growth = petGrowth(pet, now);
+  const companionVoice = gameCompanionVoice(growth, "tiles");
   const example = hint && !link ? hintDescription(tiles.board, hint.path) : null;
   return (
     <section
@@ -158,6 +160,7 @@ export function TileGame({
         <div
           className={`tile-companion ${link ? "collecting" : ""}`}
           data-motion={link ? "collecting" : "waiting"}
+          data-form={companionVoice?.form}
         >
           <div className="tile-pet">
             <PetArt
@@ -186,7 +189,7 @@ export function TileGame({
             <path d="M9 15h4v8H9zm9 0h4v8h-4zm9 0h4v8h-4z" fill="#d9c9a0" />
           </svg>
           <RoomDecoration id={pet.economy?.equipped.room} />
-          <small>{link ? "这对我收好啦！" : "我帮你收图案"}</small>
+          <small>{link ? "这对我收好啦！" : "我帮你收图案"}{companionVoice && <span className="game-companion-voice">{companionVoice.text}</span>}</small>
         </div>
       </div>
       <div className="tile-status" role="status" aria-live="polite" aria-atomic="true">

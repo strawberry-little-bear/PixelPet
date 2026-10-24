@@ -3,6 +3,7 @@ import { useBoardCollection } from "./useBoardCollection";
 import { PetArt } from "./PetArt";
 import { RoomDecoration } from "./EquipmentArt";
 import { petGrowth } from "./growth";
+import { gameCompanionVoice } from "./gameCompanionVoice";
 import type { Falling, PetState } from "./types";
 import "./tetris-game.css";
 
@@ -37,6 +38,7 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
   if (!n) return null;
   const paused = n.paused || !active;
   const growth = petGrowth(pet, now);
+  const companionVoice = gameCompanionVoice(growth, "tetris");
   const cells = n.active ? blockCells(n.active) : [];
   let ghost = n.active ? { ...n.active } : undefined;
   if (ghost) {
@@ -69,6 +71,6 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
       </div>}
     </div>
     {paused && !n.end && <p className="tetris-operation-hint" aria-live="polite" aria-atomic="true">{tetrisOperationHints[choice]}</p>}
-    <div className={`tetris-companion ${collecting ? "collecting" : ""}`} data-motion={collecting ? "collecting" : "waiting"}><div className="tetris-pet"><PetArt index={pet.species} stage={growth.stage} accessory={pet.economy?.equipped.accessory} motion={collecting || n.end === "won" ? "celebrating" : "idle"} /></div><RoomDecoration id={pet.economy?.equipped.room} /><p>{collecting ? "这一排拼好啦，我帮你收起来！" : n.end ? "记住的是一起拼，不只是分数。" : paused ? "慢慢想，我们一起搭。" : "我帮你收积木，落点虚线在下面。"}</p></div>
+    <div className={`tetris-companion ${collecting ? "collecting" : ""}`} data-motion={collecting ? "collecting" : "waiting"} data-form={companionVoice?.form}><div className="tetris-pet"><PetArt index={pet.species} stage={growth.stage} accessory={pet.economy?.equipped.accessory} motion={collecting || n.end === "won" ? "celebrating" : "idle"} /></div><RoomDecoration id={pet.economy?.equipped.room} /><p>{collecting ? "这一排拼好啦，我帮你收起来！" : n.end ? "记住的是一起拼，不只是分数。" : paused ? "慢慢想，我们一起搭。" : "我帮你收积木，落点虚线在下面。"}{companionVoice && <small className="game-companion-voice">{companionVoice.text}</small>}</p></div>
   </section>;
 }
