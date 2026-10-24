@@ -29,14 +29,39 @@ describe("read-only care preview", () => {
     expect(carePreview(p, kind).join("")).toContain(text);
   });
 
-  it("explains the remaining food room and the real side effect near full", () => {
+  it("explains the remaining food room and the nominal side effect near full", () => {
     const p = pet();
     p.needs.hunger = 95;
     const rules = { actions: { feed: { hunger: 20, mood: 3, clean: -3 } } } as unknown as CareRules;
     const text = carePreview(p, "feed", rules).join("");
     expect(text).toContain("最多补 5 点到 100");
-    expect(text).toContain("清洁会下降 3 点");
+    expect(text).toContain("清洁基准下降 3 点，到 0 为止");
     expect(text).toContain("饱食达到 96 后不能喂食");
+  });
+
+  it.each([0, 1, 3, 60])("qualifies the feed side effect when cleanliness is %s", clean => {
+    const p = pet();
+    p.needs.hunger = 95;
+    p.needs.clean = clean;
+    const original = structuredClone(p);
+    const rules = { actions: { feed: { hunger: 20, clean: -3 } } } as unknown as CareRules;
+    const text = carePreview(p, "feed", rules).join("");
+    expect(text).toContain("清洁基准下降 3 点，到 0 为止");
+    expect(text).not.toContain("清洁会下降 3 点");
+    expect(p).toEqual(original);
+  });
+
+  it("qualifies the legacy feed side effect without inventing a numeric rule", () => {
+    const p = pet(); p.needs.hunger = 95; p.needs.clean = 0;
+    const text = carePreview(p, "feed").join("");
+    expect(text).toContain("清洁可能稍微下降，最低到 0");
+    expect(text).not.toContain("下降 3 点");
+  });
+
+  it("explains the upper clamp if the server supplies a positive cleanliness effect", () => {
+    const p = pet(); p.needs.hunger = 95; p.needs.clean = 99;
+    const rules = { actions: { feed: { hunger: 20, clean: 3 } } } as unknown as CareRules;
+    expect(carePreview(p, "feed", rules).join("")).toContain("清洁基准增加 3 点，到 100 为止");
   });
 
   it("keeps the near-cap explanation on the executable side of the 96 boundary", () => {

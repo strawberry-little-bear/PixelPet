@@ -28,15 +28,17 @@ function compactNumber(value: number): string {
 }
 
 // Near the cap, explain the actual remaining room instead of making a capped
-// action look like a full meal. The server still owns the 96-point rejection.
+// action look like a full meal. Side effects are rule baselines, not a forecast
+// of the next settled reading: each need stops at 0/100.
+// The server still owns the 96-point rejection.
 function cappedFeedGuidance(need: number, rules?: CareRules | null): string | null {
   const nominalGain = rules?.actions?.feed?.hunger ?? 20;
   if (nominalGain <= 0 || need + nominalGain <= 100) return null;
   const room = Math.max(0, 100 - need);
   const cleanDelta = rules?.actions?.feed?.clean;
   const sideEffect = typeof cleanDelta === "number" && Number.isFinite(cleanDelta)
-    ? cleanDelta < 0 ? `清洁会下降 ${compactNumber(Math.abs(cleanDelta))} 点` : cleanDelta > 0 ? `清洁会增加 ${compactNumber(cleanDelta)} 点` : "清洁不变"
-    : "清洁仍会稍微下降";
+    ? cleanDelta < 0 ? `清洁基准下降 ${compactNumber(Math.abs(cleanDelta))} 点，到 0 为止` : cleanDelta > 0 ? `清洁基准增加 ${compactNumber(cleanDelta)} 点，到 100 为止` : "清洁不变"
+    : "清洁可能稍微下降，最低到 0";
   return `当前最多补 ${compactNumber(room)} 点到 100；${sideEffect}。饱食达到 96 后不能喂食。`;
 }
 
@@ -82,7 +84,7 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
     ? "肚子已经饱饱的；暂时不能喂食，等需要时再来。"
     : "已经干干净净的；暂时不用洗澡。"];
 
-  const effect = feeding ? "补充饱食，让心情变好，也会稍微弄脏。" : "恢复清洁，也让心情轻松些。";
+  const effect = feeding ? "补充饱食，让心情变好，也可能稍微弄脏。" : "恢复清洁，也让心情轻松些。";
   const capped = feeding ? cappedFeedGuidance(need, rules) : null;
   // The server checks need before cooldown. Keep that same priority even when
   // both would prevent a habit credit. Missing legacy growth is not evidence

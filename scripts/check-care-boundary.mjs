@@ -33,11 +33,11 @@ async function api(path, body) {
   });
   assert(res.ok, await res.clone().text()); return res.json();
 }
-async function seed(stage, need) {
+async function seed(stage, need, clean = need) {
   const now = Date.now(), age = { baby: 1, growing: 25, adult: 80 }[stage] * 3600000;
   const r = await api('import', { schema: 1, revision: 1, species: 2, name: '照顾精度伙伴',
     createdAt: now - age, hatchedAt: now - age, lastTick: now, sleeping: false,
-    needs: { hunger: need, mood: 80, clean: need, energy: 80 }, careCount: 0, logs: [] });
+    needs: { hunger: need, mood: 80, clean, energy: 80 }, careCount: 0, logs: [] });
   assert.equal(r.state.growth.stage, stage); assert.equal(r.careRules.needTolerance, 1e-9);
   return r.state;
 }
@@ -176,9 +176,56 @@ try {
     } catch (error) { await page.screenshot({ path: join(dir, `failure-${label}.png`), fullPage: true }); throw error; }
     finally { await context.close(); }
   }
+  // Real near-full feeding with low cleanliness. The preview names a baseline;
+  // the receipt must report only the actual clamped action, excluding elapsed time.
+  for (const clean of [0, 1]) for (const mode of modes) {
+    const before = await seed('baby', 95, clean);
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
+      isMobile: mode.width === 320, reducedMotion: 'reduce', forcedColors: mode.forcedColors || 'none' });
+    const page = await context.newPage(), writes = [], errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', req => { if (req.method() !== 'GET' && new URL(req.url()).pathname !== '/api/visit') writes.push(new URL(req.url()).pathname); });
+    await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = font + 'px'; }), mode.font);
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor(); await select(page, 'feed');
+      const text = await page.locator('.care-preview').innerText();
+      assert(text.includes('清洁基准下降 3 点，到 0 为止'), text);
+      assert(!text.includes('清洁会下降 3 点'), text);
+      await readable(page, '.care-preview');
+      await page.locator('.care-preview > small').scrollIntoViewIfNeeded();
+      const end = await page.locator('.care-preview > small').boundingBox();
+      assert(end && end.y >= -1 && end.y + end.height <= mode.height + 1);
+      assert.deepEqual(writes, [], 'reading the preview performed care');
+      await page.screenshot({ path: join(dir, `feed-clamp-${clean}-${mode.label}.png`), fullPage: true });
+      const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/action' && r.request().method() === 'POST');
+      await key(page, 'b'); const receipt = await (await response).json();
+      const effect = receipt.careFeedback?.effect;
+      assert(effect, JSON.stringify(receipt));
+      assert(effect.before.clean >= 0 && effect.before.clean <= clean);
+      assert.equal(effect.after.clean, 0);
+      assert.equal(receipt.state.needs.clean, 0);
+      assert.equal(effect.after.hunger, 100);
+      assert.equal(receipt.careFeedback.reason, 'not-needed');
+      assert.equal(receipt.careFeedback.habitGain, 0);
+      await page.locator('[data-feedback=not-needed]').waitFor();
+      await readable(page, '.growth-feedback');
+      await page.reload(); await page.locator('.home-caption').waitFor();
+      const saved = (await api('state')).state;
+      assert.equal(saved.needs.clean, 0);
+      assert.equal(saved.careCount, before.careCount + 1);
+      assert.equal(saved.growth.care.nutrition, before.growth.care.nutrition);
+      assert.deepEqual(saved.economy, before.economy);
+      assert.deepEqual(writes, ['/api/action'], 'reload repeated feeding');
+      assert.deepEqual(errors, []);
+      results.push({ type: 'real-http-feed-clamp', clean, mode: mode.label, actualCleanDrop: effect.before.clean - effect.after.clean });
+      console.log('PASS real-feed-clamp', clean, mode.label);
+    } catch (error) { await page.screenshot({ path: join(dir, `failure-feed-clamp-${clean}-${mode.label}.png`), fullPage: true }); throw error; }
+    finally { await context.close(); }
+  }
   await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2));
   console.log(JSON.stringify({ fixtureGroups: results.filter(r => r.type === 'read-only-response-fixture').length,
-    realCareGroups: results.filter(r => r.type === 'real-http-care-and-reload').length, artifacts: dir, port }));
+    realCareGroups: results.filter(r => r.type === 'real-http-care-and-reload').length,
+    realFeedClampGroups: results.filter(r => r.type === 'real-http-feed-clamp').length, artifacts: dir, port }));
 } finally {
   console.error('Artifacts:', dir); await browser?.close();
   if (server?.pid && server.exitCode === null && server.signalCode === null) await new Promise(r => { server.once('exit', r); server.kill('SIGTERM'); });
