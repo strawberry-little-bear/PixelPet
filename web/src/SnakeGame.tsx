@@ -3,7 +3,7 @@ import { useBoardCollection } from "./useBoardCollection";
 import { RoomDecoration } from "./EquipmentArt";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
-import type { PetState } from "./types";
+import type { PetState, Snake } from "./types";
 import "./snake-game.css";
 
 export function snakeFoodHint(head: { x: number; y: number }, food: { x: number; y: number }) {
@@ -21,7 +21,21 @@ export function snakeFoodHint(head: { x: number; y: number }, food: { x: number;
   return `果子在${bearing}，${distance}。`;
 }
 
-export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: number; active: boolean; turn: number; }) {
+// Old sessions can still have a random first fruit, and a saved or queued turn
+// can point away from the new opening's fruit. Never infer a route from step alone.
+function firstFruitAhead(snake: Snake, turn: number): boolean {
+  if (snake.eaten !== 0 || snake.step >= 3 || turn !== 0) return false;
+  const head = snake.body[0], food = snake.food;
+  switch (snake.direction) {
+    case 0: return food.y === head.y && food.x > head.x;
+    case 1: return food.x === head.x && food.y > head.y;
+    case 2: return food.y === head.y && food.x < head.x;
+    case 3: return food.x === head.x && food.y < head.y;
+    default: return false;
+  }
+}
+
+export function SnakeGame({ pet, now, active, turn, stepping = false }: { pet: PetState; now: number; active: boolean; turn: number; stepping?: boolean; }) {
   const descriptionId = useId(), gridId = useId();
   const snake = pet.game?.snake;
   const collecting = useBoardCollection(snake?.eaten ?? 0, active && !snake?.paused);
@@ -64,7 +78,7 @@ export function SnakeGame({ pet, now, active, turn }: { pet: PetState; now: numb
     </div>
     {/* Coordinates change each beat; keep warnings discrete and readable details quiet. */}
     <span className="snake-boundary-announcement sr-only" aria-live="polite" aria-atomic="true">{boundaryHint && "快到围栏了，A 左转、B 右转，也可以按 C 暂停看清。"}</span>
-    {navigationHint && <p className="snake-navigation-hint" aria-live="off">{snake.eaten === 0 && snake.step < 3 ? `第一颗果子在前方，先沿直线走；${navigationHint}` : navigationHint}</p>}
+    {navigationHint && <p className="snake-navigation-hint" aria-live="off">{!stepping && firstFruitAhead(snake, turn) ? `第一颗果子在前方，先沿直线走；${navigationHint}` : navigationHint}</p>}
     {paused && !ended && <section className="snake-steering-guide" aria-label="继续后的转弯方向" aria-live="polite" aria-atomic="true">
       <strong>蛇头现在朝{directions[snake.direction]}</strong>
       <p className="snake-paused-position">{snakeFoodHint(head, snake.food)} {savedFenceDistance === 0

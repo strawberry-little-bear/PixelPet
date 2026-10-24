@@ -182,3 +182,61 @@ describe("snake reading without per-step live chatter", () => {
     expect(view.container.querySelector(".snake-overlay")?.getAttribute("role")).toBe("status");
   });
 });
+
+describe("snake opening straight-line guidance", () => {
+  const opening = "第一颗果子在前方，先沿直线走";
+
+  it.each([
+    [0, { x: 7, y: 5 }], [1, { x: 4, y: 8 }],
+    [2, { x: 1, y: 5 }], [3, { x: 4, y: 2 }],
+  ] as const)("keeps useful opening guidance for a clear path heading %i", (direction, food) => {
+    const state = pet(direction, false);
+    const snake = state.game!.snake!;
+    snake.food = food;
+    // Keep the body behind each heading, as in an ordinary straight opening.
+    const dx = Math.sign(food.x - 4), dy = Math.sign(food.y - 5);
+    snake.body = [0, 1, 2].map(i => ({ x: 4 - dx * i, y: 5 - dy * i }));
+    const before = structuredClone(state);
+    const view = render(<SnakeGame pet={state} now={now} active turn={0} />);
+    expect(view.container.querySelector(".snake-navigation-hint")?.textContent).toContain(opening);
+    expect(state).toEqual(before);
+  });
+
+  it.each([
+    { name: "old random fruit off the forward line", direction: 0, food: { x: 9, y: 9 }, turn: 0, step: 0 },
+    { name: "a saved first turn", direction: 1, food: { x: 7, y: 5 }, turn: 0, step: 1 },
+    { name: "fruit behind the head", direction: 0, food: { x: 1, y: 5 }, turn: 0, step: 2 },
+    { name: "a pending left turn", direction: 0, food: { x: 7, y: 5 }, turn: -1, step: 0 },
+    { name: "a pending right turn", direction: 0, food: { x: 7, y: 5 }, turn: 1, step: 0 },
+  ])("does not invite straight travel with $name", ({ direction, food, turn, step }) => {
+    const state = pet(direction, false);
+    Object.assign(state.game!.snake!, { food, step });
+    const view = render(<SnakeGame pet={state} now={now} active turn={turn} />);
+    const hint = view.container.querySelector(".snake-navigation-hint")!;
+    expect(hint.textContent).not.toContain(opening);
+    expect(hint.textContent).toContain("果子在");
+    expect(hint.getAttribute("aria-live")).toBe("off");
+  });
+
+  it("withdraws and restores advice as a turn is queued and an authoritative state arrives", () => {
+    const state = pet(0, false);
+    state.game!.snake!.food = { x: 7, y: 5 };
+    const view = render(<SnakeGame pet={state} now={now} active turn={0} />);
+    const hint = () => view.container.querySelector(".snake-navigation-hint")?.textContent;
+    expect(hint()).toContain(opening);
+    view.rerender(<SnakeGame pet={state} now={now} active turn={-1} />);
+    expect(hint()).not.toContain(opening);
+    // Dispatch consumes the queued turn before an accepted snapshot arrives.
+    view.rerender(<SnakeGame pet={state} now={now} active turn={0} stepping />);
+    expect(hint()).not.toContain(opening);
+    const moved = structuredClone(state);
+    Object.assign(moved.game!.snake!, { direction: 3, step: 1,
+      body: [{ x: 4, y: 4 }, { x: 4, y: 5 }, { x: 3, y: 5 }] });
+    view.rerender(<SnakeGame pet={moved} now={now + 650} active turn={0} />);
+    expect(hint()).not.toContain(opening);
+    view.rerender(<SnakeGame pet={state} now={now + 1300} active turn={0} />);
+    expect(hint()).toContain(opening);
+    view.rerender(<SnakeGame pet={state} now={now + 1300} active={false} turn={0} />);
+    expect(hint()).toBeUndefined();
+  });
+});

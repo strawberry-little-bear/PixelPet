@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
+import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -120,14 +121,22 @@ try {
         assert.equal(await page.locator('.snake-navigation-hint').getAttribute('aria-live'), 'off');
         assert.equal(await page.locator('.snake-navigation-hint').getAttribute('role'), null);
         assert.equal(await page.locator('.snake-progress').getAttribute('aria-live'), 'polite');
+        const opening = '第一颗果子在前方，先沿直线走';
+        assert.equal((await page.locator('.snake-navigation-hint').textContent()).includes(opening), move === 1,
+          'opening advice must follow the saved heading, including after reload');
         const progressBeforeStep = await page.locator('.snake-progress').textContent();
         const previousDescription = await page.locator(".snake-field desc").textContent();
         await key(page, turn < 0 ? 'a' : 'b');
+        assert(!(await page.locator('.snake-navigation-hint').textContent()).includes(opening),
+          'a queued turn must immediately withdraw straight-line advice');
         for (let i = 0; !held.result && i < 120; i++) await wait(25);
+        assert(!(await page.locator('.snake-navigation-hint').textContent()).includes(opening),
+          'a pending step must not restore straight-line advice before acknowledgement');
         assert(held.result, 'automatic step did not arrive'); assert.equal(held.request.turn, turn);
         const heading = (turn * move + 4) % 4;
         assert.equal(held.result.state.game.snake.direction, heading);
         assert.equal(await page.locator(".snake-field desc").textContent(), previousDescription, "unacknowledged movement changed the board description");
+        if (move === 1) await page.screenshot({ path: join(dir, `${mode.name}-${tag}-pending.png`), fullPage: true });
         // Pause during a real persisted step whose acknowledgement is held in transit.
         await key(page, 'c');
         held.release(); held = null;
@@ -157,6 +166,39 @@ try {
       assert.equal(writes.at(-1).kind, 'cancel-play'); assert.deepEqual(errors, []);
       journeys.push({ mode: mode.name, turn, writes, coins: after.economy.coins, careCount: after.careCount });
     } finally { held?.release(); await context.close(); }
+  }
+  // Model an older saved opening with a random fruit. Only this private test
+  // save is edited. Import intentionally clears games, so seed the private DB
+  // to model reopening an existing session instead of restoring a backup.
+  for (const mode of [{ name: 'desktop', width: 1200, height: 850, font: 14 },
+    { name: 'phone-large', width: 320, height: 480, font: 28 }]) {
+    await api('action', { kind: 'play-snake', requestId: crypto.randomUUID() });
+    const fixture = (await api('state')).state;
+    fixture.game.snake.food = { x: 9, y: 9 };
+    const db = new DatabaseSync(join(dir, 'test.db'));
+    try { db.prepare('UPDATE saves SET body=? WHERE id=1').run(JSON.stringify(fixture)); } finally { db.close(); }
+    assert.deepEqual((await api('state')).state.game.snake.food, { x: 9, y: 9 });
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, reducedMotion: 'reduce' });
+    try {
+      await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+        document.documentElement.style.fontSize = `${font}px`;
+      }), mode.font);
+      const page = await context.newPage();
+      await page.goto(base); await page.locator('.snake-steering-guide').waitFor();
+      await key(page, 'c'); await page.locator('.snake-navigation-hint').waitFor();
+      const text = await page.locator('.snake-navigation-hint').textContent();
+      assert(!text.includes('先沿直线走')); assert(text.includes('果子在右下方'));
+      await page.screenshot({ path: join(dir, `${mode.name}-legacy-running.png`), fullPage: true });
+      await key(page, 'c'); await page.locator('.snake-steering-guide').waitFor();
+      const before = (await api('state')).state;
+      await page.reload(); await page.locator('.snake-steering-guide').waitFor();
+      assert.deepEqual((await api('state')).state.game, before.game);
+      assert.deepEqual(before.game.snake.food, { x: 9, y: 9 });
+      await page.screenshot({ path: join(dir, `${mode.name}-legacy-opening.png`), fullPage: true });
+      await key(page, 'b'); await page.locator('.game-abandon').waitFor();
+      await key(page, 'b'); await page.locator('.content-home').waitFor();
+      results.push({ mode: mode.name, tag: 'legacy-opening', text, fixture: 'constructed random first fruit' });
+    } finally { await context.close(); }
   }
   // Ordinary automatic movement to the fence: detailed coordinates keep
   // changing, but the concise warning is written once throughout 2/1/0 cells.

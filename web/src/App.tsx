@@ -2735,6 +2735,7 @@ export default function App() {
                             now={now}
                             active={snakeSession === pet.game.id && !tools && !help && !reset}
                             turn={queuedTurn}
+                            stepping={busyAction === "snake-step"}
                           />
                         )}
                         {page === "game" && !abandoning && pet.game?.kind === "tiles" && (
