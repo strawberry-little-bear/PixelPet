@@ -22,6 +22,13 @@ const hints = [
 ];
 afterEach(cleanup);
 describe("Tetris pause operation consequences", () => {
+  it("shows the fixed beginner gravity speed without changing the game rules", () => {
+    const pet = fixture();
+    const view = render(<TetrisGame pet={pet} now={now} active choice={0} />);
+    const speed = view.container.querySelector('[data-speed-level="1"]');
+    expect(speed?.textContent).toContain("当前速度：1 级");
+    expect(speed?.textContent).toContain("约每秒下落一格");
+  });
   it.each(hints.map((hint, choice) => ({ hint, choice })))("explains choice $choice without changing the saved board", ({ hint, choice }) => {
     const pet = fixture(), before = structuredClone(pet);
     const view = render(<TetrisGame pet={pet} now={now} active choice={choice} />);
