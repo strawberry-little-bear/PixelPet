@@ -21,7 +21,11 @@ export function WalkingGame({pet,active,choice}:{pet:PetState;active:boolean;cho
  const pose=paused?"paused":done?"done":n.pose||"moving";
  const found=n.beat>=24 && n.beat%24<4 ? parkCatalog.find(p=>p.id===n.souvenirs[Math.floor(n.beat/24)-1]):undefined;
  const hit=n.beat>0&&n.beat%6===0&&!done;
- const warningLive=paused||done||hit?"polite":"off";
+ const warningLive=paused||done?"polite":"off";
+ const obstacleHint=next==="rock"?dolphin?"前方浅石 · A 跃水":"前方石头 · A 跳跃":dolphin?"前方低枝 · B 下潜":"前方树枝 · B 蹲下";
+ // Keep the live region mounted; saved obstacle/timing changes are events,
+ // while the per-step countdown remains available for ordinary reading.
+ const navigationHint=paused||done?"":`第 ${Math.floor(n.beat/6)+1} 处 · ${obstacleHint}。${walkingTimingHint(n,dolphin)}`;
  return <section className="walking-game" aria-label="公园散步">
   <header><strong>公园散步 · {dolphin?"浅水道":"林荫路"}</strong><span>{n.beat} / 72 步</span></header>
   <div className="park-scene" data-rig={rig} data-pose={pose}>
@@ -31,7 +35,8 @@ export function WalkingGame({pet,active,choice}:{pet:PetState;active:boolean;cho
    {!paused&&!done&&<OutingCaption scenery={scenery} compact/>}
    {paused&&<div className="walk-pause"><strong>慢慢走，不必赶路</strong><div>{walkMenu.map((v,i)=><span key={v} data-selected={choice===i}>{choice===i?"▸":"　"} {v}</span>)}</div><small>A 选择 · B 确认 · C 继续</small></div>}
   </div>
-  <p className={`walk-warning${paused ? " walk-pause-hint" : ""}`} aria-live={warningLive} aria-atomic={warningLive === "polite" ? "true" : undefined}>{done?`到终点啦！避开 ${n.cleared} / 12 处，A 暂不操作 · B / C 收好本局发现。`:paused?walkPauseHint(n,choice):`${next==="rock"?dolphin?"前方浅石 · A 跃水":"前方石头 · A 跳跃":dolphin?"前方低枝 · B 下潜":"前方树枝 · B 蹲下"} · 还有 ${remaining} 步`}</p>
+  <span className="walk-navigation-announcement sr-only" aria-live="polite" aria-atomic="true">{navigationHint}</span>
+  <p className={`walk-warning${paused ? " walk-pause-hint" : ""}`} aria-live={warningLive} aria-atomic={warningLive === "polite" ? "true" : undefined}>{done?`到终点啦！避开 ${n.cleared} / 12 处，A 暂不操作 · B / C 收好本局发现。`:paused?walkPauseHint(n,choice):`${obstacleHint} · 还有 ${remaining} 步`}</p>
   {(found||hit)&&!paused&&!done&&<p className="walk-action-note">{walkingTimingHint(n,dolphin)}</p>}
   <p className="walk-find">{found?`发现了${found.name}！已留在沿途发现。`:hit?"这一处走过啦，绊到也能继续，不扣状态。":paused||done?`每 24 步一次发现 · 已走过 ${Math.floor(n.beat/24)} / 3 处`:walkingTimingHint(n,dolphin)}</p>
   <small className="walk-method">{walkingCompanions[pet.species]}</small>

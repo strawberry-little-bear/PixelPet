@@ -60,15 +60,16 @@ describe("Walking pause choice consequences", () => {
     expect(view.container.querySelector(".walk-warning")?.getAttribute("aria-live")).toBe("off");
     expect(view.container.querySelector(".walk-warning")?.hasAttribute("aria-atomic")).toBe(false);
   });
-  it("announces only pause, finish, and new obstacle boundaries", () => {
+  it("keeps the visual countdown quiet and announces pause and finish", () => {
     const pet = fixture(); pet.game!.walking!.paused = false;
     const view = render(<WalkingGame pet={pet} active choice={0} />);
     const warning = () => view.container.querySelector(".walk-warning");
     expect(warning()?.getAttribute("aria-live")).toBe("off");
     pet.game!.walking!.beat = 30;
     view.rerender(<WalkingGame pet={pet} active choice={0} />);
-    expect(warning()?.getAttribute("aria-live")).toBe("polite");
-    expect(warning()?.getAttribute("aria-atomic")).toBe("true");
+    expect(warning()?.getAttribute("aria-live")).toBe("off");
+    expect(warning()?.hasAttribute("aria-atomic")).toBe(false);
+    expect(view.container.querySelector(".walk-navigation-announcement")?.textContent).toContain("第 6 处");
     pet.game!.walking!.beat = 31;
     view.rerender(<WalkingGame pet={pet} active choice={0} />);
     expect(warning()?.getAttribute("aria-live")).toBe("off");

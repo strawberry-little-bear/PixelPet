@@ -29,6 +29,30 @@ async function key(page, letter) {
   if (page.viewportSize().width < 700) await button.tap(); else await page.keyboard.press(letter);
   await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
 }
+async function watchNavigation(page) {
+  await page.evaluate(() => {
+    window.walkNavigation = [];
+    const live = document.querySelector('.walk-navigation-announcement');
+    if (!live || live.textContent) throw new Error('expected a mounted empty running announcement while paused');
+    new MutationObserver(() => window.walkNavigation.push({
+      text: live.textContent, live: live.getAttribute('aria-live'),
+      beat: Number(document.querySelector('.walking-game header span')?.textContent.split('/')[0]),
+      warning: document.querySelector('.walk-warning')?.textContent,
+    })).observe(live, { childList: true, characterData: true, subtree: true });
+  });
+}
+async function navigationEvents(page) {
+  const events = await page.evaluate(() => window.walkNavigation);
+  for (const [index, event] of events.entries()) {
+    assert.equal(event.live, 'polite');
+    if (index) assert.notEqual(event.text, events[index - 1].text, 'unchanged navigation must not be rewritten');
+    if (!event.text) continue;
+    assert(event.text.startsWith(`第 ${Math.floor(event.beat / 6) + 1} 处 · `));
+    assert(!event.text.includes('还有 '), 'live navigation must not count down every step');
+    assert(event.text.includes(event.warning.split(' · 还有 ')[0]), 'live cue must match the visible obstacle');
+  }
+  return events;
+}
 async function readable(page) {
   if (!await page.locator('.device-stage.reading-mode').count()) {
     const height = await page.locator('.device').evaluate(el => el.getBoundingClientRect().height);
@@ -61,6 +85,9 @@ async function readable(page) {
     return errors;
   });
   assert.deepEqual(clipped, [], 'walking instructions clipped');
+  if (!await page.locator('.walk-pause').count() && await beat(page) < 72) {
+    assert.equal(await page.locator('.walk-warning').getAttribute('aria-live'), 'off');
+  }
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
 }
@@ -74,7 +101,9 @@ async function required(page) {
 }
 async function hint(page, part) {
   const actual = await page.locator(await page.locator('.walk-action-note').count() ? '.walk-action-note' : '.walk-find').textContent();
-  assert(actual.includes(part), `${actual} does not include ${part}`); await readable(page);
+  assert(actual.includes(part), `${actual} does not include ${part}`);
+  assert((await page.locator('.walk-navigation-announcement').textContent()).includes(part), 'timing advice missing from discrete announcement');
+  await readable(page);
 }
 async function discoveryFeedback(page, milestone, expected, label) {
   const shown = await page.locator('.walking-game').evaluate(el => ({
@@ -93,6 +122,7 @@ async function discoveryFeedback(page, milestone, expected, label) {
 }
 async function paused(page) {
   await page.locator('.walk-pause').waitFor();
+  assert.equal(await page.locator('.walk-navigation-announcement').textContent(), '', 'paused walk must clear timed instructions');
   assert.equal(await page.locator('.walk-action-note').count(), 0, 'paused game must not give timed action advice');
   assert(!(await page.locator('.walk-find').textContent()).includes('现在按'));
   await readable(page);
@@ -116,7 +146,7 @@ try {
     await api('action', { kind: 'play-walk' });
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height },
       hasTouch: true, isMobile: mode.width < 700, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
-    const page = await context.newPage(), writes = [], errors = [];
+    const page = await context.newPage(), writes = [], errors = [], navigation = [];
     try {
       await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.style.fontSize = `${font}px`;
@@ -124,12 +154,19 @@ try {
       page.on('pageerror', e => errors.push(String(e)));
       page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/action') writes.push(r.postDataJSON()); });
       await page.goto(base); await paused(page); assert.equal(await beat(page), 0);
+      await watchNavigation(page);
       await key(page, 'c'); await hint(page, '近 3 步再按');
       const first = await required(page); await key(page, first); await hint(page, '动作会先结束');
       await page.screenshot({ path: join(dir, `${mode.name}-early.png`), fullPage: true });
       await atBeat(page, 4); assert((await beat(page)) < 6); await hint(page, '现在按');
       await key(page, 'c'); await paused(page); const firstPause = await beat(page);
-      await page.reload(); await paused(page); await wait(1200); assert.equal(await beat(page), firstPause);
+      navigation.push(await navigationEvents(page));
+      assert(navigation[0][0].text.startsWith('第 1 处 · '), 'first obstacle was not announced');
+      assert(navigation[0].some(event => event.text.includes('近 3 步再按')));
+      assert(navigation[0].some(event => event.text.includes('现在按')));
+      await page.reload(); await paused(page); await watchNavigation(page);
+      await wait(1200); assert.equal(await beat(page), firstPause);
+      assert.deepEqual(await navigationEvents(page), [], 'refresh must not emit running cues before manual resume');
       await key(page, 'c'); await atBeat(page, 6);
       assert.equal((await api('state')).state.game.walking.cleared, 0, 'early action unexpectedly cleared first obstacle');
       await atBeat(page, 9); assert((await beat(page)) < 12);
@@ -137,7 +174,10 @@ try {
       await wait(250); await key(page, second); await hint(page, '可覆盖本处');
       await page.screenshot({ path: join(dir, `${mode.name}-covered.png`), fullPage: true });
       await key(page, 'c'); await paused(page); const secondPause = await beat(page);
-      assert(secondPause < 12); await page.reload(); await paused(page); const count = writes.length;
+      assert(secondPause < 12); navigation.push(await navigationEvents(page));
+      assert(navigation[1].some(event => event.text.startsWith('第 2 处 · ')), 'second obstacle was not announced');
+      assert(navigation[1].some(event => event.text.includes('可覆盖本处')));
+      await page.reload(); await paused(page); await watchNavigation(page); const count = writes.length;
       await wait(1200); assert.equal(writes.length, count); assert.equal(await beat(page), secondPause);
       await page.screenshot({ path: join(dir, `${mode.name}-paused.png`), fullPage: true });
       await key(page, 'c'); await hint(page, '可覆盖本处'); await atBeat(page, 12);
@@ -168,6 +208,9 @@ try {
         await wait(120);
       }
       assert.equal(await beat(page), 72); await readable(page);
+      assert.equal(await page.locator('.walk-navigation-announcement').textContent(), '');
+      navigation.push(await navigationEvents(page));
+      assert(navigation[2].some(event => event.text.startsWith('第 12 处 · ')), 'last visible obstacle was not announced');
       assert.deepEqual([...probed], [24, 48]); assert.equal(discoveries.length, 4, 'both finds must show timely saved feedback');
       assert.equal(await page.locator('.walk-action-note').count(), 0);
       const done = (await api('state')).state; assert.equal(done.game.walking.cleared, 11);
@@ -182,7 +225,7 @@ try {
       assert.equal(writes.filter(w => w.kind === 'walk-step').length, 72);
       assert.equal(writes.filter(w => w.kind === 'walk-jump' || w.kind === 'walk-duck').length, 15);
       assert.equal(writes.filter(w => w.kind === 'walk-finish').length, 1);
-      assert.deepEqual(errors, []); results.push({ mode: mode.name, first, second, firstPause, secondPause, resumes, discoveries, runningHeight: runningHeights.get(page), writes, cleared: 11, coins: settled.economy.coins });
+      assert.deepEqual(errors, []); results.push({ mode: mode.name, first, second, firstPause, secondPause, resumes, discoveries, navigation, runningHeight: runningHeights.get(page), writes, cleared: 11, coins: settled.economy.coins });
     } catch (error) {
       await page.screenshot({ path: join(dir, `${mode.name}-failure.png`), fullPage: true }).catch(() => {}); throw error;
     } finally { await context.close(); }
