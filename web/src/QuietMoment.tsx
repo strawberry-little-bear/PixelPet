@@ -3,8 +3,8 @@ import { quietMemories } from "./quiet-memory";
 import { interestCue } from "./companion";
 import { PetArt, petRigClass } from "./PetArt";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
-import { stageNames, formNames } from "./growth";
-import type { AdultForm, GrowthStage, PetState, Shop } from "./types";
+import { stageNames, formNames, tendency } from "./growth";
+import type { AdultForm, Growth, GrowthStage, PetState, Shop } from "./types";
 import { quietAtmosphere } from "./quiet-atmosphere";
 import "./growth.css";
 import "./quiet-moment.css";
@@ -22,8 +22,21 @@ const adultFormQuietLines: Record<AdultForm, string> = {
   easygoing: "它按自己的节奏眨眨眼，连安静也觉得很自在。",
 };
 
+const growingTendencyQuietLines: Record<AdultForm, string> = {
+  balanced: "日常照顾正在慢慢形成均衡的节奏。",
+  lively: "陪玩的痕迹更明显一些，它正在长出活力。",
+  gentle: "清洁和休息的痕迹更明显一些，它正在长得安稳。",
+  easygoing: "它正在按自己的节奏慢慢长大。",
+};
+
 export function quietFormLine(stage: GrowthStage, form: AdultForm | "", choice: number, replied: boolean) {
   return stage === "adult" && form && choice === 1 && replied ? adultFormQuietLines[form] : null;
+}
+
+export function growingTendencyLine(growth: Growth | undefined, choice: number, replied: boolean) {
+  if (!growth || growth.stage !== "growing" || choice !== 1 || !replied) return null;
+  const form = tendency(growth);
+  return { form, text: growingTendencyQuietLines[form] };
 }
 
 const sleepingMoments = [
@@ -46,6 +59,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
   const atmosphere = !pet.sleeping ? quietAtmosphere(pet.species, stage, form, now) : null;
   const interest = !pet.sleeping && choice === 1 && replied ? interestCue(pet.companion) : null;
   const formLine = !pet.sleeping ? quietFormLine(stage, form, choice, replied) : null;
+  const tendencyLine = !pet.sleeping ? growingTendencyLine(growth, choice, replied) : null;
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
@@ -67,6 +81,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
         {atmosphere && <small className="quiet-event" data-season={atmosphere.season}><span>{atmosphere.seasonLabel}小事</span>{atmosphere.event}</small>}
         {memory && <small className="quiet-memory-position">闲聊回忆 {memoryIndex + 1} / {memories.length}</small>}
         <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
+        {tendencyLine && <small className="quiet-growth-tendency" data-form={tendencyLine.form}><span>当前偏向 · {formNames[tendencyLine.form]}</span>{tendencyLine.text}（还会随着照顾继续变化）</small>}
         {formLine && <small className="quiet-form-line" data-form={form}><span>成长留下的样子</span>{formLine}</small>}
         {interest && <small className="quiet-interest" data-game={interest.kind}><span>一起玩久了</span>{interest.text}</small>}
         {memory && <small className="quiet-memory-source">{memory.source === "game" ? "从共同游戏记录想起：" : "从纪念册想起："}{memory.title}

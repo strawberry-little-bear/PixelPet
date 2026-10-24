@@ -10,8 +10,10 @@
 .quiet-moment-copy > p { max-width: 260px; margin: 7px 0 4px; font-size: 10px; line-height: 1.7; }
 .quiet-memory-position { margin-top: 5px; font-size: .625rem; line-height: 1.6; }
 .quiet-form-line,
+.quiet-growth-tendency,
 .quiet-interest { max-width: 260px; margin: 3px 0; font-size: .625rem; line-height: 1.6; opacity: .82; }
 .quiet-form-line span,
+.quiet-growth-tendency span,
 .quiet-interest span { margin-right: 4px; font-family: var(--mono); opacity: .72; }
 .quiet-memory-source { max-width: 260px; margin: 3px 0; font-size: .625rem; line-height: 1.6; overflow-wrap: anywhere; }
 .quiet-moment-note { max-width: 260px; margin-top: 3px; font-size: 8px; line-height: 1.5; opacity: .75; }

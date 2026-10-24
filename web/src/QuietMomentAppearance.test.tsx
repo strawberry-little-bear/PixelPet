@@ -69,6 +69,40 @@ it.each([
   expect(container.querySelector(".quiet-form-line")).toBeNull();
 });
 
+it.each([
+  ["balanced", "", "日常照顾正在慢慢形成均衡的节奏。"],
+  ["lively", "play", "陪玩的痕迹更明显一些，它正在长出活力。"],
+  ["gentle", "calm", "清洁和休息的痕迹更明显一些，它正在长得安稳。"],
+  ["easygoing", "easygoing", "它正在按自己的节奏慢慢长大。"],
+] as const)("shows the current growing tendency as provisional feedback: %s", (form, signal, words) => {
+  const saved = pet(); saved.growth = emptyGrowth("growing");
+  if (signal === "play") saved.growth.care.play = 2;
+  if (signal === "calm") saved.growth.care.clean = saved.growth.care.rest = 2;
+  if (signal === "easygoing") { saved.growth.trackedHours = 12; saved.growth.wellbeing = 1; }
+  const before = structuredClone(saved);
+  const { container } = render(<QuietMoment pet={saved} choice={1} replied />);
+  const line = container.querySelector(`.quiet-growth-tendency[data-form="${form}"]`);
+  expect(line?.textContent).toContain(`当前偏向 · ${formNames[form]}`);
+  expect(line?.textContent).toContain(words);
+  expect(line?.textContent).toContain("还会随着照顾继续变化");
+  expect(saved).toEqual(before);
+});
+
+it("keeps the provisional tendency read-only and limited to a completed growing quiet moment", () => {
+  const saved = pet(); saved.growth = emptyGrowth("growing"); saved.growth.care.play = 2;
+  const { container, rerender } = render(<QuietMoment pet={saved} choice={1} replied={false} />);
+  expect(container.querySelector(".quiet-growth-tendency")).toBeNull();
+  rerender(<QuietMoment pet={saved} choice={0} replied />);
+  expect(container.querySelector(".quiet-growth-tendency")).toBeNull();
+  rerender(<QuietMoment pet={{ ...saved, sleeping: true }} choice={1} replied />);
+  expect(container.querySelector(".quiet-growth-tendency")).toBeNull();
+  rerender(<QuietMoment pet={{ ...saved, growth: emptyGrowth("baby") }} choice={1} replied />);
+  expect(container.querySelector(".quiet-growth-tendency")).toBeNull();
+  rerender(<QuietMoment pet={{ ...saved, growth: { ...emptyGrowth("adult"), form: "lively" } }} choice={1} replied />);
+  expect(container.querySelector(".quiet-growth-tendency")).toBeNull();
+  expect(container.querySelector("button,a,input,[role=button]")).toBeNull();
+});
+
 it("keeps one equipped accessory in place of the default outfit, with the adult emblem", () => {
   const saved = pet(); saved.growth = emptyGrowth("adult"); saved.growth.form = "gentle";
   saved.economy = { coins: 0, lastDailyAt: 0, lastGameAt: 0, gameCoins: 0, owned: ["leaf-pin"],
