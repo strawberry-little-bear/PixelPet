@@ -16,7 +16,7 @@ it.each(["feed", "clean", "catch", "tile-pick", "snake-finish", "tetris-finish",
   const before = structuredClone(feedback);
   const { container } = render(<CareOutcome feedback={feedback} embedded={kind.endsWith("finish")} />);
   expect(container.textContent).toContain(explanation);
-  expect(container.textContent).toContain("本次成长：+0.00 点");
+  expect(container.textContent).toContain("本次没有新增成长点");
   expect(container.textContent).toMatch(/习惯：\+1/);
   expect(container.querySelector("button,a,input")).toBeNull();
   expect(feedback).toEqual(before);
@@ -49,7 +49,7 @@ it.each(["feed", "clean", "catch", "tile-pick", "snake-finish", "tetris-finish",
   const original = structuredClone(feedback);
   const { container, rerender } = render(<CareOutcome feedback={feedback} embedded={kind.endsWith("finish")} />);
   expect(container.textContent).toContain("已经成年，成长点不再增加。");
-  expect(container.textContent).toContain("本次成长：+0.00 点");
+  expect(container.textContent).toContain("本次没有新增成长点");
   expect(container.textContent).toMatch(/习惯：\+0/);
   expect(container.textContent).toContain("记录时约还需 25 分钟");
   expect(container.textContent).not.toContain("本次习惯仍已计入");

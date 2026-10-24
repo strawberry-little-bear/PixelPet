@@ -147,7 +147,7 @@ try {
         const habit = { nutrition: '喂食习惯', clean: '清洁习惯', play: '陪玩习惯' }[result.careFeedback.habit];
         const title = `${result.careFeedback.points > 0 ? `成长 +${amount} · ` : ''}${habit} +${result.careFeedback.habitGain}`;
         await page.waitForFunction(title => document.querySelector('.growth-feedback strong')?.textContent === title, title);
-        assert((await page.getByRole('group', { name: '本次成长与习惯', exact: true }).innerText()).includes(`本次成长：+${amount} 点`),
+        assert((await page.getByRole('group', { name: '本次成长与习惯', exact: true }).innerText()).includes(amount === '0.00' ? '本次没有新增成长点' : `本次成长：+${amount} 点`),
           'detailed receipt must agree with the short prompt and saved diary');
       }
       return { result, body: saved.request().postDataJSON(), headers: await saved.request().allHeaders() };

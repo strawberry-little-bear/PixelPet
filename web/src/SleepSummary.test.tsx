@@ -16,7 +16,8 @@ describe("complete recorded sleep receipt", () => {
     for (const text of ["实际结算：1.00 小时","恢复体力：+14.00","休息习惯：+0.50","睡眠期间成长：+1.17 点","包含期间自然成长","不是起床奖励","单次结算上限"]) expect(group.textContent).toContain(text);
     const times=group.querySelectorAll("time");
     expect([...times].map(t=>t.dateTime)).toEqual([new Date(start).toISOString(),new Date(end).toISOString()]);
-    expect(screen.getByRole("group",{name:"本次成长与习惯"}).textContent).toContain("本次成长：+0.00");
+    expect(screen.getByRole("group",{name:"本次成长与习惯"}).textContent).toContain("本次没有新增成长点");
+    expect(screen.getByRole("group",{name:"本次成长与习惯"}).textContent).toContain("记录数值：成长 +0.00 点 · 休息习惯：+0");
     expect(group.querySelector("button,a,input,[tabindex]")).toBeNull();
   });
   it.each([

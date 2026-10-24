@@ -134,8 +134,8 @@ try {
         const receipt = page.getByRole('region', { name: '上次操作的即时变化' });
         const learning = page.getByRole('group', { name: '本次成长与习惯' });
         await learning.waitFor();
-        assert((await learning.textContent()).includes(`本次成长：+${feedback.points.toFixed(2)} 点`));
-        assert((await learning.textContent()).includes(`陪玩习惯：+${feedback.habitGain}`));
+        assert((await learning.textContent()).includes(feedback.points === 0 ? '本次没有新增成长点' : `本次成长：+${feedback.points.toFixed(2)} 点`));
+        assert((await learning.textContent()).includes(feedback.habitGain === 0 ? '陪玩习惯：本次不计入' : `陪玩习惯：+${feedback.habitGain}`));
         assert((await learning.textContent()).includes(cooldown ? '记录时同类习惯仍在间隔内' : '已计入'));
         for (const need of ['hunger', 'mood', 'clean', 'energy']) {
           const text = await receipt.locator(`[data-need=${need}]`).textContent();

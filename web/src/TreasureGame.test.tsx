@@ -188,8 +188,8 @@ describe("three-key treasure flow",()=>{
   });
   await mount();expect(screen.queryByLabelText("本次成长与习惯")).toBeNull();await key("b");
   const learning=screen.getByLabelText("本次成长与习惯");
-  expect(learning.textContent).toContain(`本次成长：+${result.points.toFixed(2)} 点`);
-  expect(learning.textContent).toContain(`陪玩习惯：+${result.habitGain}`);
+  expect(learning.textContent).toContain(result.points === 0 ? "本次没有新增成长点" : `本次成长：+${result.points.toFixed(2)} 点`);
+  expect(learning.textContent).toContain(result.habitGain === 0 ? "陪玩习惯：本次不计入" : `陪玩习惯：+${result.habitGain}`);
   expect(learning.textContent).toContain(result.reason==="credited"?"已计入":"记录时同类习惯仍在间隔内");
   const receipt=screen.getByLabelText("上次操作的即时变化").textContent;
   await key("c"); // Explicitly skip the play clip before the toast reading interval.

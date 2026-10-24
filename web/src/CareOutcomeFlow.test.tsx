@@ -39,7 +39,7 @@ describe("three-key care outcome lifetime", () => {
   const points=stage==="adult"?0:stage==="growing"?.1:.25;
   actionFeedback={...receipt,points};
   await mount();await feed();
-  expect(screen.getByLabelText("本次成长与习惯").textContent).toContain(`本次成长：+${points.toFixed(2)} 点`);
+  expect(screen.getByLabelText("本次成长与习惯").textContent).toContain(points === 0 ? "本次没有新增成长点" : `本次成长：+${points.toFixed(2)} 点`);
   expect(screen.getByLabelText("本次成长与习惯").textContent).toContain("喂食习惯：+1");
   const original=outcome()?.textContent;
   saved.growth.points+=stage==="adult"?0:2;saved.growth.care.nutrition+=3;saved.revision++;

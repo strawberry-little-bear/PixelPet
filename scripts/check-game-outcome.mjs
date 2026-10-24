@@ -187,7 +187,7 @@ try {
         assert((await learning.innerText()).includes(`记录时约还需 ${minutesAtReceipt(confirmed.careFeedback.retryAt)} 分钟`));
         assert((await learning.innerText()).includes('七款游戏共用'), 'Changing games must not imply a new play-habit interval');
       }
-      else assert((await learning.innerText()).includes(`本次成长：+${mode.adult ? '0.00' : '0.25'} 点`));
+      else assert((await learning.innerText()).includes(mode.adult ? '本次没有新增成长点' : '本次成长：+0.25 点'));
       assert(!confirmed.state.game);
       if (exhausted) assert.equal(confirmed.state.economy.coins, before.economy.coins);
       else assert(confirmed.state.economy.coins > before.economy.coins);

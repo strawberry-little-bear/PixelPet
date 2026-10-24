@@ -47,6 +47,6 @@ describe("consistent growth amounts in the short and detailed care receipt", () 
       <CareOutcome feedback={feedback} />
     </>);
     expect(container.querySelector(".growth-feedback strong")?.textContent).toBe("喂食习惯 +1");
-    expect(container.querySelector(".care-learning")?.textContent).toContain("本次成长：+0.00 点");
+    expect(container.querySelector(".care-learning")?.textContent).toContain("本次没有新增成长点");
   });
 });
