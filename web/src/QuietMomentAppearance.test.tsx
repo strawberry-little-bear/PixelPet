@@ -87,6 +87,8 @@ it("shows a present local-time atmosphere without adding a control or changing t
   const { container } = render(<QuietMoment pet={saved} choice={1} replied={false} now={new Date(2026, 9, 24, 18).getTime()} />);
   expect(container.querySelector(".quiet-atmosphere")?.getAttribute("data-period")).toBe("dusk");
   expect(container.querySelector(".quiet-atmosphere")?.textContent).toContain("晚霞");
+  expect(container.querySelector(".quiet-event")?.getAttribute("data-season")).toBe("autumn");
+  expect(container.querySelector(".quiet-event")?.textContent).toContain("秋日小事");
   expect(container.querySelector("button,a,input,[role=button]")).toBeNull();
   expect(saved).toEqual(before);
 });

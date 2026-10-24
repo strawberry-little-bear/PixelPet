@@ -1,15 +1,26 @@
 import type { AdultForm, GrowthStage } from "./types";
 
+export type QuietSeason = "spring" | "summer" | "autumn" | "winter";
+
 export type QuietAtmosphere = {
   period: "late-night" | "dawn" | "day" | "afternoon" | "dusk" | "night";
   label: string;
+  season: QuietSeason;
+  seasonLabel: string;
   text: string;
+  event: string;
 };
 
 type AtmosphereSeed = {
   period: QuietAtmosphere["period"];
   label: string;
   variants: readonly string[];
+};
+
+type SeasonSeed = {
+  season: QuietSeason;
+  label: string;
+  events: readonly string[];
 };
 
 const atmosphereSeeds: readonly AtmosphereSeed[] = [
@@ -45,6 +56,29 @@ const atmosphereSeeds: readonly AtmosphereSeed[] = [
   ] },
 ];
 
+const seasonSeeds: readonly SeasonSeed[] = [
+  { season: "spring", label: "春日", events: [
+    "窗边的新叶晃了晃，它跟着抬头看了一眼。",
+    "一小点花香飘过来，它把这阵风安静收进了今天。",
+    "柔软的春风经过，它轻轻动了动耳朵。",
+  ] },
+  { season: "summer", label: "夏日", events: [
+    "窗外的蝉声远远响着，它找到了最舒服的阴影。",
+    "一阵凉风掠过小窝，它舒展了一下身子。",
+    "阳光在地板上亮了一会儿，它慢慢挪到了光边。",
+  ] },
+  { season: "autumn", label: "秋日", events: [
+    "一片叶影慢慢落下，它安静地看完了。",
+    "风里有淡淡的果实香，它把鼻尖朝窗边探了探。",
+    "树影换了新的颜色，它在小窝里多看了一会儿。",
+  ] },
+  { season: "winter", label: "冬日", events: [
+    "窗边的光暖暖的，它往亮处挪近了一点。",
+    "冷风在窗外经过，它把自己团成了舒服的一小团。",
+    "冬日的安静落在小窝里，它轻轻眨了眨眼。",
+  ] },
+];
+
 const stageIndex: Record<GrowthStage, number> = { egg: 0, baby: 1, growing: 2, adult: 3 };
 const formIndex: Record<AdultForm, number> = { balanced: 0, lively: 1, gentle: 2, easygoing: 3 };
 
@@ -59,6 +93,13 @@ function periodForHour(hour: number): AtmosphereSeed {
   if (hour < 17) return atmosphereSeeds[3];
   if (hour < 20) return atmosphereSeeds[4];
   return atmosphereSeeds[5];
+}
+
+function seasonForMonth(month: number): SeasonSeed {
+  if (month >= 2 && month <= 4) return seasonSeeds[0];
+  if (month >= 5 && month <= 7) return seasonSeeds[1];
+  if (month >= 8 && month <= 10) return seasonSeeds[2];
+  return seasonSeeds[3];
 }
 
 /**
@@ -76,8 +117,16 @@ export function quietAtmosphere(
   if (!stage || !(stage in stageIndex)) return null;
   const date = new Date(at);
   const period = periodForHour(date.getHours());
+  const season = seasonForMonth(date.getMonth() + 1);
   const day = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
   const formOffset = form && form in formIndex ? formIndex[form as AdultForm] : 0;
-  const variant = Math.abs(species * 7 + stageIndex[stage] * 3 + formOffset + day) % period.variants.length;
-  return { period: period.period, label: period.label, text: period.variants[variant] };
+  const seed = Math.abs(species * 7 + stageIndex[stage] * 3 + formOffset + day);
+  return {
+    period: period.period,
+    label: period.label,
+    season: season.season,
+    seasonLabel: season.label,
+    text: period.variants[seed % period.variants.length],
+    event: season.events[Math.floor(seed / period.variants.length) % season.events.length],
+  };
 }

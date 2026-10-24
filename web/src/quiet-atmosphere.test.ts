@@ -18,6 +18,23 @@ describe("quietAtmosphere", () => {
     expect(first?.text).not.toBe(quietAtmosphere(2, "adult", "gentle", localTime(14, 25))?.text);
   });
 
+  it.each([
+    [new Date(2026, 2, 24, 14).getTime(), "spring", "春日"],
+    [new Date(2026, 5, 24, 14).getTime(), "summer", "夏日"],
+    [new Date(2026, 8, 24, 14).getTime(), "autumn", "秋日"],
+    [new Date(2026, 11, 24, 14).getTime(), "winter", "冬日"],
+  ] as const)("adds a present-tense seasonal cue for %s", (at, season, seasonLabel) => {
+    expect(quietAtmosphere(2, "growing", "", at)).toMatchObject({ season, seasonLabel });
+  });
+
+  it("keeps the small seasonal event stable for the same day without persisting it", () => {
+    const at = localTime(14, 24);
+    const first = quietAtmosphere(2, "adult", "gentle", at);
+    expect(first?.event).toBeTruthy();
+    expect(first?.event).toBe(quietAtmosphere(2, "adult", "gentle", at + 4 * 60 * 60 * 1000)?.event);
+    expect(first?.season).toBe(quietAtmosphere(2, "adult", "gentle", localTime(14, 25))?.season);
+  });
+
   it("uses saved adult form as presentation input without writing or inventing state", () => {
     const lively = quietAtmosphere(2, "adult", "lively", localTime(14));
     const gentle = quietAtmosphere(2, "adult", "gentle", localTime(14));

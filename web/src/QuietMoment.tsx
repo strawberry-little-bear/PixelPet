@@ -49,7 +49,8 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
       <div className="quiet-moment-copy">
         {growth && <small className="quiet-growth-label">{stageNames[stage]}{stage === "adult" && form ? ` · ${formNames[form]}` : ""}</small>}
         <strong>{words.title}</strong>
-        {atmosphere && <small className="quiet-atmosphere" data-period={atmosphere.period}><span>{atmosphere.label}</span>{atmosphere.text}</small>}
+        {atmosphere && <small className="quiet-atmosphere" data-period={atmosphere.period} data-season={atmosphere.season}><span>{atmosphere.label}</span>{atmosphere.text}</small>}
+        {atmosphere && <small className="quiet-event" data-season={atmosphere.season}><span>{atmosphere.seasonLabel}小事</span>{atmosphere.event}</small>}
         {memory && <small className="quiet-memory-position">闲聊回忆 {memoryIndex + 1} / {memories.length}</small>}
         <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
         {memory && <small className="quiet-memory-source">{memory.source === "game" ? "从共同游戏记录想起：" : "从纪念册想起："}{memory.title}

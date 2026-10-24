@@ -65,7 +65,7 @@
 .reading-mode .screen-bezel { height: auto; min-height: 284px; flex-shrink: 0; }
 .reading-mode .lcd { height: auto; }
 .reading-mode .lcd-content { height: auto; min-height: 204px; font-size: .857143rem; line-height: 1.6; }
-.reading-mode .lcd-content :is(p, small, strong, b, span, dt, dd, li, time, header, h3, .care-item, .lcd-meter, .companion-rows) {
+.reading-mode .lcd-content :is(p, small, strong, b, span, dt, dd, li, time, header, h3, .care-item, .lcd-meter, .companion-rows, .quiet-atmosphere, .quiet-event) {
   font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere;
 }
 /* Welcome captions and the anonymous text in choose-name are divs, so the
