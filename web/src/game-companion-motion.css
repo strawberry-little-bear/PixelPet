@@ -1,0 +1,75 @@
+/* Growth tendencies add a quiet visual cue to the companion only. These
+   transforms never change a board, timer, reaction window, reward or layout.
+   Each selector is restricted to an explicitly live/waiting scene so pause,
+   result and reduced-motion states remain still. */
+
+.pond-scene[data-form="lively"][data-motion="waiting"] .fishing-companion,
+.snake-companion[data-form="lively"][data-motion="waiting"][data-paused="false"] .snake-pet,
+.tetris-companion[data-form="lively"][data-motion="waiting"][data-paused="false"] .tetris-pet,
+.tile-companion[data-form="lively"][data-motion="waiting"] .tile-pet,
+.treasure-companion[data-form="lively"][data-reaction="quiet"][data-paused="false"] .treasure-actor,
+.game-lane[data-form="lively"][data-motion="waiting"] > .pet-sprite {
+  animation: game-companion-lively-bob 1.7s steps(3, end) infinite;
+}
+
+.pond-scene[data-form="gentle"][data-motion="waiting"] .fishing-companion,
+.snake-companion[data-form="gentle"][data-motion="waiting"][data-paused="false"] .snake-pet,
+.tetris-companion[data-form="gentle"][data-motion="waiting"][data-paused="false"] .tetris-pet,
+.tile-companion[data-form="gentle"][data-motion="waiting"] .tile-pet,
+.treasure-companion[data-form="gentle"][data-reaction="quiet"][data-paused="false"] .treasure-actor,
+.game-lane[data-form="gentle"][data-motion="waiting"] > .pet-sprite {
+  animation: game-companion-gentle-sway 3.8s steps(4, end) infinite;
+}
+
+.pond-scene[data-form="easygoing"][data-motion="waiting"] .fishing-companion,
+.snake-companion[data-form="easygoing"][data-motion="waiting"][data-paused="false"] .snake-pet,
+.tetris-companion[data-form="easygoing"][data-motion="waiting"][data-paused="false"] .tetris-pet,
+.tile-companion[data-form="easygoing"][data-motion="waiting"] .tile-pet,
+.treasure-companion[data-form="easygoing"][data-reaction="quiet"][data-paused="false"] .treasure-actor,
+.game-lane[data-form="easygoing"][data-motion="waiting"] > .pet-sprite {
+  animation: game-companion-easygoing-sway 4.6s steps(4, end) infinite;
+}
+
+/* Walking already uses the actor wrapper for jump/crouch poses. The inner
+   sprite carries the tendency cue while the wrapper keeps gameplay pose data. */
+.park-scene[data-form="lively"][data-pose="moving"] .walking-actor .pet-sprite {
+  animation: game-companion-lively-bob 1.7s steps(3, end) infinite;
+}
+.park-scene[data-form="gentle"][data-pose="moving"] .walking-actor .pet-sprite {
+  animation: game-companion-gentle-sway 3.8s steps(4, end) infinite;
+}
+.park-scene[data-form="easygoing"][data-pose="moving"] .walking-actor .pet-sprite {
+  animation: game-companion-easygoing-sway 4.6s steps(4, end) infinite;
+}
+
+@keyframes game-companion-lively-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes game-companion-gentle-sway {
+  0%, 100% { transform: translateY(1px) rotate(-1deg); }
+  50% { transform: translateY(0) rotate(1deg); }
+}
+@keyframes game-companion-easygoing-sway {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(1deg); }
+}
+
+/* A paused or terminal treasure reaction owns the actor's motion completely. */
+.treasure-companion[data-paused="true"] .treasure-actor,
+.treasure-companion[data-reaction="found"] .treasure-actor,
+.treasure-companion[data-reaction="empty"] .treasure-actor {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pond-scene[data-form] .fishing-companion,
+  .park-scene[data-form] .walking-actor .pet-sprite,
+  .snake-companion[data-form] .snake-pet,
+  .tetris-companion[data-form] .tetris-pet,
+  .tile-companion[data-form] .tile-pet,
+  .treasure-companion[data-form] .treasure-actor,
+  .game-lane[data-form] > .pet-sprite {
+    animation: none !important;
+  }
+}

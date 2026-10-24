@@ -20,7 +20,7 @@ export function StarsGame({ pet, now, lane, target, message, reaction }: {
       </header>
       <div className="game-lanes" role="img" aria-label={`星星在${positions[target]}；伙伴在${positions[lane]}`}>
         {[0, 1, 2].map(i => (
-          <div key={i} className={`game-lane ${i === lane ? "lane-selected" : ""}`} data-form={i === lane ? companionVoice?.form : undefined}>
+          <div key={i} className={`game-lane ${i === lane ? "lane-selected" : ""}`} data-motion={i === lane ? caught ? "celebrating" : "waiting" : undefined} data-form={i === lane ? companionVoice?.form : undefined}>
             <span className={`falling-star ${target === i ? "visible" : ""}`} aria-hidden="true">★</span>
             {lane === i ? <PetArt index={pet.species} stage={petGrowth(pet, now).stage}
               motion={caught ? "celebrating" : "idle"} expression={caught ? "content" : "awake"}

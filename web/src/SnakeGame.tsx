@@ -97,6 +97,6 @@ export function SnakeGame({ pet, now, active, turn, stepping = false }: { pet: P
       </ul>
       <small>按蛇头朝向转弯，不是屏幕的左右。</small>
     </section>}
-    <div className={`snake-companion ${collecting ? "collecting" : ""}`} data-motion={collecting ? "collecting" : "waiting"} data-form={companionVoice?.form}><div className="snake-pet"><PetArt index={pet.species} stage={growth.stage} accessory={pet.economy?.equipped.accessory} motion={snake.end === "won" || collecting ? "celebrating" : "idle"} /></div><RoomDecoration id={pet.economy?.equipped.room} /><p>{collecting ? "甜甜的果子，我收好啦！" : ended ? "这次的果子我帮你收好。" : paused ? "等你准备好，我们再出发。" : `我帮你装果子！${turn < 0 ? "下一步左转" : turn > 0 ? "下一步右转" : "沿着方向前进"}`}{companionVoice && <small className="game-companion-voice">{companionVoice.text}</small>}</p></div>
+    <div className={`snake-companion ${collecting ? "collecting" : ""}`} data-motion={collecting ? "collecting" : "waiting"} data-paused={paused || ended} data-form={companionVoice?.form}><div className="snake-pet"><PetArt index={pet.species} stage={growth.stage} accessory={pet.economy?.equipped.accessory} motion={snake.end === "won" || collecting ? "celebrating" : "idle"} /></div><RoomDecoration id={pet.economy?.equipped.room} /><p>{collecting ? "甜甜的果子，我收好啦！" : ended ? "这次的果子我帮你收好。" : paused ? "等你准备好，我们再出发。" : `我帮你装果子！${turn < 0 ? "下一步左转" : turn > 0 ? "下一步右转" : "沿着方向前进"}`}{companionVoice && <small className="game-companion-voice">{companionVoice.text}</small>}</p></div>
   </section>;
 }
