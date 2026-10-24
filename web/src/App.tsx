@@ -190,6 +190,9 @@ export default function App() {
   const [statusPage, setStatusPage] = useState(0);
   const [quietMomentChoice, setQuietMomentChoice] = useState(0);
   const [quietMomentReplied, setQuietMomentReplied] = useState(false);
+  // Local response identity only: each deliberate awake B press can animate
+  // again, without remounting the reading region or saving an interaction count.
+  const [quietResponseId, setQuietResponseId] = useState(0);
   const [quietMemoryKey, setQuietMemoryKey] = useState<string | null>(null);
   const [page, setPage] = useState<Page>("choose");
   const [chosen, setChosen] = useState(0);
@@ -1836,6 +1839,7 @@ export default function App() {
         setQuietMemoryKey(null);
       } else if (key === "B") {
         setQuietMomentReplied(true);
+        if (!pet.sleeping) setQuietResponseId(value => value + 1);
         navigateQuietReading(quietMomentChoice);
         if (!pet.sleeping && quietMomentChoice === 2) setQuietMemoryKey(value => nextQuietMemory(quietMemories(pet), value));
       } else if (key === "C") setPage("home");
@@ -2679,7 +2683,7 @@ export default function App() {
                             <CarePreview pet={pet} kind={items[selected].kind} hint={items[selected].hint} rules={careRules} />
                           </CareReadingRegion>
                         )}
-                        {page === "moment" && <QuietMoment pet={pet} shop={shop} choice={quietMomentChoice} replied={quietMomentReplied} memoryKey={quietMemoryKey} />}
+                        {page === "moment" && <QuietMoment pet={pet} shop={shop} choice={quietMomentChoice} replied={quietMomentReplied} responseId={quietResponseId} memoryKey={quietMemoryKey} />}
                         {page === "growth" && (
                           <GrowthPanel
                             pet={pet}

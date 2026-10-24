@@ -19,8 +19,8 @@ const sleepingMoments = [
   { title: "轻声道晚安", idle: "回忆等醒来再聊，现在轻声说句晚安吧。", reply: "你轻声说了晚安，它还在甜甜地睡着。" },
 ] as const;
 
-export function QuietMoment({ pet, shop, choice, replied, memoryKey = null }: {
-  pet: PetState; shop?: Shop | null; choice: number; replied: boolean; memoryKey?: string | null;
+export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memoryKey = null }: {
+  pet: PetState; shop?: Shop | null; choice: number; replied: boolean; responseId?: number; memoryKey?: string | null;
 }) {
   const growth = pet.growth;
   const stage = growth?.stage ?? "baby";
@@ -32,7 +32,7 @@ export function QuietMoment({ pet, shop, choice, replied, memoryKey = null }: {
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
       <header><span>不用完成什么</span><small>{choice + 1} / {quietMoments.length}</small></header>
-      <div className={`quiet-moment-pet growth-${stage} motion-${pet.sleeping ? "sleeping" : "idle"}`} aria-hidden="true">
+      <div key={responseId} className={`quiet-moment-pet growth-${stage} motion-${pet.sleeping ? "sleeping" : "idle"}`} aria-hidden="true">
         <div className={`growth-size ${petRigClass(pet.species, stage)}`}>
           <PetArt index={pet.species} stage={stage}
             expression={pet.sleeping ? "asleep" : replied ? moment.expression : "awake"}

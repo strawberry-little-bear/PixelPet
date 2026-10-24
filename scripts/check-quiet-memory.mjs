@@ -66,6 +66,59 @@ async function open(page) {
   await physical(page, 'b'); await page.locator('.quiet-moment').waitFor();
   await physical(page, 'a'); await physical(page, 'a');
 }
+// Observe the actual CSS animation, not an implementation-specific DOM key.
+async function repeatedResponses(page, reduced) {
+  const panel = page.getByRole('region', { name: '无目的互动阅读区' });
+  await panel.evaluate(el => { window.__quietReadingNode = el; });
+  for (const title of ['摸摸它', '陪它发呆', '说声你好']) {
+    await physical(page, 'a');
+    assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), title);
+    await panel.focus();
+    await page.keyboard.press('b');
+    await responseVisible(page);
+    assert(await panel.evaluate(el => document.activeElement === el && el === window.__quietReadingNode),
+      'A reply must preserve the reading region and keyboard focus');
+    if (reduced) {
+      await physical(page, 'b');
+      assert.equal(await page.locator('.quiet-moment-pet').evaluate(el => el.getAnimations().length), 0,
+        'Reduced motion must keep repeated company still');
+      continue;
+    }
+    await page.locator('.quiet-moment-pet').evaluate(async el => {
+      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      if (!motion || motion.playState !== 'running') throw new Error('An explicit reply must visibly respond');
+      window.__quietReplyMotion = motion;
+      await motion.finished;
+    });
+    await physical(page, 'b');
+    assert(await page.locator('.quiet-moment-pet').evaluate(el => {
+      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      return motion && motion !== window.__quietReplyMotion && motion.playState === 'running';
+    }), `${title}: B must respond again after the first animation finishes`);
+    await page.locator('.quiet-moment-pet').evaluate(el => {
+      window.__quietReplyMotion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+    });
+    await page.keyboard.press('b');
+    assert(await page.locator('.quiet-moment-pet').evaluate(el => {
+      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      return motion && motion !== window.__quietReplyMotion && motion.playState === 'running';
+    }), `${title}: a new B press must replace, rather than queue, the current response`);
+    await page.locator('.quiet-moment-pet').evaluate(async el => {
+      window.__quietReplyMotion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      await window.__quietReplyMotion.finished;
+    });
+    const polled = page.waitForResponse(response => /\/api\/(state|visit)$/.test(response.url()));
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await polled;
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    assert(await page.locator('.quiet-moment-pet').evaluate(el => {
+      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      return motion === window.__quietReplyMotion && motion.playState === 'finished';
+    }), 'A state read must not replay the completed response');
+  }
+  // Return to the idle third choice so the original memory and sleep flow stays intact.
+  for (let i = 0; i < 3; i++) await physical(page, 'a');
+  assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
+}
 async function readable(page) {
   const problems = await page.locator('.quiet-moment').evaluate(panel => {
     const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT), problems = [];
@@ -140,6 +193,7 @@ try {
       await page.goto(base); await page.locator('.home-caption').waitFor();
       const homeAppearance = await appearance(page, '.pet-scene');
       await open(page);
+      await repeatedResponses(page, mode.font === 28);
       await sameAppearance(page, homeAppearance, before);
       await page.locator('.quiet-moment-pet').scrollIntoViewIfNeeded();
       await page.screenshot({ path: join(dir, `${label}-appearance.png`) });
