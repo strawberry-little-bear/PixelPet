@@ -16,7 +16,7 @@ async function key(key: string) { await act(async () => { fireEvent.keyDown(wind
 async function mount() { await act(async () => { render(<App />); }); }
 async function open(category: "owned" | "all" = "owned") {
   await key("a"); for (let i = 0; i < 9; i++) await key("a"); await key("b");
-  for (let i = 0; i < (category === "owned" ? 6 : 1); i++) await key("a"); await key("b");
+  for (let i = 0; i < (category === "owned" ? 7 : 1); i++) await key("a"); await key("b");
 }
 async function sync() { saved.revision++; await act(async () => { document.dispatchEvent(new Event("visibilitychange")); }); }
 beforeEach(() => {

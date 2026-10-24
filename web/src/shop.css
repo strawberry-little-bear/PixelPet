@@ -14,6 +14,7 @@
 .shop-preview small { position:absolute; bottom:0; width:100%; text-align:center; font-size:8px; opacity:.75; }
 .shop-panel h3 { display:flex; align-items:center; justify-content:space-between; font-size:12px; margin:6px 0 3px; }
 .shop-panel h3 span { font-size:9px; font-weight:normal; }
+.shop-theme-label { display:block; margin:-1px 0 3px; font-size:8px; opacity:.75; }
 .shop-panel p { font-size:10px; margin:0; min-height:28px; white-space:pre-line; }
 .shop-decision { font-size:10px; padding:4px 0; border-top:1px dotted #7e987b55; margin-top:3px; }
 .shop-panel[data-confirm="true"] .shop-decision { font-weight:bold; }

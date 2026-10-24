@@ -2,7 +2,7 @@ import { DailyRefresh } from "./DailyRefresh";
 import { PetScene } from "./PetScene";
 import { petGrowth } from "./growth";
 import { gameAllowance } from "./games";
-import { dailyClaimed, dailyWalletNotice, shopItems, shopSections, shopSlotNames } from "./shop";
+import { dailyClaimed, dailyWalletNotice, isSeasonalItem, shopItems, shopSections, shopSlotNames } from "./shop";
 import type { ShopCategory } from "./shop";
 import type { PetState, Shop, ShopItem } from "./types";
 import "./shop.css";
@@ -44,6 +44,7 @@ export function ShopPanel({ pet, shop, page, category = null, confirm, now, noti
         <div className="shop-footer"><span>A 换分类 · C 回小窝</span><span>{allowance?.walletFull ? "钱包已满" : allowance?.available === null ? `今日游戏额度 ${allowance.daily} 币` : `今日游戏还可得 ${allowance?.available ?? "?"} 币`}</span></div>
       </> : item ? <>
         <h3>{item.name}<span>{owned ? "已拥有" : `${item.price} 金币`}</span></h3>
+        {isSeasonalItem(item.id) && <small className="shop-theme-label">季节主题 · 只影响小窝视觉</small>}
         <p>{item.description}</p>
         <div className="shop-decision" role="status">{pet.sleeping ? "让它安心睡吧，起床后再操作。" : confirm ? `确认花 ${item.price} 金币购买「${item.name}」？` : owned ? worn ? "使用中 · B 收起来" : "B 使用 · 不再扣金币" : e.coins < item.price ? `还差 ${item.price - e.coins} 金币，慢慢来。` : "B 购买 · 下一步确认"}
           {confirm && !pet.sleeping && !owned && e.coins >= item.price && <>

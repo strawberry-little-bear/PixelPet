@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { dailyClaimed, ShopPanel } from "./ShopPanel";
 import { emptyGrowth } from "./growth";
-import { shopItems, shopSections } from "./shop";
+import { isSeasonalItem, shopItems, shopSections } from "./shop";
 import { PetScene } from "./PetScene";
 import { RoomSurfaceArt } from "./EquipmentArt";
 import { PetArt } from "./PetArt";
@@ -98,6 +98,8 @@ describe("three-key categorized shop previews", () => {
     { id: "clover-pot", name: "四叶草盆栽", slot: "room", price: 16, description: "一个摆件" },
     { id: "meadow-wall", name: "小叶墙纸", slot: "wallpaper", price: 18, description: "独立墙纸" },
     { id: "mint-floor", name: "薄荷方砖", slot: "floor", price: 22, description: "独立地板" },
+    { id: "autumn-wall", name: "秋叶墙纸", slot: "wallpaper", price: 26, description: "秋天的墙" },
+    { id: "winter-floor", name: "雪夜地毯", slot: "floor", price: 28, description: "冬天的地面" },
   ] };
   it("filters server catalog without reordering or mutating it", () => {
     const p = pet();
@@ -106,17 +108,26 @@ describe("three-key categorized shop previews", () => {
     for (const slot of ["accessory", "room", "wallpaper", "floor"] as const) {
       expect(shopItems(rules, p, slot)).toEqual(rules.catalog.filter(i => i.slot === slot));
     }
+    expect(shopItems(rules, p, "seasonal").map(i => i.id)).toEqual(["autumn-wall", "winter-floor"]);
     expect(shopItems(rules, p, "owned").map(i => i.id)).toEqual(["leaf-pin"]);
+    expect(isSeasonalItem("autumn-wall")).toBe(true);
+    expect(isSeasonalItem("mint-floor")).toBe(false);
     expect(shopItems(null, p, "all")).toEqual([]);
     expect(JSON.stringify({ rules, p })).toBe(before);
   });
-  it("offers seven non-clickable categories with real counts", () => {
-    render(<ShopPanel pet={pet()} shop={rules} page={4} now={now} confirm={false} />);
-    expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(7);
+  it("offers eight non-clickable categories with real counts", () => {
+    render(<ShopPanel pet={pet()} shop={rules} page={5} now={now} confirm={false} />);
+    expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(8);
     expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("墙纸");
-    expect(document.querySelector('[data-section="all"] small')?.textContent).toBe("4 件");
+    expect(document.querySelector('[data-section="all"] small')?.textContent).toBe("6 件");
+    expect(document.querySelector('[data-section="seasonal"] small')?.textContent).toBe("2 件");
     expect(document.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
     expect(shopSections.map(s => s.id)).toContain("owned");
+  });
+  it("labels seasonal items without turning the theme into a new action", () => {
+    render(<ShopPanel pet={pet()} shop={rules} category="seasonal" page={0} now={now} confirm={false} />);
+    expect(screen.getByText("季节主题 · 只影响小窝视觉")).toBeTruthy();
+    expect(document.querySelectorAll("button,a,input,[role=button]")).toHaveLength(0);
   });
   it("shows an empty owned filter with no fake purchase or daily action", () => {
     const p = pet(); p.economy!.owned = []; p.economy!.equipped.accessory = "";

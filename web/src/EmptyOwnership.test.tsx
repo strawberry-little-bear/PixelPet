@@ -32,7 +32,7 @@ it.each([null, undefined, []])("empty ownership %j can browse/confirm/cancel/buy
   Object.assign(saved.economy!, { owned });
   await act(async () => { render(<App/>); }); await open();
   expect(document.querySelector(".shop-panel")).toBeTruthy();
-  for(let i=0;i<6;i++) await key("a"); await key("b");
+  for(let i=0;i<7;i++) await key("a"); await key("b");
   expect(document.querySelector(".shop-panel")?.textContent).toContain("这里还空着呢");
   await key("c"); for(let i=0;i<2;i++) await key("a"); await key("b");
   expect(document.querySelector(".shop-panel h3")?.textContent).toContain(item.name);

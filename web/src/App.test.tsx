@@ -951,7 +951,7 @@ describe("three-key shop and persistent equipment", () => {
   });
   it("navigates an empty owned filter using only three keys and C returns to its category", async () => {
     setup(); await mount(); await choose(9);
-    for (let i = 0; i < 6; i++) await key("a");
+    for (let i = 0; i < 7; i++) await key("a");
     await key("b");
     expect(screen.getByText("这里还空着呢")).toBeTruthy();
     await key("a"); await key("b");
@@ -968,7 +968,7 @@ describe("three-key shop and persistent equipment", () => {
     saved.economy!.equipped = { accessory: "leaf-pin", room: "clover-pot" };
     const growth = structuredClone(saved.growth);
     await mount(); await choose(9);
-    for (let i = 0; i < 4; i++) await key("a");
+    for (let i = 0; i < 5; i++) await key("a");
     await key("b");
     expect(document.querySelector('.shop-preview [data-item="meadow-wall"]')).not.toBeNull();
     expect(saved.economy!.equipped.wallpaper).toBeUndefined();

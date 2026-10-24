@@ -31,6 +31,7 @@ beforeEach(() => {
   shop = { dailyCoins: 10, gameDailyLimit: 30, catalog: [
     { id: "leaf-pin", name: "嫩叶胸针", slot: "accessory", price: 12, description: "小小的叶子" },
     { id: "clover-pot", name: "四叶草盆栽", slot: "room", price: 16, description: "绿色的小窝" },
+    { id: "autumn-wall", name: "秋叶墙纸", slot: "wallpaper", price: 26, description: "秋天的墙" },
   ] };
   api.mockReset(); api.mockImplementation(async () => response());
   vi.spyOn(window, "scrollBy").mockImplementation(() => {});
