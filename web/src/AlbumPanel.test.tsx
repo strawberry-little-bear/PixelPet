@@ -41,11 +41,41 @@ describe("permanent album", () => {
   expect(screen.getByText(/不代表连续登录/)).toBeTruthy();
   expect(screen.getByText(/不需要补上错过/)).toBeTruthy();
  });
- it.each(["balanced","lively","gentle","easygoing"] as const)("retains the %s adult form in its narrative", form => {
+ it.each(["balanced","lively","gentle","easygoing"] as const)("retains the saved %s adult form in its narrative and portrait", form => {
   const p=pet();p.album!.entries=[{kind:"adult",at:now,source:"shared",form}];
   render(<AlbumPanel pet={p} now={now} page={1} />);
   expect(document.querySelector('[data-rig-stage="adult"]')).toBeTruthy();
   expect(screen.getByText(/模样已经定下/)).toBeTruthy();
+  expect(document.querySelector(`[data-album-form="${form}"] .growth-form-emblem`)).toBeTruthy();
+ });
+ it("uses the current locked form only on the cover, and follows later synchronization", () => {
+  const p=pet();p.growth={...emptyGrowth("adult"),form:"gentle"};
+  const view=render(<AlbumPanel pet={p} now={now} page={0} />);
+  expect(document.querySelector('[data-album-form="gentle"] .growth-form-emblem')).toBeTruthy();
+  view.rerender(<AlbumPanel pet={{...p,growth:{...p.growth,form:"lively"}}} now={now} page={0} />);
+  expect(document.querySelector('[data-album-form="lively"] .growth-form-emblem')).toBeTruthy();
+  expect(document.querySelector('[data-album-form="gentle"]')).toBeNull();
+ });
+ it.each(["hatch","growing","meal"] as const)("does not put today's adult form on a %s memory", kind => {
+  const p=pet();p.growth={...emptyGrowth("adult"),form:"gentle"};
+  p.album!.entries=[{kind,at:now,source:"shared"}];
+  render(<AlbumPanel pet={p} now={now} page={1} />);
+  expect(document.querySelector(".album-form")).toBeNull();
+ });
+ it("does not infer a missing recorded form from today's pet", () => {
+  const p=pet();p.growth={...emptyGrowth("adult"),form:"gentle"};
+  p.album!.entries=[{kind:"adult",at:now,source:"saved"}];
+  render(<AlbumPanel pet={p} now={now} page={1} />);
+  expect(document.querySelector(".album-form")).toBeNull();
+  expect(screen.getByText(/已经长成成年伙伴/)).toBeTruthy();
+  expect(screen.queryByText(/均衡型|恬静型/)).toBeNull();
+ });
+ it("preserves the recorded form rather than replacing it with a different current form", () => {
+  const p=pet();p.growth={...emptyGrowth("adult"),form:"gentle"};
+  p.album!.entries=[{kind:"adult",at:now,source:"saved",form:"easygoing"}];
+  render(<AlbumPanel pet={p} now={now} page={1} />);
+  expect(document.querySelector('[data-album-form="easygoing"] .growth-form-emblem')).toBeTruthy();
+  expect(document.querySelector('[data-album-form="gentle"]')).toBeNull();
  });
  it("handles a not-yet-upgraded server without fabricating cards", () => {
   const p=pet();delete p.album;p.schema=2;

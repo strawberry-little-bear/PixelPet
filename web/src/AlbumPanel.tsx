@@ -4,6 +4,7 @@ import { BookOpen, Heart, Moon, Sparkles, Utensils, Waves } from "lucide-react";
 import type { Memory, PetState, Shop, ShopItem } from "./types";
 import { formNames } from "./growth";
 import { PetArt } from "./PetArt";
+import { FormEmblem } from "./GrowthOutfit";
 import "./album.css";
 
 export const albumCategories = [
@@ -48,7 +49,7 @@ export function memoryWords(m: Memory, legacy: boolean) {
     case "treasure": return { title: "林间的小小发现", story: "第一次一起收好森林探索的经历。不必找齐，陪伴本身就值得纪念。" };
     case "hatch": return { title: "小小的初次相遇", story: "从这一天起，小窝里多了一位等你回来的伙伴。" };
     case "growing": return { title: "一起走进成长期", story: "从小小一团到勇敢迈步，这段长大被好好留了下来。" };
-    case "adult": return { title: "长大了，也陪着你", story: `成为了${formNames[m.form || "balanced"]}。模样已经定下，往后的日子仍能一起慢慢过。` };
+    case "adult": return { title: "长大了，也陪着你", story: `${m.form ? `成为了${formNames[m.form]}` : "已经长成成年伙伴"}。模样已经定下，往后的日子仍能一起慢慢过。` };
     case "meal": return { title: "一份暖暖的小饭团", story: `${legacy ? "纪念册开启后记下的第一顿饭" : "你们一起吃的第一顿饭"}，啊呜一口，小窝也暖了起来。` };
     case "bath": return { title: "泡泡里的小陪伴", story: `${legacy ? "纪念册开启后记下的第一次洗澡" : "你们的第一次泡泡澡"}，把这份温柔收好。` };
     case "goodnight": return { title: "轻轻说一声晚安", story: `${legacy ? "纪念册开启后第一次道晚安" : "你第一次轻轻道晚安"}。放心休息，小窝一直在这里。` };
@@ -89,12 +90,15 @@ export function AlbumPanel({ pet, shop, now, page, category = "all", missing = f
   const words = memory ? memoryWords(memory, pet.album?.legacy ?? false) : undefined;
   const stage = memory?.kind === "hatch" ? "baby" : memory?.kind === "growing" ? "growing" : memory?.kind === "adult" ? "adult" : pet.growth?.stage || "baby";
   const isPortrait = !memory || ["hatch", "growing", "adult"].includes(memory.kind);
+  // Milestones use only their saved form; the cover shows the current companion.
+  const portraitForm = memory?.kind === "adult" ? memory.form : !memory && stage === "adult" ? pet.growth?.form : undefined;
   const Icon = memory && isOutingMemory(memory.kind) ? BookOpen : memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : (memory?.kind === "goodnight" || memory?.kind === "rested") ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles") ? Sparkles : Heart;
   return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage} data-album-category={category} data-album-kind={memory?.kind}>
     <header><strong>{category !== "all" ? categoryLabel : memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
     {missing && <small role="status" className="album-source">同步时未找到刚才那条回忆，已返回本类封面。</small>}
     <div className={`album-picture ${isPortrait ? "album-portrait" : ""}`} aria-hidden="true">
       {isPortrait ? <PetArt index={pet.species} stage={stage} expression="still" /> : memory?.kind === "wallpaper" || memory?.kind === "floor" ? <RoomSurfaceArt id={memory.item} /> : memory?.kind === "decoration" ? <RoomDecoration id={memory.item} /> : memory?.kind === "outfit" ? <PetArt index={pet.species} stage={pet.growth?.stage || "baby"} accessory={memory.item} /> : <Icon size={30} strokeWidth={1.5} />}
+      {portraitForm && <span className="album-form" data-album-form={portraitForm}><FormEmblem form={portraitForm} /></span>}
     </div>
     {memory && words ? <>
       <time dateTime={new Date(memory.at).toISOString()}>{dateLabel(memory.at)}</time>

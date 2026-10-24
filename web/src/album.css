@@ -15,3 +15,10 @@
 .album-directory li[aria-current="true"] { background:#688254; color:#f2f2d9; }
 
 .album-item { overflow-wrap:anywhere; }
+
+/* Keep the home emblem in the portrait row, independent of its absolute home placement. */
+.album-form { display:flex; align-items:center; margin-left:6px; flex:none; }
+.album-form > .growth-form-emblem { position:static; width:22px; height:24px; }
+@media (forced-colors: active) {
+  .album-form .growth-form-emblem path { fill:CanvasText; stroke:Canvas; }
+}

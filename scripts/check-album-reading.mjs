@@ -1,4 +1,5 @@
 // Real HTTP permanent album reading; isolated build, save and random port.
+// --forms-only reruns the saved adult-form cases without the larger reading matrix.
 import assert from 'node:assert/strict';
 import { isolatedTestBuilds } from './browser-test-builds.mjs';
 import { spawn } from 'node:child_process';
@@ -38,6 +39,8 @@ async function readable(page) {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
       if (!text.textContent.trim()) continue;
+      // The reading hint is intentionally screen-reader-only until keyboard focus.
+      if (text.parentElement.matches('[data-care-reading-start]') && getComputedStyle(text.parentElement).clipPath !== 'none') continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
@@ -71,7 +74,8 @@ try {
   const homeItems = { outfit: 'leaf-pin', decoration: 'clover-pot', wallpaper: 'meadow-wall', floor: 'honey-floor' };
   const catalog = (await api('state')).shop.catalog;
   const cases = [{ kind: 'home', sleeping: false }, { kind: 'home', sleeping: true }, { kind: 'fishing', sleeping: false }, { kind: 'walk', sleeping: false }];
-  for (const mode of modes) for (const { kind, sleeping } of cases) for (const history of ['empty', 'saved']) {
+  const readingModes = process.argv.includes('--forms-only') ? [] : modes;
+  for (const mode of readingModes) for (const { kind, sleeping } of cases) for (const history of ['empty', 'saved']) {
     const at = Date.now();
     const fixture = (await api('import', { schema: 1, revision: 1, species: 2, name: '纪念伙伴',
       createdAt: at - 3600000, hatchedAt: at - 3500000, lastTick: at, sleeping,
@@ -219,6 +223,71 @@ try {
       for (const field of ['species', 'hatchedAt', 'sleeping', 'careCount', 'economy', 'game', 'album', 'pond', 'park', 'logs']) assert.deepEqual(after[field], before[field]);
       results.push({ ...mode, kind, sleeping, history: `constructed-care; ${history}-scenery` });
     } catch (error) { await page.screenshot({ path: join(dir, `failure-${label}.png`) }); throw error; }
+    finally { await context.close(); }
+  }
+  // Constructed migrated adults verify saved form illustrations; this does not
+  // represent natural multi-day growth. Import still uses real save validation.
+  for (const mode of [modes[0], modes[2]]) for (const form of ['balanced', 'lively', 'gentle', 'easygoing']) {
+    const at = Date.now(), age = 100 * 3600000;
+    const fixture = (await api('import', { schema: 1, revision: 1, species: 2, name: '成长纪念',
+      createdAt: at - age, hatchedAt: at - age, lastTick: at, sleeping: false,
+      needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] })).state;
+    fixture.growth.form = form; delete fixture.growth.formRecord;
+    fixture.album.entries.find(memory => memory.kind === 'adult').form = form;
+    const before = (await api('import', fixture)).state;
+    // Legacy upgrades can give growing/adult the same timestamp; use the album's
+    // actual chronological/tie-break order instead of assuming stage order.
+    const cards = before.album.entries.filter(m => ['hatch', 'growing', 'adult'].includes(m.kind))
+      .sort((a, b) => a.at - b.at || a.kind.localeCompare(b.kind));
+    const adultPage = cards.findIndex(m => m.kind === 'adult') + 1;
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
+      isMobile: mode.width === 320, reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
+    const page = await context.newPage(), writes = [], errors = [], label = `form-${form}-${mode.width}`;
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', req => { if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push(req.url()); });
+    await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; }), mode.font);
+    async function openGrowthAlbum() {
+      await page.locator('.home-caption').waitFor();
+      await key(page, 'A'); for (let i = 0; i < 8; i++) await key(page, 'A'); await key(page, 'B');
+      await key(page, 'A'); await key(page, 'B');
+      assert.equal(await page.locator('[data-album-page]').getAttribute('data-album-category'), 'growth');
+    }
+    async function checkForm() {
+      const badge = page.locator(`[data-album-form="${form}"] .growth-form-emblem`);
+      await badge.waitFor(); await badge.scrollIntoViewIfNeeded(); await visible(page, '.album-form');
+      assert(await badge.evaluate(el => {
+        const box = el.getBoundingClientRect(), row = el.closest('.album-picture').getBoundingClientRect();
+        const pet = el.closest('.album-picture').querySelector('.pet-sprite').getBoundingClientRect();
+        return box.width >= 20 && box.height >= 20 && box.left >= pet.right && box.top >= row.top && box.bottom <= row.bottom + 1;
+      }), 'form emblem must remain visible beside the portrait');
+      await readable(page);
+      if (mode.font === 28) assert.equal(await badge.locator('path').first().evaluate(el => getComputedStyle(el).fill), 'rgb(0, 0, 0)');
+    }
+    try {
+      console.log('RUN', label); await page.goto(base); await openGrowthAlbum(); await checkForm();
+      for (const { kind } of cards) {
+        await key(page, 'B'); assert.equal(await page.locator('[data-album-kind]').getAttribute('data-album-kind'), kind);
+        if (kind === 'adult') await checkForm();
+        else assert.equal(await page.locator('.album-form').count(), 0, 'earlier milestones must not inherit the adult form');
+      }
+      await key(page, 'B'); for (let i = 0; i < adultPage; i++) await key(page, 'B'); await checkForm();
+      const names = { balanced: '均衡型', lively: '活力型', gentle: '恬静型', easygoing: '自在型' };
+      assert((await page.locator('.album-panel').ariaSnapshot()).includes(names[form]));
+      await page.keyboard.press('Tab'); await page.getByRole('region', { name: '永久纪念册阅读区' }).focus();
+      assert.equal(await page.locator('.care-reading-hint').evaluate(el => getComputedStyle(el).clipPath), 'none');
+      await readable(page);
+      await page.locator('.album-panel').scrollIntoViewIfNeeded(); await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
+      await key(page, 'A'); assert.equal(await page.locator('.album-form').count(), 0);
+      await key(page, 'B'); await checkForm();
+      await page.reload(); await openGrowthAlbum();
+      for (let i = 0; i < adultPage; i++) await key(page, 'B'); await checkForm();
+      assert.equal(await page.locator('[data-album-kind]').getAttribute('data-album-kind'), 'adult');
+      assert.deepEqual(errors, []); assert.deepEqual(writes, []);
+      const after = (await api('state')).state;
+      for (const field of ['careCount', 'economy', 'album']) assert.deepEqual(after[field], before[field]);
+      assert.equal(after.growth.form, before.growth.form);
+      results.push({ ...mode, kind: 'growth-portrait', form, source: 'constructed-migrated-adult', writes });
+    } catch (error) { await page.screenshot({ path: join(dir, `failure-${label}.png`), fullPage: true }); throw error; }
     finally { await context.close(); }
   }
   await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2)); console.log(JSON.stringify({ groups: results.length, artifacts: dir, port }));
