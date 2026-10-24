@@ -3,6 +3,8 @@
 .walking-game header strong,.park-album header strong{font-size:11px}
 .walking-game header span,.park-album header span{font-size:9px}
 .park-scene{position:relative;height:102px;border:1px solid #798f66;overflow:hidden}
+.park-scene.obstacle-near{border-color:#b28d52;box-shadow:inset 0 0 0 1px #d5b26c}
+.park-scene.obstacle-imminent{border-color:#a85f52;box-shadow:inset 0 0 0 1px #d58a6f}
 .park-background{position:absolute;inset:0;width:100%;height:100%}
 .walking-actor{position:absolute;left:14px;bottom:7px;width:76px;height:76px;transition:transform .18s steps(3,end)}
 .walking-actor .pet-sprite{position:absolute;width:76px;height:76px}
@@ -24,6 +26,9 @@
 .park-scene[data-pose="duck"] .dolphin-flipper{transform-box:fill-box;transform-origin:50% 10%;transform:rotate(20deg)}
 .park-obstacle{position:absolute;bottom:9px;width:25px;height:22px;transition:left .6s linear}
 .park-obstacle svg{display:block;width:100%;height:100%}
+.park-scene.obstacle-near .park-obstacle svg{filter:drop-shadow(0 0 2px #d5b26c)}
+.park-scene.obstacle-imminent .park-obstacle svg{filter:drop-shadow(0 0 3px #d58a6f)}
+.park-scene.obstacle-imminent .park-obstacle{animation:park-obstacle-pulse .7s steps(2,end) infinite}
 .park-obstacle.obstacle-branch{bottom:51px}
 .walk-pause{position:absolute;inset:0;background:#e3e7c5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:17px}
 .walk-pause>div{display:flex;gap:5px;font-size:9px}
@@ -40,6 +45,7 @@
 .park-album>small{display:block;font-size:8px;line-height:13px}
 @keyframes park-step{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
 @keyframes park-fin{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@keyframes park-obstacle-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 @media(prefers-reduced-motion:reduce){.park-scene *{animation:none!important;transition:none!important}}
 
 /* Reader text must grow independently of the running game header. */

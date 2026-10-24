@@ -19,6 +19,7 @@ export function WalkingGame({pet,active,choice}:{pet:PetState;active:boolean;cho
  const stage=petGrowth(pet,pet.lastTick).stage,rig=petRigKind(pet.species,stage),dolphin=rig==="dolphin";
  const next=n.route[Math.min(11,Math.floor(n.beat/6))];const remaining=6-n.beat%6;
  const pose=paused?"paused":done?"done":n.pose||"moving";
+ const obstacleAlert=paused||done?"":remaining===1?" obstacle-imminent":remaining<=3?" obstacle-near":"";
  const found=n.beat>=24 && n.beat%24<4 ? parkCatalog.find(p=>p.id===n.souvenirs[Math.floor(n.beat/24)-1]):undefined;
  const hit=n.beat>0&&n.beat%6===0&&!done;
  const warningLive=paused||done?"polite":"off";
@@ -28,7 +29,7 @@ export function WalkingGame({pet,active,choice}:{pet:PetState;active:boolean;cho
  const navigationHint=paused||done?"":`第 ${Math.floor(n.beat/6)+1} 处 · ${obstacleHint}。${walkingTimingHint(n,dolphin)}`;
  return <section className="walking-game" aria-label="公园散步">
   <header><strong>公园散步 · {dolphin?"浅水道":"林荫路"}</strong><span>{n.beat} / 72 步</span></header>
-  <div className="park-scene" data-rig={rig} data-pose={pose}>
+  <div className={`park-scene${obstacleAlert}`} data-rig={rig} data-pose={pose} data-obstacle-distance={!paused&&!done?remaining:undefined}>
    <svg className="park-background" viewBox="0 0 240 102" preserveAspectRatio="none" aria-hidden="true" shapeRendering="crispEdges"><path d="M0 0h240v102H0z" fill={scenery?.light.sky??"#c7d7ad"}/><OutingSky scenery={scenery}/><path d="M0 63h240v39H0z" fill={scenery?.season.bank??"#a8b689"}/><path d="M0 82h240v16H0z" fill="#c5ba96"/><path d="M0 70h240v12H0z" fill="#88ac94"/><g fill={scenery?.season.foliage??"#748e60"}><path d="M13 9h25v29H13zM3 23h45v21H3zM158 7h29v32h-29zM147 22h51v24h-51z"/></g><path d="M24 44v24m148-22v22" stroke="#8e825e" strokeWidth="6"/><path d="M6 76h22m62 0h17m35 0h15m40 0h28" stroke="#c5ddbd" strokeWidth="2"/></svg>
    <div className="walking-actor"><PetArt index={pet.species} stage={stage} expression="content" motion="walking" accessory={pet.economy?.equipped.accessory}/></div>
    {!done&&<div className={`park-obstacle obstacle-${next}`} style={{left:`${30+remaining*10}%`}} aria-hidden="true">{next==="rock"?<svg viewBox="0 0 30 24"><path d="M2 23V12h6V5h15v7h5v11z" fill="#879581" stroke="#5b6c50"/></svg>:<svg viewBox="0 0 30 24"><path d="M0 8h30v6H0zM17 8V1h5v7" fill="#8e805a"/><path d="M5 5h9v5H5z" fill="#77935e"/></svg>}</div>}

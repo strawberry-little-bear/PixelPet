@@ -112,6 +112,27 @@ describe("real discoveries and species-specific participation",()=>{
  it.each(walkingCompanions.flatMap((method,index)=>["baby","growing","adult"].map(stage=>({method,index,stage}))))("uses $stage anatomy for species $index in every pose",({method,index,stage})=>{saved.species=index;saved.growth!.stage=stage as "baby"|"growing"|"adult";const rig=petRigKind(index,saved.growth!.stage);saved.economy={coins:0,lastDailyAt:0,lastGameAt:0,gameCoins:0,owned:["sky-bow"],equipped:{accessory:"sky-bow",room:""}};saved.game!.walking!.paused=false;const {rerender}=render(<WalkingGame pet={saved} active choice={0}/>);expect(screen.getByText(method)).toBeTruthy();for(const pose of ["","jump","duck"] as const){saved.game!.walking!.pose=pose;rerender(<WalkingGame pet={saved} active choice={0}/>);expect(document.querySelector(`.park-scene[data-rig="${rig}"][data-pose="${pose||"moving"}"]`)).toBeTruthy();expect(document.querySelector(`.${rig}-rig[data-rig-stage="${stage}"]`)).toBeTruthy();expect(document.querySelectorAll(".walking-actor svg")).toHaveLength(1);expect(document.querySelector(".walking-actor svg")?.classList.contains("rig-motion-walking")).toBe(true);expect(document.querySelectorAll(".equipped-accessory")).toHaveLength(1);expect(document.querySelectorAll("button,a,input")).toHaveLength(0)}});
 });
 
+describe("visualize an approaching obstacle", () => {
+ it("raises a gentle scene alert without changing the three-key timing copy", () => {
+  const pet = fixture(), n = pet.game!.walking!; n.paused = false; n.route.fill("rock");
+  const { rerender } = render(<WalkingGame pet={pet} active choice={0} />);
+  const scene = () => document.querySelector(".park-scene");
+  expect(scene()?.getAttribute("data-obstacle-distance")).toBe("6");
+  expect(scene()?.classList.contains("obstacle-near")).toBe(false);
+  n.beat = 3; rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(scene()?.getAttribute("data-obstacle-distance")).toBe("3");
+  expect(scene()?.classList.contains("obstacle-near")).toBe(true);
+  expect(scene()?.classList.contains("obstacle-imminent")).toBe(false);
+  n.beat = 5; rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(scene()?.getAttribute("data-obstacle-distance")).toBe("1");
+  expect(scene()?.classList.contains("obstacle-imminent")).toBe(true);
+  expect(document.querySelector(".walk-find")?.textContent).toContain("现在按 A");
+  n.paused = true; rerender(<WalkingGame pet={pet} active choice={0} />);
+  expect(scene()?.getAttribute("data-obstacle-distance")).toBeNull();
+  expect(scene()?.classList.contains("obstacle-imminent")).toBe(false);
+ });
+});
+
 describe("read the timing of a walking action", () => {
  it.each([
   { species: 2, obstacle: "rock", pose: "jump", action: "跳跃", input: "A" },
