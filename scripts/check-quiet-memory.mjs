@@ -243,7 +243,7 @@ try {
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
   // Mock only the browser's wall clock. The service and temporary save keep real
   // time, so these checks prove presentation boundaries, not seasonal waiting.
-  if (!process.argv.includes('--items-only')) for (const species of [3, 4]) for (const mode of [
+  if (!process.argv.includes('--items-only') && !process.argv.includes('--interest-only')) for (const species of [3, 4]) for (const mode of [
     { width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
   ]) {
     const at = Date.now();
@@ -297,7 +297,7 @@ try {
     } finally { await context.close(); }
   }
   // Controlled save fixtures verify rendering; these are not natural growth journeys.
-  if (!process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
+  if (!process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const fixture of [
     { stage: 'baby', species: 2, age: 1 },
     { stage: 'growing', species: 3, age: 30 },
     { stage: 'adult', species: 9, age: 80 },
@@ -437,7 +437,7 @@ try {
   }
   // Controlled ownership only supplies fixture inventory. Actual equip/remove
   // requests create all four shared memories through the real service.
-  if (!process.argv.includes('--atmosphere-only')) for (const mode of [
+  if (!process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const mode of [
     { label: 'items-desktop', width: 1200, height: 700, font: 14 },
     { label: 'items-phone-large', width: 320, height: 380, font: 28 },
   ]) {
@@ -491,6 +491,65 @@ try {
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       results.push({ label: mode.label, memories: memories.map(m => m.item), current: alternate.id, writes, errors });
       console.log('PASS', mode.label);
+    } finally { await context.close(); }
+  }
+  // Imported familiarity is a controlled rendering fixture, not a claim that
+  // these games were naturally played twice with a 30-minute interval.
+  if (!process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
+    { species: 4, kind: 'snake', part: '菌盖', absent: /尾巴/ },
+    { species: 6, kind: 'snake', part: '身子', absent: /尾巴/ },
+    { species: 3, kind: 'walk', part: '浅水道', absent: /慢慢走走/ },
+  ]) for (const mode of [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 }]) {
+    const at = Date.now(), seeded = await api('import', { schema: 1, revision: 1, species: fixture.species,
+      name: '熟悉的小伙伴', createdAt: at - 3600000, hatchedAt: at - 3600000, lastTick: at,
+      sleeping: false, needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
+    seeded.state.companion.since = seeded.state.hatchedAt;
+    seeded.state.companion.history.since = seeded.state.hatchedAt;
+    const interest = seeded.state.companion.interests.find(entry => entry.kind === fixture.kind);
+    interest.points = 2; interest.lastAt = seeded.state.lastTick;
+    seeded.state.companion.history.completions.find(entry => entry.kind === fixture.kind).count = 2;
+    seeded.state.companion.recent = { kind: fixture.kind, id: '0123456789abcdef0123456789abcdef', at: seeded.state.lastTick };
+    const before = (await api('import', seeded.state)).state;
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
+      reducedMotion: 'reduce', forcedColors: mode.font === 28 ? 'active' : 'none' });
+    const page = await context.newPage(), writes = [], errors = [], label = `interest-${fixture.species}-${fixture.kind}-${mode.width}`;
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('request', req => { if (req.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(req.url()).pathname)) writes.push(req.url()); });
+    await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; }), mode.font);
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor(); await open(page);
+      await physical(page, 'a'); await physical(page, 'a');
+      assert.equal(await page.locator('.quiet-interest').count(), 0, 'Familiarity needs an explicit B in quiet company');
+      await physical(page, 'b');
+      const cue = page.locator('.quiet-interest'), text = await cue.innerText();
+      assert(text.includes(fixture.part), text); assert.doesNotMatch(text, fixture.absent);
+      assert.equal(await cue.getAttribute('data-game'), fixture.kind);
+      await readable(page); await cue.scrollIntoViewIfNeeded();
+      const box = await cue.boundingBox(); assert(box && box.y >= -1 && box.y + box.height <= mode.height + 1);
+      await cue.screenshot({ path: join(dir, `${label}.png`) });
+      const sync = async () => {
+        const response = page.waitForResponse(r => /\/api\/(state|visit)$/.test(new URL(r.url()).pathname));
+        await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+        assert((await response).ok());
+      };
+      await sync(); assert.equal(await cue.innerText(), text, 'An ordinary read keeps the same species-aware cue');
+      assert.deepEqual((await api('state')).state.companion, before.companion);
+      const tied = (await api('backup'));
+      const other = tied.companion.interests.find(entry => entry.kind === (fixture.kind === 'snake' ? 'walk' : 'snake'));
+      other.points = 2; other.lastAt = tied.companion.recent.at;
+      await api('import', tied); await sync();
+      // Every import starts a new save generation, including same-pet imports.
+      // Reopen the quiet page instead of treating its closure as a hidden cue.
+      await page.locator('.home-caption').waitFor(); await open(page);
+      await physical(page, 'a'); await physical(page, 'a'); await physical(page, 'b');
+      assert.equal(await cue.count(), 0, 'Tied familiarity stays hidden after an explicit reply');
+      await api('action', { kind: 'sleep' }); await sync();
+      await page.waitForFunction(() => document.querySelector('.quiet-moment')?.getAttribute('data-sleeping') === 'true');
+      await physical(page, 'b'); assert.equal(await cue.count(), 0);
+      assert.match(await page.locator('.quiet-moment-copy > p').innerText(), /睡/);
+      assert.equal((await api('state')).state.sleeping, true, 'Quiet company must not wake the pet');
+      assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+      results.push({ label, fixtureFamiliarity: true, sleeping: true, writes, errors }); console.log('PASS', label);
     } finally { await context.close(); }
   }
 } finally {

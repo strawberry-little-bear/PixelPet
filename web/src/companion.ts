@@ -1,4 +1,5 @@
 import { games } from "./games";
+import type { petRigKind } from "./PetArt";
 import type { Companion, FishDiscovery, GameExperience } from "./types";
 
 export type SharedGameKind = (typeof games)[number]["id"];
@@ -28,11 +29,17 @@ export function validInterestEntries(c?: Companion) {
 const interestCues: Record<SharedGameKind, string> = {
   stars: "它已经很熟悉一起追星光，发呆时也会抬头看看。",
   tiles: "它已经很熟悉一起找图案，安静时也会认真看一会儿。",
-  snake: "它已经很熟悉果园里的转弯，尾巴也跟着轻轻晃。",
+  snake: "它已经很熟悉果园里的转弯，身子也跟着轻轻晃。",
   tetris: "它已经很熟悉一起摆积木，安静时也会想想下一块放哪里。",
   fishing: "它已经很熟悉池塘边的等待，发呆时也会听一会儿水声。",
   walk: "它已经很熟悉散步的小路，安静时也想慢慢走走。",
   treasure: "它已经很熟悉森林里的小发现，发呆时也会找找角落。",
+};
+
+// Reuse the rig selected by the scene; unknown/legacy rigs retain neutral text.
+const rigInterestCues: Partial<Record<ReturnType<typeof petRigKind>, Partial<Record<SharedGameKind, string>>>> = {
+  mushroom: { snake: "它已经很熟悉果园里的转弯，菌盖也跟着轻轻晃。" },
+  dolphin: { walk: "它已经很熟悉散步的浅水道，安静时也想慢慢摆鳍游一游。" },
 };
 
 /**
@@ -40,14 +47,14 @@ const interestCues: Record<SharedGameKind, string> = {
  * habit. Ties stay quiet: familiarity is not a personality verdict, and the
  * companion should not be nudged toward one game just because of a tie.
  */
-export function interestCue(c?: Companion) {
+export function interestCue(c?: Companion, rig: ReturnType<typeof petRigKind> = "original") {
   const interests = validInterestEntries(c);
   const best = Math.max(0, ...interests.map(entry => entry.points));
   if (best < 2) return null;
   const leaders = interests.filter(entry => entry.points === best);
   if (leaders.length !== 1) return null;
   const kind = leaders[0].kind;
-  return { kind, text: interestCues[kind] };
+  return { kind, text: rigInterestCues[rig]?.[kind] ?? interestCues[kind] };
 }
 
 export function interestSummary(c?: Companion) {

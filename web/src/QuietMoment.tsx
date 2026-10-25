@@ -2,7 +2,7 @@ import { GameKeepsakeArt } from "./GameKeepsakeArt";
 import { CareReadingRegion } from "./CareReadingRegion";
 import { quietMemories } from "./quiet-memory";
 import { interestCue } from "./companion";
-import { PetArt, petRigClass } from "./PetArt";
+import { PetArt, petRigClass, petRigKind } from "./PetArt";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
 import { stageNames, formNames, tendency } from "./growth";
 import type { AdultForm, Growth, GrowthStage, PetState, Shop } from "./types";
@@ -58,7 +58,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
   const memoryIndex = memories.findIndex(m => m.key === memoryKey);
   const memory = memories[memoryIndex];
   const atmosphere = !pet.sleeping ? quietAtmosphere(pet.species, stage, form, now) : null;
-  const interest = !pet.sleeping && choice === 1 && replied ? interestCue(pet.companion) : null;
+  const interest = !pet.sleeping && choice === 1 && replied ? interestCue(pet.companion, petRigKind(pet.species, stage)) : null;
   const formLine = !pet.sleeping ? quietFormLine(stage, form, choice, replied) : null;
   const tendencyLine = !pet.sleeping ? growingTendencyLine(growth, choice, replied) : null;
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
