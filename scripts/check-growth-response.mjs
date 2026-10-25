@@ -68,11 +68,16 @@ async function readable(v) {
     const box = el.getBoundingClientRect(), ranges = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       if (!walker.currentNode.textContent.trim()) continue;
+      const hint = walker.currentNode.parentElement.closest('.care-reading-hint');
+      if (hint) {
+        const style = getComputedStyle(hint);
+        if (style.clipPath !== 'none' || style.clip !== 'auto') continue;
+      }
       const range = document.createRange(); range.selectNodeContents(walker.currentNode);
       const panel = walker.currentNode.parentElement.closest('.return-mode .return-panel');
       const scroll = panel ? { left: panel.getBoundingClientRect().left, right: panel.getBoundingClientRect().right,
         top: panel.getBoundingClientRect().top - panel.scrollTop, bottom: panel.getBoundingClientRect().top - panel.scrollTop + panel.scrollHeight } : null;
-      for (const r of range.getClientRects()) if (r.width && r.height) ranges.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom, scroll });
+      for (const r of range.getClientRects()) if (r.width && r.height) ranges.push({ text: walker.currentNode.textContent.trim().slice(0, 120), left: r.left, right: r.right, top: r.top, bottom: r.bottom, scroll });
     }
     return { box: { left: box.left, right: box.right, top: box.top, bottom: box.bottom }, ranges, overflow: document.documentElement.scrollWidth > innerWidth + 1 };
   });
