@@ -192,7 +192,7 @@ try {
       assert.equal(await page.locator('.outing-caption').getAttribute('data-scenery'), sceneryKey);
       assert.equal(await page.locator('.outing-compact:visible').count(), 0, 'Real bite gets priority over the scenery label');
       const bite = (await api('state')).state.game.fishing;
-      assert.equal(bite.phase, 'bite'); assert(bite.waitMs >= 26000 && bite.waitMs <= 34000);
+      assert.equal(bite.phase, 'bite'); assert(bite.waitMs >= 18000 && bite.waitMs <= 26000);
       assert(bite.elapsedMs < 10000, 'Original reaction window is still open');
       assert.equal(notes.size, 4, 'All four unhurried notes should be visible during a natural wait');
       assert.equal(await page.locator('.fishing-wait-note').count(), 0);

@@ -168,7 +168,7 @@ func TestFishingNewWaitRangeAndLegacyWaitCompatibility(t *testing.T) {
 		}
 	}
 
-	for _, wait := range []int{32000, 40000} {
+	for _, wait := range []int{18000, 26000, 32000, 40000} {
 		t.Run(time.Duration(wait).String(), func(t *testing.T) {
 			s, now := fishingState(t)
 			fishDo(t, &s, now, "fish-cast")

@@ -11,8 +11,12 @@ import (
 const fishingLease = int64(3500)
 const FishingInterval = int64(1000)
 const FishingWindow = 10000
-const fishingWaitMinMS = 26000
-const fishingWaitMaxMS = 34000
+
+// New casts stay long enough to preserve the unhurried fishing rhythm while
+// keeping a single round practical for a short play session. Saved casts keep
+// their original wait value and remain valid through fishingLegacyWaitMaxMS.
+const fishingWaitMinMS = 18000
+const fishingWaitMaxMS = 26000
 const fishingLegacyWaitMaxMS = 40000
 const fishCountLimit = 9999
 const fishingStepLimit = 1000000
