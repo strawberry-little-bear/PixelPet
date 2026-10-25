@@ -53,12 +53,12 @@ function instrument({ frameMs }) {
   const lab = window.labTiming = { commands: [], phases: [], inputs: [], frames: [] };
   const nativeFetch = window.fetch.bind(window);
   window.fetch = async (url, options) => {
-    const input = JSON.parse(options.body), row = { kind: input.kind, sequence: input.sequence, sent: performance.now() };
+    const input = JSON.parse(options.body), row = { kind: input.kind, sequence: input.sequence, sent: performance.now(), sentWall: Date.now() };
     lab.commands.push(row);
     const response = await nativeFetch(url, options), json = response.json.bind(response);
     response.json = async () => {
       const reply = await json();
-      row.received = performance.now(); row.rtt = row.received - row.sent;
+      row.received = performance.now(); row.receivedWall = Date.now(); row.rtt = row.received - row.sent;
       row.reply = reply; row.ok = response.ok;
       return reply;
     };
@@ -114,19 +114,34 @@ async function measure(profile) {
       await delay(1200);
       assert.equal(await page.evaluate(() => window.labTiming.commands.length), count, 'pause cannot retry or auto resume');
     } else {
+      const clockStopped = () => page.evaluate(() => document.getElementById('status').textContent.includes('本地计时不一致'));
       for (let round = 0; round < 3; round++) {
-        await page.waitForFunction(() => document.body.classList.contains('active'), null, { polling: 10 });
+        await page.waitForFunction(() => document.body.classList.contains('active')
+          || document.getElementById('status').textContent.includes('本地计时不一致'), null, { polling: 10 });
+        if (await clockStopped()) break;
         // This 200ms is a chosen input schedule, never a human reaction estimate.
         await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 200)));
-        const cue = await page.evaluate(() => window.labTiming.commands.at(-1).reply.state.cue);
-        await press(cue.key);
-        await page.waitForFunction(count => document.getElementById('round').textContent === `${count} / 12`, round + 1, { polling: 20 });
+        const ready = await page.evaluate(() => ({
+          stopped: document.getElementById('status').textContent.includes('本地计时不一致'),
+          cue: window.labTiming.commands.at(-1).reply.state.cue,
+        }));
+        if (ready.stopped) break;
+        assert(ready.cue, 'an unpaused sample must have a server cue');
+        await press(ready.cue.key);
+        await page.waitForFunction(count => document.getElementById('round').textContent === `${count} / 12`
+          || document.getElementById('status').textContent.includes('本地计时不一致'), round + 1, { polling: 20 });
         await idle(page);
+        if (await clockStopped()) break;
       }
-      await press('C'); await idle(page);
+      row.clockStopped = await clockStopped();
+      row.outcome = row.clockStopped ? 'clock-discontinuity-paused' : 'sampled';
+      if (row.clockStopped) row.reason = await page.locator('#status').textContent();
+      else await press('C');
+      await idle(page);
       const trace = await page.evaluate(() => window.labTiming);
       const answers = trace.commands.filter(command => command.kind === 'answer');
-      assert.equal(answers.length, 3);
+      if (!row.clockStopped) assert.equal(answers.length, 3);
+      else assert(answers.length <= 3, 'a clock stop must not generate extra answers');
       for (const [index, answer] of answers.entries()) {
         const issued = trace.commands.find(command => command.reply?.state.cue?.sequence === answer.sequence);
         const cue = issued.reply.state.cue;
@@ -144,6 +159,7 @@ async function measure(profile) {
           phaseAfterEstimatedTargetMs: phase.at - estimatedTarget, inputAfterPhaseMs: input.at - phase.at,
           inputToFetchMs: answer.sent - input.at,
           clientElapsedFromIssueMs: answer.received - issued.received,
+          clientWallElapsedFromIssueMs: answer.receivedWall - issued.receivedWall,
           serverElapsedFromIssueMs: answer.reply.serverTime - issued.reply.serverTime,
           elapsedDifferenceMs: (answer.reply.serverTime - issued.reply.serverTime) - (answer.received - issued.received),
           serverArrivalDeltaMs: observation.arrivalDeltaMs,
@@ -156,10 +172,13 @@ async function measure(profile) {
         > sample.issuedRttMs + sample.answerRttMs + 100).map(sample => sample.sequence);
       const last = trace.commands.at(-1);
       assert.equal(last.kind, 'pause'); assert.equal(last.reply.state.status, 'paused');
-      assert.equal(last.reply.state.observations.length, 3);
+      assert.equal(last.reply.state.observations.length, answers.length);
+      const count = trace.commands.length; await delay(100);
+      assert.equal(await page.evaluate(() => window.labTiming.commands.length), count, 'no automatic continue after stopping');
     }
     const trace = await page.evaluate(() => window.labTiming);
-    row.requests = trace.commands.map(command => ({ kind: command.kind, rttMs: command.rtt, ok: command.ok }));
+    row.requests = trace.commands.map(command => ({ kind: command.kind, rttMs: command.rtt,
+      wallElapsedMs: command.receivedWall - command.sentWall, ok: command.ok }));
     row.maxObservedFrameGapMs = Math.max(0, ...trace.frames.slice(1).map((at, index) => at - trace.frames[index]));
     assert(trace.commands.every(command => command.ok), 'all protocol writes must be acknowledged');
     for (const command of trace.commands) {
@@ -183,7 +202,7 @@ async function measure(profile) {
     try { await context?.close(); } finally { await stop(child); }
   }
   results.push(row);
-  console.log(`${row.passed ? 'PASS' : 'FAIL'} ${profile.name}: ${row.samples.length} measured responses${row.elapsedWarnings?.length ? `; elapsed uncertainty on cues ${row.elapsedWarnings.join(', ')}` : ''}${row.error ? `\n${row.error}` : ''}`);
+  console.log(`${row.passed ? 'PASS' : 'FAIL'} ${profile.name}: ${row.samples.length} measured responses${row.clockStopped ? '; clock disagreement paused sampling' : ''}${row.elapsedWarnings?.length ? `; elapsed uncertainty on cues ${row.elapsedWarnings.join(', ')}` : ''}${row.error ? `\n${row.error}` : ''}`);
 }
 try {
   browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -191,7 +210,7 @@ try {
 } finally {
   await browser?.close();
   await writeFile(join(dir, 'results.json'), JSON.stringify({
-    notes: 'Synthetic loopback transport; actual isolated client/server and native Chrome input. DOM text observation and controlled RAF cadence are not photon timing, physical touch, human response, population success rates, or a fairness approval. RTT includes local HTTP/JSON scheduling. Elapsed differences include varying downstream delay and scheduling; warnings flag differences larger than both RTTs plus 100ms, not a clock-drift diagnosis. Three responses per running profile are diagnostic samples only. No scores, rewards, production game, save, or player service accessed.',
+    notes: 'Synthetic loopback transport; actual isolated client/server and native Chrome input. DOM text observation and controlled RAF cadence are not photon timing, physical touch, human response, population success rates, or a fairness approval. RTT includes local HTTP/JSON scheduling. Elapsed differences include varying downstream delay and scheduling; warnings flag differences larger than both RTTs plus 100ms, not a clock-drift diagnosis. Up to three responses per running profile are diagnostic samples only. A clock-discontinuity pause ends sampling without automatic continue; passed describes safe interaction, not a complete timing sample. No scores, rewards, production game, save, or player service accessed.',
     results, errors,
   }, null, 2));
   console.log(`Report: ${join(dir, 'results.json')}`);

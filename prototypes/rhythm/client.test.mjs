@@ -7,7 +7,7 @@ import { createSession, command } from './protocol.mjs';
 const source = await readFile(new URL('./public/client.mjs', import.meta.url), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
 async function client(networkMs = 0) {
-  let now = 0, frame, state, nextHold;
+  let now = 0, wallOffset = 0, frame, state, nextHold;
   const events = new Map(), commands = [], elements = new Map();
   const element = id => {
     if (!elements.has(id)) elements.set(id, { value: '', writes: [], get textContent() { return this.value; },
@@ -24,7 +24,7 @@ async function client(networkMs = 0) {
   const window = { scrollY: 0, scrollTo() {}, addEventListener: (name, fn) => events.set(name, fn) };
   vm.runInNewContext(source, { document, window, innerHeight: 700,
     getComputedStyle: () => ({ position: 'static' }), navigator: { onLine: true },
-    performance: { now: () => now }, AbortSignal,
+    performance: { now: () => now }, Date: { now: () => 1700000000000 + now + wallOffset }, AbortSignal,
     requestAnimationFrame: fn => { frame = fn; },
     fetch: async (url, options) => {
       assert.equal(url, '/lab/command'); const input = JSON.parse(options.body); commands.push(input);
@@ -55,7 +55,8 @@ async function client(networkMs = 0) {
     return prevented;
   };
   const holdNext = () => { let release; nextHold = new Promise(resolve => { release = resolve; }); return async () => { release(); await settle(); }; };
-  return { press, advance, active, keyboard, commands, element, holdNext, state: () => state };
+  const jumpWall = async (ms, paint = false) => { wallOffset += ms; if (paint) frame(); await settle(); };
+  return { press, advance, active, keyboard, commands, element, holdNext, jumpWall, state: () => state };
 }
 for (const via of ['keyboard', 'button']) for (const key of ['A', 'B']) {
   test(`${via} ${key} after a long frame gap pauses before any answer, even before next paint`, async () => {
@@ -218,4 +219,39 @@ for (const interval of [200, 500]) test(`synthetic ${interval}ms frames preserve
   assert.match(c.element('phase').textContent, /现在回应.*A/);
   await c.press('A'); assert.equal(c.state().observations[0].arrival, 'inside');
   assert.match(c.element('phase').textContent, /准备.*B/);
+});
+
+for (const delta of [21000, -21000]) for (const via of ['keyboard', 'button']) for (const key of ['A', 'B'])
+  test(`${via} ${key} stops a stale cue when elapsed clock misses a ${delta}ms wall change, before the next frame`, async () => {
+    const c = await client(); await c.active(); await c.jumpWall(delta);
+    await c.press(key, via);
+    assert.deepEqual(c.commands.map(command => command.kind), ['create', 'resume', 'pause']);
+    assert.equal(c.state().status, 'paused'); assert.equal(c.state().observations.length, 0);
+    assert.match(c.element('status').textContent, /计时不一致/);
+    await c.advance(500); assert.equal(c.commands.length, 3, 'no automatic retry or continue');
+    await c.press('C');
+    assert.equal(c.state().status, 'playing'); assert.equal(c.state().cue.sequence, 2);
+    for (let i = 0; i < 3; i++) await c.advance(600);
+    await c.press(c.state().cue.key); assert.equal(c.state().observations.length, 1);
+  });
+for (const delta of [21000, -21000]) test(`paint detects ${delta}ms clock disagreement without consuming the cue`, async () => {
+  const c = await client(); await c.active(); await c.jumpWall(delta, true);
+  assert.equal(c.state().status, 'paused'); assert.equal(c.state().observations.length, 0);
+  assert.equal(c.element('direction').textContent, '已暂停');
+  assert.match(c.element('status').textContent, /计时不一致/);
+});
+for (const delta of [21000, -21000]) for (const kind of ['resume', 'answer'])
+  test(`a ${delta}ms clock disagreement during ${kind} accepts the authoritative state but pauses the next cue`, async () => {
+    const c = await client();
+    if (kind === 'answer') await c.active();
+    const release = c.holdNext(); await c.press(kind === 'resume' ? 'C' : 'A');
+    await c.jumpWall(delta); await release();
+    assert.equal(c.state().status, 'paused');
+    assert.equal(c.state().observations.length, kind === 'answer' ? 1 : 0, 'never undo or replay an accepted input');
+    assert.equal(c.commands.at(-1).kind, 'pause'); assert.match(c.element('status').textContent, /计时不一致/);
+    const count = c.commands.length; await c.advance(500); assert.equal(c.commands.length, count);
+  });
+for (const delta of [1000, -1000]) test(`the inclusive ${delta}ms clock-disagreement boundary does not change the response window`, async () => {
+  const c = await client(); await c.active(); await c.jumpWall(delta); await c.press('A');
+  assert.equal(c.state().observations.length, 1); assert.equal(c.commands.at(-1).kind, 'answer');
 });

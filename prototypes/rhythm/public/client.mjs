@@ -17,6 +17,12 @@ let state = null, anchor = null, busy = false, epoch = 0, selected = 0;
 let pendingKind = null, requestId = 0, confirmRestart = false;
 let suspended = true, pendingPause = false, reason = '按 B 或 C 开始独立练习。', rtt = 0;
 const maxRtt = 600;
+// Some platforms can stop the browser's elapsed clock during suspension while
+// the server keeps ticking. Wall time is only a discontinuity alarm: never
+// use it to advance a cue, compensate latency, or report a client score.
+const clockStopMessage = '本地计时不一致，本拍中性暂停；请手动继续。';
+const clockDisagrees = (measured, wall, beforeMeasured, beforeWall) =>
+  Math.abs((wall - beforeWall) - (measured - beforeMeasured)) > 1000;
 const render = () => {
   const playing = !suspended && state?.status === 'playing';
   $('round').textContent = `${state?.observations.length ?? 0} / 12`;
@@ -83,20 +89,21 @@ function focusTarget(selector) {
 }
 function arrivalLabel(value) { return { early: '早到', inside: '窗口内', late: '晚到' }[value]; }
 async function request(input) {
-  const sent = performance.now();
+  const sent = performance.now(), sentWall = Date.now();
   const response = await fetch('/lab/command', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...input, lease, requestId: ++requestId }), signal: AbortSignal.timeout(7000) });
   const result = await response.json();
   if (!response.ok) throw Object.assign(new Error(result.error || '连接未确认'), { code: result.code });
-  const received = performance.now();
-  return { ...result, rtt: received - sent, received };
+  const received = performance.now(), receivedWall = Date.now();
+  return { ...result, rtt: received - sent, received, receivedWall,
+    clockUncertain: clockDisagrees(received, receivedWall, sent, sentWall) };
 }
 function accept(result) {
   state = result.state; rtt = result.rtt; lease = result.lease;
   savedId = state.id; rememberSession(savedId); needsRecovery = false; pendingPause = false;
   // Midpoint is an estimate, not a latency proof. Asymmetric/jittery transport
   // remains deliberately observable, never an authority for awarding anything.
-  anchor = { epoch: result.serverTime + result.rtt / 2, measured: result.received };
+  anchor = { epoch: result.serverTime + result.rtt / 2, measured: result.received, wall: result.receivedWall };
 }
 async function send(kind, extra = {}) {
   if (busy || pageInactive) return;
@@ -106,7 +113,9 @@ async function send(kind, extra = {}) {
     const result = await request({ kind, id: state?.id ?? savedId, ...extra });
     if (mine !== epoch) return;
     accept(result);
-    if (result.rtt > maxRtt && state.status === 'playing') {
+    if (result.clockUncertain && state.status === 'playing') {
+      suspended = true; reason = clockStopMessage; pendingPause = true;
+    } else if (result.rtt > maxRtt && state.status === 'playing') {
       suspended = true; reason = '连接往返较长，本拍中性暂停；不判玩家失误。';
       pendingPause = true;
     } else {
@@ -152,6 +161,7 @@ async function pause(message = '已暂停，回来后按 B / C 明确继续。')
 // Recheck at the input boundary too: queued input can run before the next RAF.
 // Use exactly the same neutral stop conditions as painting, never spend a stale cue.
 function cueStopReason(measured, gap) {
+  if (clockDisagrees(measured, Date.now(), anchor.measured, anchor.wall)) return clockStopMessage;
   if (document.hidden || gap > 1000) return '页面停顿，本拍中性暂停；请手动继续。';
   const now = anchor.epoch + measured - anchor.measured;
   return now > state.cue.deadline - rtt / 2

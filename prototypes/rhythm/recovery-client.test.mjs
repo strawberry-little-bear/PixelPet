@@ -20,7 +20,7 @@ async function client({ server = {}, storage = new Map(), blocked = false } = {}
   const window = { scrollY: 0, scrollTo() {}, addEventListener: (name, fn) => events.set(name, fn) };
   const checkStorage = () => { if (blocked) throw new Error('Storage blocked'); };
   vm.runInNewContext(source, { document, window, innerHeight: 700, getComputedStyle: () => ({ position: 'static' }), navigator: { onLine: true },
-    performance: { now: () => now }, AbortSignal, requestAnimationFrame: fn => { frame = fn; }, sessionStorage: {
+    performance: { now: () => now }, Date: { now: () => 1700000000000 + now }, AbortSignal, requestAnimationFrame: fn => { frame = fn; }, sessionStorage: {
       getItem: key => { checkStorage(); return storage.get(key) ?? null; }, setItem: (key, value) => { checkStorage(); storage.set(key, value); },
       removeItem: key => { checkStorage(); storage.delete(key); } },
     fetch: async (url, options) => {

@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-rhythm-'));
-const servers = [], contexts = [], results = [], errors = [];
+const servers = [], contexts = [], pages = [], results = [], errors = [];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 let browser;
 async function start(up = 0, down = 0, jitter = 0, { port = 0, store = '' } = {}) {
@@ -27,6 +27,7 @@ async function open(url, options = {}, init) {
   const context = await browser.newContext(options); contexts.push(context);
   if (init) await context.addInitScript(init);
   const page = await context.newPage(), requests = [];
+  pages.push({ page, requests });
   page.on('pageerror', e => errors.push(e.message));
   page.on('request', req => { requests.push({ url: req.url(), body: req.postDataJSON?.() }); });
   await page.goto(url); await page.waitForFunction(() => !document.querySelector('#pause').hidden && !document.querySelector('#status').textContent.includes('正在核对'), null, { polling: 50 });
@@ -99,9 +100,67 @@ async function restartChecks() {
     results.push(`${label}: actual abrupt service restart, same-origin session recovery, preserved observation, paused old cue, explicit continue, restart cancellation, readable three keys`);
   }
 }
+async function clockChecks() {
+  const base = await start();
+  for (const compact of [false, true]) for (const delta of [21000, -21000]) for (const trigger of ['input', 'frame']) {
+    const { page, requests, context } = await open(base, compact
+      ? { viewport: { width: 320, height: 740 }, hasTouch: true, reducedMotion: 'reduce', forcedColors: 'active' } : {}, () => {
+      const wall = Date.now.bind(Date); window.labWallOffset = 0;
+      Date.now = () => wall() + window.labWallOffset;
+      window.labFrames = [];
+      window.requestAnimationFrame = callback => { window.labFrames.push(callback); return window.labFrames.length; };
+      window.labPaint = () => { for (const callback of window.labFrames.splice(0)) callback(performance.now()); };
+    });
+    if (compact) await page.evaluate(() => document.documentElement.style.fontSize = '32px');
+    const press = key => compact ? page.locator(`[data-key="${key}"]`).tap() : page.keyboard.press(key);
+    await press('C'); await idle(page);
+    assert.match(await page.locator('#phase').textContent(), /准备/);
+    await page.evaluate(delta => { window.labWallOffset = delta; }, delta);
+    if (trigger === 'input') await press('A'); // Real native input before another controlled frame.
+    else await page.evaluate(() => window.labPaint());
+    await paused(page);
+    assert.match(await page.locator('#status').textContent(), /计时不一致/);
+    assert.equal(await page.locator('#round').textContent(), '0 / 12');
+    assert.deepEqual(requests.filter(request => request.body).map(request => request.body.kind), ['create', 'resume', 'pause']);
+    const count = requests.length; await wait(100); await page.evaluate(() => window.labPaint());
+    assert.equal(requests.length, count, 'clock stop cannot automatically retry or continue');
+    await readable(page);
+    if (delta === 21000 && trigger === 'input') await page.screenshot({ path: join(dir, `clock-${compact ? 'touch' : 'keyboard'}.png`), fullPage: true });
+    // Keeping the changed wall baseline is fine: a separate manual continue
+    // gives a fresh server cue, with no adjustment to the server target.
+    await press('C'); await idle(page); assert.match(await page.locator('#phase').textContent(), /准备/);
+    await press('C'); await paused(page);
+    await context.close();
+    results.push(`Clock ${compact ? 'touch-320' : 'keyboard'} ${delta}ms ${trigger}: zero stale answers, one pause, explicit new cue, three keys`);
+  }
+  for (const kind of ['resume', 'answer']) for (const delta of [21000, -21000]) {
+    const { page, requests, context } = await open(base);
+    if (kind === 'answer') { await key(page, 'C'); await idle(page); await active(page); }
+    let release, confirmed;
+    const held = new Promise(resolve => { release = resolve; });
+    const captured = new Promise(resolve => { confirmed = resolve; });
+    let intercepted = false;
+    await page.route('**/lab/command', async route => {
+      if (intercepted || route.request().postDataJSON().kind !== kind) return route.continue();
+      intercepted = true; const response = await route.fetch(), reply = await response.json();
+      confirmed(); await held; await route.fulfill({ response, json: reply });
+    });
+    await key(page, kind === 'resume' ? 'C' : 'A'); await captured;
+    await page.evaluate(delta => { const wall = Date.now.bind(Date); Date.now = () => wall() + delta; }, delta);
+    release(); await paused(page);
+    assert.match(await page.locator('#status').textContent(), /计时不一致/);
+    assert.equal(await page.locator('#round').textContent(), kind === 'answer' ? '1 / 12' : '0 / 12');
+    const kinds = requests.filter(request => request.body).map(request => request.body.kind);
+    assert.equal(kinds.filter(value => value === kind).length, 1, 'an accepted request must never be replayed');
+    assert.equal(kinds.at(-1), 'pause');
+    const count = requests.length; await wait(100); assert.equal(requests.length, count);
+    await context.close();
+    results.push(`Clock ${delta}ms during ${kind} reply: authoritative observations retained, next cue paused, no replay`);
+  }
+}
 try {
   browser = await chromium.launch({ channel: 'chrome', headless: true });
-  if (!process.argv.includes('--restart-only')) {
+  if (!process.argv.includes('--restart-only') && !process.argv.includes('--clock-only')) {
   const base = await start();
   // HTTP boundary checks, including actual out-of-order delivery in a second server.
   const leases = new Map();
@@ -195,7 +254,9 @@ try {
     await stalled.screenshot({ path: join(dir, `stale-${via}-${letter}.png`), fullPage: true });
     assert.equal(sent.filter(r => r.body?.kind === 'answer').length, 0, 'stale input must pause before sending an answer');
     await paused(stalled); assert.equal(await stalled.locator('#round').textContent(), '0 / 12');
-    assert.match(await stalled.locator('#status').textContent(), /页面停顿/);
+    // Suspension during the real block can trip the clock alarm first.
+    // Both reasons must satisfy the same zero-input, paused-state assertions.
+    assert.match(await stalled.locator('#status').textContent(), /页面停顿|计时不一致/);
     const count = sent.length; await wait(250); assert.equal(sent.length, count, 'no stale input replay');
     await key(stalled, 'C'); await idle(stalled); await active(stalled);
     await key(stalled, 'A'); await stalled.waitForFunction(() => document.querySelector('#round').textContent === '1 / 12');
@@ -584,10 +645,30 @@ try {
     results.push(`${label}: three-key input, same-session paused refresh, readable text, no horizontal overflow, reachable keys`);
   }
   }
-  await restartChecks();
+  if (!process.argv.includes('--clock-only')) await restartChecks();
+  if (!process.argv.includes('--restart-only')) await clockChecks();
   assert.deepEqual(errors,[],'browser page errors');
   await writeFile(join(dir,'results.json'),JSON.stringify({results,errors,notes:'Synthetic loopback delays and automated input; no physical-phone, OS-background, audio, or fairness claim.'},null,2));
   console.log(JSON.stringify({dir,checks:results.length,results},null,2));
+} catch (error) {
+  // Keep diagnostics before cleanup; never persist leases or full command bodies.
+  const diagnostics = [];
+  for (const { page, requests } of pages) {
+    if (page.isClosed()) continue;
+    diagnostics.push({ state: await page.evaluate(() => ({
+      status: document.querySelector('#status')?.textContent,
+      phase: document.querySelector('#phase')?.textContent,
+      round: document.querySelector('#round')?.textContent,
+      selection: document.querySelector('#selection')?.textContent,
+      active: document.body.classList.contains('active'),
+      hidden: document.hidden,
+    })).catch(() => null), commands: requests.filter(r => r.body).map(r => ({
+      kind: r.body.kind, key: r.body.key, sequence: r.body.sequence,
+    })) });
+  }
+  await writeFile(join(dir, 'failure.json'), JSON.stringify({ error: error.stack, results, errors, diagnostics }, null, 2));
+  console.error(`Rhythm acceptance diagnostics: ${join(dir, 'failure.json')}`);
+  throw error;
 } finally {
   for(const c of contexts) await c.close().catch(()=>{});
   if(browser) await browser.close();
