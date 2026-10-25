@@ -51,7 +51,8 @@ it('does not discard a valid selected action just because another optional actio
 it('shows base deltas in the cooldown too, without promising habit credit',()=>{
  const p=pet();p.growth!.care.lastFeed=p.lastTick-100;
  render(<CarePreview pet={p} kind="feed" hint="" rules={rules}/>);
- expect(screen.getByLabelText('本次照顾的基准变化')).toBeTruthy();expect(screen.getByLabelText('所选菜单说明').textContent).toContain('本次暂不记习惯');
+ expect(screen.getByLabelText('本次照顾的基准变化')).toBeTruthy();expect(screen.getByLabelText('所选菜单说明').textContent).toContain('间隔内');
+ expect(screen.getByLabelText('所选菜单说明').textContent).toContain('是否记习惯以实际结果为准');
 });
 it('supports legacy current growth and absent rule books without inventing numbers',()=>{
  const p=pet();delete p.growth;const {rerender}=render(<CarePreview pet={p} kind="feed" hint=""/>);

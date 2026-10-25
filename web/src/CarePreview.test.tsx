@@ -87,6 +87,34 @@ describe("read-only care preview", () => {
     expect(carePreview(p, kind).join("")).toContain("符合记录");
   });
 
+  it.each(["feed", "clean"] as const)("shows %s remaining habit minutes from the accepted snapshot", kind => {
+    const p = pet(), field = kind === "feed" ? "lastFeed" : "lastClean";
+    for (const [ago, minutes] of [[0, 30], [1, 30], [60000, 29], [29 * 60000, 1], [30 * 60000 - 1, 1]]) {
+      p.growth!.care[field] = now - ago;
+      const text = carePreview(p, kind).join("");
+      expect(text).toContain(`最近读取时约还需 ${minutes} 分钟`);
+      expect(text).toContain("照顾仍能改善状态");
+    }
+    p.growth!.care[field] = now - 30 * 60000;
+    expect(carePreview(p, kind).join("")).toContain("符合记录");
+    expect(carePreview(p, kind).join("")).not.toContain("还需");
+  });
+
+  it.each(["feed", "clean"] as const)("does not invent %s eligibility or minutes from invalid/future history", kind => {
+    const p = pet(), field = kind === "feed" ? "lastFeed" : "lastClean";
+    for (const [at, last] of [[now, now + 1], [now, -1], [now, NaN], [now, Infinity],
+      [now, now - .5], [0, 0], [NaN, 0], [Infinity, 0], [now + .5, now]]) {
+      p.lastTick = at; p.growth!.care[field] = last;
+      const text = carePreview(p, kind).join("");
+      expect(text).toContain("间隔待同步");
+      expect(text).not.toMatch(/符合记录|还需|成长 \+/);
+    }
+    p.lastTick = now; p.growth!.care[field] = now + 1;
+    p.needs[kind === "feed" ? "hunger" : "clean"] = 80;
+    expect(carePreview(p, kind).join("")).toContain("已满足");
+    expect(carePreview(p, kind).join("")).not.toContain("待同步");
+  });
+
   it.each(["baby", "growing", "adult"] as const)("never mutates or promises a new adult form in %s", stage => {
     const p = pet(stage), original = structuredClone(p);
     for (const kind of ["feed", "clean", "sleep"] as const) {

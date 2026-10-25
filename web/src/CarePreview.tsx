@@ -94,8 +94,14 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
     : "清洁已满足（需求已满足）；清洁 ≤65 时洗澡才记习惯，本次不记。"];
   if (!pet.growth) return [effect, "成长记录尚未读到；是否记习惯，以照顾后的结果为准。"];
   const last = feeding ? pet.growth.care.lastFeed : pet.growth.care.lastClean;
-  if (last > 0 && pet.lastTick - last < interval) return [effect,
-    "同类习惯还在 30 分钟间隔内；照顾仍能改善状态，本次暂不记习惯。"];
+  // A malformed/future history cannot establish eligibility or a duration.
+  // Use only the accepted snapshot clock, never Date.now() or a countdown.
+  if (!Number.isSafeInteger(pet.lastTick) || pet.lastTick <= 0 ||
+    !Number.isSafeInteger(last) || last < 0 || last > pet.lastTick) return [effect,
+    "同类习惯间隔待同步；照顾仍能改善状态，是否记入以实际结果为准。"];
+  const remaining = last + interval - pet.lastTick;
+  if (last > 0 && remaining > 0) return [effect,
+    `同类习惯还在 30 分钟间隔内；最近读取时约还需 ${Math.ceil(remaining / 60000)} 分钟。照顾仍能改善状态，是否记习惯以实际结果为准。`];
   return [effect, ...(capped ? [capped] : []), pet.growth.stage === "adult"
     ? "符合记录习惯的条件；成年后只记习惯，形态不变。"
     : "符合记录习惯的条件；习惯 +1、成长 +0.25，临近成年时成长封顶。"];

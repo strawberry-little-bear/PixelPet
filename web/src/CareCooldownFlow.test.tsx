@@ -62,3 +62,20 @@ it("a failed read clears the old feedback; B only reconciles and never repeats c
   expect(document.querySelector(".save-recovery")).toBeTruthy(); expect(toast()).toBeUndefined();
   await key("b"); expect(document.querySelector(".save-recovery")).toBeNull(); expect(toast()).toBeUndefined(); expect(writes()).toHaveLength(1);
 });
+
+it.each(["feed", "clean"] as const)("%s menu estimate changes only with accepted snapshots, without writing care", async action => {
+  kind = action; await mount("baby");
+  await key("a"); if (kind === "clean") { await key("a"); await key("a"); }
+  const preview = () => screen.getByLabelText("所选菜单说明").textContent;
+  expect(preview()).toContain("最近读取时约还需 1 分钟");
+  const original = result();
+  await tick(65000);
+  expect(preview()).toContain("最近读取时约还需 1 分钟");
+  expect(preview()).not.toContain("符合记录");
+  saved.lastTick = Date.now(); saved.revision++;
+  await sync(); expect(preview()).toContain("符合记录");
+  api.mockResolvedValueOnce(original); await sync();
+  expect(preview()).toContain("符合记录");
+  expect(preview()).not.toContain("还需");
+  expect(writes()).toHaveLength(0);
+});
