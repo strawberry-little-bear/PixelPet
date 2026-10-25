@@ -45,12 +45,12 @@ for (const skew of [-(7 * day + 1234), 0, 7 * day + 1234]) {
     expect(document.querySelector(".growth-score b")?.textContent).toContain("6.0");
     expect(saved.growth).toBeUndefined(); expect(writes()).toHaveLength(0);
   });
-  it(`locates the star immediately using accepted time (browser skew ${skew})`, async () => {
+  it(`keeps the star in the first round while time and browser skew change (${skew})`, async () => {
     saved.game = { id: "stars-clock", startedAt: server - 1350, round: 0, score: 0, lastBeat: -1 };
     vi.setSystemTime(server + skew); await mount();
     const lanes = [...document.querySelectorAll(".game-lane")];
     expect(lanes).toHaveLength(3);
-    expect(lanes.findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(1);
+    expect(lanes.findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(0);
     expect(writes()).toHaveLength(0); expect(saved.game.round).toBe(0);
   });
 }
@@ -81,16 +81,16 @@ it("ignores stale revision time for both the immediate display and following tic
   await act(async () => { vi.advanceTimersByTime(1000); });
   expect(statusAge()).toContain("相识第3天"); expect(writes()).toHaveLength(0);
 });
-it("continues ticking from the accepted server anchor without changing saved needs or growth", async () => {
+it("keeps a star round stable while waiting, without changing saved needs or growth", async () => {
   vi.setSystemTime(server + 7 * day); saved.game = { startedAt: server - 1350, round: 0, score: 0, lastBeat: -1 };
   const before = structuredClone(saved);
   await mount();
-  expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(1);
+  expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(0);
   await act(async () => { vi.advanceTimersByTime(900); });
-  expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(2);
+  expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(0);
   expect(saved).toEqual(before); expect(writes()).toHaveLength(0);
 });
-it("updates the live star clock with an accepted action reply, without waiting for its 100ms interval", async () => {
+it("moves to the next star round with an accepted action reply", async () => {
   saved.game = { id: "stars-action-clock", startedAt: server - 1350, round: 0, score: 0, lastBeat: -1 };
   await mount();
   api.mockImplementation(async (path, body) => {
@@ -101,7 +101,7 @@ it("updates the live star clock with an accepted action reply, without waiting f
     return result();
   });
   await key("b");
-  expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(2);
+  expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(1);
   expect(writes()).toHaveLength(1); expect(writes()[0][1]).toMatchObject({ kind: "catch", gameId: "stars-action-clock" });
   expect(Date.now()).toBe(server);
 });
@@ -117,12 +117,12 @@ for (const direction of [-1, 1]) {
     expect(document.querySelector('[aria-label="状态记录时间"] time')?.getAttribute("datetime")).toBe(new Date(saved.lastTick).toISOString());
     expect(writes()).toHaveLength(0);
   });
-  it(`keeps the star on elapsed server time after a ${direction} week wall-clock jump`, async () => {
+  it(`keeps the star round stable after a ${direction} week wall-clock jump`, async () => {
     saved.game = { id: "stars-wall-clock", startedAt: server - 1350, round: 0, score: 0, lastBeat: -1 };
     await mount();
     vi.setSystemTime(server + direction * (7 * day + 1234));
     await act(async () => { vi.advanceTimersByTime(100); });
-    expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(1);
+    expect([...document.querySelectorAll(".game-lane")].findIndex(lane => lane.querySelector(".falling-star.visible"))).toBe(0);
     expect(saved.game.round).toBe(0); expect(writes()).toHaveLength(0);
   });
   it(`does not change today's claimed greeting after a ${direction} week wall-clock jump`, async () => {

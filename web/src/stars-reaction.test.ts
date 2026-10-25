@@ -7,16 +7,16 @@ const after: Game = { ...before, round: 2, score: 2, lastBeat: 1 };
 it("describes only the one newly acknowledged catch", () => {
   expect(starsReactionFor(before, after, 1)).toEqual({ gameId: before.id, round: 2, score: 2, beat: 1, lane: 1 });
 });
-it.each([0, 1, 2])("accepts the real beat lane %s", lane => {
-  expect(starsReactionFor({ ...before, lastBeat: -1 }, { ...after, lastBeat: lane }, lane)).not.toBeNull();
+it.each([0, 1, 2])("accepts a round result even when the clock beat repeats (%s)", lane => {
+  expect(starsReactionFor({ ...before, lastBeat: 1 }, { ...after, lastBeat: 1 }, lane)).not.toBeNull();
 });
 it.each([undefined, null, -1, 3, 0.5, "1", NaN, Infinity])("ignores invalid lane %s", lane => {
   expect(starsReactionFor(before, after, lane)).toBeNull();
 });
 it.each([
   {}, { id: "other" }, { id: undefined }, { kind: "tiles" }, { startedAt: 101 },
-  { round: 1 }, { round: 3 }, { score: 1 }, { score: 3 }, { lastBeat: 0 }, { lastBeat: -1 },
-  { lastBeat: 1.5 }, { lastBeat: 2 },
+  { round: 1 }, { round: 3 }, { score: 1 }, { score: 3 }, { lastBeat: -1 },
+  { lastBeat: 1.5 },
 ] satisfies Partial<Game>[])("ignores reads or incompatible replies %j", change => {
   const next = Object.keys(change).length ? { ...after, ...change } : before;
   expect(starsReactionFor(before, next, 1)).toBeNull();

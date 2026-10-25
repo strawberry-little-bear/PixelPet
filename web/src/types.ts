@@ -69,6 +69,7 @@ export type PetState = {
     round: number;
     score: number;
     lastBeat: number;
+    lastCatchAt?: number;
   };
 };
 export type SleepSession = {

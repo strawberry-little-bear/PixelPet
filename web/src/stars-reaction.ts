@@ -12,7 +12,7 @@ export function starsReactionFor(before: Game, after: Game, lane: unknown): Star
     !Number.isInteger(before.round) || before.round < 0 || before.round > 3 || after.round !== before.round + 1 ||
     !Number.isInteger(before.score) || before.score < 0 || before.score > before.round || after.score !== before.score + 1 ||
     !Number.isInteger(before.lastBeat) || before.lastBeat < -1 || !Number.isInteger(after.lastBeat) ||
-    after.lastBeat < 0 || after.lastBeat <= before.lastBeat || after.lastBeat % 3 !== lane) return null;
+    after.lastBeat < 0) return null;
   return { gameId: before.id, round: after.round, score: after.score, beat: after.lastBeat, lane: lane as number };
 }
 

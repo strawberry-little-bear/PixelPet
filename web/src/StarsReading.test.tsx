@@ -26,24 +26,24 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 it("explains saved rounds and score without making waiting into a failed round", async () => {
   await mount(); expect(screen.getByText("第 3 / 5 轮")).toBeTruthy();
   expect(screen.getByText("已接住 1 颗")).toBeTruthy();
-  expect(screen.getByText(/不必等落到底/)).toBeTruthy();
+  expect(screen.getByText(/亮星会停在本轮位置/)).toBeTruthy();
   expect(screen.getByText(/接空也算一轮/)).toBeTruthy();
   await act(async () => { await vi.advanceTimersByTimeAsync(900); });
   expect(screen.getByText("第 3 / 5 轮")).toBeTruthy(); expect(writes()).toHaveLength(0);
 });
-it("describes the changing star and three-key position without live speech every beat", async () => {
+it("describes the stable round target and three-key position without live speech every beat", async () => {
   await mount(); const status = starsStatus();
   expect(status.getAttribute("role")).toBe("status");
   expect(status.getAttribute("aria-live")).toBe("polite");
   expect(status.textContent).toContain("伙伴在中间；A 移到右边");
-  const board = screen.getByRole("img", { name: "星星在中间；伙伴在中间" });
+  const board = screen.getByRole("img", { name: "星星在右边；伙伴在中间" });
   expect(board.querySelectorAll(".game-lane")).toHaveLength(3);
   expect(board.closest('[aria-live]')).toBeNull();
   for (const [position, next] of [["右边", "左边"], ["左边", "中间"], ["中间", "右边"]]) {
     await key("a"); expect(starsStatus()).toBe(status);
     expect(status.textContent).toContain(`伙伴在${position}；A 移到${next}`);
     expect(screen.getByText(`伙伴：${position}`)).toBeTruthy();
-    expect(screen.getByRole("img", { name: `星星在中间；伙伴在${position}` })).toBeTruthy();
+    expect(screen.getByRole("img", { name: `星星在右边；伙伴在${position}` })).toBeTruthy();
   }
   const announced = status.textContent;
   const changes = vi.fn(); const observer = new MutationObserver(changes);

@@ -52,6 +52,9 @@ type MiniGame struct {
 	Round     int           `json:"round"`
 	Score     int           `json:"score"`
 	LastBeat  int64         `json:"lastBeat"`
+	// LastCatchAt only rejects an exact duplicate request. It is deliberately
+	// separate from LastBeat so valid fast rounds can share one 900ms beat.
+	LastCatchAt int64        `json:"lastCatchAt,omitempty"`
 }
 type State struct {
 	Park      *Park      `json:"park,omitempty"`
@@ -334,13 +337,14 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		if s.Game == nil || s.Game.Kind != "" || a.Lane < 0 || a.Lane > 2 {
 			return "", errors.New("游戏还没有开始")
 		}
-		beat := (now.UnixMilli() - s.Game.StartedAt) / 900
-		if beat <= s.Game.LastBeat {
-			return "", errors.New("等下一颗星星落下再接哦")
+		if s.Game.LastCatchAt == now.UnixMilli() {
+			return "", errors.New("这一轮已经接过了")
 		}
+		beat := (now.UnixMilli() - s.Game.StartedAt) / 900
 		s.Game.LastBeat = beat
+		s.Game.LastCatchAt = now.UnixMilli()
 		s.Game.Round++
-		if int(beat%3) == a.Lane {
+		if int((s.Game.Round-1)%3) == a.Lane {
 			s.Game.Score++
 			msg = "接住了！★"
 		} else {
@@ -407,7 +411,7 @@ func (s State) Validate(now time.Time) error {
 	if s.Game != nil && ((s.Schema >= 4 && !validGameID(s.Game.ID)) || (s.Schema < 4 && s.Game.ID != "")) {
 		return bad
 	}
-	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900) {
+	if s.Game != nil && (s.Game.StartedAt < s.HatchedAt || s.Game.StartedAt > ms || s.Game.Round < 0 || s.Game.Round > 4 || s.Game.Score < 0 || s.Game.Score > s.Game.Round || s.Game.LastBeat < -1 || s.Game.LastBeat > (ms-s.Game.StartedAt)/900 || s.Game.LastCatchAt < 0 || s.Game.LastCatchAt > ms || (s.Game.LastCatchAt != 0 && s.Game.LastCatchAt < s.Game.StartedAt)) {
 		return bad
 	}
 	if !s.validSleepSession() || !s.validTreasureGame() || !s.validPark() || !s.validWalkingGame() || !s.validCompanion() || !s.validGrowth(now) || !s.validAlbum(now) || !s.validEconomy(now) || !s.validTileGame() || !s.validSnakeGame() || !s.validTetrisGame() || !s.validPond() || !s.validFishingGame() {

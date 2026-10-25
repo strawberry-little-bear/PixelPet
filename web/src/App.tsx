@@ -2329,9 +2329,9 @@ export default function App() {
   const mood = pet?.sleeping
     ? "正在做一个甜甜的梦"
     : need?.text || "今天也是好心情";
-  const target = pet?.game
-    ? Math.floor(Math.max(0, now - pet.game.startedAt) / 900) % 3
-    : 0;
+  // Stars are round-based: the target stays put until B acknowledges the
+  // current round, so a player can read the screen before acting.
+  const target = pet?.game && !pet.game.kind ? pet.game.round % 3 : 0;
   const echo = homeEcho && page === "home" && !clip && !evolution && !tools && !help && !reset && !document.hidden && performance.now() < homeEcho.monotonicUntil && !pet?.sleeping && !["hungry", "tired", "dirty"].includes(need?.kind ?? "") ? homeEcho.kind : undefined;
   const motion = sceneMotion(pet?.sleeping ?? false, clip);
   const blocks = pet?.game?.tetris;
@@ -2612,7 +2612,7 @@ export default function App() {
               </small>
             </div>
           </div>
-          <div className={`device-stage ${readingMode ? "reading-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""} ${tileView ? "tiles-mode" : ""}`}>
+          <div className={`device-stage ${readingMode ? "reading-mode" : ""} ${(uncertain || unavailable || corrupt || clockAhead) ? "recovery-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""} ${tileView ? "tiles-mode" : ""}`}>
             <span className="device-orbit orbit-one">✧</span>
             <span className="device-orbit orbit-two">+</span>
             <div className="device-shadow" />
