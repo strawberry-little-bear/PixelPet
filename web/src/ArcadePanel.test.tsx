@@ -336,6 +336,8 @@ describe("playtest feedback: compact repeat entry", () => {
     expect(actions().map(action => action.kind)).toEqual(["play-walk", "play-walk"]);
   });
   it("keeps the shared lessons explicit about timing-sensitive controls", () => {
+    expect(games.find(game => game.id === "stars")!.lesson).toContain("亮星会停在本轮位置");
+    expect(games.find(game => game.id === "stars")!.leaving).toContain("等待不会消耗轮次");
     expect(games.find(game => game.id === "fishing")!.lesson).toContain("提前提竿也会用掉这一竿");
     expect(games.find(game => game.id === "tetris")!.lesson).toContain("按 C 打开旋转、落底等操作");
     expect(games.find(game => game.id === "snake")!.lesson).toContain("果子方向和距离");
