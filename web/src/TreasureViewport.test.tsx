@@ -3,11 +3,11 @@ import { useRef } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useTreasureViewport, type TreasureDestination } from "./useTreasureViewport";
 
-type Props = { request: TreasureDestination | null; sessionKey?: string | null; enabled?: boolean; target?: boolean };
-function View({request, sessionKey = "one", enabled = true, target = true}: Props) {
+type Props = { request: TreasureDestination | null; sessionKey?: string | null; enabled?: boolean; target?: boolean; selection?: boolean };
+function View({request, sessionKey = "one", enabled = true, target = true, selection = false}: Props) {
   const root = useRef<HTMLDivElement>(null);
   useTreasureViewport(root, request, sessionKey, enabled);
-  return <div className="device-stage"><div ref={root} className="lcd-content">{target && <><div className="treasure-grid"><span aria-selected="true"/></div><p className="treasure-result"/><p className="treasure-status"/></>}</div><div className="device-buttons"/></div>;
+  return <div className="device-stage"><div ref={root} className="lcd-content">{target && <><div className="treasure-grid"><span aria-selected="true"/></div><p className="treasure-result"/><p className={`treasure-status${selection ? " treasure-selection" : ""}`}/></>}</div><div className="device-buttons"/></div>;
 }
 const destination = (target: TreasureDestination["target"] = "selection"): TreasureDestination => ({sessionKey:"one", target});
 let top: number, height: number, width: number, dockTop: number, containerTop: number, rootScrollHeight: number, rootClientHeight: number;
@@ -18,6 +18,10 @@ beforeEach(() => {
   Object.defineProperty(document, "hidden", {configurable:true,value:false});
   vi.spyOn(window, "scrollBy").mockImplementation(() => {});
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+    if (this.matches(".treasure-selection")) {
+      const y = containerTop + rootClientHeight - 60;
+      return {top:y,bottom:y+60,width,height:60,left:0,right:width,x:0,y,toJSON:()=>({})};
+    }
     if (this.matches(".device-buttons")) {
       const y = dockTop;
       return {top:y,bottom:y+height,width,height,left:0,right:width,x:0,y,toJSON:()=>({})};
@@ -92,4 +96,11 @@ it.each([{top:12,height:100,width:200},{top:-400,height:0,width:200},{top:-400,h
 });
 it("no initial request means no automatic reading jump", () => {
   render(<View request={null}/>); expect(window.scrollBy).not.toHaveBeenCalled();
+});
+
+it("reserves the selection readout before revealing a cell in the LCD", () => {
+  rootScrollHeight=900; rootClientHeight=300; top=350; height=80; dockTop=600;
+  render(<View request={destination()} selection/>);
+  expect(document.querySelector(".lcd-content")?.scrollTop).toBe(102);
+  expect(window.scrollBy).not.toHaveBeenCalled();
 });

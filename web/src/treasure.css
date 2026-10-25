@@ -116,3 +116,19 @@
 @media (forced-colors: active) {
   .treasure-mode .device-buttons { background: Canvas; border-color: ButtonText; }
 }
+
+/* The selected cell and its meaning stay together while reading the grid.
+   The action viewport reserves this band's full height before revealing cells.
+   Paused and terminal instructions remain in their ordinary reading flow. */
+.treasure-game > .treasure-selection {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 6px 0;
+  border-top: 1px solid currentColor;
+  background: #d5dfbb;
+}
+@media (forced-colors: active) {
+  .treasure-game > .treasure-selection { background: Canvas; color: CanvasText; }
+}

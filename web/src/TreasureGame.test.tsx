@@ -57,6 +57,23 @@ describe("untimed treasure presentation",()=>{
   expect(screen.getByText(/实际找到 0 件/)).toBeTruthy();expect(screen.getAllByText("留在林间")).toHaveLength(3);
   expect(screen.getAllByRole("gridcell")).toHaveLength(9);expect(document.querySelectorAll("button,a,input,[role=button]")).toHaveLength(0);
  });
+ it("keeps one current-selection readout only while choosing, and preserves pause/terminal meaning",()=>{
+  const n=saved.game!.treasure!; n.paused=false;
+  const view=render(<TreasureGame pet={saved} active cursor={4} choice={0}/>);
+  const status=()=>view.container.querySelector(".treasure-status")!;
+  expect(status().classList.contains("treasure-selection")).toBe(true);
+  expect(status().textContent).toBe("当前选中：5号格 · 未探索 · B 探索");
+  expect(status().getAttribute("aria-atomic")).toBe("true");
+  view.rerender(<TreasureGame pet={saved} active cursor={8} choice={0}/>);
+  expect(status().textContent).toContain("9号格");
+  expect(view.container.querySelectorAll(".treasure-status")).toHaveLength(1);
+  n.paused=true; view.rerender(<TreasureGame pet={saved} active cursor={8} choice={0}/>);
+  expect(status().classList.contains("treasure-selection")).toBe(false);
+  expect(status().textContent).toContain("手动继续");
+  n.opened=[0,1,2]; view.rerender(<TreasureGame pet={saved} active cursor={8} choice={0}/>);
+  expect(status().classList.contains("treasure-selection")).toBe(false);
+  expect(status().textContent).toContain("B / C 收好本局发现");
+ });
  it.each([
   (n:TreasureHunt)=>{n.layout=[]},(n:TreasureHunt)=>{n.layout[0]=4},(n:TreasureHunt)=>{n.opened=[0,0]},
   (n:TreasureHunt)=>{n.opened=[9]},(n:TreasureHunt)=>{n.step=NaN},(n:TreasureHunt)=>{n.step=1000001},

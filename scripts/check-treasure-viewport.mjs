@@ -93,6 +93,29 @@ async function feedbackVisible(page, selector) {
   assert(boxes.buttons.every(b => b.visible && b.clear), `covered/offscreen controls: ${JSON.stringify(boxes)}`);
   return boxes;
 }
+// Keep the current cell's meaning readable alongside the selected tile and keys.
+// This checks the result of the real A/B/C action; it never scrolls first.
+async function selectionVisible(page) {
+  const boxes = await page.evaluate(() => {
+    const status = document.querySelector('.treasure-status');
+    const selected = document.querySelector('.treasure-grid [aria-selected=true]');
+    const lcd = status?.closest('.lcd-content');
+    if (!status || !selected || !lcd) return null;
+    const a = status.getBoundingClientRect(), b = selected.getBoundingClientRect(), c = lcd.getBoundingClientRect();
+    const hit = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2);
+    return { status: {top:a.top,bottom:a.bottom}, selected: {top:b.top,bottom:b.bottom},
+      lcd: {top:c.top,bottom:c.bottom}, height:innerHeight, clear: hit === status || status.contains(hit),
+      text:status.textContent, selectedText:selected.getAttribute('aria-label') };
+  });
+  assert(boxes, 'missing current selection');
+  assert(boxes.status.top >= Math.max(0, boxes.lcd.top) - 1 &&
+    boxes.status.bottom <= Math.min(boxes.height, boxes.lcd.bottom) + 1,
+    `current selection text outside visible LCD: ${JSON.stringify(boxes)}`);
+  assert(boxes.selected.bottom <= boxes.status.top + 1, `selection covered by status: ${JSON.stringify(boxes)}`);
+  assert(boxes.clear, 'current selection text covered');
+  assert(boxes.text.includes(boxes.selectedText.split(' · ')[0]), 'selection description does not match highlighted cell');
+  return boxes;
+}
 async function initialGridVisible(page) {
   const boxes = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('.treasure-grid [role=row]')];
@@ -151,6 +174,7 @@ try {
     }
     await key(page,'C');
     const resume = await feedbackVisible(page,'.treasure-grid [aria-selected=true]');
+    await selectionVisible(page);
     // Native Enter/Space activation keeps focus on the same physical A button.
     await page.locator('.button-a').focus();
     for (const keyName of ['Enter','Space']) {
@@ -158,7 +182,7 @@ try {
       await feedbackVisible(page,'.treasure-grid [aria-selected=true]');
       assert(await page.locator('.button-a').evaluate(el=>el===document.activeElement),'focus moved from physical A');
     }
-    for (let n=0;n<10;n++) { await key(page,'A'); await feedbackVisible(page,'.treasure-grid [aria-selected=true]'); }
+    for (let n=0;n<10;n++) { await key(page,'A'); await feedbackVisible(page,'.treasure-grid [aria-selected=true]'); await selectionVisible(page); }
     await page.screenshot({path:join(dir,`selected-${width}-${height}-${font}.png`)});
     // Synthetic explicit rejection: do not hide errors below the document or cover keys.
     const beforeReject=(await api('state')).state.game.treasure.opened.length;
