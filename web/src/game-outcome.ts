@@ -1,6 +1,8 @@
 import { gameKeepsakes } from "./game-keepsakes";
 import { games } from "./games";
 import { savedGameHistory } from "./game-history";
+import { petGrowth } from "./growth";
+import { gameCompanionVoice, type GameCompanionVoice } from "./gameCompanionVoice";
 import type { GameInfo } from "./games";
 import type { GameReceipt, InterestGameReceipt, PetState, Result, WalkGameReceipt } from "./types";
 
@@ -12,6 +14,7 @@ export type GameOutcomeRecord = {
   gameReceipt?: GameReceipt;
   completedCount?: number;
   keepsake?: string;
+  companionVoice?: GameCompanionVoice;
 };
 const finishActions: Record<GameInfo["id"], string> = {
   stars: "catch", tiles: "tile-pick", snake: "snake-finish", tetris: "tetris-finish",
@@ -29,8 +32,10 @@ export function completedGameOutcome(action: string, before: PetState | null, re
       after.revision < before.revision || typeof result.message !== "string" || !result.message.trim() || result.message.length > 4096 ||
       !Number.isSafeInteger(result.serverTime) || result.serverTime <= 0 || result.serverTime > 8.64e15) return null;
   const recent = after.companion?.recent;
+  const companionVoice = gameCompanionVoice(petGrowth(after, result.serverTime), kind);
   const record: GameOutcomeRecord = { kind, at: result.serverTime, message: result.message,
-    shared: after.companion ? recent?.id === game.id && recent.kind === kind : null };
+    shared: after.companion ? recent?.id === game.id && recent.kind === kind : null,
+    ...(companionVoice && { companionVoice }) };
   if (record.shared && recent?.at === result.serverTime) {
     const count = savedGameHistory(after)?.completions.find(entry => entry.kind === kind)?.count;
     if (count !== undefined && count > 0) record.completedCount = count;

@@ -2,6 +2,7 @@
 .game-outcome h3 { margin: 0 0 4px; }
 .game-outcome > time, .game-outcome > small { display: block; }
 .game-outcome p { margin: 6px 0; white-space: pre-wrap; }
+.game-outcome-companion-voice { margin: 7px 0; padding-left: 7px; border-left: 2px solid #9aae7d; color: #647553; font-size: .9em; line-height: 1.55; }
 .walk-reward-breakdown { margin: 8px 0; padding: 7px 8px; border: 1px solid #9aae7d; background: rgba(224, 239, 196, .45); overflow-wrap: anywhere; }
 .walk-reward-breakdown strong, .walk-reward-breakdown small { display: block; }
 .walk-reward-breakdown p { margin: 4px 0; }

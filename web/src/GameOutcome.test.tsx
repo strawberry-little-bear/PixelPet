@@ -50,6 +50,27 @@ it.each(games)("captures $id only after its own final action, without guessing s
   expect(outcome()?.textContent).toContain("未提供共同游戏记录");
   expect(outcome()?.querySelector("button,a,input,[role=button]")).toBeNull(); expect(outcome()?.hasAttribute("aria-live")).toBe(false);
 });
+it("carries the settled growth tendency into one quiet game response", () => {
+  const before = fixture(); before.growth = emptyGrowth("growing"); before.growth.care.play = 3;
+  const after = structuredClone(before); delete after.game;
+  const receipt = completedGameOutcome("snake-finish", before, result(after));
+  expect(receipt?.companionVoice).toEqual({
+    form: "lively",
+    text: "它跃跃欲试，跟着你的方向动起来。",
+  });
+  render(<GameOutcome outcome={receipt} />);
+  expect(screen.getByLabelText("宠物的游戏回应").textContent).toBe("它跃跃欲试，跟着你的方向动起来。");
+});
+it("uses a saved adult form and leaves early growth quiet", () => {
+  const before = fixture(); before.growth = emptyGrowth("adult"); before.growth.form = "gentle";
+  const after = structuredClone(before); delete after.game;
+  expect(completedGameOutcome("snake-finish", before, result(after))?.companionVoice).toEqual({
+    form: "gentle",
+    text: "它安静观察着，陪你慢慢想好转弯。",
+  });
+  const baby = fixture(); const babyAfter = structuredClone(baby); delete babyAfter.game;
+  expect(completedGameOutcome("snake-finish", baby, result(babyAfter))?.companionVoice).toBeUndefined();
+});
 it("keeps and renders a validated walking reward breakdown", () => {
   const before = fixture(); before.game!.kind = "walk"; delete before.game!.snake;
   before.game!.walking = { route: Array<"rock">(12).fill("rock"), souvenirs: ["leaf", "shell", "flower"], beat: 72, step: 4, cleared: 8, pose: "", poseUntil: 0, lastPulseAt: at, lastInputAt: 0, paused: true };

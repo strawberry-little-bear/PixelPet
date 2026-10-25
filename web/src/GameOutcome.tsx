@@ -29,6 +29,7 @@ export function GameOutcome({ outcome, careFeedback = null, readable = false }: 
       year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
     })}（本地时间）</time>
     <p className="game-outcome-message">{outcome.message}</p>
+    {outcome.companionVoice && <p className="game-outcome-companion-voice" aria-label="宠物的游戏回应">{outcome.companionVoice.text}</p>}
     {keepsake && <p className="game-keepsake-result">一起收好了「{keepsake.title}」，可以到纪念册「一起玩过」翻看。每种只留一件，不必集齐。</p>}
     <CareOutcome feedback={careFeedback} embedded />
     {walk && <div className="walk-reward-breakdown" aria-label="散步奖励拆解">
