@@ -5,13 +5,15 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary');
-assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+const { binary, web } = await isolatedTestBuilds();
+// The marker has no stage-specific layout; its three-stage semantics live in
+// CareMenuAdvice.test.tsx. Use this flag for the focused visual regression.
+const stages = process.argv.includes('--recommendations-only') ? ['baby'] : ['baby', 'growing', 'adult'];
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-care-menu-guidance-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -85,7 +87,7 @@ try {
     { label: 'sleeping', menu: '起床啦', index: 3, sleeping: true, advice: '正在休息，不必急着叫醒' },
     { label: 'sleep-full', menu: '起床啦', index: 3, sleeping: true, full: true, advice: '体力已满，可以从菜单选「起床啦」' },
   ];
-  for (const stage of ['baby', 'growing', 'adult']) for (const mode of modes) for (const profile of profiles) {
+  for (const stage of stages) for (const mode of modes) for (const profile of profiles) {
     const at = Date.now(), age = { baby: 1, growing: 25, adult: 80 }[stage] * 3600000;
     const needs = { hunger: 80, mood: 80, clean: 80, energy: 80 };
     if (profile.need) needs[profile.need] = 10;
@@ -121,6 +123,23 @@ try {
         await key(page, 'c');
       }
       await select(page, profile.index);
+      const expectedRecommendation = profile.sleeping
+        ? (profile.need || profile.full ? 'sleep' : null)
+        : profile.need ? { hunger: 'feed', clean: 'clean', energy: 'sleep', mood: 'arcade' }[profile.need] : null;
+      async function checkRecommendation() {
+        const marker = page.locator('.menu-care-suggestion');
+        assert.equal(await marker.count(), expectedRecommendation ? 1 : 0);
+        if (expectedRecommendation) {
+          assert.equal(await page.locator('[data-care-recommended=true]').getAttribute('data-care-kind'), expectedRecommendation);
+          assert.equal(await marker.innerText(), '建议');
+          assert.equal(await marker.getAttribute('aria-live'), null);
+          const font = await marker.evaluate(el => ({ size: getComputedStyle(el).fontSize,
+            reading: getComputedStyle(document.querySelector('.lcd-content')).fontSize }));
+          assert.equal(font.size, font.reading, 'badge must not shrink at larger font sizes');
+        }
+        await readable(page, '.care-menu');
+      }
+      await checkRecommendation();
       assert((await page.locator('.care-item.selected').innerText()).includes(profile.menu));
       const preview = await page.getByLabel('所选菜单说明').innerText();
       await readable(page, '[aria-label="所选菜单说明"]');
@@ -157,7 +176,7 @@ try {
       await key(page, 'b');
       assert((await page.locator('.care-menu-advice').innerText()).includes(expectedAdvice), 'refresh lost saved advice');
       assert((await page.locator('.care-item.selected').innerText()).includes('吃点东西'), 'advice must not auto-select an action');
-      await readable(page, '.care-menu'); await readable(page, '[aria-label="所选菜单说明"]');
+      await checkRecommendation(); await readable(page, '[aria-label="所选菜单说明"]');
       if (stage === 'baby' && ['full-energy', 'sleep-dirty'].includes(profile.label)) await page.screenshot({ path: join(dir, `${profile.label}-${mode.label}.png`), fullPage: true });
       assert.deepEqual(writes, [], 'reading guidance must not issue a care write');
       let explicitFeed = false;

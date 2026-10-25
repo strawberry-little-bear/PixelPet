@@ -1,6 +1,21 @@
 import { bodyNeed, petNeed } from "./needs";
 import { careMenuLabel } from "./careMenu";
+import type { CareMenuKind } from "./careMenu";
 import type { PetState } from "./types";
+
+// One read-only recommendation for the menu marker and the written advice.
+// Sleeping pets must wake before food/cleaning, but comfortable rest stays quiet.
+export function recommendedCare(pet: PetState): CareMenuKind | null {
+  if (!pet.hatchedAt || pet.game) return null;
+  if (pet.sleeping) return bodyNeed(pet) || pet.needs.energy >= 100 ? "sleep" : null;
+  switch (petNeed(pet)?.kind) {
+    case "hungry": return "feed";
+    case "dirty": return "clean";
+    case "tired": return "sleep";
+    case "playful": return "arcade";
+    default: return null;
+  }
+}
 
 // Reuse the pet's existing need priority; this is advice, not an extra reward rule.
 export function careAdvice(pet: PetState): string {
@@ -17,13 +32,14 @@ export function careAdvice(pet: PetState): string {
       ? `体力已满，可以从菜单选「${careMenuLabel("sleep", true)}」；继续睡不会增加休息习惯。`
       : "正在休息，不必急着叫醒；体力满后不再增加休息习惯。";
   }
-  switch (petNeed(pet)?.kind) {
-    case "hungry": return `现在适合吃点东西；从菜单选「${careMenuLabel("feed")}」。`;
-    case "dirty": return `现在适合洗澡；从菜单选「${careMenuLabel("clean")}」。`;
-    case "tired": return `现在适合休息；从菜单选「${careMenuLabel("sleep")}」。`;
-    case "playful": return `想一起玩一会儿；从菜单选「${careMenuLabel("arcade")}」，去游戏角看看。`;
-    case "quiet": return "可以安静陪伴，不必为了成长反复照顾。";
-    default: return "现在很舒适，不必为了成长反复照顾。";
+  switch (recommendedCare(pet)) {
+    case "feed": return `现在适合吃点东西；从菜单选「${careMenuLabel("feed")}」。`;
+    case "clean": return `现在适合洗澡；从菜单选「${careMenuLabel("clean")}」。`;
+    case "sleep": return `现在适合休息；从菜单选「${careMenuLabel("sleep")}」。`;
+    case "arcade": return `想一起玩一会儿；从菜单选「${careMenuLabel("arcade")}」，去游戏角看看。`;
+    default: return petNeed(pet)?.kind === "quiet"
+      ? "可以安静陪伴，不必为了成长反复照顾。"
+      : "现在很舒适，不必为了成长反复照顾。";
   }
 }
 

@@ -68,7 +68,7 @@ import { PixelEgg } from "./Sprite";
 import { PetArt } from "./PetArt";
 import { PetScene } from "./PetScene";
 import { GrowthPanel } from "./GrowthPanel";
-import { CareAdvice } from "./CareAdvice";
+import { CareAdvice, recommendedCare } from "./CareAdvice";
 import { careMenuLabel } from "./careMenu";
 import { previewBackup, backupSizeLimit } from "./backup";
 import { ImportPreview, type PendingImport } from "./ImportPreview";
@@ -399,6 +399,7 @@ export default function App() {
   const [careReadingDestination, setCareReadingDestination] = useState<{ petKey: string | null; page: "growth" | "status" | "journal" | "menu" } | null>(null);
   // Immutable lifecycle fields keep older services usable; the generation also
   // distinguishes restoring a backup of the same pet. Never key on revision.
+  const suggestedCare = pet ? recommendedCare(pet) : null;
   const careReadingKey = pet ? JSON.stringify([acceptedGeneration.current, pet.createdAt, pet.hatchedAt, pet.species]) : null;
   // Page-local browsing memory, not a saved preference or an instruction to play.
   // Polls, care and growth keep it; another pet/save must not inherit it.
@@ -2789,6 +2790,8 @@ export default function App() {
                                       key={item.kind}
                                       className={`care-item ${i === selected ? "selected" : ""}`}
                                       aria-current={i === selected ? "true" : undefined}
+                                      data-care-kind={item.kind}
+                                      data-care-recommended={item.kind === suggestedCare ? "true" : undefined}
                                     >
                                       <span className="menu-arrow">
                                         {i === selected ? "▸" : ""}
@@ -2798,6 +2801,7 @@ export default function App() {
                                         {item.kind === "sleep" && pet.sleeping
                                           ? careMenuLabel("sleep", true)
                                           : item.label}
+                                        {item.kind === suggestedCare && <small className="menu-care-suggestion">建议</small>}
                                       </span>
                                       <span className="menu-number">
                                         {String(i + 1).padStart(2, "0")}

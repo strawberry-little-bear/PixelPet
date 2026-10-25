@@ -1,6 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { CareAdvice, careAdvice } from "./CareAdvice";
+import { CareAdvice, careAdvice, recommendedCare } from "./CareAdvice";
 import { emptyGrowth } from "./growth";
 import type { GrowthStage, PetState } from "./types";
 
@@ -37,5 +37,8 @@ describe("care advice without changing rewards", () => {
     expect(careAdvice(p)).toContain("游戏角");
     p.game = { startedAt: 1, round: 0, score: 0, lastBeat: -1 };
     expect(careAdvice(p)).toContain("结束本局");
+    expect(recommendedCare(p)).toBeNull();
+    delete p.game; p.hatchedAt = 0;
+    expect(recommendedCare(p)).toBeNull();
   });
 });

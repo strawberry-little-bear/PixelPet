@@ -149,6 +149,17 @@
 
 .reading-mode .import-preview { font-size: .857143rem; line-height: 1.6; }
 
+/* Keep the recommendation attached to its label without squeezing the row's
+   icon or number. At large text sizes the badge can move onto its own line. */
+.reading-mode .care-item .menu-care-suggestion {
+  display: inline-block;
+  margin-inline-start: .4em;
+  padding: 0 .25em;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
 /* Selected-menu explanations stay in reading flow; never shrink the three
    physical keys or put a new clickable care control inside the LCD. */
 .care-menu-advice { border-top: 1px dashed #839567; margin-top: 8px; padding-top: 8px; }
