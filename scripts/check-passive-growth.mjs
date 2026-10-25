@@ -1,5 +1,6 @@
 // Constructed near-threshold history + real elapsed time, HTTP, and Chrome.
-// No care action crosses the threshold; this is not natural multi-day raising.
+// No care action awards the threshold points; sleeping cases wake only after
+// a visit has saved the new stage. This is not natural multi-day raising.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
@@ -30,6 +31,30 @@ async function key(page, name) {
   await page.locator(`.button-${name}:not(:disabled)`).tap();
   await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
 }
+async function wake(page) {
+  // Home → fourth menu entry → explicit wake. No hidden API wake or auto-resume.
+  for (const name of ['a', 'a', 'a', 'a']) await key(page, name);
+  assert.match(await page.getByLabel('所选菜单说明').innerText(), /按 B 轻轻叫醒/);
+  const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/action' && r.request().postDataJSON()?.kind === 'sleep');
+  // Do not use key(): its B-enabled wait intentionally waits out clips.
+  // Observe and skip the short wake clip while it is actually on screen.
+  await page.locator('.button-b:not(:disabled)').tap();
+  await page.locator('.pet-scene[data-motion=waking]').waitFor();
+  const reply = await response; assert(reply.ok());
+  const result = await reply.json(), f = result.careFeedback;
+  assert.equal(result.state.sleeping, false); assert.equal(result.state.sleepSession, undefined);
+  assert.equal(f.reason, 'awake'); assert.equal(f.points, 0); assert.equal(f.habitGain, 0);
+  assert.equal(f.milestone, undefined); assert.deepEqual(f.effect.before, f.effect.after);
+  assert(f.sleepSummary?.energyRecovered > 0); assert(f.sleepSummary.restGain > 0);
+  assert(f.sleepSummary.growthPoints > 0);
+  // The wake animation precedes growth; C skips only that animation.
+  await page.locator('.button-c:not(:disabled)').tap();
+  return result;
+}
+const activeCare = state => {
+  const { rest, ...active } = state.growth.care;
+  return { active, careCount: state.careCount, coins: state.economy.coins };
+};
 async function layout(page, selector) {
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
@@ -91,7 +116,9 @@ try {
   }
   assert(ready, log); browser = await chromium.launch({ headless: true, channel: 'chrome' });
   for (const mode of [{ name: 'desktop', width: 1200, height: 900, font: 14 },
-    { name: 'phone-large-contrast', width: 320, height: 480, font: 28 }]) for (const target of ['growing', 'adult']) {
+    { name: 'phone-large-contrast', width: 320, height: 480, font: 28 }]) for (const target of ['growing', 'adult']) for (const sleeping of [false, true]) {
+    const label = `${mode.name}-${target}-${sleeping ? 'sleeping' : 'awake'}`;
+    if (process.env.PIXELPET_TEST_CASE && process.env.PIXELPET_TEST_CASE !== label) continue;
     await api('reset', { confirm: true });
     const state = (await api('action', { kind: 'hatch', species: 2, requestId: `hatch-${target}-${Date.now()}` })).state;
     const now = Date.now(), prior = target === 'adult' ? 'growing' : 'baby', threshold = target === 'adult' ? 72 : 24;
@@ -104,27 +131,71 @@ try {
     // Synthetic history still follows current-format album provenance rules.
     if (target === 'adult') state.album.entries.push({ kind: 'growing', at: state.growth.growingAt, source: 'shared' });
     await api('import', state);
+    // The service creates the real session; do not fabricate accumulated rest.
+    const initial = sleeping ? (await api('action', { kind: 'sleep', requestId: `sleep-${target}-${Date.now()}` })).state
+      : (await api('state')).state;
+    assert.equal(initial.growth.stage, prior);
+    if (sleeping) assert(initial.sleepSession);
     const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, isMobile: mode.width === 320,
       hasTouch: true, reducedMotion: 'reduce', forcedColors: mode.width === 320 ? 'active' : 'none' });
+    const writes = [], errors = [], reads = [];
     try {
-      const page = await context.newPage(), writes = [], errors = [], label = `${mode.name}-${target}`;
+      const page = await context.newPage();
+      console.log('START', label);
       page.on('pageerror', error => errors.push(error.message));
-      page.on('request', request => { if (request.method() === 'POST' && new URL(request.url()).pathname !== '/api/visit') writes.push(request.url()); });
+      page.on('response', response => { if (['/api/visit', '/api/state'].includes(new URL(response.url()).pathname)) reads.push({ path: new URL(response.url()).pathname, status: response.status(), at: Date.now() }); });
+      page.on('request', request => { if (request.method() === 'POST' && new URL(request.url()).pathname !== '/api/visit') writes.push({ path: new URL(request.url()).pathname, kind: request.postDataJSON()?.kind }); });
       await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.style.fontSize = font + 'px'; window.sawGrowthCelebration = false;
+        window.lifecycle = []; window.pollTimers = [];
+        // Observe the native 15s timer without changing its delay or callbacks.
+        const nativeInterval = window.setInterval.bind(window), nativeClear = window.clearInterval.bind(window);
+        const pollIDs = new Set();
+        window.setInterval = (callback, delay, ...args) => {
+          if (delay !== 15000 || typeof callback !== 'function') return nativeInterval(callback, delay, ...args);
+          const id = nativeInterval((...values) => {
+            window.pollTimers.push({ type: 'fire', at: Date.now(), monotonic: performance.now(), focused: document.hasFocus(), hidden: document.hidden });
+            callback(...values);
+          }, delay, ...args);
+          pollIDs.add(id); window.pollTimers.push({ type: 'start', id, at: Date.now(), monotonic: performance.now() }); return id;
+        };
+        window.clearInterval = id => {
+          if (pollIDs.delete(id)) window.pollTimers.push({ type: 'clear', id, at: Date.now(), monotonic: performance.now() });
+          nativeClear(id);
+        };
+        for (const type of ['focus', 'blur', 'pagehide', 'pageshow', 'visibilitychange'])
+          window.addEventListener(type, () => window.lifecycle.push({ type, at: Date.now(), monotonic: performance.now(), focused: document.hasFocus(), hidden: document.hidden }));
         const check = () => { if (document.querySelector('[data-motion=celebrating]')) window.sawGrowthCelebration = true; };
         new MutationObserver(check).observe(document.body, { attributes: true, childList: true, subtree: true }); check();
       }), mode.font);
-      await page.goto(base); await page.locator(`.pet-scene[data-stage=${prior}][data-motion=idle]`).waitFor();
+      await page.bringToFront(); await page.goto(base); await page.locator(`.pet-scene[data-stage=${prior}][data-motion=${sleeping ? 'sleeping' : 'idle'}]`).waitFor();
       await layout(page, '.content-home'); await page.screenshot({ path: join(artifacts, `${label}-before.png`), fullPage: true });
-      await page.locator(`.pet-scene[data-stage=${target}][data-motion=celebrating]`).waitFor({ timeout: 35000 });
-      const celebration = await page.locator('.content-home').textContent();
+      let wakeResult = null, duringSleep = null;
+      if (sleeping) {
+        await page.locator(`.pet-scene[data-stage=${target}][data-motion=sleeping]`).waitFor({ timeout: 90000 });
+        duringSleep = (await api('state')).state;
+        assert.equal(duringSleep.sleeping, true); assert(duringSleep.sleepSession.energyRecovered > 0);
+        assert(duringSleep.growth.care.rest > initial.growth.care.rest);
+        assert.deepEqual(activeCare(duringSleep), activeCare(initial));
+        assert.equal(await page.evaluate(() => window.sawGrowthCelebration), false, 'do not celebrate over sleeping');
+        assert.equal(await page.locator('.care-outcome,.care-milestone').count(), 0);
+        assert.deepEqual(writes, [], 'stage transition must not automatically wake');
+        await layout(page, '.content-home');
+        await page.screenshot({ path: join(artifacts, `${label}-saved-asleep.png`), fullPage: true });
+        wakeResult = await wake(page);
+        assert.deepEqual(immutable(wakeResult.state), immutable(duringSleep), 'waking cannot reassign the saved stage or form');
+      }
+      await page.locator(`.pet-scene[data-stage=${target}][data-motion=celebrating]`).waitFor({ timeout: 90000 });
+      // Confirmed care feedback keeps its own home card; the queued stage
+      // announcement is the separate live toast, not that historical card.
+      const celebration = await page.locator('.toast').innerText();
       assert.match(celebration, target === 'adult' ? /长大啦！成为了均衡型/ : /进入成长期/);
       await layout(page, '.content-home'); await page.screenshot({ path: join(artifacts, `${label}-during.png`), fullPage: true });
       await page.locator(`.pet-scene[data-stage=${target}][data-motion=idle]`).waitFor();
       await page.locator('.toast').waitFor({ state: 'hidden' });
       const grown = (await api('state')).state, at = target === 'adult' ? grown.growth.adultAt : grown.growth.growingAt;
-      assert.equal(grown.growth.stage, target); assert.equal(grown.careCount, 0); assert.deepEqual(grown.growth.care, state.growth.care);
+      assert.equal(grown.growth.stage, target); assert.deepEqual(activeCare(grown), activeCare(initial));
+      assert.deepEqual(grown.growth.care, (wakeResult?.state ?? state).growth.care);
       assert(at > now && at <= grown.lastTick, 'milestone must come from elapsed settlement, not the fixture timestamp');
       const memories = grown.album.entries.filter(m => m.kind === target);
       assert.deepEqual(memories, [{ kind: target, at, source: 'shared', ...(target === 'adult' ? { form: 'balanced' } : {}) }]);
@@ -132,23 +203,56 @@ try {
         assert.equal(await page.locator('.pet-scene').getAttribute('data-form'), 'balanced');
         assert.equal(grown.growth.points, 72); assert(grown.growth.formRecord); assert(grown.growth.formRecord.trackedHours > 12);
       } else { assert(grown.growth.points >= 24); assert.equal(grown.growth.form, ''); }
-      assert.equal(await page.locator('.care-outcome,.care-milestone').count(), 0, 'passive growth must not invent a care receipt');
+      if (sleeping) {
+        const outcome = await page.locator('.care-outcome').innerText();
+        assert.match(outcome, /本页上次已确认 · 起床/);
+        assert.match(outcome, /本次没有新增成长点/);
+        assert.match(outcome, /包含期间自然成长，不是起床奖励/);
+        assert.equal(await page.locator('.care-milestone').count(), 0, 'wake must not claim the earlier transition');
+        const summary = wakeResult.careFeedback.sleepSummary;
+        for (const field of ['settledHours', 'energyRecovered', 'restGain', 'growthPoints'])
+          assert(summary[field] >= duringSleep.sleepSession[field], `wake summary lost saved ${field}`);
+        await page.locator('.sleep-summary > small').scrollIntoViewIfNeeded();
+        const end = await page.locator('.sleep-summary > small').boundingBox();
+        assert(end && end.y >= -1 && end.y + end.height <= mode.height + 1, 'sleep summary end unreachable');
+        await page.screenshot({ path: join(artifacts, `${label}-wake-summary.png`), fullPage: true });
+      } else assert.equal(await page.locator('.care-outcome,.care-milestone').count(), 0, 'passive growth must not invent a care receipt');
       await layout(page, '.content-home'); await page.screenshot({ path: join(artifacts, `${label}-after.png`), fullPage: true });
       await history(page, grown, target, label);
       assert.equal(await page.evaluate(() => window.sawGrowthCelebration), true, 'observer must see the actual first celebration');
-      await page.reload(); await page.locator(`.pet-scene[data-stage=${target}][data-motion=idle]`).waitFor();
+      const timerObservations = [await page.evaluate(() => ({ phase: 'before-reload', at: Date.now(), monotonic: performance.now(), timers: window.pollTimers, lifecycle: window.lifecycle }))];
+      await page.reload(); await page.bringToFront(); await page.locator(`.pet-scene[data-stage=${target}][data-motion=idle]`).waitFor();
       assert.equal(await page.evaluate(() => window.sawGrowthCelebration), false, 'reload bootstrap replayed growth');
       // Include the next ordinary poll after reload, not only its first frame.
-      await page.waitForResponse(response => new URL(response.url()).pathname === '/api/visit', { timeout: 20000 });
+      const reloadFocus = await page.evaluate(() => ({ focused: document.hasFocus(), hidden: document.hidden }));
+      assert.deepEqual(reloadFocus, { focused: true, hidden: false }, 'ordinary polling requires a foreground focused page');
+      // Host and browser monotonic clocks can diverge during scheduling pauses.
+      // Allow 90s externally for the native 15s poll; this is persistence
+      // coverage, not a polling performance deadline or a clock simulation.
+      await page.waitForResponse(response => new URL(response.url()).pathname === '/api/visit', { timeout: 90000 }).catch(async error => {
+        console.error('POLL DIAGNOSTIC', label, JSON.stringify({ reloadFocus, reads, at: Date.now(), current: await page.evaluate(() => ({ at: Date.now(), monotonic: performance.now(), focused: document.hasFocus(), hidden: document.hidden, events: window.lifecycle, timers: window.pollTimers, text: document.body.innerText.slice(-2400) })) })); throw error;
+      });
       await wait(2600); assert.equal(await page.evaluate(() => window.sawGrowthCelebration), false);
       assert.equal(await page.locator('.care-outcome,.care-milestone').count(), 0);
       const restored = (await api('state')).state;
       assert.deepEqual(immutable(restored), immutable(grown)); assert.equal(restored.careCount, 0);
-      assert.deepEqual(restored.growth.care, state.growth.care); assert.deepEqual(writes, []); assert.deepEqual(errors, []);
-      results.push({ label, fixturePoints: state.growth.points, fixtureLastTick: now, persisted: immutable(grown), celebration, writes, errors });
+      assert.deepEqual(restored.growth.care, grown.growth.care);
+      assert.deepEqual(writes, sleeping ? [{ path: '/api/action', kind: 'sleep' }] : []); assert.deepEqual(errors, []);
+      timerObservations.push(await page.evaluate(() => ({ phase: 'after-reload', at: Date.now(), monotonic: performance.now(), timers: window.pollTimers, lifecycle: window.lifecycle })));
+      results.push({ label, timerObservations, fixturePoints: state.growth.points, fixtureLastTick: now, persisted: immutable(grown), sleeping, sleepSummary: wakeResult?.careFeedback.sleepSummary, celebration, reads, writes, errors });
+      console.log('PASS', label);
       await writeFile(join(artifacts, 'results.json'), JSON.stringify(results, null, 2));
+    } catch (error) {
+      const page = context.pages()[0];
+      if (page) {
+        console.error('CASE DIAGNOSTIC', JSON.stringify({ label, reads, writes, errors, at: Date.now(), current: await page.evaluate(() => ({ at: Date.now(), monotonic: performance.now(), focused: document.hasFocus(), hidden: document.hidden, events: window.lifecycle, timers: window.pollTimers, motion: document.querySelector('.pet-scene')?.outerHTML.slice(0, 500) })) }));
+        await page.screenshot({ path: join(artifacts, 'failure.png'), fullPage: true }).catch(() => {});
+        await writeFile(join(artifacts, 'failure.txt'), await page.locator('body').innerText()).catch(() => {});
+      }
+      throw error;
     } finally { await context.close(); }
   }
+  assert(results.length > 0, 'No matching passive growth case');
   console.log(`Passive growth: ${results.length} real-time threshold cases passed. Artifacts: ${artifacts}; temporary DB: ${dir}`);
 } finally {
   if (browser) await browser.close();
