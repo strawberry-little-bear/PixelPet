@@ -425,6 +425,7 @@ export default function App() {
   };
 
   // Explicit navigation follows the stable item/quote, never a polling revision.
+  const shopReadingEpoch = useRef(0);
   const [shopReadingDestination, setShopReadingDestination] = useState<{
     petKey: string | null; category: ShopCategory | null; section: number;
     itemId: string | null; target: "section" | "item" | "decision"; confirm: boolean;
@@ -584,6 +585,7 @@ export default function App() {
     fishingEpoch.current++;
     boardEpoch.current++;
     homeEchoEpoch.current++;
+    shopReadingEpoch.current++;
     setWalkSession(""); setTreasureSession(""); setTreasureReaction(null); setStarsReaction(null);
     setFishingSession("");
     setTetrisSession("");
@@ -823,15 +825,17 @@ export default function App() {
       audio.current?.cancel();
       recapDisplayEpoch.current++;
       homeEchoEpoch.current++;
+      shopReadingEpoch.current++;
       setHomeEcho(null);
     };
     const windowBlur = (event: Event) => {
       if (event.target !== event.currentTarget) return;
       windowActive.current = false;
       setWindowFocused(false);
+      shopReadingEpoch.current++;
       recapDisplayEpoch.current++;
-      // Visible reading timers keep their established behavior. Only presence
-      // and automatic recap presentation treat this window blur as leaving.
+      // Visible reading timers keep their established behavior. Presence,
+      // automatic recap and pending purchase positioning treat blur as leaving.
     };
     const visibility = () => {
       setForeground(!document.hidden);
@@ -1903,9 +1907,17 @@ export default function App() {
         }
         else if (key === "B" && item) {
           if (pet.sleeping) setError("让它安心睡吧，起床后再操作。");
-          else void act("buy", { item: item.id }).then(ok => {
-            if (ok) setPurchaseConfirm(null);
-          });
+          else {
+            const epoch = shopReadingEpoch.current;
+            void act("buy", { item: item.id }).then(ok => {
+              if (!ok) return;
+              setPurchaseConfirm(null);
+              // Removing the long quote can clamp document scrolling. Locate
+              // the acknowledged receipt once, unless its window was left.
+              if (epoch === shopReadingEpoch.current && !document.hidden && windowActive.current)
+                navigateShopReading(shopCategory, item.id, shopPage, "decision");
+            });
+          }
         }
       } else if (key === "A") {
         if (shopCategory) {

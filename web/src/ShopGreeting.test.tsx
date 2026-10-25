@@ -10,7 +10,7 @@ vi.mock("./api", () => ({ request: vi.fn() }));
 const api = vi.mocked(request);
 let saved: PetState, shop: Shop;
 const blocked = "钱包放不下本次 10 金币；本次未领取，腾出空间后可再领。";
-const decision = () => document.querySelector(".shop-decision")?.textContent;
+const decision = () => document.querySelector(".shop-action")?.textContent;
 const writes = () => api.mock.calls.filter(([path]) => path === "action");
 async function key(key: string) { await act(async () => { fireEvent.keyDown(window, { key }); }); }
 async function directory() {

@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { request } from "./api";
+import { RequestFailure } from "./requestFailure";
 import { emptyGrowth } from "./growth";
 import { shopSections } from "./shop";
 import type { GrowthStage, PetState, Result, Shop } from "./types";
@@ -88,7 +89,7 @@ it("does not relocate visible targets; the next explicit input can locate below 
   top = 1000; await key("c"); expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({ top: 988, behavior: "instant" });
   await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(1);
 });
-it("keeps stable item IDs and quotes on reads/reorders without moving or repeating a confirmed purchase", async () => {
+it("keeps stable item IDs across reads/reorders and locates an acknowledged purchase only once", async () => {
   await mount(); await items(); await key("b"); const count = vi.mocked(window.scrollBy).mock.calls.length;
   shop.catalog.reverse(); await refresh(); expect(document.querySelector(".shop-panel h3")?.textContent).toContain("嫩叶胸针");
   expect(window.scrollBy).toHaveBeenCalledTimes(count); expect(writes()).toHaveLength(0);
@@ -97,7 +98,8 @@ it("keeps stable item IDs and quotes on reads/reorders without moving or repeati
     return response();
   });
   await key("b"); expect(writes()).toHaveLength(1); expect(saved.economy!.coins).toBe(88);
-  await refresh(); expect(writes()).toHaveLength(1); expect(window.scrollBy).toHaveBeenCalledTimes(count);
+  expect(targets.at(-1)).toBe("decision"); expect(window.scrollBy).toHaveBeenCalledTimes(count + 1);
+  await refresh(); expect(writes()).toHaveLength(1); expect(window.scrollBy).toHaveBeenCalledTimes(count + 1);
 });
 it.each(["price", "removed", "empty", "sleeping"])("ordinary %s changes cancel/reconcile intent but never scroll", async kind => {
   await mount(); await items(); await key("b"); const count = vi.mocked(window.scrollBy).mock.calls.length;
@@ -157,4 +159,42 @@ it("explicit equipment toggles locate their feedback while later reads never rep
   await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(4); expect(writes()).toHaveLength(1);
   await key("b"); expect(targets.at(-1)).toBe("decision"); expect(window.scrollBy).toHaveBeenCalledTimes(5);
   expect(saved.economy!.coins).toBe(100); expect(writes()).toHaveLength(2);
+});
+
+it.each(["hidden", "blur", "pagehide"])("does not relocate a purchase receipt after %s interrupts its response", async interruption => {
+  await mount(); await items(); await key("b");
+  const count = vi.mocked(window.scrollBy).mock.calls.length;
+  let finish!: (r: Result) => void;
+  api.mockImplementation((path) => path === "action" ? new Promise<Result>(resolve => { finish = resolve; }) : Promise.resolve(response()));
+  await key("b"); expect(writes()).toHaveLength(1);
+  await act(async () => {
+    if (interruption === "hidden") {
+      Object.defineProperty(document, "hidden", { configurable: true, value: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      Object.defineProperty(document, "hidden", { configurable: true, value: false });
+      document.dispatchEvent(new Event("visibilitychange"));
+    } else {
+      window.dispatchEvent(new Event(interruption));
+      window.dispatchEvent(new Event(interruption === "blur" ? "focus" : "pageshow"));
+    }
+  });
+  await act(async () => {
+    saved.economy!.coins -= 12; saved.economy!.owned.push("leaf-pin"); saved.revision++;
+    finish(response());
+  });
+  expect(saved.economy!.coins).toBe(88); expect(writes()).toHaveLength(1);
+  expect(document.querySelector(".shop-panel")?.getAttribute("data-confirm")).toBe("false");
+  expect(window.scrollBy).toHaveBeenCalledTimes(count);
+  await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(count); expect(writes()).toHaveLength(1);
+  await key("a"); expect(window.scrollBy).toHaveBeenCalledTimes(count + 1);
+});
+
+it.each(["rejected", "unknown"] as const)("does not locate or replay an unacknowledged %s purchase", async outcome => {
+  await mount(); await items(); await key("b");
+  const count = vi.mocked(window.scrollBy).mock.calls.length;
+  api.mockRejectedValueOnce(new RequestFailure("Purchase not acknowledged", outcome));
+  await key("b"); expect(writes()).toHaveLength(1);
+  expect(saved.economy!.coins).toBe(100); expect(saved.economy!.owned).toEqual([]);
+  expect(window.scrollBy).toHaveBeenCalledTimes(count);
+  await refresh(); expect(writes()).toHaveLength(1); expect(window.scrollBy).toHaveBeenCalledTimes(count);
 });

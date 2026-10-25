@@ -4,12 +4,11 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isolatedTestBuilds } from './browser-test-builds.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const binary = process.env.PIXELPET_TEST_BINARY, web = process.env.PIXELPET_TEST_WEB;
-assert(binary && isAbsolute(binary) && resolve(binary) !== join(root, 'bin/pixelpet'), 'Set absolute PIXELPET_TEST_BINARY to an isolated binary');
-assert(web && isAbsolute(web) && resolve(web) !== join(root, 'web/dist'), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
+const { binary, web } = await isolatedTestBuilds({ root });
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-shop-reading-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -37,7 +36,7 @@ async function readable(page) {
     const area = el.getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), problems = [];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+      if (!text.textContent.trim() || text.parentElement.closest('.sr-only')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
@@ -56,7 +55,7 @@ async function readable(page) {
     return { id: el.closest('[data-section]').getAttribute('data-section'), text: el.textContent, lines: new Set([...range.getClientRects()].filter(r => r.width && r.height).map(r => Math.round(r.top))).size,
       clipped: el.scrollWidth > el.clientWidth + 1, font: parseFloat(getComputedStyle(el).fontSize), rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize) };
   }));
-  assert.equal(quantities.length, await page.locator('.shop-panel[data-shop-category=directory]').count() ? 7 : 0);
+  assert.equal(quantities.length, await page.locator('.shop-panel[data-shop-category=directory]').count() ? 8 : 0);
   assert(quantities.every(q => q.lines === 1 && !q.clipped && q.font >= q.rootFont * .85), `quantity split or clipped: ${JSON.stringify(quantities)}`);
   assert(quantities.every(q => (q.id === 'daily' ? /^\+\d+ 币$/ : /^\d+ 件$/).test(q.text)), 'amount units missing or swapped');
   if (quantities.length) {
@@ -83,9 +82,12 @@ try {
   // Put mobile first so the old build demonstrates the small-screen failure.
   const modes = [{ width: 320, height: 700, font: 28 }, { width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
     { width: 320, height: 700, font: 14, smoke: true }, { width: 390, height: 700, font: 14, smoke: true }];
-  const sections = ['daily', 'all', 'accessory', 'room', 'wallpaper', 'floor', 'owned'];
+  const sections = ['daily', 'all', 'seasonal', 'accessory', 'room', 'wallpaper', 'floor', 'owned'];
   const current = '.shop-sections [aria-current="true"]';
-  for (const mode of modes) for (const stage of mode.smoke ? ['baby'] : ['baby', 'growing', 'adult']) for (const kind of mode.smoke ? ['funded'] : ['funded', 'poor', 'sleeping']) {
+  const announcementsOnly = process.argv.includes('--announcements-only');
+  for (const mode of modes.filter(m => !announcementsOnly || m.width === 1200 || m.height === 380))
+  for (const stage of announcementsOnly || mode.smoke ? ['baby'] : ['baby', 'growing', 'adult'])
+  for (const kind of announcementsOnly || mode.smoke ? ['funded'] : ['funded', 'poor', 'sleeping']) {
     const at = Date.now(), age = stage === 'adult' ? 80 : stage === 'growing' ? 30 : 1;
     const fixture = (await api('import', { schema: 1, revision: 1, species: 2, name: '看清再购买',
       createdAt: at - age * 3600000, hatchedAt: at - age * 3600000, lastTick: at, sleeping: kind === 'sleeping',
@@ -106,8 +108,23 @@ try {
     async function selection(n) {
       await visible(page, current); // Never scroll in the harness before asserting the explicit-navigation target.
       assert.equal(await page.locator(current).getAttribute('data-section'), sections[n]); await readable(page);
+      const title = (await page.locator(current + ' > span').innerText()).replace(/^[▸·]\s*/, '');
+      const live = page.locator('.shop-decision');
+      assert((await live.textContent()).includes(`第 ${n + 1} / ${sections.length} 项，${title}`));
+      assert.equal(await live.getAttribute('aria-live'), 'polite'); assert.equal(await live.getAttribute('aria-atomic'), 'true');
     }
-    async function stableRead() {
+    async function announcedItem() {
+      const title = await page.locator('.shop-panel h3').evaluate(el => el.firstChild.textContent);
+      const text = await page.locator('.shop-decision').textContent();
+      assert(text.includes(title === '这里还空着呢' ? '暂无物品' : title), text);
+      assert.equal(await page.locator('.shop-decision').count(), 1);
+    }
+    async function stableRead({ shop = true } = {}) {
+      if (shop) await page.locator('.shop-decision').evaluate(el => {
+        const record = window.__shopAnnouncement = { el, text: el.textContent, mutations: 0 };
+        record.observer = new MutationObserver(records => { record.mutations += records.length; });
+        record.observer.observe(el, { subtree: true, childList: true, characterData: true });
+      });
       await page.evaluate(() => scrollBy({ top: 70, behavior: 'instant' }));
       const position = await page.evaluate(() => scrollY), focus = await focusedKey(page), count = reads;
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
@@ -115,6 +132,10 @@ try {
       assert(reads > count, 'authoritative read completed'); await wait(100);
       assert.equal(await page.evaluate(() => scrollY), position, 'ordinary sync moved reading');
       assert.equal(await focusedKey(page), focus, 'ordinary sync moved native focus');
+      if (shop) assert(await page.locator('.shop-decision').evaluate(el => {
+        const record = window.__shopAnnouncement; record.observer.disconnect();
+        return record.el === el && record.text === el.textContent && record.mutations === 0;
+      }), 'Ordinary reads must not replace or rewrite the choice announcement');
     }
     try {
       console.log('RUN', label); await page.goto(base); await page.locator('.home-caption').waitFor();
@@ -126,10 +147,10 @@ try {
       await stableRead();
       for (let n = 1; n < sections.length; n++) {
         await key(page, 'A'); await selection(n); await key(page, 'B');
-        await visible(page, '.shop-panel h3'); await readable(page);
+        await visible(page, '.shop-panel h3'); await readable(page); await announcedItem();
         const count = await page.locator('.shop-panel').getAttribute('data-shop-category'); assert.equal(count, sections[n]);
         await stableRead();
-        if (n < 6) {
+        if (sections[n] !== 'owned') {
           const first = await page.locator('.shop-panel h3').innerText();
           await page.locator('.shop-footer').scrollIntoViewIfNeeded(); await visible(page, '.shop-footer');
           await key(page, 'A'); await visible(page, '.shop-panel h3'); await readable(page);
@@ -163,7 +184,8 @@ try {
       if (kind === 'funded') {
         // Now execute an actual two-step buy and toggle equipment on this temporary save.
         await key(page, 'A'); for (let i = 0; i < 9; i++) await key(page, 'A'); await key(page, 'B');
-        await key(page, 'A'); await key(page, 'A'); await key(page, 'B'); await visible(page, '.shop-panel h3');
+        for (let i = 0; i < sections.indexOf('accessory'); i++) await key(page, 'A');
+        await key(page, 'B'); await visible(page, '.shop-panel h3');
         await key(page, 'B'); await visible(page, '.shop-decision');
         assert((await page.locator('.shop-decision').innerText()).includes('确认花 12 金币购买「嫩叶胸针」'));
         await readable(page); await page.screenshot({ path: join(dir, `quote-${label}.png`) });
@@ -172,7 +194,7 @@ try {
           const settled = page.waitForResponse(res => new URL(res.url()).pathname === '/api/action');
           await key(page, 'B'); const res = await settled; assert(res.ok(), await res.text());
           await page.waitForFunction(() => !document.querySelector('.button-b').disabled);
-          await visible(page, '.shop-decision');
+          await visible(page, '.shop-decision'); await announcedItem();
         }
         await action();
         await page.waitForFunction(() => document.querySelector('.shop-panel')?.getAttribute('data-confirm') === 'false');
@@ -185,11 +207,11 @@ try {
         assert.equal(economic.coins, 488); assert.equal(economic.equipped.accessory, '');
         assert.deepEqual(writes.map(write => write.body.kind), ['buy', 'equip', 'equip']);
         assert(writes.every(write => write.body.item === 'leaf-pin'));
-        await page.reload(); await page.locator('.home-caption').waitFor(); await stableRead();
+        await page.reload(); await page.locator('.home-caption').waitFor(); await stableRead({ shop: false });
         assert.equal(writes.length, 3, 'reload never repeats economics');
         assert.deepEqual((await api('state')).state.economy, economic);
         await key(page, 'A'); for (let i = 0; i < 9; i++) await key(page, 'A'); await key(page, 'B');
-        for (let i = 0; i < 6; i++) await key(page, 'A'); await selection(6);
+        for (let i = 0; i < sections.indexOf('owned'); i++) await key(page, 'A'); await selection(sections.indexOf('owned'));
         assert.equal(await page.locator('[data-section=owned] .shop-quantity').innerText(), '1 件');
         assert.equal(writes.length, 3, 'count reading never repeats economics');
       }

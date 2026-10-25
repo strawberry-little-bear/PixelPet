@@ -161,7 +161,7 @@ describe("three-key categorized shop previews", () => {
     p.economy!.equipped[item.slot] = item.id;
     rerender(<ShopPanel {...props} pet={p} />);
     expect(caption().textContent).toBe("使用中 · 已保存");
-    expect(screen.getByRole("status").textContent).toBe("使用中 · B 收起来");
+    expect(screen.getByRole("status").querySelector(".shop-action")?.textContent).toBe("使用中 · B 收起来");
     p.economy!.equipped[item.slot] = "";
     const before = JSON.stringify(p);
     rerender(<ShopPanel {...props} pet={p} />);
