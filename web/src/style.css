@@ -1280,6 +1280,8 @@ footer i {
   text-align: left;
   overflow-wrap: anywhere;
 }
+.screen-journal .journal-detail-part { display: block; }
+.screen-journal .journal-detail-part + .journal-detail-part { margin-top: .65em; }
 .screen-journal > span {
   font: 8px var(--mono);
 }

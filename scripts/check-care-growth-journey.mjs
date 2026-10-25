@@ -110,7 +110,7 @@ try {
   for (const width of [1200, 320]) for (const form of Object.keys(forms)) {
     const label = `${form}-${width}`;
     await seed(form);
-    const context = await browser.newContext({ viewport: { width, height: 700 }, isMobile: width === 320,
+    const context = await browser.newContext({ viewport: { width, height: width === 320 ? 380 : 700 }, isMobile: width === 320,
       hasTouch: true, reducedMotion: 'reduce', forcedColors: width === 320 ? 'active' : 'none' });
     const page = await context.newPage(), errors = [], writes = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -172,6 +172,21 @@ try {
       await choose(page, 5); await page.locator('.screen-journal').waitFor();
       for (let i = 0; i < index; i++) await key(page, 'a');
       assert.equal(readableText(await page.locator('.screen-journal > p').innerText()), readableText(entry.text));
+      // Saved text remains byte-for-byte intact; only canonical sentence
+      // boundaries gain visual spacing. Check the actual rendered paragraphs.
+      assert.equal(await page.locator('.screen-journal > p').textContent(), entry.text);
+      const parts = await page.locator('.journal-detail-part').evaluateAll(nodes => nodes.map(node => ({
+        text: node.textContent, display: getComputedStyle(node).display,
+        top: node.getBoundingClientRect().top, bottom: node.getBoundingClientRect().bottom,
+      })));
+      assert(parts.length >= 2, 'needs and learning should be separate paragraphs');
+      assert(parts[0].text.startsWith('即时需求：'));
+      assert(parts[1].text.startsWith('本次成长 '));
+      for (let i = 0; i < parts.length; i++) {
+        assert.equal(parts[i].display, 'block');
+        if (i) assert(parts[i].top > parts[i - 1].bottom, 'paragraphs should have reading space');
+      }
+      assert(parts.at(-1).text.includes('这次照顾推动进入') || parts.at(-1).text === '成年后形态不变。');
       assert.equal(await page.locator('.screen-journal > time').getAttribute('datetime'), new Date(entry.at).toISOString());
       await readable(page);
       const end = page.locator('.journal-note'); await end.scrollIntoViewIfNeeded();

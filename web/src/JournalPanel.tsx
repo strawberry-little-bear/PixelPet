@@ -3,11 +3,20 @@ import { journalView } from "./journal";
 import type { JournalCursor, JournalLogs } from "./journal";
 
 function splitDiaryText(text: string) {
+  // Only add visual breaks to saved prose; never reconstruct historical
+  // amounts, reasons or milestones from the current pet. Unknown text stays whole.
   const marker = "即时需求：";
   const splitAt = text.indexOf(marker);
-  return splitAt > 0
-    ? { primary: text.slice(0, splitAt), detail: text.slice(splitAt) }
-    : { primary: text, detail: "" };
+  if (splitAt <= 0) return { primary: text, detail: [] };
+  const detail = text.slice(splitAt), parts: string[] = [];
+  let start = 0;
+  for (const match of detail.matchAll(/。(?:本次成长 |这次照顾推动进入(?:成长|成年)期|成年后形态不变。)/gu)) {
+    const boundary = match.index + 1;
+    parts.push(detail.slice(start, boundary));
+    start = boundary;
+  }
+  parts.push(detail.slice(start));
+  return { primary: text.slice(0, splitAt), detail: parts };
 }
 
 export function JournalPanel({ logs, cursor }: { logs: JournalLogs; cursor: JournalCursor }) {
@@ -19,7 +28,12 @@ export function JournalPanel({ logs, cursor }: { logs: JournalLogs; cursor: Jour
       <time data-care-reading-start dateTime={new Date(entry.at).toISOString()}>{new Date(entry.at).toLocaleString("zh-CN", {
         year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
       })}</time>
-      <p><span className="journal-primary">{diary?.primary}</span>{diary?.detail && <small className="journal-detail">{diary.detail}</small>}</p>
+      <p>
+        <span className="journal-primary">{diary?.primary}</span>
+        {!!diary?.detail.length && <small className="journal-detail">
+          {diary.detail.map((part, index) => <span className="journal-detail-part" key={index}>{part}</span>)}
+        </small>}
+      </p>
       <span>{index + 1} / {logs?.length ?? 0}</span>
     </> : <>
       <p data-care-reading-start>还没有日记，之后的照顾和成长会慢慢记在这里。</p>
