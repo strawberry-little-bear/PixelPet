@@ -215,8 +215,8 @@ describe("quiet waiting feedback without false bites", () => {
   it.each([
     [0, fishingCompanions[3].waiting], [7999, fishingCompanions[3].waiting],
     [8000, "水纹一圈圈散开，不急着提竿。"], [15999, "水纹一圈圈散开，不急着提竿。"],
-    [16000, "风掠过水面，小伙伴还在陪你等。"], [23999, "风掠过水面，小伙伴还在陪你等。"],
-    [24000, "静静听一会儿水声，等明确的咬钩提示。"], [31999, "静静听一会儿水声，等明确的咬钩提示。"],
+    [16000, "一只水鸟从远处掠过，鱼漂还安安静静。"], [23999, "一只水鸟从远处掠过，鱼漂还安安静静。"],
+    [24000, "风掠过水面，岸边叶子轻动，远处传来一声鸟鸣。"], [31999, "风掠过水面，岸边叶子轻动，远处传来一声鸟鸣。"],
     [32000, fishingCompanions[3].waiting], [40000, "水纹一圈圈散开，不急着提竿。"],
   ])("shows an unhurried note at %i confirmed milliseconds", (elapsedMs, note) => {
     const pet = fixture(); Object.assign(pet.game!.fishing!, { phase: "wait", casts: 1, waitMs: 40000, elapsedMs });
@@ -265,10 +265,10 @@ describe("quiet waiting feedback without false bites", () => {
     const before = structuredClone(pet);
     const { rerender } = render(<FishingGame pet={pet} active={true} choice={0} />);
     await clock(60000);
-    expect(document.querySelector('.fishing-wait-note')?.textContent).toBe('风掠过水面，小伙伴还在陪你等。');
+    expect(document.querySelector('.fishing-wait-note')?.textContent).toBe('一只水鸟从远处掠过，鱼漂还安安静静。');
     pet.game!.fishing!.candidate = 'sun-carp'; pet.game!.fishing!.waitMs = 32000;
     rerender(<FishingGame pet={pet} active={true} choice={0} />);
-    expect(document.querySelector('.fishing-wait-note')?.textContent).toBe('风掠过水面，小伙伴还在陪你等。');
+    expect(document.querySelector('.fishing-wait-note')?.textContent).toBe('一只水鸟从远处掠过，鱼漂还安安静静。');
     pet.game!.fishing!.candidate = before.game!.fishing!.candidate; pet.game!.fishing!.waitMs = before.game!.fishing!.waitMs;
     expect(pet).toEqual(before); expect(api).not.toHaveBeenCalled();
     expect(document.querySelectorAll('.fishing-game button,.fishing-game a,.fishing-game input')).toHaveLength(0);

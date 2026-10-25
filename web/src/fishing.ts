@@ -32,9 +32,10 @@ export const fishingCompanions = [
 ] as const;
 
 // Visual flavor only: cycle on confirmed elapsed time, not waitMs/candidate.
+// The concrete events make a long wait feel inhabited without implying a bite.
 // No urgency, bite prediction, resource effects or independent timers.
 export const fishingWaitNotes = [
   "水纹一圈圈散开，不急着提竿。",
-  "风掠过水面，小伙伴还在陪你等。",
-  "静静听一会儿水声，等明确的咬钩提示。",
+  "一只水鸟从远处掠过，鱼漂还安安静静。",
+  "风掠过水面，岸边叶子轻动，远处传来一声鸟鸣。",
 ] as const;
