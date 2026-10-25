@@ -2971,3 +2971,11 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 新浏览器断言初轮把包含价格的商品标题当作纯名称，随后又遇到购买后标题附带「已拥有」；改为只读取标题名称文本节点后完整重跑通过，未据此修改产品或上报功能 Bug。
 - 既有商店阅读脚本在新目录下 **29/29 组通过**，覆盖三阶段 × 有币／无币／睡眠 × 桌面／320px 双倍根字号／窄短屏，另含 320px、390px 常规字号烟雾回归；文字边界、单行数量、滚动、同步和购买／收起／刷新边界保持可用。新目录截图已核对，自动化视口不代替实体手机或真人读屏验收。
 - 报告：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-shop-preview-QmCjGb/results.json`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-shop-reading-BYptVI/results.json`；独立构建：`/tmp/pixelpet-seasonal-room-build-NtPsRy/`；日志：`/tmp/pixelpet-seasonal-room-{tests,build,go-tests,vet,browser,reading}.log`。测试进程均已退出，未访问、重启或部署玩家服务、数据库及共享构建；持续迭代目标保留。
+
+## 2026-10-25 · 在布置好的小窝里陪伴
+
+- 上一批 `3f6be92` 的 GitHub CI 已成功。本批把存档里正在使用的墙纸、地板和摆件接入「陪它一会儿」，让商店布置 → 小窝 → 陪伴的场景保持连贯；已拥有但未使用的物品不会自动出现。背景与宠物回应分层，按 B 时摆件保持原位，宠物继续保留配饰、成长造型和睡眠姿态。另一页面换装／收起后普通同步更新布置，不重播回应、不替换阅读区或移动焦点。旧档缺少装扮时保留简洁背景。
+- 沿用 A/B/C 和现有摸摸、发呆、闲聊及睡眠陪伴，不新增 LCD 控件、玩法入口、写请求、奖励、成长规则或存档字段。这是场景连续性的体验改进，没有将试玩建议认定为新功能 Bug。说明已更新到 `docs/COMPANION.md` 与 `docs/DEVELOPMENT.md`。
+- 相关前端 **9 文件／160 项通过**，含新增的保存布置与首页对应、未装备物品不显示、背景不进入回应节点、换装／收起同步不替换宠物与阅读焦点、显式新回应仍能重播及旧档无装扮；既有成长形态、反应、回忆和阅读定位回归保留。TypeScript、独立 Vite／Go 构建、Go 全量单测与 vet、脚本语法、差异空白检查及浏览器隔离保护 **128 项通过**。本批未跑前端全量，后端未修改，未重复全量 race。
+- 隔离真实 Chrome／HTTP／临时 SQLite：新增布置专项 **4/4 模式通过**；随后完整陪伴脚本 **30/30 组通过**，包含这四组及既有三阶段、配饰、回忆翻阅、重复回应、工具弹窗／断线、普通同步、刷新和睡眠。新增组覆盖桌面、320px 常规字号、320×380 双倍根字号、减少动态与强制颜色；直接观察真实 CSS 动画与房间几何，核对另一客户端真实换装／收起、无额外操作写请求、睡眠保持及三键约束。库存、年龄及历史背景明确使用构造夹具，视口由浏览器模拟，不代替自然多日游玩、实体手机或真人读屏验收；已目视核对保存布置、地毯、强制颜色睡眠和窄屏整页截图。
+- 报告：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-quiet-memory-e4AxWQ/results.json`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-quiet-memory-hPQVUE/results.json`；独立构建：`/tmp/pixelpet-quiet-room-build-lluqvedk/`；日志：`/tmp/pixelpet-quiet-room-{tests,build,browser,regression,go,vet,isolation}.log`。测试进程已退出；未访问、重启或部署玩家服务、玩家数据库或共享构建。持续迭代目标保留。

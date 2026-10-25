@@ -2,7 +2,11 @@
 .quiet-moment { min-height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 2px 8px 10px; }
 .quiet-moment > header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding-bottom: 5px; border-bottom: 1px dashed currentColor; font-size: 9px; }
 .quiet-moment > header small { font: 8px var(--mono); opacity: .7; }
-.quiet-moment-pet { height: 112px; flex: 0 0 112px; width: 130px; position: relative; margin: 8px 0 5px; }
+/* Room layers stay still when the keyed pet plays a new one-shot reply. */
+.quiet-moment-scene { width: 100%; max-width: 260px; height: 130px; flex: 0 0 130px; position: relative; display: grid; place-items: center; margin: 8px 0 5px; }
+.quiet-moment-room { position: absolute; inset: 0; pointer-events: none; }
+.quiet-moment-floor { position: absolute; bottom: 1px; width: 100%; height: 18px; border-top: 1px dashed currentColor; opacity: .2; }
+.quiet-moment-pet { height: 112px; width: 130px; position: relative; }
 .quiet-moment-pet .pet-sprite { position: absolute; width: 100%; height: 100%; left: 0; top: 0; }
 .quiet-moment-copy { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 260px; }
 .quiet-growth-label { margin-bottom: 5px; font-size: .625rem; line-height: 1.5; }

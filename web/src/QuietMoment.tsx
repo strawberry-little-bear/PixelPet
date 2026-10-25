@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { FishArt } from "./FishingGame";
 import { ParkArt } from "./WalkingGame";
 import { GameKeepsakeArt } from "./GameKeepsakeArt";
+import { RoomDecoration, RoomSurfaceArt } from "./EquipmentArt";
 import { CareReadingRegion } from "./CareReadingRegion";
 import { quietMemories } from "./quiet-memory";
 import { interestCue } from "./companion";
@@ -101,16 +102,24 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
       <header><span>{browsing ? "一起聊聊回忆" : "不用完成什么"}</span><small>{choice + 1} / {quietMoments.length}</small></header>
-      <QuietReactionPet key={`${responseId}:${choice}:${replied}`} growth={growth} choice={choice} sleeping={pet.sleeping}>
-        <div className={`growth-size ${petRigClass(pet.species, stage)}`}>
-          <PetArt index={pet.species} stage={stage}
-            expression={pet.sleeping ? "asleep" : replied ? moment.expression : "awake"}
-            motion={pet.sleeping ? "sleeping" : "idle"}
-            accessory={pet.economy?.equipped.accessory} />
-          {growth && stage !== "egg" && !pet.economy?.equipped.accessory && <GrowthOutfit stage={stage} form={form} />}
+      <div className="quiet-moment-scene">
+        <div className="quiet-moment-room" aria-hidden="true">
+          <RoomSurfaceArt id={pet.economy?.equipped.wallpaper} />
+          <div className="quiet-moment-floor" />
+          <RoomSurfaceArt id={pet.economy?.equipped.floor} />
+          <RoomDecoration id={pet.economy?.equipped.room} />
         </div>
-        {stage === "adult" && <FormEmblem form={form} />}
-      </QuietReactionPet>
+        <QuietReactionPet key={`${responseId}:${choice}:${replied}`} growth={growth} choice={choice} sleeping={pet.sleeping}>
+          <div className={`growth-size ${petRigClass(pet.species, stage)}`}>
+            <PetArt index={pet.species} stage={stage}
+              expression={pet.sleeping ? "asleep" : replied ? moment.expression : "awake"}
+              motion={pet.sleeping ? "sleeping" : "idle"}
+              accessory={pet.economy?.equipped.accessory} />
+            {growth && stage !== "egg" && !pet.economy?.equipped.accessory && <GrowthOutfit stage={stage} form={form} />}
+          </div>
+          {stage === "adult" && <FormEmblem form={form} />}
+        </QuietReactionPet>
+      </div>
       <div className="quiet-moment-copy">
         {growth && <small className="quiet-growth-label">{stageNames[stage]}{stage === "adult" && form ? ` · ${formNames[form]}` : ""}</small>}
         <strong>{words.title}</strong>

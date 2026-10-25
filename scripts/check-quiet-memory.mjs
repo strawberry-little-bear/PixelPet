@@ -318,6 +318,94 @@ try {
       } finally { await context.close(); }
     }
   }
+  // Inventory is a constructed fixture; equipment changes below use real HTTP.
+  if (process.argv.includes('--room-only') || !process.argv.some(arg => arg.endsWith('-only'))) for (const mode of [
+    { label: 'desktop', width: 1200, height: 700, font: 14 },
+    { label: 'phone', width: 320, height: 700, font: 14 },
+    { label: 'large', width: 320, height: 380, font: 28 },
+    { label: 'large-still-forced', width: 320, height: 380, font: 28, reduced: true },
+  ]) {
+    const at = Date.now();
+    const fixture = (await api('import', { schema: 1, revision: 1, species: 2, name: '小窝陪伴伙伴',
+      createdAt: at - 3600000, hatchedAt: at - 3600000, lastTick: at, sleeping: false,
+      needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] })).state;
+    const gear = { accessory: 'leaf-pin', room: 'spring-vase', wallpaper: 'autumn-wall', floor: 'winter-floor' };
+    fixture.economy.owned = [...Object.values(gear), 'patchwork-rug', 'summer-shell'];
+    fixture.economy.equipped = gear;
+    const before = (await api('import', fixture)).state;
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
+      reducedMotion: mode.reduced ? 'reduce' : 'no-preference', forcedColors: mode.reduced ? 'active' : 'none' });
+    const page = await context.newPage(), writes = [], errors = [], label = `room-${mode.label}`;
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', request => {
+      if (request.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(request.url()).pathname)) writes.push(request.url());
+    });
+    await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.fontSize = `${font}px`;
+    }), mode.font);
+    const scene = page.locator('.quiet-moment-scene'), art = page.locator('.quiet-moment-pet');
+    const assertGear = async expected => {
+      for (const id of Object.values(expected).filter(Boolean)) assert.equal(await scene.locator(`[data-item="${id}"]`).count(), 1, id);
+      assert.equal(await scene.locator('[data-item]').count(), Object.values(expected).filter(Boolean).length);
+    };
+    const sync = async () => {
+      const read = page.waitForResponse(r => /\/api\/(state|visit)$/.test(new URL(r.url()).pathname));
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); assert((await read).ok());
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    };
+    const staticRoom = () => scene.evaluate(el => {
+      const origin = el.getBoundingClientRect();
+      return [...el.querySelectorAll('.quiet-moment-room [data-item]')].map(item => {
+        const box = item.getBoundingClientRect();
+        return { id: item.dataset.item, x: box.x - origin.x, y: box.y - origin.y, width: box.width, height: box.height,
+          transform: getComputedStyle(item).transform, animations: item.getAnimations().length };
+      });
+    });
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor();
+      for (const id of Object.values(gear)) assert.equal(await page.locator(`.content-home [data-item="${id}"]`).count(), 1);
+      await open(page); await assertGear(gear); await scene.scrollIntoViewIfNeeded();
+      await scene.screenshot({ path: join(dir, `${label}-saved-room.png`) });
+      const roomBefore = await staticRoom();
+      for (const item of roomBefore) {
+        assert.equal(item.transform, 'none'); assert.equal(item.animations, 0);
+        assert(item.x >= -1 && item.x + item.width <= (await scene.boundingBox()).width + 1, JSON.stringify(item));
+      }
+      await physical(page, 'b');
+      if (mode.reduced) assert.equal(await art.evaluate(el => el.getAnimations().length), 0);
+      else {
+        await art.evaluate(el => { const motion = el.getAnimations()[0]; motion.pause(); motion.currentTime = 400; });
+        assert.notEqual(await art.evaluate(el => getComputedStyle(el).transform), 'none');
+      }
+      assert.deepEqual(await staticRoom(), roomBefore, 'Only the pet moves when B responds');
+      await art.evaluate(el => { window.__roomPet = el; window.__roomReply = el.getAnimations()[0]; window.__roomReply?.finish(); });
+      const after = (await api('state')).state;
+      for (const field of ['economy', 'album', 'careCount', 'companion']) assert.deepEqual(after[field], before[field]);
+      assert.deepEqual(after.growth.care, before.growth.care);
+      // A separate client equips and removes furniture; ordinary save sync must not replay B.
+      for (const item of ['patchwork-rug', 'summer-shell', 'summer-shell', 'autumn-wall', 'winter-floor']) {
+        await api('action', { kind: 'equip', item }); await sync();
+        const saved = (await api('state')).state; await assertGear(saved.economy.equipped);
+        assert(await art.evaluate(el => el === window.__roomPet && el.getAnimations()[0] === window.__roomReply
+          && (!window.__roomReply || window.__roomReply.playState === 'finished')));
+        if (item === 'patchwork-rug') await scene.screenshot({ path: join(dir, `${label}-rug.png`) });
+      }
+      await page.reload(); await page.locator('.home-caption').waitFor(); await open(page);
+      await assertGear((await api('state')).state.economy.equipped);
+      assert.equal(await art.evaluate(el => el.getAnimations().length), 0, 'Refresh does not repeat a reply');
+      await api('action', { kind: 'equip', item: 'summer-shell' });
+      await api('action', { kind: 'sleep' }); await sync(); await physical(page, 'b');
+      await assertGear((await api('state')).state.economy.equipped);
+      assert.equal(await page.locator('.quiet-moment .expression-asleep').count(), 1);
+      assert.equal(await art.evaluate(el => el.getAnimations().length), 0);
+      assert.equal((await api('state')).state.sleeping, true);
+      await readable(page); await scene.screenshot({ path: join(dir, `${label}-sleep.png`) });
+      await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
+      assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+      results.push({ label, fixtureInventory: true, staticRoom: roomBefore, syncRemoval: true, refresh: true, sleeping: true, writes, errors });
+      console.log('PASS', label);
+    } finally { await context.close(); }
+  }
   // Controlled ages/care/form fixtures exercise presentation, not natural aging.
   if (process.argv.includes('--reactions-only')) for (const fixture of [
     { label: 'baby', age: 1, reaction: 'peek' },
@@ -419,7 +507,7 @@ try {
   }
   // Mock only the browser's wall clock. The service and temporary save keep real
   // time, so these checks prove presentation boundaries, not seasonal waiting.
-  if (!process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--interest-only')) for (const species of [3, 4]) for (const mode of [
+  if (!process.argv.includes('--room-only') && !process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--interest-only')) for (const species of [3, 4]) for (const mode of [
     { width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
   ]) {
     const at = Date.now();
@@ -473,7 +561,7 @@ try {
     } finally { await context.close(); }
   }
   // Controlled save fixtures verify rendering; these are not natural growth journeys.
-  if (!process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const fixture of [
+  if (!process.argv.includes('--room-only') && !process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const fixture of [
     { stage: 'baby', species: 2, age: 1 },
     { stage: 'growing', species: 3, age: 30 },
     { stage: 'adult', species: 9, age: 80 },
@@ -614,7 +702,7 @@ try {
   }
   // Controlled ownership only supplies fixture inventory. Actual equip/remove
   // requests create all four shared memories through the real service.
-  if (!process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const mode of [
+  if (!process.argv.includes('--room-only') && !process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const mode of [
     { label: 'items-desktop', width: 1200, height: 700, font: 14 },
     { label: 'items-phone-large', width: 320, height: 380, font: 28 },
   ]) {
@@ -674,7 +762,7 @@ try {
   }
   // Imported familiarity is a controlled rendering fixture, not a claim that
   // these games were naturally played twice with a 30-minute interval.
-  if (!process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
+  if (!process.argv.includes('--room-only') && !process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
     { species: 4, kind: 'snake', part: '菌盖', absent: /尾巴/ },
     { species: 6, kind: 'snake', part: '身子', absent: /尾巴/ },
     { species: 3, kind: 'walk', part: '浅水道', absent: /慢慢走走/ },

@@ -173,3 +173,53 @@ it("keeps waiting company consistent with the night atmosphere", () => {
   expect(document.querySelector(".quiet-atmosphere")?.textContent).toContain("深夜");
   expect(document.querySelector(".quiet-moment-copy > p")?.textContent).not.toContain("阳光");
 });
+
+it("uses the saved room in company while keeping furnishings outside the reacting pet", () => {
+  const saved = pet();
+  saved.economy = { coins: 0, lastDailyAt: 0, lastGameAt: 0, gameCoins: 0,
+    owned: ["leaf-pin", "spring-vase", "summer-shell", "autumn-wall", "winter-floor"],
+    equipped: { accessory: "leaf-pin", room: "spring-vase", wallpaper: "autumn-wall", floor: "winter-floor" } };
+  const before = structuredClone(saved), { home, quiet } = mountBoth(saved);
+  const room = quiet.querySelector('.quiet-moment-room')!;
+  expect([...room.querySelectorAll('[data-item]')].map(node => node.getAttribute('data-item')))
+    .toEqual(["autumn-wall", "winter-floor", "spring-vase"]);
+  for (const id of Object.values(saved.economy.equipped)) {
+    expect(home.querySelectorAll(`[data-item="${id}"]`)).toHaveLength(1);
+    expect(quiet.querySelectorAll(`[data-item="${id}"]`)).toHaveLength(1);
+  }
+  expect(room.closest('.quiet-moment-pet')).toBeNull();
+  expect(room.getAttribute('aria-hidden')).toBe('true');
+  expect(quiet.querySelector('[data-item="summer-shell"]')).toBeNull();
+  expect(quiet.querySelector('button,a,input,[role=button]')).toBeNull();
+  expect(saved).toEqual(before);
+});
+
+it("syncs furnishings and removal without replacing the response or reading region", () => {
+  const saved = pet();
+  saved.economy = { coins: 0, lastDailyAt: 0, lastGameAt: 0, gameCoins: 0,
+    owned: ["spring-vase", "patchwork-rug", "meadow-wall"],
+    equipped: { accessory: "", room: "spring-vase", wallpaper: "meadow-wall" } };
+  const { container, rerender } = render(<QuietMoment pet={saved} choice={1} replied responseId={1} />);
+  const actor = container.querySelector('.quiet-moment-pet'), room = container.querySelector('.quiet-moment-room');
+  const reading = screen.getByRole('region', { name: '无目的互动阅读区' }); reading.focus();
+  for (const equipped of [
+    { accessory: "", room: "patchwork-rug", wallpaper: "meadow-wall" },
+    { accessory: "", room: "", wallpaper: "" },
+  ]) {
+    rerender(<QuietMoment pet={{ ...saved, economy: { ...saved.economy, equipped } }} choice={1} replied responseId={1} />);
+    expect(container.querySelector('.quiet-moment-pet')).toBe(actor);
+    expect(container.querySelector('.quiet-moment-room')).toBe(room);
+    expect(screen.getByRole('region', { name: '无目的互动阅读区' })).toBe(reading);
+    expect(document.activeElement).toBe(reading);
+    expect(room?.querySelectorAll('[data-item]')).toHaveLength(equipped.room ? 2 : 0);
+  }
+  rerender(<QuietMoment pet={saved} choice={1} replied responseId={2} />);
+  expect(container.querySelector('.quiet-moment-pet')).not.toBe(actor);
+  expect(container.querySelector('.quiet-moment-room')).toBe(room);
+});
+
+it("does not invent furnishings for an old save without economy", () => {
+  const { container } = render(<QuietMoment pet={pet()} choice={0} replied={false} />);
+  expect(container.querySelector('.quiet-moment-room [data-item]')).toBeNull();
+  expect(container.querySelector('.quiet-moment-pet .growth-outfit')).not.toBeNull();
+});
