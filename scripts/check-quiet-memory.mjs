@@ -86,33 +86,33 @@ async function repeatedResponses(page, reduced) {
       continue;
     }
     await page.locator('.quiet-moment-pet').evaluate(async el => {
-      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      const motion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
       if (!motion || motion.playState !== 'running') throw new Error('An explicit reply must visibly respond');
       window.__quietReplyMotion = motion;
       await motion.finished;
     });
     await physical(page, 'b');
     assert(await page.locator('.quiet-moment-pet').evaluate(el => {
-      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      const motion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
       return motion && motion !== window.__quietReplyMotion && motion.playState === 'running';
     }), `${title}: B must respond again after the first animation finishes`);
     await page.locator('.quiet-moment-pet').evaluate(el => {
-      window.__quietReplyMotion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      window.__quietReplyMotion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
     });
     await page.keyboard.press('b');
     assert(await page.locator('.quiet-moment-pet').evaluate(el => {
-      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      const motion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
       return motion && motion !== window.__quietReplyMotion && motion.playState === 'running';
     }), `${title}: a new B press must replace, rather than queue, the current response`);
     await page.locator('.quiet-moment-pet').evaluate(async el => {
-      window.__quietReplyMotion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      window.__quietReplyMotion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
       await window.__quietReplyMotion.finished;
     });
     const polled = page.waitForResponse(response => /\/api\/(state|visit)$/.test(response.url()));
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await polled;
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
     assert(await page.locator('.quiet-moment-pet').evaluate(el => {
-      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      const motion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
       return motion === window.__quietReplyMotion && motion.playState === 'finished';
     }), 'A state read must not replay the completed response');
   }
@@ -133,7 +133,7 @@ async function interruptedResponses(page, reduced, label) {
       'Each explicit B, including after tool closure, must advance the real memory');
     await panel.evaluate(el => { window.__quietInterruptedRegion = el; });
     await page.locator('.quiet-moment-pet').evaluate(async (el, reduced) => {
-      window.__quietInterruptedMotion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      window.__quietInterruptedMotion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
       if (reduced ? window.__quietInterruptedMotion : window.__quietInterruptedMotion?.playState !== 'running')
         throw new Error('An explicit B after an interruption must respect the motion preference');
       if (window.__quietInterruptedMotion) await window.__quietInterruptedMotion.finished;
@@ -151,7 +151,7 @@ async function interruptedResponses(page, reduced, label) {
     assert.equal(await page.evaluate(() => window.__quietScrollCalls), reply.scrollCalls,
       'Closing a tool must not replay the old reply location');
     assert(await page.locator('.quiet-moment-pet').evaluate((el, reduced) => {
-      const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+      const motion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
       return reduced ? !motion : motion === window.__quietInterruptedMotion && motion.playState === 'finished';
     }, reduced), 'Closing a tool must not replay a completed animation');
   }
@@ -198,7 +198,7 @@ async function interruptedResponses(page, reduced, label) {
   assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'true');
   assert.equal(await page.locator('.quiet-memory-source').count(), 1);
   assert(await page.locator('.quiet-moment-pet').evaluate((el, reduced) => {
-    const motion = el.getAnimations().find(a => a.animationName === 'quiet-moment-breathe');
+    const motion = el.getAnimations().find(a => a.animationName.startsWith('quiet-moment-'));
     return reduced ? !motion : motion?.playState === 'running';
   }, reduced), 'Only the next explicit B starts a new response');
   await page.screenshot({ path: join(dir, `${label}-reconnected.png`), fullPage: true });
@@ -241,9 +241,108 @@ try {
     await wait(100);
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
+  // Controlled ages/care/form fixtures exercise presentation, not natural aging.
+  if (process.argv.includes('--reactions-only')) for (const fixture of [
+    { label: 'baby', age: 1, reaction: 'peek' },
+    { label: 'growing-empty', age: 30, reaction: 'breathe' },
+    { label: 'growing-lively', age: 30, reaction: 'lively', play: 2 },
+    { label: 'growing-gentle', age: 30, reaction: 'gentle', clean: 4 },
+    { label: 'growing-easygoing', age: 30, reaction: 'easygoing', hours: 12, wellbeing: 1 },
+    ...['balanced', 'lively', 'gentle', 'easygoing'].map(form => ({
+      label: `adult-${form}`, age: 80, reaction: form === 'balanced' ? 'breathe' : form,
+      form, play: form === 'lively' ? 0 : 20, clean: form === 'lively' ? 20 : 0,
+    })),
+  ]) for (const mode of [
+    { width: 1200, height: 700, font: 14, reduced: false },
+    ...(fixture.label === 'baby' || fixture.label === 'adult-easygoing' ? [
+      { width: 320, height: 380, font: 28, reduced: false },
+      { width: 320, height: 380, font: 28, reduced: true },
+    ] : []),
+  ]) {
+    const at = Date.now(), born = at - fixture.age * 3600000;
+    const seeded = (await api('import', { schema: 1, revision: 1, species: fixture.label === 'baby' ? 4 : 3,
+      name: '动作测试伙伴', createdAt: born, hatchedAt: born, lastTick: at, sleeping: false,
+      needs: { hunger: 70, mood: 80, clean: 70, energy: 80 }, careCount: 0, logs: [] })).state;
+    seeded.growth.care.play = fixture.play ?? 0; seeded.growth.care.clean = fixture.clean ?? 0;
+    seeded.growth.trackedHours = fixture.hours ?? 0; seeded.growth.wellbeing = fixture.wellbeing ?? 0;
+    if (fixture.form) {
+      seeded.growth.form = fixture.form;
+      seeded.album.entries.find(entry => entry.kind === 'adult').form = fixture.form;
+    }
+    const before = (await api('import', seeded)).state;
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true,
+      reducedMotion: mode.reduced ? 'reduce' : 'no-preference', forcedColors: mode.reduced ? 'active' : 'none' });
+    const page = await context.newPage(), writes = [], errors = [], samples = [];
+    const label = `reaction-${fixture.label}-${mode.width}-${mode.reduced ? 'still' : 'motion'}`;
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', request => {
+      if (request.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(request.url()).pathname)) writes.push(request.url());
+    });
+    await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.fontSize = `${font}px`;
+    }), mode.font);
+    const art = page.locator('.quiet-moment-pet');
+    const sync = async () => {
+      const read = page.waitForResponse(r => /\/api\/(state|visit)$/.test(new URL(r.url()).pathname));
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      assert((await read).ok());
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    };
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor(); await open(page);
+      await physical(page, 'a'); await physical(page, 'a');
+      assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), '陪它发呆');
+      assert.equal(await art.evaluate(el => el.getAnimations().length), 0, 'Selecting an option is not a reply');
+      await physical(page, 'b');
+      assert.equal(await art.getAttribute('data-reaction'), fixture.reaction);
+      if (mode.reduced) {
+        assert.equal(await art.evaluate(el => el.getAnimations().length), 0, 'Reduced motion keeps all reactions still');
+        await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
+      } else {
+        assert.equal(await art.evaluate(el => el.getAnimations()[0]?.animationName), `quiet-moment-${fixture.reaction}`);
+        await art.scrollIntoViewIfNeeded();
+        for (const progress of [0, .25, .5, .7, 1]) {
+          const sample = await art.evaluate(async (el, progress) => {
+            const motion = el.getAnimations()[0]; motion.pause();
+            motion.currentTime = motion.effect.getTiming().duration * progress;
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const box = el.getBoundingClientRect(), clip = el.closest('.quiet-moment-reading').getBoundingClientRect();
+            return { progress, transform: getComputedStyle(el).transform,
+              box: { x: box.x, y: box.y, width: box.width, height: box.height },
+              fitsHorizontally: box.left >= clip.left - 1 && box.right <= clip.right + 1 };
+          }, progress);
+          assert(sample.fitsHorizontally, JSON.stringify(sample)); samples.push(sample);
+          if (progress === .5) await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
+        }
+        assert(new Set(samples.map(sample => sample.transform)).size >= 3, 'The response must actually move, then settle');
+        await art.evaluate(el => { window.__growthReplyNode = el; window.__growthReplyMotion = el.getAnimations()[0]; window.__growthReplyMotion.finish(); });
+        await sync();
+        assert(await art.evaluate(el => el === window.__growthReplyNode && el.getAnimations()[0] === window.__growthReplyMotion
+          && el.getAnimations()[0].playState === 'finished'), 'Ordinary reads must not replay the completed reaction');
+        await physical(page, 'b');
+        assert(await art.evaluate(el => el !== window.__growthReplyNode && el.getAnimations()[0] !== window.__growthReplyMotion
+          && el.getAnimations()[0].playState === 'running'), 'A fresh B starts a new one-shot reply');
+      }
+      await readable(page);
+      const after = (await api('state')).state;
+      assert.deepEqual(after.growth.care, before.growth.care);
+      assert.equal(after.growth.form, before.growth.form);
+      assert.deepEqual(after.economy, before.economy); assert.deepEqual(after.companion, before.companion);
+      await api('action', { kind: 'sleep' }); await sync();
+      await page.waitForFunction(() => document.querySelector('.quiet-moment')?.dataset.sleeping === 'true');
+      await physical(page, 'b');
+      assert.equal(await art.evaluate(el => el.getAnimations().length), 0, 'Sleeping company must not play an awake response');
+      assert.equal((await api('state')).state.sleeping, true);
+      await page.reload(); await page.locator('.home-caption').waitFor(); await open(page);
+      assert.equal(await art.evaluate(el => el.getAnimations().length), 0, 'Reload must not replay a previous B');
+      assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+      results.push({ label, fixtureAgeCare: true, reaction: fixture.reaction, samples, sleeping: true, writes, errors });
+      console.log('PASS', label);
+    } finally { await context.close(); }
+  }
   // Mock only the browser's wall clock. The service and temporary save keep real
   // time, so these checks prove presentation boundaries, not seasonal waiting.
-  if (!process.argv.includes('--items-only') && !process.argv.includes('--interest-only')) for (const species of [3, 4]) for (const mode of [
+  if (!process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--interest-only')) for (const species of [3, 4]) for (const mode of [
     { width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
   ]) {
     const at = Date.now();
@@ -297,7 +396,7 @@ try {
     } finally { await context.close(); }
   }
   // Controlled save fixtures verify rendering; these are not natural growth journeys.
-  if (!process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const fixture of [
+  if (!process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const fixture of [
     { stage: 'baby', species: 2, age: 1 },
     { stage: 'growing', species: 3, age: 30 },
     { stage: 'adult', species: 9, age: 80 },
@@ -437,7 +536,7 @@ try {
   }
   // Controlled ownership only supplies fixture inventory. Actual equip/remove
   // requests create all four shared memories through the real service.
-  if (!process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const mode of [
+  if (!process.argv.includes('--reactions-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const mode of [
     { label: 'items-desktop', width: 1200, height: 700, font: 14 },
     { label: 'items-phone-large', width: 320, height: 380, font: 28 },
   ]) {
@@ -495,7 +594,7 @@ try {
   }
   // Imported familiarity is a controlled rendering fixture, not a claim that
   // these games were naturally played twice with a 30-minute interval.
-  if (!process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
+  if (!process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
     { species: 4, kind: 'snake', part: '菌盖', absent: /尾巴/ },
     { species: 6, kind: 'snake', part: '身子', absent: /尾巴/ },
     { species: 3, kind: 'walk', part: '浅水道', absent: /慢慢走走/ },

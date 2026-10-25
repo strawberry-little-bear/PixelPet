@@ -17,9 +17,37 @@
 .quiet-interest span { margin-right: 4px; font-family: var(--mono); opacity: .72; }
 .quiet-memory-source { max-width: 260px; margin: 3px 0; font-size: .625rem; line-height: 1.6; overflow-wrap: anywhere; }
 .quiet-moment-note { max-width: 260px; margin-top: 3px; font-size: 8px; line-height: 1.5; opacity: .75; }
-.quiet-moment[data-replied="true"]:not([data-sleeping="true"]) .quiet-moment-pet { animation: quiet-moment-breathe 900ms ease both; }
-@keyframes quiet-moment-breathe { 0% { transform: translateY(2px) scale(.98); } 55% { transform: translateY(-2px) scale(1.02); } 100% { transform: translateY(0) scale(1); } }
-@media (prefers-reduced-motion: reduce) { .quiet-moment[data-replied="true"]:not([data-sleeping="true"]) .quiet-moment-pet { animation: none; } }
+.quiet-moment[data-replied="true"]:not([data-sleeping="true"]) .quiet-moment-pet {
+  animation: var(--quiet-reaction, quiet-moment-breathe) var(--quiet-duration, 900ms) ease both;
+  transform-origin: 50% 85%;
+}
+.quiet-moment-pet[data-reaction="peek"] { --quiet-reaction: quiet-moment-peek; --quiet-duration: 1100ms; }
+.quiet-moment-pet[data-reaction="lively"] { --quiet-reaction: quiet-moment-lively; --quiet-duration: 1000ms; }
+.quiet-moment-pet[data-reaction="gentle"] { --quiet-reaction: quiet-moment-gentle; --quiet-duration: 1300ms; }
+.quiet-moment-pet[data-reaction="easygoing"] { --quiet-reaction: quiet-moment-easygoing; --quiet-duration: 1500ms; }
+@keyframes quiet-moment-breathe { 0% { transform: translateY(2px) scale(.98); } 55% { transform: translateY(-2px) scale(1.02); } 100% { transform: none; } }
+@keyframes quiet-moment-peek {
+  0%, 100% { transform: none; }
+  40% { transform: translateX(3px) rotate(3deg); }
+  70% { transform: translateX(1px) rotate(-1deg); }
+}
+@keyframes quiet-moment-lively {
+  0%, 45%, 100% { transform: none; }
+  25% { transform: translateY(-6px) rotate(-2deg); }
+  70% { transform: translateY(-3px) rotate(1deg); }
+}
+@keyframes quiet-moment-gentle {
+  0%, 100% { transform: none; }
+  50% { transform: translateX(2px) translateY(1px) rotate(2deg); }
+}
+@keyframes quiet-moment-easygoing {
+  0%, 100% { transform: none; }
+  30% { transform: translateX(-3px) rotate(-2deg); }
+  70% { transform: translateX(3px) rotate(2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiet-moment[data-replied="true"]:not([data-sleeping="true"]) .quiet-moment-pet { animation: none; }
+}
 
 .quiet-atmosphere { max-width: 260px; margin-top: 5px; font-size: .625rem; line-height: 1.6; opacity: .82; }
 .quiet-atmosphere span { margin-right: 4px; font-family: var(--mono); opacity: .72; }

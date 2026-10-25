@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import { GameKeepsakeArt } from "./GameKeepsakeArt";
 import { CareReadingRegion } from "./CareReadingRegion";
 import { quietMemories } from "./quiet-memory";
@@ -40,6 +41,34 @@ export function growingTendencyLine(growth: Growth | undefined, choice: number, 
   return { form, text: growingTendencyQuietLines[form] };
 }
 
+type QuietReaction = "breathe" | "peek" | "lively" | "gentle" | "easygoing";
+
+function quietReaction(growth: Growth | undefined, choice: number): QuietReaction {
+  if (choice !== 1 || !growth) return "breathe";
+  if (growth.stage === "baby") return "peek";
+  if (growth.stage === "adult") {
+    return growth.form === "lively" || growth.form === "gentle" || growth.form === "easygoing"
+      ? growth.form : "breathe";
+  }
+  if (growth.stage !== "growing") return "breathe";
+  const care = growth.care;
+  const hasCare = [growth.trackedHours, care?.nutrition, care?.play, care?.clean, care?.rest]
+    .some(value => typeof value === "number" && Number.isFinite(value) && value > 0);
+  if (!hasCare) return "breathe";
+  const form = tendency(growth);
+  return form === "balanced" ? "breathe" : form;
+}
+
+function QuietReactionPet({ growth, choice, sleeping, children }: {
+  growth: Growth | undefined; choice: number; sleeping: boolean; children: ReactNode;
+}) {
+  // Remounted only by a new choice/reply. Ordinary save reads can update the
+  // artwork, but must not replace or replay the response already in progress.
+  const [reaction] = useState(() => quietReaction(growth, choice));
+  return <div className={`quiet-moment-pet growth-${growth?.stage ?? "baby"} motion-${sleeping ? "sleeping" : "idle"}`}
+    data-reaction={reaction} aria-hidden="true">{children}</div>;
+}
+
 const sleepingMoments = [
   { title: "轻轻摸摸", idle: "它睡得正香，你可以轻轻陪着。", reply: "你轻轻摸了摸它，它仍闭着眼睛，呼吸安稳。" },
   { title: "守着它睡", idle: "它安静地睡着，小窝也慢了下来。", reply: "你在旁边坐了一会儿，陪它安安稳稳地睡。" },
@@ -65,7 +94,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
       <header><span>不用完成什么</span><small>{choice + 1} / {quietMoments.length}</small></header>
-      <div key={responseId} className={`quiet-moment-pet growth-${stage} motion-${pet.sleeping ? "sleeping" : "idle"}`} aria-hidden="true">
+      <QuietReactionPet key={`${responseId}:${choice}:${replied}`} growth={growth} choice={choice} sleeping={pet.sleeping}>
         <div className={`growth-size ${petRigClass(pet.species, stage)}`}>
           <PetArt index={pet.species} stage={stage}
             expression={pet.sleeping ? "asleep" : replied ? moment.expression : "awake"}
@@ -74,7 +103,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
           {growth && stage !== "egg" && !pet.economy?.equipped.accessory && <GrowthOutfit stage={stage} form={form} />}
         </div>
         {stage === "adult" && <FormEmblem form={form} />}
-      </div>
+      </QuietReactionPet>
       <div className="quiet-moment-copy">
         {growth && <small className="quiet-growth-label">{stageNames[stage]}{stage === "adult" && form ? ` · ${formNames[form]}` : ""}</small>}
         <strong>{words.title}</strong>
