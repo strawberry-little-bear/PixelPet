@@ -1,5 +1,5 @@
 /* A little more room is preferable to shrinking the whole device on a phone.
-   Scope type changes to reading panels: pet/board geometry stays unchanged. */
+   Scope type changes to reading panels; keep timed running boards unchanged. */
 @media (max-width: 700px) {
   .arcade-card, .arcade-card strong { font-size: 11px; }
   .arcade-card { padding: 4px; }
@@ -108,6 +108,10 @@
 .reading-mode .snake-field:has(.snake-overlay) { height: auto; width: 100%; min-height: 122px; }
 .reading-mode .snake-field:has(.snake-overlay) > svg { margin: auto; }
 .reading-mode .tetris-playfield:has(.tetris-overlay) { height: auto; flex-wrap: wrap; }
+/* Make paused/result cells and landing marks readable at the chosen text size.
+   Cap the board at the LCD width and preserve its 8:12 aspect ratio. */
+.reading-mode .tetris-field { width: min(100%, 12rem); height: auto; }
+.reading-mode .tetris-field > svg { width: 100%; height: auto; }
 .reading-mode .tetris-overlay { width: 100%; }
 .reading-mode .tetris-overlay ol { width: auto; }
 /* Give enlarged pause labels the available width, not the live overlay's 120px. */
