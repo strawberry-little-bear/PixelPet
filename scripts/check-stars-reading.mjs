@@ -35,11 +35,23 @@ async function inspect(page) {
     for (const node of el.querySelectorAll('.game-score strong,.game-score span,.star-position,.star-method,.game-message')) {
       const range = document.createRange(); range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
-        if (box.left < lcd.left-1 || box.right > lcd.right+1 || box.top < lcd.top-1 || box.bottom > lcd.bottom+1) clipped.push(node.textContent);
-        for (let p=node.parentElement;p && p!==el.parentElement;p=p.parentElement) {
+        let scrollport = null;
+        for (let p=node.parentElement;p;p=p.parentElement) {
           const style=getComputedStyle(p), r=p.getBoundingClientRect();
-          if (['hidden','clip'].includes(style.overflowY) && (box.top < r.top-1 || box.bottom > r.bottom+1)) clipped.push(node.textContent);
+          if (!scrollport && ['auto','scroll'].includes(style.overflowY)) scrollport = { element: p, style, r };
+          // The outer LCD/bezel may clip the scrollport's overflow by design;
+          // only nested hidden containers are a real text-clipping failure.
+          const outerOfScrollport = scrollport && p.contains(scrollport.element);
+          if (!outerOfScrollport && ['hidden','clip'].includes(style.overflowY) &&
+              (box.top < r.top-1 || box.bottom > r.bottom+1)) clipped.push(node.textContent);
+          if (p === el.parentElement) break;
         }
+        // Vertical overflow inside the LCD is intentional: the reading viewport
+        // keeps the device shell fixed and lets the player scroll long copy.
+        const viewport = scrollport ?? { style: { overflowX: 'hidden' }, r: lcd };
+        if (!['auto','scroll'].includes(viewport.style.overflowX) &&
+            (box.left < viewport.r.left-1 || box.right > viewport.r.right+1)) clipped.push(node.textContent);
+        if (!scrollport && (box.top < lcd.top-1 || box.bottom > lcd.bottom+1)) clipped.push(node.textContent);
       }
     }
     return { rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize),

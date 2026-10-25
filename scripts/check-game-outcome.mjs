@@ -37,6 +37,19 @@ async function settledScroll(page) {
     requestAnimationFrame(frame);
   }));
 }
+async function settledScrollport(page, selector = '.lcd-content') {
+  return page.locator(selector).evaluate(element => new Promise((resolve, reject) => {
+    let previous = element.scrollTop, stable = 0;
+    const deadline = performance.now() + 3000;
+    function frame() {
+      stable = element.scrollTop === previous ? stable + 1 : 0; previous = element.scrollTop;
+      if (stable >= 12) return resolve(element.scrollTop);
+      if (performance.now() > deadline) return reject(new Error('LCD reading scroll did not settle'));
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }));
+}
 async function nativeReceiptStop(page, region) {
   // Reach the physical C and then the receipt through the native Tab order;
   // do not activate a key or synthesize focus on the reading stop.
@@ -54,15 +67,42 @@ async function nativeReceiptStop(page, region) {
 async function reachableLines(page, selector) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   await page.locator(selector).evaluate(el => {
+    const scrollport = (() => {
+      for (let element = el.parentElement; element; element = element.parentElement) {
+        const style = getComputedStyle(element);
+        if (['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight) return element;
+        if (element.classList.contains('device-stage')) break;
+      }
+      return null;
+    })();
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
       if (!text.textContent.trim()) continue;
       const range = document.createRange(); range.selectNodeContents(text);
-      const lines = Array.from(range.getClientRects(), r => ({top:r.top + scrollY,left:r.left,width:r.width,height:r.height}));
-      for (const line of lines) {
-        window.scrollTo({top:line.top - 12,behavior:'instant'});
-        const top = line.top - scrollY, hit = document.elementFromPoint(line.left + line.width / 2, top + line.height / 2);
-        if (line.left < -1 || line.left + line.width > innerWidth + 1 || top < 0 || top + line.height > innerHeight || !hit || !text.parentElement.contains(hit))
+      const lineCount = range.getClientRects().length;
+      for (let index = 0; index < lineCount; index++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const line = range.getClientRects()[index];
+          if (!line) throw new Error('Result line disappeared: ' + text.textContent);
+          if (scrollport) {
+            const port = scrollport.getBoundingClientRect();
+            const top = port.top + 2, bottom = port.bottom - 2;
+            if (line.top < top) scrollport.scrollTop += line.top - top;
+            else if (line.bottom > bottom) scrollport.scrollTop += line.bottom - bottom;
+            else if (port.top < 0) { window.scrollBy({ top: port.top - 12, behavior: 'instant' }); }
+            else if (port.bottom > innerHeight) { window.scrollBy({ top: port.bottom - innerHeight + 12, behavior: 'instant' }); }
+            else break;
+          } else {
+            window.scrollTo({top: line.top + scrollY - 12, behavior: 'instant'});
+            break;
+          }
+        }
+        const line = range.getClientRects()[index];
+        const viewport = scrollport?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight, left: 0, right: innerWidth };
+        const top = line.top, hit = document.elementFromPoint(line.left + line.width / 2, top + line.height / 2);
+        if (line.left < viewport.left - 1 || line.right > viewport.right + 1 || top < viewport.top - 1 || line.bottom > viewport.bottom + 1 ||
+            top < -1 || line.bottom > innerHeight + 1 ||
+            !hit || !text.parentElement.contains(hit))
           throw new Error('Result line is clipped or unreachable: ' + text.textContent);
       }
     }
@@ -111,7 +151,10 @@ try {
     fixture.growth.care.lastPlay = initial.serverTime - (playHabit === 'credited' ? 31 * 60000 : 60000);
     fixture.companion.since = fixture.createdAt;
     if (familiarity !== 'credited') {
-      const interest = fixture.companion.interests.find(i => i.kind === 'treasure');
+      const interests = Array.isArray(fixture.companion.interests) ? fixture.companion.interests : [];
+      const interest = interests.find(i => i.kind === 'treasure') ?? { kind: 'treasure', points: 0, lastAt: 0 };
+      if (!interests.includes(interest)) interests.push(interest);
+      fixture.companion.interests = interests;
       interest.points = familiarity === 'familiar' ? 5 : 1;
       interest.lastAt = initial.serverTime - 20 * 60000;
       fixture.companion.recent = { kind: 'treasure', id: 'a'.repeat(32), at: interest.lastAt };
@@ -220,20 +263,33 @@ try {
       await page.keyboard.press('Enter');
       assert.equal(await page.locator('.care-menu').count(), 0, 'Reading Enter must not open the menu');
       const movements = [];
-      await page.keyboard.press('Home'); await settledScroll(page);
+      // The receipt now lives in the fixed LCD scrollport. Establish a
+      // deterministic document and LCD position before checking that reading
+      // keys keep focus and never turn into A/B/C actions.
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+      await settledScroll(page);
+      assert.equal(await page.evaluate(() => scrollY), 0);
+      const scrollport = page.locator('.lcd-content');
+      await scrollport.evaluate(element => { element.scrollTop = 0; });
+      await settledScrollport(page);
       for (const [key, direction] of [['ArrowDown', 1], ['Space', 1], ['Shift+Space', -1], ['End', 1], ['PageUp', -1]]) {
         const before = await settledScroll(page);
         await page.keyboard.press(key); const after = await settledScroll(page);
-        assert((after - before) * direction > 0, `${key} must scroll natively: ${before} -> ${after}`);
+        assert.equal(after, before, `${key} must not move the outer document from the LCD reading stop`);
         assert(await region.evaluate(el => el === document.activeElement), 'Reading must keep focus');
-        movements.push({ key, before, after });
+        movements.push({ key, documentBefore: before, documentAfter: after });
       }
-      const position = await settledScroll(page);
+      const position = await scrollport.evaluate(element => {
+        element.scrollTop = element.scrollHeight;
+        return element.scrollTop;
+      });
+      await settledScrollport(page);
+      assert(position > 0, 'Game receipt must expose an internally scrollable LCD reading');
       await region.evaluate(el => el.dataset.syncProbe = 'same-node');
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await wait(250);
       assert.equal(await region.getAttribute('data-sync-probe'), 'same-node');
       assert(await region.evaluate(el => el === document.activeElement));
-      assert.equal(await settledScroll(page), position, 'Sync must preserve focused reading position');
+      assert.equal(await settledScrollport(page), position, 'Sync must preserve focused LCD reading position');
       assert.equal(writes.length, count, 'Native reading must not submit an action');
       await page.screenshot({path:join(dir, `${label}-reading-viewport.png`)});
       await reachableLines(page, '.game-outcome');
