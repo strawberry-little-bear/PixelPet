@@ -60,6 +60,34 @@ describe("growth handbook previews and form guide", () => {
     expect(container.querySelector('[data-selected="true"]')?.getAttribute("data-rule-form")).toBe("balanced");
   });
 
+  it.each(["empty", "stage progress", "care timestamps"] as const)(
+    "does not call the fallback balanced rule a current tendency without evidence: %s", scenario => {
+      const g = emptyGrowth("growing");
+      g.points = 36;
+      if (scenario === "stage progress") g.growingAt = 1500;
+      if (scenario === "care timestamps") {
+        g.care.lastFeed = g.care.lastPlay = g.care.lastClean = 1500;
+      }
+      const { container, rerender } = render(<GrowthPanel growth={g} index={0} page={1} />);
+      expect(container.textContent).toContain("倾向记录");
+      expect(container.textContent).toContain("尚未形成");
+      expect(container.textContent).toContain("照顾习惯从现在开始记录。");
+      rerender(<GrowthPanel growth={g} index={0} page={2} />);
+      expect(container.textContent).toContain("倾向待记录 · 形态依据");
+      expect(container.textContent).toContain("规则会在记录后判断");
+      expect(container.querySelector('[data-selected="true"]')).toBeNull();
+      expect([...container.querySelectorAll(".form-rule-result")].every(node => node.textContent === "记录后判断")).toBe(true);
+
+      const recorded = structuredClone(g);
+      recorded.care.nutrition = 1;
+      rerender(<GrowthPanel growth={recorded} index={0} page={1} />);
+      expect(container.textContent).toContain("当前倾向");
+      expect(container.textContent).toContain("均衡型");
+      rerender(<GrowthPanel growth={recorded} index={0} page={2} />);
+      expect(container.querySelector('[data-selected="true"]')?.getAttribute("data-rule-form")).toBe("balanced");
+    },
+  );
+
   it("shows comfort priority before habit rules and explains the calm-score formula", () => {
     const g = emptyGrowth();
     g.trackedHours = 12;

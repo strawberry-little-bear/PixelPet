@@ -18,6 +18,7 @@ import {
   nextGrowthGoal,
   formRules,
   formConditions,
+  hasGrowthEvidence,
 } from "./growth";
 import { stageLook } from "./stageLooks";
 import { species } from "./types";
@@ -79,6 +80,7 @@ export function GrowthPanel({
   const form = tendency(g);
   const current = stagePoints(g);
   const record = g.stage === "adult" ? g.formRecord : undefined;
+  const hasCurrentEvidence = hasGrowthEvidence(g);
   const evidenceCare = record ?? g.care;
   const trackedHours = record?.trackedHours ?? g.trackedHours;
   const wellbeing = record?.wellbeing ?? g.wellbeing;
@@ -138,8 +140,8 @@ export function GrowthPanel({
       ) : page === 1 ? (
         <>
           <div className="habit-heading">
-            <span>{g.form ? "成年形态" : "当前倾向"}</span>
-            <strong>{formNames[form]}</strong>
+            <span>{g.form ? "成年形态" : hasCurrentEvidence ? "当前倾向" : "倾向记录"}</span>
+            <strong>{g.form || hasCurrentEvidence ? formNames[form] : "尚未形成"}</strong>
           </div>
           <div className="habit-rows">
             {habits.map((row) => (
@@ -203,8 +205,8 @@ export function GrowthPanel({
       ) : (
         <div className="form-guide">
           <div className="habit-heading">
-            <span>{record ? "定型时 · 形态依据" : g.form ? "已定型 · 形态依据" : "当前倾向 · 形态依据"}</span>
-            <strong>{formNames[form]}</strong>
+            <span>{record ? "定型时 · 形态依据" : g.form ? "已定型 · 形态依据" : hasCurrentEvidence ? "当前倾向 · 形态依据" : "倾向待记录 · 形态依据"}</span>
+            <strong>{g.form || hasCurrentEvidence ? formNames[form] : "尚未形成"}</strong>
           </div>
           {record && <time className="form-record-time" dateTime={new Date(g.adultAt).toISOString()}>
             成年定型 · {new Date(g.adultAt).toLocaleString("zh-CN", {
@@ -226,23 +228,25 @@ export function GrowthPanel({
           </small>
           <small className="form-guide-formula">恬静分 =（清洁习惯 + 休息习惯）÷ 2</small>
           <small className="form-check-note">
-            {record ? "定型时条件核对" : "当前条件核对"}：按未四舍五入的记录核对，依次取首项。
+            {!record && !g.form && !hasCurrentEvidence
+              ? "还没有有效照顾或时间记录；规则会在记录后判断。"
+              : `${record ? "定型时条件核对" : "当前条件核对"}：按未四舍五入的记录核对，依次取首项。`}
           </small>
           <ol className="form-rules" aria-label="成年形态判定顺序">
             {formRules.map(({ form: ruleForm, rule }) => (
               <li key={ruleForm} data-rule-form={ruleForm}
-                data-selected={ruleForm === form ? "true" : "false"}
+                data-selected={String(g.form ? ruleForm === g.form : hasCurrentEvidence && ruleForm === form)}
                 data-condition-met={String(checks.conditions[ruleForm])}>
                 <strong>{formNames[ruleForm]}</strong>
                 <div className="form-rule-detail"><span>{rule}</span>
-                  <small className="form-rule-result">{!checks.conditions[ruleForm]
+                  <small className="form-rule-result">{!g.form && !hasCurrentEvidence ? "记录后判断" : !checks.conditions[ruleForm]
                     ? "未满足" : checks.first === ruleForm ? "满足 · 首项" : "满足 · 前项优先"}</small>
                 </div>
               </li>
             ))}
           </ol>
           <small className="form-guide-note">
-            {g.form ? "高亮为已定形态，当前习惯不改写它。" : "成年时按上方顺序确定，现在仍会变化。"}
+            {g.form ? "高亮为已定形态，当前习惯不改写它。" : hasCurrentEvidence ? "高亮为当前倾向；成年时按上方顺序确定，现在仍会变化。" : "出现有效照顾或时间记录后，才会显示当前倾向。"}
             <br />
             {record ? "定型时保存的记录，不按当前习惯重算；当前习惯见上一页。" : g.form ? "判定规则供参考，不代表成年时的记录。" : "保持舒适、适时照顾，不必刻意追求形态。"}
           </small>

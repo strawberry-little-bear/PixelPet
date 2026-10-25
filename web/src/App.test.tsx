@@ -206,7 +206,7 @@ describe("three-button pet animation lifecycle", () => {
     expect(document.querySelectorAll("[data-preview-stage]")).toHaveLength(0);
     await key("b");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("2");
-    expect(document.querySelector(".form-guide")?.textContent).toContain("成年时按上方顺序确定");
+    expect(document.querySelector(".form-guide")?.textContent).toContain("出现有效照顾或时间记录后");
     await key("b");
     expect(document.querySelector(".growth-panel")?.getAttribute("data-growth-page")).toBe("3");
     expect(document.querySelector(".companion-panel")).not.toBeNull();
