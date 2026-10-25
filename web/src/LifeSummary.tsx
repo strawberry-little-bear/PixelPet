@@ -2,6 +2,7 @@ import { companionCompletionTotal, interestLimit, interestSummary, validInterest
 import { games } from "./games";
 import { completionLabel, savedGameHistory } from "./game-history";
 import { memoryWords } from "./AlbumPanel";
+import { ownedKeepsakes } from "./KeepsakeCorner";
 import type { Memory, PetState } from "./types";
 import "./life-summary.css";
 
@@ -131,15 +132,25 @@ export function lifeSummary(pet: PetState, now: number) {
   const explorationText = explorationProgress.length > 0
     ? `${explorationProgress.join("，")}；想散步或在池塘边等一会儿时，再把新的风景留给你们。`
     : "想探索时，可以去池塘边等一会儿，或一起走走；遇见什么都算一次小发现。";
+  // Connect this read-only cue to the existing menu only when the saved
+  // schema supports displaying a genuinely owned shared-game memento.
+  const keepsakes = stage === "adult" && pet.schema >= 22 && pet.album
+    ? ownedKeepsakes({ ...pet, album: { ...pet.album, entries: memories } }) : [];
+  const displayed = keepsakes.find(item => item.item === pet.album?.displayItem);
+  const cornerReview = displayed
+    ? `小窝正摆着「${displayed.title}」；想换一段回忆时，可以从「纪念册 → 小窝纪念角」挑选或收起。`
+    : keepsakes.length > 0
+      ? "已经收好的游戏纪念物，可以从「纪念册 → 小窝纪念角」挑一件摆在小窝，想留空也可以。"
+      : null;
   const adultDirections = stage === "adult" ? [
     {
       id: "review",
       label: "回看",
-      text: lastMemory
+      text: cornerReview ?? (lastMemory
         ? `可以再翻看「${lastMemory.title}」，让这段回忆留在想起它的时候。`
         : memories.length > 0
           ? `纪念册里已经有 ${memories.length} 段回忆，什么时候想起时再翻看就好。`
-          : "等真正想留下的时刻，再把它放进纪念册。",
+          : "等真正想留下的时刻，再把它放进纪念册。"),
     },
     {
       id: "explore",

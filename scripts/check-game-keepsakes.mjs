@@ -186,5 +186,40 @@ try {
   await corner(p,mode.font===28);assert.deepEqual(failures,[]);
   results.push({check:"keepsake-corner-persistence-backup-and-three-keys",...mode,touch:mode.font===28,passed:true});await ctx.close();
  }
+ // Construct only the adult age in this isolated DB, then earn the item by
+ // a real completion. This does not claim a naturally raised adult pet.
+ const adultNow=Date.now();
+ await api('import',{schema:1,revision:0,species:2,name:'成年纪念伙伴',createdAt:adultNow-80*3600000,hatchedAt:adultNow-80*3600000,lastTick:adultNow,sleeping:false,needs:{hunger:80,mood:80,clean:80,energy:80},careCount:0,logs:[]});
+ const setup=await browser.newContext({viewport:{width:1200,height:850},reducedMotion:'reduce'}),setupPage=await setup.newPage();
+ await setupPage.goto(base);await setupPage.locator('.home-caption').waitFor();await play(setupPage);
+ const adultBackup=await api('backup');assert.equal(adultBackup.growth.stage,'adult');assert.equal(cards(adultBackup)[0].item,'star-ribbon');await setup.close();
+ for(const mode of [{width:1200,height:850,font:14},{width:320,height:700,font:28},{width:320,height:380,font:28}]) {
+  await api('import',adultBackup);
+  const ctx=await browser.newContext({viewport:{width:mode.width,height:mode.height},hasTouch:mode.font===28,reducedMotion:'reduce'}),p=await ctx.newPage(),errors=[],writes=[];
+  p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname==='/api/action')writes.push(r.postDataJSON());});
+  await p.addInitScript(font=>document.addEventListener('DOMContentLoaded',()=>{document.documentElement.style.fontSize=`${font}px`;}),mode.font);
+  const review=async expected=>{
+   await key(p,'a');for(let i=0;i<4;i++)await key(p,'a');await key(p,'b');await key(p,'a');
+   const cue=p.locator('.life-summary-directions li').first();assert.match(await cue.innerText(),expected);
+   assert.match(await cue.innerText(),/纪念册 → 小窝纪念角/);
+   if(mode.font===28)assert(await cue.evaluate(el=>{
+    const label=el.querySelector('b').getBoundingClientRect(),text=el.querySelector('span').getBoundingClientRect();
+    return text.top>=label.bottom-1&&text.width>=el.getBoundingClientRect().width-1;
+   }),'large-font narrow layouts must give the prose a full row');
+   await readable(p,'.life-summary-directions',['.life-summary-directions li:first-child b','.life-summary-directions li:last-child b']);
+   assert(await cue.locator('span').evaluate(el=>{
+    el.scrollIntoView({block:'end'});const range=document.createRange();range.selectNodeContents(el);const line=[...range.getClientRects()].at(-1);
+    return line&&line.top>=-1&&line.bottom<=innerHeight+1&&line.left>=-1&&line.right<=innerWidth+1;
+   }),'the last line of the review cue must be reachable by scrolling');
+  };
+  await p.goto(base);await p.locator('.home-caption').waitFor();await review(/已经收好的游戏纪念物/);assert.deepEqual(writes,[]);
+  await key(p,'c');await key(p,'a');for(let i=0;i<8;i++)await key(p,'a');await key(p,'b');for(let i=0;i<7;i++)await key(p,'a');await key(p,'b');await key(p,'a');await key(p,'b');
+  assert.equal((await api('state')).state.album.displayItem,'star-ribbon');await key(p,'c');await key(p,'c');
+  await review(/小窝正摆着「接星星的小缎带」/);
+  await p.screenshot({path:join(dir,`adult-review-${mode.width}-${mode.height}.png`),fullPage:true});
+  await p.reload();await p.locator('.home-caption').waitFor();await review(/小窝正摆着「接星星的小缎带」/);
+  assert.equal(writes.length,1);assert.equal(writes[0].kind,'display-keepsake');assert.deepEqual(errors,[]);
+  results.push({check:'adult-review-owned-corner-three-keys-and-reload',...mode,passed:true});await ctx.close();
+ }
  await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({artifacts:dir,results},null,2));
 } finally { if(browser)await browser.close();if(server){server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));} }

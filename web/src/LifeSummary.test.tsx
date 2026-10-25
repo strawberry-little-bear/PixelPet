@@ -397,3 +397,72 @@ describe("adult-life suggestions from saved experiences", () => {
     expect(lifeSummary(current, current.lastTick).nextStep).not.toContain("最近一次一起玩过");
   });
 });
+
+
+describe("adult life review connects to the keepsake corner", () => {
+  const adult = (): PetState => ({
+    ...pet(), schema: 22, lastTick: created + day,
+    growth: { ...emptyGrowth("adult"), form: "gentle" },
+    album: { since: created, legacy: false, displayItem: "pond-shell", entries: [
+      { kind: "keepsake", item: "pond-shell", source: "shared", at: created },
+      { kind: "keepsake", item: "fruit-leaf", source: "shared", at: created + 1 },
+    ] },
+  });
+  const review = (saved: PetState) => lifeSummary(saved, created + day).adultDirections?.find(d => d.id === "review")?.text;
+
+  it("names the actually displayed owned item and the three-key menu destination", () => {
+    const saved = adult(), before = structuredClone(saved);
+    const { container, rerender } = render(<LifeSummary pet={saved} now={created + day} />);
+    expect(review(saved)).toContain("小窝正摆着「池塘边的小贝壳」");
+    expect(review(saved)).toContain("纪念册 → 小窝纪念角");
+    expect(container.querySelector(".life-summary-directions")?.textContent).toContain(review(saved));
+    expect(container.querySelector("button,a,input,[role=button]")).toBeNull();
+    rerender(<LifeSummary pet={structuredClone(saved)} now={created + day + 0.5} />);
+    expect(saved).toEqual(before);
+  });
+
+  it("follows authoritative changes to the display and to an empty corner", () => {
+    const saved = adult();
+    const { container, rerender } = render(<LifeSummary pet={saved} now={created + day} />);
+    saved.album!.displayItem = "fruit-leaf";
+    rerender(<LifeSummary pet={saved} now={created + day} />);
+    expect(container.querySelector(".life-summary-directions")?.textContent).toContain("小窝正摆着「果园里的叶子」");
+    expect(review(saved)).not.toContain("池塘边的小贝壳");
+    saved.album!.displayItem = "";
+    rerender(<LifeSummary pet={saved} now={created + day} />);
+    expect(review(saved)).toContain("已经收好的游戏纪念物");
+    expect(review(saved)).toContain("挑一件摆在小窝");
+    expect(review(saved)).not.toContain("小窝正摆着");
+  });
+
+  it.each(["absent", "null", "empty", "unowned", "unshared", "future"])(
+    "does not invent a corner item from %s records", condition => {
+      const saved = adult();
+      if (condition === "absent") delete saved.album;
+      else if (condition === "null") saved.album!.entries = null as unknown as NonNullable<PetState["album"]>["entries"];
+      else if (condition === "empty") saved.album!.entries = [];
+      else saved.album!.entries = [{ kind: "keepsake", item: condition === "unowned" ? "unknown" : "pond-shell",
+        source: condition === "unshared" ? "saved" : "shared", at: condition === "future" ? saved.lastTick + 1 : created }];
+      expect(review(saved)).not.toContain("小窝纪念角");
+      expect(review(saved)).not.toContain("小窝正摆着");
+    },
+  );
+
+  it("preserves the readable-history fallback with a malformed optional entry", () => {
+    const saved = adult();
+    saved.album!.entries.unshift(null as unknown as NonNullable<PetState["album"]>["entries"][number]);
+    expect(review(saved)).toContain("小窝正摆着「池塘边的小贝壳」");
+    expect(() => render(<LifeSummary pet={saved} now={created + day} />)).not.toThrow();
+  });
+
+  it.each([20, 21])("does not suggest the unavailable display action on schema %s", schema => {
+    const saved = { ...adult(), schema };
+    expect(review(saved)).not.toContain("小窝纪念角");
+  });
+
+  it.each(["baby", "growing"] as const)("keeps %s guidance about care and growth", stage => {
+    const saved = { ...adult(), growth: emptyGrowth(stage) };
+    expect(lifeSummary(saved, created + day).adultDirections).toBeNull();
+    expect(lifeSummary(saved, created + day).nextStep).toContain("按它当下的需要慢慢照顾");
+  });
+});
