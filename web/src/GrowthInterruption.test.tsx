@@ -4,6 +4,7 @@ import App from "./App";
 import { request } from "./api";
 import { emptyGrowth } from "./growth";
 import { clipDurations } from "./motion";
+import { RequestFailure } from "./requestFailure";
 import type { PetState, Result } from "./types";
 
 vi.mock("./api", () => ({ request: vi.fn() }));
@@ -15,6 +16,7 @@ const celebrating = () => document.querySelector('.content-home .motion-celebrat
 async function key(key: string) { await act(async () => { fireEvent.keyDown(window, { key }); }); }
 async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
 async function sync() { await act(async () => { document.dispatchEvent(new Event("visibilitychange")); }); }
+async function lifecycle(type: "pagehide" | "pageshow") { await act(async () => { window.dispatchEvent(new Event(type)); }); }
 async function mount() { await act(async () => { render(<App />); }); }
 async function grow(stage: "growing" | "adult") {
   saved.revision++;
@@ -59,6 +61,61 @@ describe("interrupted growth celebrations", () => {
       await key("a"); expect(document.querySelector('.content-menu')).toBeTruthy();
     });
   }
+  it.each(["growing", "adult"] as const)("%s resumes after pagehide/pageshow without a visibility or focus event", async stage => {
+    vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+    await mount(); await grow(stage); await tick(800);
+    const snapshot = structuredClone(saved);
+    await lifecycle("pagehide"); await tick(5000);
+    expect(celebrating()).toBeNull();
+    await lifecycle("pageshow");
+    expect(celebrating()).toBeTruthy();
+    expect(document.querySelector('.pet-scene')?.getAttribute('data-stage')).toBe(stage);
+    await tick(clipDurations.evolve - 1); expect(celebrating()).toBeTruthy();
+    await tick(1); expect(celebrating()).toBeNull();
+    await lifecycle("pageshow"); expect(celebrating()).toBeNull();
+    expect(saved).toEqual(snapshot); expect(writes()).toHaveLength(0);
+    expect(document.querySelectorAll('.physical-button')).toHaveLength(3);
+    expect(document.querySelector('.lcd button,.lcd a,.lcd input')).toBeNull();
+  });
+  it.each(["growing", "adult"] as const)("keeps one accepted %s care result when its reply arrives after pagehide", async stage => {
+    vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+    if (stage === "adult") saved.growth = { ...emptyGrowth("growing"), points: 71.9 };
+    let acknowledge!: (reply: Result) => void;
+    api.mockImplementation(async path => path === "action" ? new Promise<Result>(resolve => { acknowledge = resolve; }) : result());
+    await mount(); await key("a"); await key("b");
+    await lifecycle("pagehide");
+    saved.revision++; saved.careCount++;
+    saved.growth = { ...emptyGrowth(stage), points: stage === "adult" ? 72 : 24, form: stage === "adult" ? "gentle" : "" };
+    const snapshot = structuredClone(saved);
+    await act(async () => { acknowledge(result()); });
+    await tick(5000); expect(celebrating()).toBeNull();
+    await lifecycle("pageshow"); expect(celebrating()).toBeTruthy();
+    expect(document.querySelector('.pet-scene')?.getAttribute('data-stage')).toBe(stage);
+    if (stage === "adult") expect(document.querySelector('.pet-scene')?.getAttribute('data-form')).toBe("gentle");
+    await key("c"); await lifecycle("pageshow");
+    expect(celebrating()).toBeNull(); expect(writes()).toHaveLength(1); expect(saved).toEqual(snapshot);
+  });
+  it("does not resume on pageshow while the document remains hidden", async () => {
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+    await mount(); await grow("growing"); await lifecycle("pagehide");
+    hidden.mockReturnValue(true); const reads = api.mock.calls.length;
+    await lifecycle("pageshow"); await tick(5000);
+    expect(celebrating()).toBeNull(); expect(api.mock.calls).toHaveLength(reads);
+    hidden.mockReturnValue(false); await lifecycle("pageshow");
+    expect(celebrating()).toBeTruthy(); expect(writes()).toHaveLength(0);
+  });
+  it("reconciles an unknown care result on pageshow without replaying care or success", async () => {
+    let fail!: (error: Error) => void;
+    api.mockImplementation(async path => path === "action" ? new Promise<Result>((_, reject) => { fail = reject; }) : result());
+    await mount(); await key("a"); await key("b"); await lifecycle("pagehide");
+    saved.revision++; saved.careCount++; saved.growth = { ...emptyGrowth("growing"), points: 24 };
+    await act(async () => { fail(new RequestFailure("回复丢失", "unknown")); });
+    const snapshot = structuredClone(saved);
+    await lifecycle("pageshow");
+    expect(document.querySelector('.pet-scene')?.getAttribute('data-stage')).toBe("growing");
+    expect(celebrating()).toBeNull(); expect(writes()).toHaveLength(1); expect(saved).toEqual(snapshot);
+    cleanup(); await mount(); expect(celebrating()).toBeNull(); expect(writes()).toHaveLength(1);
+  });
   it("successive interruptions do not let an earlier timer finish the new clip", async () => {
     const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(false);
     await mount(); await grow("growing"); await tick(2000);

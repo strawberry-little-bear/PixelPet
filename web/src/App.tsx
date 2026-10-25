@@ -848,6 +848,9 @@ export default function App() {
     };
     const pageShow = () => {
       if (document.hidden) return;
+      // pagehide clears foreground even when no visibility event follows.
+      // Restore it here so queued growth and reading feedback can return.
+      setForeground(true);
       windowActive.current = true;
       setWindowFocused(true);
       returned();
