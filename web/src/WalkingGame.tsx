@@ -1,3 +1,4 @@
+import { SelectionStatus } from "./SelectionStatus";
 import { WalkDiscoveries } from "./WalkDiscoveries";
 import { outingScenery } from "./outing";
 import { OutingCaption, OutingEncounterNote, OutingSky } from "./OutingScenery";
@@ -47,9 +48,20 @@ export function WalkingGame({pet,active,choice}:{pet:PetState;active:boolean;cho
   {(paused||done)&&<><WalkDiscoveries walking={n}/><OutingEncounterNote pet={pet}/><OutingCaption scenery={scenery}/></>}
  </section>;
 }
-export function ParkAlbum({pet,page}:{pet:PetState;page:number}) {
- const item=parkCatalog[page%parkCatalog.length],d=pet.park?.finds?.find(d=>d.id===item.id);
- return <section className="park-album" aria-label="公园沿途发现"><header data-collection-reading-start><strong>沿途发现</strong><span>{pet.park?.finds?.length??0} / 6 种 · {page+1} / 6</span></header><div className="park-discovery"><ParkArt id={item.id} hidden={!d}/></div><h3>{d?item.name:"还未遇见"}</h3><p>{d?item.story:"以后一起散步，看看会遇见什么。"}</p><small>{d?`遇见 ${d.count} 次 · 首次 ${new Date(d.firstAt).toLocaleDateString("zh-CN")}`:"只记录实际到达的发现，不补写过去。"}</small><p>走过 24 / 48 / 72 步才会发现。<br/>放弃仍保留发现，未走完不计陪伴。</p><small>A 上一页 · B 下一页 · C 返回（不自动继续）</small></section>;
+export function ParkAlbum({ pet, page }: { pet: PetState; page: number }) {
+ const selected = page % parkCatalog.length, item = parkCatalog[selected];
+ const discovery = pet.park?.finds?.find(d => d.id === item.id);
+ const back = pet.game?.kind === "walk" ? "暂停菜单" : "小窝";
+ return <section className="park-album" aria-label="公园沿途发现">
+  <header data-collection-reading-start><strong>沿途发现</strong><span>{pet.park?.finds?.length ?? 0} / {parkCatalog.length} 种 · {selected + 1} / {parkCatalog.length}</span></header>
+  <div className="park-discovery"><ParkArt id={item.id} hidden={!discovery}/></div>
+  <h3>{discovery ? item.name : "还未遇见"}</h3>
+  <p>{discovery ? item.story : "以后一起散步，看看会遇见什么。"}</p>
+  <small>{discovery ? `遇见 ${discovery.count} 次 · 首次 ${new Date(discovery.firstAt).toLocaleDateString("zh-CN")}` : "只记录实际到达的发现，不补写过去。"}</small>
+  <p>走过 24 / 48 / 72 步才会发现。<br/>放弃仍保留发现，未走完不计陪伴。</p>
+  <SelectionStatus scope="park-album">沿途发现，第 {selected + 1} / {parkCatalog.length} 页：{discovery ? item.name : "还未遇见"}；A 上一页，B 下一页，C 返回{back}。</SelectionStatus>
+  <small>A 上一页 · B 下一页 · C 返回{back}（不自动继续）</small>
+ </section>;
 }
 
 function TrailScenery({trail}:{trail:Walking["trail"]}) {

@@ -40,6 +40,22 @@ async function index(page, kind) {
   return kind === 'fish' ? page.locator('.fish-album-grid > div').evaluateAll(items => items.findIndex(el => el.getAttribute('aria-current') === 'true'))
     : Number((await page.locator('.park-album > header').innerText()).match(/·\s*(\d+)\s*\/\s*6/)[1]) - 1;
 }
+async function selection(page, kind, count, paused) {
+  const region = page.locator(`[data-selection-status="${kind}-album"]`);
+  assert.equal(await region.count(), 1);
+  assert.equal(await region.getAttribute('role'), 'status');
+  assert.equal(await region.getAttribute('aria-live'), 'polite');
+  assert.equal(await region.getAttribute('aria-atomic'), 'true');
+  const selected = await index(page, kind), name = await page.locator(`.${kind}-album > h3`).innerText();
+  const text = await region.textContent();
+  assert(text.includes(`第 ${selected + 1} / ${count} 页：${name}`), text);
+  assert(text.includes(`A 上一页，B 下一页，C 返回${paused ? '暂停菜单' : '小窝'}`), text);
+  assert(await region.evaluate(el => el === window.collectionStatusNode), 'replaced live selection region');
+}
+async function rememberStatus(page, kind) {
+  await page.locator(`[data-selection-status="${kind}-album"]`).evaluate(el => { window.collectionStatusNode = el; });
+}
+
 async function readable(page, kind) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal page overflow');
   assert.equal(await page.locator(`.${kind}-album > header`).count(), 1);
@@ -52,7 +68,7 @@ async function readable(page, kind) {
     }
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+      if (!text.textContent.trim() || text.parentElement.closest('.sr-only')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
@@ -89,7 +105,7 @@ try {
     {
       const fixture = (await api('state')).state;
       const discoveries = ids => ids.map(id => ({ id, count: 2, firstAt: fixture.lastTick, lastAt: fixture.lastTick }));
-      fixture.pond.fish = discoveries(['reed-minnow', 'sun-carp', 'ribbon-loach', 'lotus-fish', 'moon-perch', 'pebble-goby', 'rain-koi']);
+      fixture.pond.fish = discoveries(['reed-minnow', 'sun-carp', 'ribbon-loach', 'lotus-fish', 'moon-perch', 'pebble-goby', 'rain-koi', 'willow-darter']);
       fixture.park.finds = discoveries(['leaf', 'pinecone', 'feather', 'flower', 'shell', 'pebble']);
       if (collection !== 'known') {
         fixture.pond.fish = collection === 'empty' ? [] : null;
@@ -130,14 +146,15 @@ try {
       await key(page, 'A');
       if (!paused) for (let i = 0; i < (kind === 'fish' ? 10 : 11); i++) await key(page, 'A');
       await key(page, 'B'); await page.locator(`.${kind}-album`).waitFor({ timeout: 5000 });
-      const count = kind === 'fish' ? 7 : 6;
+      const count = kind === 'fish' ? 8 : 6;
+      await rememberStatus(page, kind);
       for (let n = 0; n < count; n++) {
         assert.equal(await index(page, kind), n);
         if (collection !== 'known') {
-          assert.match(await page.locator(`.${kind}-album > header`).innerText(), kind === 'fish' ? /已发现 0 \/ 7/ : /0 \/ 6 种/);
+          assert.match(await page.locator(`.${kind}-album > header`).innerText(), kind === 'fish' ? /已发现 0 \/ 8/ : /0 \/ 6 种/);
           assert.match(await page.locator(`.${kind}-album > h3`).innerText(), /还未遇见/);
         }
-        await visible(page, `.${kind}-album > header`); await readable(page, kind);
+        await visible(page, `.${kind}-album > header`); await readable(page, kind); await selection(page, kind, count, paused);
         if (n === 0) await page.screenshot({ path: join(dir, `visible-${label}.png`) });
         // Read all the way to the last hint, then use an actual machine key.
         await page.locator(`.${kind}-album > small:last-child`).scrollIntoViewIfNeeded();
@@ -152,32 +169,49 @@ try {
         await page.locator(`.${kind}-album > small:last-child`).scrollIntoViewIfNeeded();
         await key(page, 'A');
         assert.equal(await index(page, kind), (count - n) % count);
-        await visible(page, `.${kind}-album > header`); await readable(page, kind);
+        await visible(page, `.${kind}-album > header`); await readable(page, kind); await selection(page, kind, count, paused);
       }
       await page.evaluate(() => scrollBy({ top: 70, behavior: 'instant' }));
+      await page.evaluate(() => {
+        window.collectionStatusChanges = 0;
+        window.collectionStatusObserver = new MutationObserver(() => window.collectionStatusChanges++);
+        window.collectionStatusObserver.observe(window.collectionStatusNode, { childList: true, subtree: true, characterData: true });
+      });
       const position = await page.evaluate(() => scrollY), beforeReads = reads;
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
       for (let i = 0; i < 100 && reads === beforeReads; i++) await wait(20);
       assert(reads > beforeReads); await wait(100); assert.equal(await page.evaluate(() => scrollY), position, 'ordinary read replayed navigation');
+      await selection(page, kind, count, paused);
+      assert.equal(await page.evaluate(() => { window.collectionStatusObserver.disconnect(); return window.collectionStatusChanges; }), 0, 'ordinary read replayed speech');
       for (const [button, direction] of [['a', -1], ['b', 1]]) for (const nativeKey of ['Enter', 'Space']) {
         await page.locator(`.button-${button}`).focus(); const previous = await index(page, kind);
         await page.keyboard.press(nativeKey); assert.equal(await index(page, kind), (previous + direction + count) % count);
-        await visible(page, `.${kind}-album > header`);
+        await visible(page, `.${kind}-album > header`); await selection(page, kind, count, paused);
         assert(await page.locator(`.button-${button}`).evaluate(el => document.activeElement === el), 'reading stole machine-key focus');
       }
       await page.screenshot({ path: join(dir, `keyboard-${label}.png`) });
       await key(page, 'C'); await page.locator(paused ? pause : '.home-caption').waitFor();
-      if (paused) await visible(page, pause);
+      if (paused) {
+        // Large text makes the pause menu taller than a short viewport. Check
+        // its return target first, then that its final hint remains reachable.
+        await visible(page, `${pause} > strong`);
+        await visible(page, kind === 'fish' ? `${pause} li.selected` : `${pause} [data-selected="true"]`);
+        await page.locator(`${pause} > small:last-child`).scrollIntoViewIfNeeded();
+        await visible(page, `${pause} > small:last-child`);
+      }
+      assert.equal(await page.locator(`[data-selection-status="${kind}-album"]`).count(), 0);
       await page.reload(); await page.locator(paused ? pause : '.home-caption').waitFor();
       await key(page, 'A');
       if (!paused) for (let i = 0; i < (kind === 'fish' ? 10 : 11); i++) await key(page, 'A');
       await key(page, 'B'); await page.locator(`.${kind}-album`).waitFor({ timeout: 5000 });
-      assert.equal(await index(page, kind), 0); await readable(page, kind);
+      await rememberStatus(page, kind);
+      assert.equal(await index(page, kind), 0); await readable(page, kind); await selection(page, kind, count, paused);
       await key(page, 'C'); await page.locator(paused ? pause : '.home-caption').waitFor();
       assert.deepEqual(writes, []); assert.deepEqual(errors, []); assert.equal(await page.evaluate(() => JSON.stringify(localStorage)), preference);
       const after = (await api('state')).state;
       for (const field of ['game', 'pond', 'park', 'careCount', 'economy']) assert.deepEqual(after[field], before[field]);
       results.push({ kind, paused, discoveries: collection, ...mode, pages: count });
+      if (results.length % 12 === 0) console.log(JSON.stringify({ completed: results.length, kind, paused }));
     } catch (e) { console.error({ label, errors }); await page.screenshot({ path: join(dir, `failure-${label}.png`) }); throw e; }
     finally { await context.close(); }
   }

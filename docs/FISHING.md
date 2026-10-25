@@ -115,3 +115,12 @@ schema 8 新增 `pond` 与 `game.fishing`。兼容 1–7：先按既有规则推
 回归见 `web/src/FishingAnnouncements.test.tsx`、`web/src/FishingCue.test.tsx` 与 `scripts/check-fishing-cue.mjs`。组件／浏览器检查证明节点预先建立、保持身份、倒计时不重复写入、暂停边界和可见文字布局；没有据此宣称已复现或修复某款读屏器的实际漏读，真人读屏时序与舒适度仍待验证。
 
 浏览器定向命令为 `node scripts/check-fishing-cue.mjs --fixtures-only`，仍须传入独立的 `PIXELPET_TEST_BINARY`、`PIXELPET_TEST_WEB` 和 `PIXELPET_PLAYWRIGHT_MODULE`。该模式只运行拦截响应的提示／声音边界与布局回归；省略参数才包含正常时钟的两竿钓鱼，不把响应夹具计为自然钓获。
+
+
+## 图鉴翻页的位置播报
+
+鱼图鉴沿用 A 上一页、B 下一页、C 返回。每页有一个稳定的读屏状态区，包含「第几页／总页数」、当前已发现鱼名及三键操作；未发现时只读「还未遇见的小鱼」。从钓鱼暂停菜单进入时明确返回暂停菜单，从小窝进入时返回小窝。
+
+页数按当前存档协议显示：旧版 6 种、含雨景鱼的版本 7 种、含柳影小鳉的版本 8 种。普通状态同步、遇见次数或日期更新不会重复改写同页播报；详情仍可按原来的阅读顺序查看。没有增加玩法按钮或存档字段。
+
+组件回归见 `CollectionSelectionStatus.test.tsx` 与 `CollectionDirection.test.tsx`；浏览器回归沿用 `scripts/check-collection-reading.mjs`，使用独立构建和临时存档，检查真实 HTTP 同步、双向翻页、原生按键焦点、刷新及 320px 双倍根字号。发现记录是明确导入的布局夹具，不代表自然钓获；DOM 状态检查也不替代真人读屏体验。实际结果见[开发进度](PROGRESS.md)。

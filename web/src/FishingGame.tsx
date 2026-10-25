@@ -1,3 +1,4 @@
+import { SelectionStatus } from "./SelectionStatus";
 import { CareReadingRegion } from "./CareReadingRegion";
 import { outingScenery } from "./outing";
 import { OutingCaption, OutingEncounterNote, OutingSky } from "./OutingScenery";
@@ -128,6 +129,7 @@ export function FishAlbum({ pet, page }: { pet: PetState; page: number; }) {
     <small>{fish.id === "rain-koi" ? "仅游戏内虚构雨景，三处钓点均可遇见 · 每竿 1/8，不是必出。" : fish.id === "willow-darter" ? "仅在芦苇湾的晴 / 云景遇见 · 与该钓点其他三种鱼等概率；雨景不出现。" : <>可在{fish.spots.map(s => fishingSpots[s]).join(" / ")}遇见 · {pet.schema >= 20 && fish.spots.some(s => s === 0) ? "晴 / 云景时芦苇湾四种等概率；虚构雨景时每种 7/24。" : pet.schema >= 15 ? "晴 / 云景三种等概率；虚构雨景时每种 7/24。" : "各钓点三种鱼等概率"}</>}</small>
     <p className="fish-record">{discovery ? `初次：${new Date(discovery.firstAt).toLocaleDateString("zh-CN")} · 共遇见 ${discovery.count} 次` : "没有鱼饵付费，也不用按时打卡。"}</p>
     {fish.id === "rain-koi" && <small>不看现实天气，不用按时上线；鱼种不影响金币。</small>}
+    <SelectionStatus scope="fish-album">池塘鱼图鉴，第 {selected + 1} / {catalog.length} 页：{discovery ? fish.name : "还未遇见的小鱼"}；A 上一页，B 下一页，C 返回{pet.game?.kind === "fishing" ? "暂停菜单" : "小窝"}。</SelectionStatus>
     <small>A 上一页 · B 下一页 · C 返回{pet.game?.kind === "fishing" ? "暂停菜单" : "小窝"}</small>
   </section>;
 }
