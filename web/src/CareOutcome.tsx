@@ -75,6 +75,7 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
   const companionResponse = feedback?.companionResponse;
   if (!hasCareOutcome(feedback)) return null;
   const { before, after, at } = feedback.effect;
+  const changedNeeds = needLabels.filter(([key]) => before[key] !== after[key]);
   const learning = learningSummary(feedback);
   const milestone = learning ? milestoneText(feedback) : null;
   const action = feedback.kind === "feed" ? "喂食" : feedback.kind === "clean" ? "洗澡" :
@@ -110,11 +111,11 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
     {embedded && growthDetails}
     <div className="care-outcome-details" aria-label="即时状态变化">
       {embedded ? <div className="care-outcome-compact" aria-label="本局照顾后的状态变化">
-        {needLabels.map(([key, label]) => <span key={key} data-need={key}>
+        {changedNeeds.length === 0 ? <p>这次没有新的状态变化。</p> : changedNeeds.map(([key, label]) => <span key={key} data-need={key}>
           <strong>{label}</strong> {fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}（{change(after[key] - before[key])}）
         </span>)}
-      </div> : <dl>
-        {needLabels.map(([key, label]) => <div key={key} data-need={key}>
+      </div> : changedNeeds.length === 0 ? <p>这次没有新的状态变化。</p> : <dl>
+        {changedNeeds.map(([key, label]) => <div key={key} data-need={key}>
           <dt>{label}</dt>
           <dd><span>{fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}</span><strong>{change(after[key] - before[key])}</strong></dd>
         </div>)}

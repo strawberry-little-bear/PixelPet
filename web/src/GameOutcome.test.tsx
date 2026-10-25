@@ -232,7 +232,10 @@ it("keeps embedded care details compact because the game receipt already owns th
   render(<GameOutcome outcome={{ kind: "snake", at, message: "服务端最终结算", shared: true }} careFeedback={feedback} />);
   const receipt = screen.getByLabelText("本页最近一次游戏结算");
   expect(receipt.querySelector(".care-outcome-compact")?.textContent).toContain("心情 70.00 → 75.00（+5.00）");
-  expect(receipt.querySelector(".care-outcome-compact")?.querySelectorAll("[data-need]")).toHaveLength(4);
+  expect(receipt.querySelector(".care-outcome-compact")?.querySelectorAll("[data-need]")).toHaveLength(1);
+  expect(receipt.querySelector('.care-outcome-compact [data-need="hunger"]')).toBeNull();
+  expect(receipt.querySelector('.care-outcome-compact [data-need="clean"]')).toBeNull();
+  expect(receipt.querySelector('.care-outcome-compact [data-need="energy"]')).toBeNull();
   expect(receipt.querySelector(".care-outcome-embedded > time")).toBeNull();
   expect(receipt.querySelectorAll("time")).toHaveLength(1);
 });

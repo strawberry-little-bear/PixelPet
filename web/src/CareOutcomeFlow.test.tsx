@@ -76,7 +76,7 @@ describe("three-key care outcome lifetime", () => {
   actionFeedback={kind:"sleep",reason,points:0,habitGain:0,effect:{...effect,before:{...effect.before,energy:44},after:{...effect.before,energy:44}}};
   await mount();await menu(3);if(reason==="awake")await key("c");
   expect(outcome()?.textContent).toContain(reason==="awake"?"起床":"入睡");
-  expect(outcome()?.textContent).toContain("44.00 → 44.00不变");
+  expect(outcome()?.textContent).toContain("这次没有新的状态变化。");
  });
  it("replaces the receipt on another confirmed care and clears it for an action without care feedback", async () => {
   await mount();await feed();

@@ -9,7 +9,7 @@ const feedback: CareFeedback = { kind: "feed", points: .25, habitGain: 1, habit:
 afterEach(cleanup);
 
 describe("authoritative care outcome", () => {
- it("shows all four saved readings and signed actual changes, not the nominal bonus", () => {
+ it("shows only saved readings with real changes, not the nominal bonus", () => {
   render(<CareOutcome feedback={feedback} />);
   const panel = screen.getByRole("region", {name:"上次操作的即时变化"});
   expect(panel.textContent).toContain("喂食");
@@ -18,13 +18,19 @@ describe("authoritative care outcome", () => {
   expect(row("hunger").textContent).toContain("60.00 → 80.00+20.00");
   expect(row("mood").textContent).toContain("99.00 → 100.00+1.00");
   expect(row("clean").textContent).toContain("1.00 → 0.00−1.00");
-  expect(row("energy").textContent).toContain("80.00 → 80.00不变");
+  expect(panel.querySelector('[data-need="energy"]')).toBeNull();
   expect(panel.querySelector("time")?.dateTime).toBe(new Date(at).toISOString());
   expect(panel.textContent).toContain("不含此前时间结算");
   expect(panel.textContent).toContain("不是当前读数");
   expect(panel.querySelector('[aria-label="即时状态变化"]')).toBeTruthy();
   expect(panel.querySelector("button,a,input,[tabindex]")).toBeNull();
   expect(within(panel).queryByRole("status")).toBeNull();
+ });
+ it("explains when the acknowledged action changes no immediate need", () => {
+  render(<CareOutcome feedback={{...feedback, effect:{...feedback.effect!, after: feedback.effect!.before}}} />);
+  const panel = screen.getByRole("region", {name:"上次操作的即时变化"});
+  expect(panel.querySelector('[aria-label="即时状态变化"]')?.textContent).toContain("这次没有新的状态变化。");
+  expect(panel.querySelectorAll("[data-need]")).toHaveLength(0);
  });
  it.each(["credited", "not-needed", "cooldown"] as const)("need effects remain independent of %s habit eligibility", reason => {
   render(<CareOutcome feedback={{...feedback, reason}} />);
