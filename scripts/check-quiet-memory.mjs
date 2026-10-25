@@ -240,8 +240,63 @@ try {
     await wait(100);
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
+  // Mock only the browser's wall clock. The service and temporary save keep real
+  // time, so these checks prove presentation boundaries, not seasonal waiting.
+  if (!process.argv.includes('--items-only')) for (const species of [3, 4]) for (const mode of [
+    { width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
+  ]) {
+    const at = Date.now();
+    await api('import', { schema: 1, revision: 1, species, name: '四季伙伴',
+      createdAt: at - 3600000, hatchedAt: at - 3600000, lastTick: at, sleeping: false,
+      needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
+    const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height },
+      hasTouch: true, isMobile: mode.width < 700, timezoneId: 'Asia/Shanghai', reducedMotion: 'reduce' });
+    const label = `atmosphere-${species}-${mode.width}-${mode.font}`, writes = [], errors = [];
+    const page = await context.newPage();
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', request => {
+      if (request.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(request.url()).pathname)) writes.push(request.url());
+    });
+    await page.addInitScript(font => {
+      document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; });
+    }, mode.font);
+    try {
+      await page.goto(base); await page.locator('.home-caption').waitFor();
+      await open(page);
+      for (const [date, season] of [
+        ['02-28', 'winter'], ['03-01', 'spring'], ['05-31', 'spring'], ['06-01', 'summer'],
+        ['08-31', 'summer'], ['09-01', 'autumn'], ['11-30', 'autumn'], ['12-01', 'winter'],
+      ]) {
+        await page.clock.setFixedTime(`2026-${date}T02:00:00+08:00`);
+        // Move from hello through touch to idle company, rerendering against
+        // the selected local time without a state mutation.
+        await physical(page, 'a'); await physical(page, 'a');
+        assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), '陪它发呆');
+        assert.equal(await page.locator('.quiet-event').getAttribute('data-season'), season, date);
+        assert((await page.locator('.quiet-atmosphere').innerText()).includes('深夜'));
+        assert(!/阳光|耳朵|鼻尖|脚步/.test(await page.locator('.quiet-moment-copy').innerText()), date);
+        await physical(page, 'b');
+        assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'true');
+        await readable(page);
+        if (date === '03-01' || date === '06-01') await page.screenshot({ path: join(dir, `${label}-${date}.png`), fullPage: true });
+        await physical(page, 'a'); // Back to hello for the next boundary.
+      }
+      const slept = await api('action', { kind: 'sleep' });
+      assert.equal(slept.state.sleeping, true);
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await page.waitForFunction(() => document.querySelector('.quiet-moment')?.dataset.sleeping === 'true');
+      assert.equal(await page.locator('.quiet-atmosphere,.quiet-event').count(), 0);
+      await physical(page, 'a'); await physical(page, 'a'); await physical(page, 'b');
+      assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), '守着它睡');
+      assert((await page.locator('.quiet-moment-copy > p').innerText()).includes('安安稳稳地睡'));
+      await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
+      assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+      results.push({ label, boundaries: 8, sleeping: true, writes, errors });
+      console.log('PASS', label);
+    } finally { await context.close(); }
+  }
   // Controlled save fixtures verify rendering; these are not natural growth journeys.
-  if (!process.argv.includes('--items-only')) for (const fixture of [
+  if (!process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
     { stage: 'baby', species: 2, age: 1 },
     { stage: 'growing', species: 3, age: 30 },
     { stage: 'adult', species: 9, age: 80 },
@@ -381,7 +436,7 @@ try {
   }
   // Controlled ownership only supplies fixture inventory. Actual equip/remove
   // requests create all four shared memories through the real service.
-  for (const mode of [
+  if (!process.argv.includes('--atmosphere-only')) for (const mode of [
     { label: 'items-desktop', width: 1200, height: 700, font: 14 },
     { label: 'items-phone-large', width: 320, height: 380, font: 28 },
   ]) {

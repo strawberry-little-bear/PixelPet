@@ -52,7 +52,7 @@ const atmosphereSeeds: readonly AtmosphereSeed[] = [
   { period: "night", label: "月夜", variants: [
     "月光落在屏幕边，安静陪它待一会儿。",
     "夜色把窗外收得很远，小窝里只留下柔和的光。",
-    "星光不急着说话，它也把脚步放得轻轻的。",
+    "星光不急着说话，它也把动作放得轻轻的。",
   ] },
 ];
 
@@ -60,16 +60,16 @@ const seasonSeeds: readonly SeasonSeed[] = [
   { season: "spring", label: "春日", events: [
     "窗边的新叶晃了晃，它跟着抬头看了一眼。",
     "一小点花香飘过来，它把这阵风安静收进了今天。",
-    "柔软的春风经过，它轻轻动了动耳朵。",
+    "柔软的春风经过，它轻轻晃了晃身子。",
   ] },
   { season: "summer", label: "夏日", events: [
     "窗外的蝉声远远响着，它找到了最舒服的阴影。",
     "一阵凉风掠过小窝，它舒展了一下身子。",
-    "阳光在地板上亮了一会儿，它慢慢挪到了光边。",
+    "窗边的帘影轻轻摇了一下，它安静地看了一会儿。",
   ] },
   { season: "autumn", label: "秋日", events: [
     "一片叶影慢慢落下，它安静地看完了。",
-    "风里有淡淡的果实香，它把鼻尖朝窗边探了探。",
+    "风里有淡淡的果实香，它朝窗边靠近了一点。",
     "树影换了新的颜色，它在小窝里多看了一会儿。",
   ] },
   { season: "winter", label: "冬日", events: [
@@ -95,10 +95,11 @@ function periodForHour(hour: number): AtmosphereSeed {
   return atmosphereSeeds[5];
 }
 
+// One-based local month; the presentation uses March–May for spring.
 function seasonForMonth(month: number): SeasonSeed {
-  if (month >= 2 && month <= 4) return seasonSeeds[0];
-  if (month >= 5 && month <= 7) return seasonSeeds[1];
-  if (month >= 8 && month <= 10) return seasonSeeds[2];
+  if (month >= 3 && month <= 5) return seasonSeeds[0];
+  if (month >= 6 && month <= 8) return seasonSeeds[1];
+  if (month >= 9 && month <= 11) return seasonSeeds[2];
   return seasonSeeds[3];
 }
 

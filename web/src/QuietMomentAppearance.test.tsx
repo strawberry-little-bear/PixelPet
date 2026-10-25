@@ -166,3 +166,10 @@ it("lets one saved game interest surface as a passive quiet response", () => {
   rerender(<QuietMoment pet={{ ...saved, sleeping: true }} choice={1} replied now={2000} />);
   expect(container.querySelector(".quiet-interest")).toBeNull();
 });
+
+it("keeps waiting company consistent with the night atmosphere", () => {
+  render(<QuietMoment pet={pet()} choice={1} replied={false}
+    now={new Date(2026, 5, 24, 2).getTime()} />);
+  expect(document.querySelector(".quiet-atmosphere")?.textContent).toContain("深夜");
+  expect(document.querySelector(".quiet-moment-copy > p")?.textContent).not.toContain("阳光");
+});

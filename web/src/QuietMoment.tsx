@@ -12,7 +12,7 @@ import "./quiet-moment.css";
 
 export const quietMoments = [
   { title: "摸摸它", idle: "它安静地靠近了一点。", reply: "它眨了眨眼，把这份温柔收好了。", expression: "content" as const },
-  { title: "陪它发呆", idle: "阳光慢慢挪过屏幕，谁也不用急。", reply: "它轻轻呼了一口气，和你一起发呆。", expression: "quiet" as const },
+  { title: "陪它发呆", idle: "和它一起安静待一会儿，谁也不用急。", reply: "它轻轻呼了一口气，和你一起发呆。", expression: "quiet" as const },
   { title: "说声你好", idle: "它抬起头，等着听你说话。", reply: "它摇了摇身子：你好呀，我一直在这里。", expression: "playful" as const },
 ] as const;
 

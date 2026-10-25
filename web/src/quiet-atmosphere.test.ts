@@ -27,6 +27,33 @@ describe("quietAtmosphere", () => {
     expect(quietAtmosphere(2, "growing", "", at)).toMatchObject({ season, seasonLabel });
   });
 
+  it.each([
+    [1, "winter"], [2, "winter"], [3, "spring"], [4, "spring"],
+    [5, "spring"], [6, "summer"], [7, "summer"], [8, "summer"],
+    [9, "autumn"], [10, "autumn"], [11, "autumn"], [12, "winter"],
+  ] as const)("uses the local calendar season throughout month %s", (month, season) => {
+    for (const day of [1, new Date(2026, month, 0).getDate()]) {
+      const at = new Date(2026, month - 1, day, 12).getTime();
+      expect(quietAtmosphere(2, "growing", "", at)?.season).toBe(season);
+    }
+  });
+
+  it("keeps seasonal events suitable for every character and hour", () => {
+    const spring = new Set<string>();
+    const summer = new Set<string>();
+    for (let species = 0; species < 10; species++) {
+      const springEvent = quietAtmosphere(species, "baby", "", new Date(2026, 2, 24, 2).getTime())!.event;
+      const summerEvent = quietAtmosphere(species, "baby", "", new Date(2026, 5, 24, 2).getTime())!.event;
+      spring.add(springEvent); summer.add(summerEvent);
+      expect(springEvent).not.toMatch(/耳朵/);
+      expect(quietAtmosphere(species, "baby", "", localTime(2))!.event).not.toMatch(/鼻尖/);
+      expect(quietAtmosphere(species, "baby", "", localTime(22))!.text).not.toMatch(/脚步/);
+      expect(summerEvent).not.toMatch(/阳光/);
+    }
+    expect(spring.size).toBe(3);
+    expect(summer.size).toBe(3);
+  });
+
   it("keeps the small seasonal event stable for the same day without persisting it", () => {
     const at = localTime(14, 24);
     const first = quietAtmosphere(2, "adult", "gentle", at);
