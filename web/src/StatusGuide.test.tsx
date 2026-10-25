@@ -155,6 +155,8 @@ describe("共同生活回顾", () => {
     expect(container.querySelector('[data-game-stat="fishing"]')?.textContent).toContain("尚无");
     expect(container.querySelector('[data-completion-count="fishing"]')?.textContent).toBe("局数未记录");
     expect(container.querySelector('[data-game-stat="fishing"]')?.textContent).not.toContain("熟悉度");
+    expect(container.querySelectorAll(".life-summary-game-status")).toHaveLength(7);
+    expect(container.querySelector('[data-game-status="tetris"]')?.textContent).toContain("熟悉度 2 / 5");
     expect(container.querySelectorAll('[data-game-stat="stars"]')).toHaveLength(1);
     expect(container.querySelector(".life-summary-grid")?.textContent).toContain("3游戏记忆");
     expect(container.querySelector(".life-summary-experiences")?.textContent).toContain("只统计");

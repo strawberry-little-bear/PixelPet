@@ -244,16 +244,19 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
     <section className="life-summary-games" aria-label="各游戏共同经历">
       <strong>各游戏共同经历</strong>
       {summary.gameHistorySince !== null
-        ? <small className="life-summary-tracking">共同游戏局数自 <time dateTime={new Date(summary.gameHistorySince).toISOString()}>{new Date(summary.gameHistorySince).toLocaleString("zh-CN", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}</time>（本地时间）起记录；之前的局数未知，不补算。</small>
-        : <small className="life-summary-tracking">这份存档尚未记录共同游戏局数；纪念和熟悉度不能推算过去玩过多少局。</small>}
+        ? <small className="life-summary-tracking">共同游戏局数自 <time dateTime={new Date(summary.gameHistorySince).toISOString()}>{new Date(summary.gameHistorySince).toLocaleString("zh-CN", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}</time>（本地时间）起记录；之前的局数未知，不补算；短局和放弃不计。</small>
+        : <small className="life-summary-tracking">这份存档尚未记录共同游戏局数；纪念和熟悉度不能推算过去局数。</small>}
       <ul>
         {summary.gameStats.map(game => <li key={game.id} data-game-stat={game.id}>
-          <span>{game.title}</span><b>{game.recorded ? "留过" : "尚无"}</b>
-          <small data-completion-count={game.id}>{game.completions === null ? "局数未记录" : `共同游戏 ${completionLabel(game.completions)}`}</small>
-          {game.familiarity > 0 && <small>熟悉度 {game.familiarity} / {interestLimit}</small>}
+          <span>{game.title}</span>
+          <small className="life-summary-game-status" data-game-status={game.id}>
+            <b>{game.recorded ? "留过" : "尚无"}</b>
+            <span data-completion-count={game.id}>{game.completions === null ? "局数未记录" : `共同游戏 ${completionLabel(game.completions)}`}</span>
+            {game.familiarity > 0 && <span>熟悉度 {game.familiarity} / {interestLimit}</span>}
+          </small>
         </li>)}
       </ul>
-      <small>纪念每种只留一次；共同游戏局数记录每次达到陪伴条件并收好的游戏，短局和放弃不计。熟悉度间隔内、已满或金币额度用完，仍会记录符合条件的一局；不额外增加成长或奖励。</small>
+      <small>纪念每种只留一次；熟悉度与局数是只读记录，即使成长间隔内、熟悉度已满或金币额度用完，符合条件的一局仍会记录；不额外增加成长或奖励。</small>
     </section>
     {summary.recentMemory && <section className="life-summary-memory" aria-label="最近保存的回忆">
       <strong>最近保存的回忆</strong>
