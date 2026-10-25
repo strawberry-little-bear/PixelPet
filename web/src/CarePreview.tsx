@@ -63,7 +63,7 @@ function cappedFeedGuidance(need: number, rules?: CareRules | null): string | nu
   const sideEffect = typeof cleanDelta === "number" && Number.isFinite(cleanDelta)
     ? cleanDelta < 0 ? `清洁基准下降 ${compactNumber(Math.abs(cleanDelta))} 点，到 0 为止` : cleanDelta > 0 ? `清洁基准增加 ${compactNumber(cleanDelta)} 点，到 100 为止` : "清洁不变"
     : "清洁可能稍微下降，最低到 0";
-  return `当前最多补 ${compactNumber(room)} 点到 100；${sideEffect}。饱食达到 96 后不能喂食。`;
+  return `当前仍可确认，但饱食效果会被 100 封顶；最多补 ${compactNumber(room)} 点到 100；${sideEffect}。饱食达到 96 后不能喂食。`;
 }
 
 // Meters use rounded integers, but eligibility still uses the authoritative

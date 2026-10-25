@@ -34,6 +34,7 @@ describe("read-only care preview", () => {
     p.needs.hunger = 95;
     const rules = { actions: { feed: { hunger: 20, mood: 3, clean: -3 } } } as unknown as CareRules;
     const text = carePreview(p, "feed", rules).join("");
+    expect(text).toContain("当前仍可确认，但饱食效果会被 100 封顶");
     expect(text).toContain("最多补 5 点到 100");
     expect(text).toContain("清洁基准下降 3 点，到 0 为止");
     expect(text).toContain("饱食达到 96 后不能喂食");
