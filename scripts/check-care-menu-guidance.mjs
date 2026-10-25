@@ -11,9 +11,10 @@ import { isolatedTestBuilds } from './browser-test-builds.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds();
-// The marker has no stage-specific layout; its three-stage semantics live in
-// CareMenuAdvice.test.tsx. Use this flag for the focused visual regression.
-const stages = process.argv.includes('--recommendations-only') ? ['baby'] : ['baby', 'growing', 'adult'];
+// These menu prompts have no stage-specific layout. Focused modes use baby
+// fixtures; stage semantics remain covered by CareMenuAdvice.test.tsx.
+const availabilityOnly = process.argv.includes('--availability-only');
+const stages = availabilityOnly || process.argv.includes('--recommendations-only') ? ['baby'] : ['baby', 'growing', 'adult'];
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-care-menu-guidance-')), results = [];
 const port = await new Promise((resolve, reject) => {
@@ -73,8 +74,16 @@ try {
     { label: 'phone-large', width: 320, height: 568, font: 28 },
     { label: 'contrast-large', width: 320, height: 568, font: 28, forcedColors: 'active' },
     { label: 'short-large', width: 320, height: 380, font: 28 },
-  ];
-  const profiles = [
+  ].filter(mode => !availabilityOnly || ['desktop', 'short-large'].includes(mode.label));
+  const profiles = availabilityOnly ? [
+    { label: 'sleep-hungry', need: 'hunger', menu: '吃点东西', index: 0, sleeping: true, confirmation: '最近读取：先叫醒它' },
+    { label: 'sleep-dirty', need: 'clean', menu: '洗个澡澡', index: 2, sleeping: true, confirmation: '最近读取：先叫醒它' },
+    { label: 'sleep-game', menu: '一起玩耍', index: 1, sleeping: true, advice: '正在休息，不必急着叫醒', confirmation: '最近读取：先叫醒它' },
+    { label: 'full-food', menu: '吃点东西', index: 0, needs: { hunger: 100 }, advice: '现在很舒适', confirmation: '最近读取：暂不能喂食' },
+    { label: 'full-clean', menu: '洗个澡澡', index: 2, needs: { clean: 100 }, advice: '现在很舒适', confirmation: '最近读取：暂不用洗澡' },
+    { label: 'below-food', menu: '吃点东西', index: 0, needs: { hunger: 95.9 }, advice: '现在很舒适', confirmation: 'B 确认' },
+    { label: 'below-clean', menu: '洗个澡澡', index: 2, needs: { clean: 98.9 }, advice: '现在很舒适', confirmation: 'B 确认' },
+  ] : [
     { label: 'hungry', need: 'hunger', menu: '吃点东西', index: 0 },
     { label: 'dirty', need: 'clean', menu: '洗个澡澡', index: 2 },
     { label: 'tired', need: 'energy', menu: '睡个好觉', index: 3 },
@@ -141,6 +150,21 @@ try {
       }
       await checkRecommendation();
       assert((await page.locator('.care-item.selected').innerText()).includes(profile.menu));
+      if (availabilityOnly) {
+        const selected = page.locator('[data-selection-status="care-menu"]');
+        const footer = page.locator('.lcd-bottom');
+        assert((await selected.textContent()).includes(profile.confirmation));
+        assert((await footer.innerText()).includes(profile.confirmation));
+        if (profile.confirmation !== 'B 确认') assert(!(await selected.textContent()).includes('B 确认'));
+        assert.equal(await page.locator('.care-menu-reading [role=status]').count(), 1);
+        assert.equal(await page.locator('.button-b').isEnabled(), true, 'snapshot guidance must not disable authoritative confirmation');
+        assert(await footer.evaluate(el => {
+          const area = document.querySelector('.lcd').getBoundingClientRect(), footer = el.getBoundingClientRect();
+          return el.scrollWidth <= el.clientWidth + 1 && footer.left >= area.left && footer.right <= area.right;
+        }), 'confirmation footer overflow');
+        await footer.scrollIntoViewIfNeeded();
+        if (['sleep-game', 'full-food'].includes(profile.label)) await page.screenshot({ path: join(dir, `availability-${profile.label}-${mode.label}.png`), fullPage: true });
+      }
       const preview = await page.getByLabel('所选菜单说明').innerText();
       await readable(page, '[aria-label="所选菜单说明"]');
       if (profile.sleeping && profile.need) {
@@ -177,6 +201,12 @@ try {
       assert((await page.locator('.care-menu-advice').innerText()).includes(expectedAdvice), 'refresh lost saved advice');
       assert((await page.locator('.care-item.selected').innerText()).includes('吃点东西'), 'advice must not auto-select an action');
       await checkRecommendation(); await readable(page, '[aria-label="所选菜单说明"]');
+      if (availabilityOnly) {
+        for (let i = 0; i < profile.index; i++) await key(page, 'a');
+        assert((await page.locator('[data-selection-status="care-menu"]').textContent()).includes(profile.confirmation), 'refresh lost selected restriction');
+        assert((await page.locator('.lcd-bottom').innerText()).includes(profile.confirmation));
+        await readable(page, '[aria-label="所选菜单说明"]');
+      }
       if (stage === 'baby' && ['full-energy', 'sleep-dirty'].includes(profile.label)) await page.screenshot({ path: join(dir, `${profile.label}-${mode.label}.png`), fullPage: true });
       assert.deepEqual(writes, [], 'reading guidance must not issue a care write');
       let explicitFeed = false;

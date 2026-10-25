@@ -90,3 +90,52 @@ it("announces selected album memories through physical keys, preserves their ide
  expect(api.mock.calls.filter(([p]) => !["state", "visit"].includes(p))).toHaveLength(0);
  expect(document.querySelectorAll(".lcd button,.lcd a,.lcd input,.lcd [role=button]")).toHaveLength(0);
 });
+
+it.each([
+ [0, "吃点东西"], [1, "一起玩耍"], [2, "洗个澡澡"],
+] as const)("explains the sleeping restriction before confirming menu choice %s / %s", async (index, label) => {
+ saved.sleeping = true;
+ await act(async () => { render(<App />); }); await key("a");
+ for (let i = 0; i < index; i++) await key("a");
+ const node = status("care-menu");
+ expect(node.textContent).toContain(label);
+ expect(node.textContent).toContain("最近读取：先叫醒它");
+ expect(node.textContent).not.toContain("B 确认");
+ expect(document.querySelector(".lcd-bottom")?.textContent).toContain("最近读取：先叫醒它");
+ expect(document.querySelector(".care-preview")?.textContent).toContain("起床啦");
+ expect(document.querySelectorAll(".care-menu-reading [role=status]")).toHaveLength(1);
+ const before = node.textContent;
+ saved.lastTick += 1000; saved.needs.energy += .1; await sync();
+ expect(node.textContent).toBe(before);
+ saved.sleeping = false; await sync();
+ expect(status("care-menu")).toBe(node); expect(node.textContent).toContain("B 确认");
+ expect(document.querySelector(".care-preview")?.textContent).not.toContain("起床啦");
+ expect(api.mock.calls.filter(([path]) => !["state", "visit"].includes(path))).toHaveLength(0);
+});
+it.each([
+ [0, "hunger", 96, "暂不能喂食"], [2, "clean", 99, "暂不用洗澡"],
+] as const)("updates the %s confirmation only when snapshot availability changes", async (index, need, full, restriction) => {
+ saved.needs[need] = full;
+ await act(async () => { render(<App />); }); await key("a");
+ for (let i = 0; i < index; i++) await key("a");
+ const node = status("care-menu"), button = document.querySelector<HTMLButtonElement>(".button-b")!;
+ button.focus();
+ expect(node.textContent).toContain(`最近读取：${restriction}`);
+ expect(button.disabled).toBe(false);
+ const before = node.textContent;
+ saved.lastTick += 1000; saved.needs[need] += .1;
+ await sync(); expect(node.textContent).toBe(before);
+ saved.needs[need] = full - .1; await sync();
+ expect(status("care-menu")).toBe(node);
+ expect(node.textContent).toContain("B 确认"); expect(node.textContent).not.toContain(restriction);
+ expect(document.activeElement).toBe(button);
+ expect(api.mock.calls.filter(([path]) => !["state", "visit"].includes(path))).toHaveLength(0);
+});
+it("keeps B available for server confirmation when the last reading still shows full food", async () => {
+ saved.needs.hunger = 96;
+ await act(async () => { render(<App />); }); await key("a");
+ expect(status("care-menu").textContent).toContain("最近读取：暂不能喂食");
+ await key("b");
+ const actions = api.mock.calls.filter(([path]) => path === "action");
+ expect(actions).toHaveLength(1); expect(actions[0][1]).toMatchObject({ kind: "feed" });
+});

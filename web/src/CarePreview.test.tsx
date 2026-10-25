@@ -1,6 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { CarePreview, carePreview } from "./CarePreview";
+import { CarePreview, careMenuConfirmation, carePreview } from "./CarePreview";
 import { emptyGrowth } from "./growth";
 import type { CareRules, GrowthStage, PetState } from "./types";
 
@@ -166,4 +166,35 @@ describe("read-only care preview", () => {
     expect(container.querySelector("button,a,input,[tabindex],[aria-live]")).toBeNull();
     expect(container.textContent).toContain(["status", "arcade"].includes(kind) ? "只读说明" : "实际以照顾结果为准");
   });
+});
+
+it.each([
+ ["feed", "hunger", 95.9, undefined, "B 确认"],
+ ["feed", "hunger", 96, undefined, "最近读取：暂不能喂食"],
+ ["clean", "clean", 98.9, undefined, "B 确认"],
+ ["clean", "clean", 99, undefined, "最近读取：暂不用洗澡"],
+ ["feed", "hunger", 96 - 1e-11, 1e-9, "最近读取：暂不能喂食"],
+ ["clean", "clean", 99 - 1e-11, 1e-9, "最近读取：暂不用洗澡"],
+ ["feed", "hunger", 96 - 1e-11, undefined, "B 确认"],
+ ["clean", "clean", 99 - 1e-11, 1, "B 确认"],
+] as const)("shares %s / %s=%s boundary guidance with the care preview", (kind, need, value, tolerance, expected) => {
+ const saved = pet(); saved.needs[need] = value;
+ const rules = { needTolerance: tolerance } as CareRules;
+ const before = structuredClone(saved);
+ expect(careMenuConfirmation(saved, kind, rules)).toBe(expected);
+ const explanation = expected === "B 确认"
+  ? kind === "feed" ? "饱食已满足" : "清洁已满足"
+  : kind === "feed" ? "暂时不能喂食" : "暂时不用洗澡";
+ expect(carePreview(saved, kind, rules).join("")).toContain(explanation);
+ expect(saved).toEqual(before);
+});
+it("does not turn habit cooldowns or missing legacy growth into blocked confirmations", () => {
+ const saved = pet(); saved.growth!.care.lastFeed = now;
+ expect(careMenuConfirmation(saved, "feed")).toBe("B 确认");
+ delete saved.growth;
+ expect(careMenuConfirmation(saved, "feed")).toBe("B 确认");
+ saved.sleeping = true;
+ for (const kind of ["sleep", "status", "moment", "album", "journal"]) {
+  expect(careMenuConfirmation(saved, kind)).toBe("B 确认");
+ }
 });

@@ -20,6 +20,30 @@ function careNeed(value: number, boundary: number, rules?: CareRules | null) {
     Math.abs(value - boundary) <= tolerance ? boundary : value;
 }
 
+// Share snapshot restrictions between the selected-choice prompt and its full
+// explanation. This is guidance only: B still asks the server, whose next tick
+// may make care available even when the cached reading is at the limit.
+function careRestriction(pet: PetState, kind: string, rules?: CareRules | null): { prompt: string; detail: string } | null {
+  if (kind !== "feed" && kind !== "clean" && kind !== "arcade") return null;
+  if (pet.sleeping) return {
+    prompt: "最近读取：先叫醒它",
+    detail: kind === "arcade"
+      ? `正在睡觉；先从菜单选「${careMenuLabel("sleep", true)}」，醒来后再一起玩。`
+      : `正在睡觉；先选「${careMenuLabel("sleep", true)}」叫醒，再选「${careMenuLabel(kind)}」。`,
+  };
+  if (kind === "arcade") return null;
+  const config = careNeeds[kind];
+  return careNeed(pet.needs[config.key], config.fullAt, rules) >= config.fullAt
+    ? kind === "feed"
+      ? { prompt: "最近读取：暂不能喂食", detail: "肚子已经饱饱的；暂时不能喂食，等需要时再来。" }
+      : { prompt: "最近读取：暂不用洗澡", detail: "已经干干净净的；暂时不用洗澡。" }
+    : null;
+}
+
+export function careMenuConfirmation(pet: PetState, kind: string, rules?: CareRules | null): string {
+  return careRestriction(pet, kind, rules)?.prompt ?? "B 确认";
+}
+
 function compactNumber(value: number): string {
   if (!Number.isFinite(value)) return "未知";
   const rounded = Math.round(value * 100) / 100;
@@ -76,13 +100,11 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
       sleepGrowthGuidance(pet.growth, rules),
     ];
   }
-  if (pet.sleeping) return [`正在睡觉；先选「${careMenuLabel("sleep", true)}」叫醒，再选「${careMenuLabel(kind)}」。`];
+  const restriction = careRestriction(pet, kind, rules);
+  if (restriction) return [restriction.detail];
   const feeding = kind === "feed";
   const config = careNeeds[kind];
   const need = pet.needs[config.key];
-  if (careNeed(need, config.fullAt, rules) >= config.fullAt) return [feeding
-    ? "肚子已经饱饱的；暂时不能喂食，等需要时再来。"
-    : "已经干干净净的；暂时不用洗澡。"];
 
   const effect = feeding ? "补充饱食，让心情变好，也可能稍微弄脏。" : "恢复清洁，也让心情轻松些。";
   const capped = feeding ? cappedFeedGuidance(need, rules) : null;
@@ -113,8 +135,7 @@ const effectLabels = [["hunger", "饱食"], ["mood", "心情"], ["clean", "清�
 // suppress legacy text or the independently validated passive rate guide.
 export function careBaseEffect(pet: PetState, kind: string, rules?: CareRules | null): Needs | null {
   if (!pet.hatchedAt || pet.game || pet.sleeping || (kind !== "feed" && kind !== "clean")) return null;
-  const config = careNeeds[kind];
-  if (careNeed(pet.needs[config.key], config.fullAt, rules) >= config.fullAt) return null;
+  if (careRestriction(pet, kind, rules)) return null;
   const effect = rules?.actions?.[kind];
   return effect && effectLabels.every(([key]) => typeof effect[key] === "number" && Number.isFinite(effect[key]) && Math.abs(effect[key]) <= 100)
     ? effect : null;
@@ -123,7 +144,8 @@ export function careBaseEffect(pet: PetState, kind: string, rules?: CareRules | 
 export function CarePreview({ pet, kind, hint, rules }: { pet: PetState; kind: string; hint: string; rules?: CareRules | null }) {
   const care = kind === "feed" || kind === "clean" || kind === "sleep";
   const effect = careBaseEffect(pet, kind, rules);
-  const lines = care ? carePreview(pet, kind, rules) : [hint];
+  const restriction = careRestriction(pet, kind, rules);
+  const lines = care ? carePreview(pet, kind, rules) : [restriction?.detail ?? hint];
   const reading = care ? roundedReading(pet, kind, rules) : null;
   return (
     <div className="care-preview" role="note" aria-label="所选菜单说明" data-care-preview={kind}>
@@ -138,7 +160,7 @@ export function CarePreview({ pet, kind, hint, rules }: { pet: PetState; kind: s
         <small>各项到 0 / 100 为止，实际变化可能更少；不是操作后的预测。成长与习惯另按条件记录。</small>
       </section>}
       {kind === "sleep" && <SleepProgress pet={pet} />}
-      {care && <small>按最近读取的状态预览，实际以照顾结果为准；不必为了成长反复照顾。</small>}
+      {(care || restriction) && <small>按最近读取的状态预览，实际以照顾结果为准；不必为了成长反复照顾。</small>}
     </div>
   );
 }

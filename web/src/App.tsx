@@ -21,7 +21,7 @@ import { stageLook } from "./stageLooks";
 import { StatusGuide, statusPageCount, validCareRules } from "./StatusGuide";
 import { StatusReading } from "./StatusReading";
 import type { CareRules } from "./types";
-import { CarePreview } from "./CarePreview";
+import { CarePreview, careMenuConfirmation } from "./CarePreview";
 import { TreasureGame } from "./TreasureGame";
 import { nextTreasure, treasureDone, treasureMenu } from "./treasure";
 import { WalkingGame, ParkAlbum } from "./WalkingGame";
@@ -2328,6 +2328,7 @@ export default function App() {
     : quietMomentChoice === 2 && quietMemoryCount
     ? `A 换回应　 B ${quietMemoryKey ? quietMemoryCount > 1 ? "再聊一段" : "再聊一次" : "聊聊回忆"}　 C 返回`
     : "A 换回应　 B 陪一会儿　 C 返回";
+  const menuConfirmation = pet ? careMenuConfirmation(pet, items[selected].kind, careRules) : "B 确认";
   const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"
       : uncertain || unavailable ? checking ? "正在读取 · 不重做操作" : "B 读取存档 · 不重做操作"
       : page === "import-preview"
@@ -2353,7 +2354,7 @@ export default function App() {
                     ? "A / B 菜单　 C 收起回执"
                     : careFeedback || message ? "A / B 菜单　 C 收起提示" : "A / B 打开菜单"
                 : page === "menu"
-                  ? "A 选择　 B 确认　 C 返回"
+                  ? `A 选择　 ${menuConfirmation}　 C 返回`
                   : page === "game"
                     ? pet.game?.kind === "treasure" ? treasureHint : pet.game?.kind === "walk" ? walkHint : pet.game?.kind === "fishing"
                       ? fishingHint
@@ -2780,7 +2781,7 @@ export default function App() {
                         {page === "menu" && (
                           <CareReadingRegion className="care-menu-reading" label="照顾菜单阅读区"
                             hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
-                            <SelectionStatus scope="care-menu">第 {selected + 1} / {items.length} 项，{items[selected].kind === "sleep" && pet.sleeping ? careMenuLabel("sleep", true) : items[selected].label}。A 下一项，B 确认，C 返回。</SelectionStatus>
+                            <SelectionStatus scope="care-menu">第 {selected + 1} / {items.length} 项，{items[selected].kind === "sleep" && pet.sleeping ? careMenuLabel("sleep", true) : items[selected].label}。A 下一项，{menuConfirmation}，C 返回。</SelectionStatus>
                             <div className="care-menu-pagination" aria-label="菜单浏览进度">
                               {(() => {
                                 const start = Math.max(0, selected - 5);
