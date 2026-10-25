@@ -23,6 +23,7 @@ func Handler(db *store.Store, web string) http.Handler {
 // growth/history or exposing clock controls to clients. Production uses time.Now.
 func handlerWithClock(db *store.Store, web string, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/runtime", runtimeHandler())
 	write := func(w http.ResponseWriter, result store.Result, err error) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")

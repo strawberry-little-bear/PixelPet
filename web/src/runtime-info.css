@@ -1,0 +1,18 @@
+/* Outside the LCD: native selection/scrolling and existing tool keyboard rules. */
+.tools-menu:has(.runtime-info-open) {
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: min(36rem, calc(100dvh - 100px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.runtime-info-content { padding: 0 0.65rem 0.65rem; font-size: 0.8rem; line-height: 1.65; }
+.runtime-info-content dl { margin: 0; }
+.runtime-info-content dt { color: #586348; margin-top: 0.5rem; }
+.runtime-info-content dd { margin: 0; overflow-wrap: anywhere; }
+.runtime-info-content code { font-size: inherit; }
+.tools-menu .runtime-info-content p { padding: 0; margin: 0.65rem 0; font-size: inherit; color: #586348; }
+.runtime-info button:focus-visible { outline: 2px solid #526d3e; outline-offset: -2px; }
+@media (forced-colors: active) {
+ .runtime-info-content dt, .tools-menu .runtime-info-content p { color: CanvasText; }
+ .runtime-info button:focus-visible { outline-color: Highlight; }
+}

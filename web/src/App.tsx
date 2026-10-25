@@ -1,3 +1,4 @@
+import { RuntimeInfo } from "./RuntimeInfo";
 import { SelectionStatus } from "./SelectionStatus";
 import { HomeKeepsake, KeepsakeCorner, keepsakeOptions } from "./KeepsakeCorner";
 import { StatusIdentity } from "./StatusIdentity";
@@ -258,6 +259,7 @@ export default function App() {
   const clipRef = useRef<MotionClip | null>(null);
   const clipSequence = useRef(0);
   const [savedAt, setSavedAt] = useState(0);
+  const [syncedAt, setSyncedAt] = useState<number | null>(null);
   const [sound, setSound] = useState(() => {
     try {
       return localStorage.getItem("pixelpet-sound") === "on";
@@ -548,6 +550,7 @@ export default function App() {
     setCareRules(validCareRules(r.careRules) ? r.careRules : null);
     if (r.shop) setShop(r.shop);
     setSavedAt(r.state.lastTick);
+    setSyncedAt(Date.now());
     setError("");
     clockAheadRef.current = false;
     setClockAhead(false);
@@ -2507,6 +2510,7 @@ export default function App() {
                 <RecoveryPoints enabled={!backupExport.pending && !busy && !uncertain && !unavailable && !clockAhead && (!!pet || corrupt)}
                   onPreview={(text, source) => void importFile({ name: `恢复点 #${source.id}`,
                     size: new TextEncoder().encode(text).length, text: async () => text }, source)} />
+                <RuntimeInfo health={clockAhead ? "clock-ahead" : uncertain ? "uncertain" : corrupt ? "corrupt" : unavailable ? "unavailable" : pet ? "ready" : "connecting"} syncedAt={syncedAt}/>
                 <button
                   disabled={backupExport.pending || busy || uncertain || unavailable || (!pet && !corrupt)}
                   className="reset-link"
