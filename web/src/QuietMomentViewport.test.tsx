@@ -26,7 +26,7 @@ beforeEach(() => {
   generation = "a".repeat(32); api.mockReset(); api.mockImplementation(async () => response());
   vi.spyOn(window, "scrollBy").mockImplementation(() => {});
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
-    return this.matches(".quiet-moment-copy") ? targetRect(-500) : { ...targetRect(0), width: 0, height: 0 };
+    return this.matches(".quiet-moment-copy, .quiet-moment-copy > p") ? targetRect(-500) : { ...targetRect(0), width: 0, height: 0 };
   });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
@@ -117,4 +117,33 @@ it("keeps the reading hint stable until a physical tap activates, then focuses a
   expect(document.activeElement).toBe(reading);
   expect(window.scrollBy).toHaveBeenCalledTimes(2);
   expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
+});
+
+it.each([false, true])("B locates the reply below long atmosphere text and A returns to the choice (sleeping=%s)", async sleeping => {
+  saved.sleeping = sleeping;
+  vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function(this: HTMLElement) {
+    if (this.matches(".quiet-moment-copy > p")) return targetRect(1000);
+    if (this.matches(".quiet-moment-copy")) return { ...targetRect(40), bottom: 1300, height: 1260 };
+    return { ...targetRect(0), width: 0, height: 0 };
+  });
+  await mount(); await enter();
+  expect(window.scrollBy).toHaveBeenLastCalledWith({ top: 28, behavior: "instant" });
+  await key("b");
+  expect(window.scrollBy).toHaveBeenLastCalledWith({ top: 988, behavior: "instant" });
+  await key("a");
+  expect(window.scrollBy).toHaveBeenLastCalledWith({ top: 28, behavior: "instant" });
+});
+
+it("B leaves a visible reply in place even when the rest of the copy extends below the viewport", async () => {
+  vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function(this: HTMLElement) {
+    if (this.matches(".quiet-moment-copy > p")) return targetRect(40);
+    if (this.matches(".quiet-moment-copy")) return { ...targetRect(-500), bottom: 1300, height: 1800 };
+    return { ...targetRect(0), width: 0, height: 0 };
+  });
+  await mount(); await enter();
+  vi.mocked(window.scrollBy).mockClear();
+  await key("b");
+  expect(window.scrollBy).not.toHaveBeenCalled();
+  await refresh();
+  expect(window.scrollBy).not.toHaveBeenCalled();
 });

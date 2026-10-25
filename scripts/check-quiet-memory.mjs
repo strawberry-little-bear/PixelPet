@@ -44,9 +44,10 @@ async function sameAppearance(page, expected, saved) {
 }
 async function responseVisible(page) {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  const box = await page.locator('.quiet-moment-copy').boundingBox(), height = page.viewportSize().height;
+  const replied = await page.locator('.quiet-moment').getAttribute('data-replied') === 'true';
+  const box = await page.locator(replied ? '.quiet-moment-copy > p' : '.quiet-moment-copy').boundingBox(), height = page.viewportSize().height;
   assert(box && box.y >= -1 && (box.height > height - 24 ? box.y <= 13 : box.y + box.height <= height + 1),
-    `Current choice and response must be in view: ${JSON.stringify(box)}, viewport=${height}`);
+    `Current ${replied ? "reply" : "choice"} must be in view: ${JSON.stringify(box)}, viewport=${height}`);
 }
 async function physical(page, key) {
   const button = page.locator(`.button-${key}`);

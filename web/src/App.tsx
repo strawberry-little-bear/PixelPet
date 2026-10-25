@@ -478,13 +478,14 @@ export default function App() {
     setAlbumReadingDestination({ petKey: careReadingKey, sessionKey, category });
   };
 
-  const [quietReadingDestination, setQuietReadingDestination] = useState<{ petKey: string | null; choice: number } | null>(null);
-  useReadingViewport(readingRoot, quietReadingDestination, ".quiet-moment-copy",
+  const [quietReadingDestination, setQuietReadingDestination] = useState<{ petKey: string | null; choice: number; response: boolean } | null>(null);
+  useReadingViewport(readingRoot, quietReadingDestination,
+    quietReadingDestination?.response ? ".quiet-moment-copy > p" : ".quiet-moment-copy",
     !!careReadingKey && quietReadingDestination?.petKey === careReadingKey && page === "moment" &&
     quietReadingDestination?.choice === quietMomentChoice &&
     !pet?.game && !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
-  const navigateQuietReading = (choice: number) => {
-    setQuietReadingDestination({ petKey: careReadingKey, choice });
+  const navigateQuietReading = (choice: number, response = false) => {
+    setQuietReadingDestination({ petKey: careReadingKey, choice, response });
   };
 
   const [cornerReadingDestination, setCornerReadingDestination] = useState<{ petKey: string | null; choice: string } | null>(null);
@@ -1966,7 +1967,7 @@ export default function App() {
       } else if (key === "B") {
         setQuietMomentReplied(true);
         if (!pet.sleeping) setQuietResponseId(value => value + 1);
-        navigateQuietReading(quietMomentChoice);
+        navigateQuietReading(quietMomentChoice, true);
         if (!pet.sleeping && quietMomentChoice === 2) setQuietMemoryKey(value => nextQuietMemory(quietMemories(pet), value));
       } else if (key === "C") setPage("home");
       return;
