@@ -59,9 +59,16 @@ async function inspectReadability(page) {
       range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (box.left < -1 || box.right > innerWidth + 1) clipped.push(node.textContent);
+        let passedScrollport = false;
         for (let p = node.parentElement; p; p = p.parentElement) {
           const css = getComputedStyle(p), rect = p.getBoundingClientRect();
-          if (/hidden|clip/.test(css.overflowY) && (box.top < rect.top - 2 || box.bottom > rect.bottom + 2)) clipped.push(node.textContent);
+          const scrollable = ['auto', 'scroll'].includes(css.overflowY) && p.scrollHeight > p.clientHeight;
+          if (scrollable) { passedScrollport = true; continue; }
+          const horizontalClip = box.left < rect.left - 2 || box.right > rect.right + 2;
+          const verticalClip = box.top < rect.top - 2 || box.bottom > rect.bottom + 2;
+          if (horizontalClip || (!passedScrollport && verticalClip && (['hidden', 'clip'].includes(css.overflowY) || ['auto', 'scroll'].includes(css.overflowY)))) {
+            clipped.push(node.textContent);
+          }
         }
       }
     }

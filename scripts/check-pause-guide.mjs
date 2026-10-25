@@ -37,8 +37,13 @@ async function key(page, key) {
   await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
 }
 async function visibleAnchor(page, selector) {
-  const box = await page.locator(selector).boundingBox(), height = await page.evaluate(() => innerHeight);
-  assert(box && box.y >= -1 && box.y + box.height <= height + 1, `${selector} outside visible viewport: ${JSON.stringify(box)}`);
+  const details = await page.locator(selector).evaluateAll(elements => elements.map(element => {
+    const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
+    return { box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, display: style.display, visibility: style.visibility, text: element.textContent };
+  }));
+  const height = await page.evaluate(() => innerHeight), scrollY = await page.evaluate(() => window.scrollY);
+  const visible = details.find(({ box, display, visibility }) => display !== 'none' && visibility !== 'hidden' && box.y >= -1 && box.y + box.height <= height + 1);
+  assert(visible, `${selector} outside visible viewport: ${JSON.stringify({ height, scrollY, details })}`);
 }
 async function open(page) {
   for (const k of ['A', 'A', 'A', 'A', 'B']) await key(page, k);
@@ -50,7 +55,10 @@ async function open(page) {
 async function readable(page, selector) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'page horizontal overflow');
   const errors = await page.locator(selector).evaluate(el => {
-    const content = document.querySelector('.lcd-content').getBoundingClientRect();
+    const lcd = document.querySelector('.lcd-content');
+    const content = lcd.getBoundingClientRect();
+    const lcdScrolls = getComputedStyle(lcd).overflowY;
+    const lcdScrollable = ['auto', 'scroll'].includes(lcdScrolls) && lcd.scrollHeight > lcd.clientHeight;
     const footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), errors = [];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
@@ -58,10 +66,19 @@ async function readable(page, selector) {
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < content.left - 1 || box.right > content.right + 1 || box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top) + 1) errors.push(text.textContent);
+        const horizontalOverflow = box.left < content.left - 1 || box.right > content.right + 1;
+        const verticalOverflow = box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top) + 1;
+        if (horizontalOverflow || (verticalOverflow && !lcdScrollable)) errors.push(text.textContent);
+        let passedScrollport = false;
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) errors.push('clipped: ' + text.textContent);
+          const scrollable = ['auto', 'scroll'].includes(css.overflowY) && parent.scrollHeight > parent.clientHeight;
+          if (scrollable) { passedScrollport = true; continue; }
+          const horizontalClip = box.left < rect.left - 1 || box.right > rect.right + 1;
+          const verticalClip = box.top < rect.top - 1 || box.bottom > rect.bottom + 1;
+          if (horizontalClip || (!passedScrollport && verticalClip && (['hidden', 'clip'].includes(css.overflowY) || ['auto', 'scroll'].includes(css.overflowY)))) {
+            errors.push('clipped: ' + text.textContent);
+          }
         }
       }
     }
@@ -186,6 +203,7 @@ try {
         // viewport (observed +41px). Keep that diagnostic capture AFTER the
         // native viewport/poll assertions and BEFORE the next explicit key.
         await page.screenshot({ path: join(dir, `guide-${kind}-${width}-${height}-${scale}-${n}.png`), fullPage: true });
+        await page.evaluate(() => window.scrollTo(0, 0));
         await key(page, 'B'); await visibleAnchor(page, '.game-guide > header');
       }
       // Native activation remains on B despite viewport movement (no focus steal).

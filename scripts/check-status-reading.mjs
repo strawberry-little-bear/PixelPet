@@ -32,7 +32,10 @@ async function key(page, k) {
 async function openStatus(page) { await key(page, 'a'); for (let i = 0; i < 4; i++) await key(page, 'a'); await key(page, 'b'); }
 async function readable(page) {
   const problems = await page.locator('.screen-status').evaluate(el => {
-    const content = document.querySelector('.lcd-content').getBoundingClientRect();
+    const lcd = document.querySelector('.lcd-content');
+    const content = lcd.getBoundingClientRect();
+    const lcdScrolls = getComputedStyle(lcd).overflowY;
+    const lcdScrollable = ['auto', 'scroll'].includes(lcdScrolls) && lcd.scrollHeight > lcd.clientHeight;
     const footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), errors = [];
     if (document.documentElement.scrollWidth > innerWidth + 1) errors.push('horizontal overflow');
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
@@ -43,10 +46,19 @@ async function readable(page) {
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < content.left - 1 || box.right > content.right + 1 || box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top) + 1) errors.push('outside LCD: ' + text.textContent);
+        const horizontalOverflow = box.left < content.left - 1 || box.right > content.right + 1;
+        const verticalOverflow = box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top) + 1;
+        if (horizontalOverflow || (verticalOverflow && !lcdScrollable)) errors.push('outside LCD: ' + text.textContent);
+        let passedScrollport = false;
         for (let p = text.parentElement; p; p = p.parentElement) {
           const css = getComputedStyle(p), rect = p.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) errors.push('clipped: ' + text.textContent);
+          const scrollable = ['auto', 'scroll'].includes(css.overflowY) && p.scrollHeight > p.clientHeight;
+          if (scrollable) { passedScrollport = true; continue; }
+          const horizontalClip = box.left < rect.left - 1 || box.right > rect.right + 1;
+          const verticalClip = box.top < rect.top - 1 || box.bottom > rect.bottom + 1;
+          if (horizontalClip || (!passedScrollport && verticalClip && (['hidden', 'clip'].includes(css.overflowY) || ['auto', 'scroll'].includes(css.overflowY)))) {
+            errors.push('clipped: ' + text.textContent);
+          }
         }
       }
     }
@@ -120,7 +132,9 @@ try {
       await page.goto(base); await page.locator('.home-caption').waitFor(); await openStatus(page);
       const first = await verify();
       await key(page, 'a'); assert.equal(await page.locator('.status-reading').count(), 0); await readable(page);
-      await key(page, 'a'); assert.equal(await verify(), first, 'changing pages must not invent a newer timestamp');
+      assert.equal(await page.locator('.status-summary').count(), 1);
+      await key(page, 'a'); assert.equal(await page.locator('.status-reading').count(), 0); await readable(page);
+      assert.equal(await page.locator('.status-rules').count(), 1);
       if (stage === 'baby' && zone === 'America/Los_Angeles') await page.screenshot({ path: join(dir, `${sleeping ? 'sleep' : 'awake'}-${mode.label}.png`), fullPage: true });
       await key(page, 'c'); assert.equal(await page.locator('.status-reading').count(), 0);
       await page.reload(); await page.locator('.home-caption').waitFor(); await openStatus(page);

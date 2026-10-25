@@ -9,15 +9,25 @@ function Reader({ request, sessionKey = "one", page = "pause-guide", blocked = f
   usePauseReadingViewport(root, request, sessionKey, page, blocked);
   return <div ref={root}>{target && <section className="game-guide"><header>本局玩法</header></section>}</div>;
 }
+function ScrollReader({ request }: Pick<Props, "request">) {
+  const root = useRef<HTMLDivElement>(null);
+  usePauseReadingViewport(root, request, "one", "pause-guide", false);
+  return <div className="scroll-root" ref={root} style={{ overflowY: "auto" }}><section className="game-guide"><header>本局玩法</header></section></div>;
+}
 const destination = (): PauseReadingDestination => ({ sessionKey: "one", target: "guide" });
-let top: number, height: number, width: number;
+let top: number, height: number, width: number, scrollRoot: HTMLElement | null;
 beforeEach(() => {
-  top = -500; height = 80; width = 200;
+  top = -500; height = 80; width = 200; scrollRoot = null;
   Object.defineProperty(document, "hidden", { configurable: true, value: false });
   vi.spyOn(window, "scrollBy").mockImplementation(() => {});
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => ({
-    top, bottom: top + height, left: 0, right: width, width, height, x: 0, y: top, toJSON: () => ({}),
-  }));
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+    if (this.classList.contains("scroll-root")) return { top: 100, bottom: 200, left: 0, right: 200, width: 200, height: 100, x: 0, y: 100, toJSON: () => ({}) };
+    if (scrollRoot && this.matches(".game-guide > header")) {
+      const y = 250 - scrollRoot.scrollTop;
+      return { top: y, bottom: y + 80, left: 0, right: width, width, height: 80, x: 0, y, toJSON: () => ({}) };
+    }
+    return { top, bottom: top + height, left: 0, right: width, width, height, x: 0, y: top, toJSON: () => ({}) };
+  });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 it("scrolls above-screen reading to a small margin without focus or smooth motion", () => {
@@ -29,6 +39,15 @@ it("scrolls above-screen reading to a small margin without focus or smooth motio
 it("also brings a below-screen heading into view", () => {
   top = 900; render(<Reader request={destination()} />);
   expect(window.scrollBy).toHaveBeenCalledExactlyOnceWith({ top: 888, behavior: "instant" });
+});
+it("scrolls an LCD reading port before the outer document", () => {
+  const view = render(<ScrollReader request={null} />);
+  const root = document.querySelector<HTMLElement>(".scroll-root")!;
+  scrollRoot = root;
+  Object.defineProperties(root, { scrollHeight: { value: 300 }, clientHeight: { value: 100 } });
+  view.rerender(<ScrollReader request={destination()} />);
+  expect(root.scrollTop).toBe(142);
+  expect(window.scrollBy).not.toHaveBeenCalled();
 });
 it("does not scroll on a snapshot/rerender, but a new explicit request can scroll again", () => {
   const request = destination(), view = render(<Reader request={request} />);

@@ -16,7 +16,7 @@ await new Promise(r => listener.listen(0, '127.0.0.1', r));
 const port = listener.address().port;
 await new Promise(r => listener.close(r));
 const base = `http://127.0.0.1:${port}`, wait = ms => new Promise(r => setTimeout(r, ms));
-const hints = ['继续自动前进，不补走', '永久沿途图鉴', '先打开放弃确认', '已保存的风景手记', '本局两页玩法'];
+const hints = ['继续自动前进，不补走', '永久沿途图鉴', '先打开放弃确认', '已保存的风景手记', '本局两页玩法', '出发前挑一条小路'];
 const results = [], journeys = [];
 let server, browser, startupError, log = '';
 async function api(path, data) {
@@ -32,8 +32,10 @@ async function key(page, letter) {
 async function choose(page, index) {
   await page.locator('.walk-pause-hint').waitFor();
   const selected = await page.locator('.walk-pause span').evaluateAll(els => els.findIndex(el => el.dataset.selected === 'true'));
+  const menuCount = await page.locator('.walk-pause span').count();
   assert(selected >= 0);
-  for (let i = 0; i < (index - selected + 5) % 5; i++) await key(page, 'a');
+  assert(index < menuCount, `menu item ${index} is unavailable; found ${menuCount}`);
+  for (let i = 0; i < (index - selected + menuCount) % menuCount; i++) await key(page, 'a');
   assert.match(await page.locator('.walk-pause-hint').textContent(), new RegExp(hints[index]));
 }
 async function inspect(page, mode, choice) {
@@ -43,16 +45,27 @@ async function inspect(page, mode, choice) {
   assert.equal(await note.getAttribute('aria-atomic'), 'true');
   const layout = await page.locator('.walking-game').evaluate(el => {
     const clipped = [], range = document.createRange(), walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    const footer = document.querySelector('.lcd-bottom').getBoundingClientRect();
+    const lcd = document.querySelector('.lcd-content');
+    const viewport = lcd.getBoundingClientRect();
+    const lcdScrollable = ['auto', 'scroll'].includes(getComputedStyle(lcd).overflowY) && lcd.scrollHeight > lcd.clientHeight;
     while (walker.nextNode()) {
       const node = walker.currentNode; if (!node.textContent.trim()) continue;
       range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < -1 || box.right > innerWidth + 1 || box.bottom > footer.top + 1) clipped.push(node.textContent);
+        const element = node.parentElement;
+        if (element?.matches('[data-care-reading-start]') && getComputedStyle(element).clipPath !== 'none') continue;
+        if (box.left < viewport.left - 1 || box.right > viewport.right + 1 || ((box.top < viewport.top - 1 || box.bottom > viewport.bottom + 1) && !lcdScrollable)) clipped.push(node.textContent);
+        let passedScrollport = false;
         for (let p = node.parentElement; p; p = p.parentElement) {
           const css = getComputedStyle(p), rect = p.getBoundingClientRect();
-          if (/hidden|clip/.test(css.overflowY) && (box.top < rect.top - 2 || box.bottom > rect.bottom + 2)) clipped.push(node.textContent);
+          const scrollable = ['auto', 'scroll'].includes(css.overflowY) && p.scrollHeight > p.clientHeight;
+          if (scrollable) { passedScrollport = true; continue; }
+          const horizontalClip = box.left < rect.left - 2 || box.right > rect.right + 2;
+          const verticalClip = box.top < rect.top - 2 || box.bottom > rect.bottom + 2;
+          if (horizontalClip || (!passedScrollport && verticalClip && (['hidden', 'clip'].includes(css.overflowY) || ['auto', 'scroll'].includes(css.overflowY)))) {
+            clipped.push(node.textContent);
+          }
         }
       }
     }
@@ -108,9 +121,10 @@ try {
       await page.goto(base); await page.locator('.walk-pause-hint').waitFor();
       const before = (await api('state')).state;
       assert.match(await page.locator('.walk-pause-hint').textContent(), /从第 1 步/);
-      for (let choice = 0; choice < 5; choice++) { await choose(page, choice); await inspect(page, mode, choice); }
+      const initialMenuCount = await page.locator('.walk-pause span').count();
+      for (let choice = 0; choice < initialMenuCount; choice++) { await choose(page, choice); await inspect(page, mode, choice); }
       // Rule pages, permanent discovery album and saved scenery are read-only.
-      await key(page, 'b'); await page.locator('.game-guide').waitFor(); await key(page, 'b');
+      await choose(page, 4); await key(page, 'b'); await page.locator('.game-guide').waitFor(); await key(page, 'b');
       assert.match(await page.locator('.game-guide').textContent(), /2 \/ 2/);
       await key(page, 'c'); await choose(page, 1); await key(page, 'b');
       await page.locator('.park-album').waitFor(); await key(page, 'c');

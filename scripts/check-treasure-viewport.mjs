@@ -45,6 +45,9 @@ async function start(page) {
   await selectTreasure(page); await key(page, 'B');
   await page.locator('.game-guide').waitFor();
   await key(page, 'B');
+  await page.locator('.treasure-game').waitFor();
+  await page.waitForFunction(() => document.querySelector('.treasure-pause') || document.querySelector('.treasure-game[data-paused="false"]'));
+  if (await page.locator('.treasure-pause').count() === 0) await key(page, 'C');
   await page.locator('.treasure-pause').waitFor();
 }
 async function readable(page) {
@@ -118,15 +121,25 @@ async function selectionVisible(page) {
 }
 async function initialGridVisible(page) {
   const boxes = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('.treasure-grid [role=row]')];
+    const grid = document.querySelector('.treasure-grid');
+    const selected = document.querySelector('.treasure-grid [aria-selected=true]');
+    const lcd = grid?.closest('.lcd-content');
     const dock = document.querySelector('.device-buttons');
-    if (rows.length !== 3 || !dock) return null;
-    const last = rows.at(-1).getBoundingClientRect(), controls = dock.getBoundingClientRect();
-    return { lastRow: { top: last.top, bottom: last.bottom }, dock: { top: controls.top, bottom: controls.bottom }, scrollY };
+    if (!grid || !selected || !lcd || !dock) return null;
+    const board = grid.getBoundingClientRect(), focus = selected.getBoundingClientRect(), viewport = lcd.getBoundingClientRect(), controls = dock.getBoundingClientRect();
+    return {
+      board: { left: board.left, right: board.right, top: board.top, bottom: board.bottom },
+      selected: { top: focus.top, bottom: focus.bottom },
+      lcd: { left: viewport.left, right: viewport.right, top: viewport.top, bottom: viewport.bottom },
+      dock: { top: controls.top, bottom: controls.bottom },
+      scrollable: lcd.scrollHeight > lcd.clientHeight,
+      scrollY,
+    };
   });
   assert(boxes, 'missing initial treasure grid or key dock');
-  assert(boxes.lastRow.bottom >= boxes.lastRow.top && boxes.lastRow.top < boxes.dock.bottom,
-    `initial treasure grid is missing from the LCD flow: ${JSON.stringify(boxes)}`);
+  assert(boxes.scrollable, `treasure grid should use the LCD scrollport: ${JSON.stringify(boxes)}`);
+  assert(boxes.board.left >= boxes.lcd.left - 1 && boxes.board.right <= boxes.lcd.right + 1,
+    `treasure grid has horizontal overflow: ${JSON.stringify(boxes)}`);
   return boxes;
 }
 // Reading can scroll beyond the auto-positioned result. Verify that even the
