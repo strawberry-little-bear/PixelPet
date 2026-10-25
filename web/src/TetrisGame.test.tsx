@@ -86,6 +86,19 @@ describe("three-key Tetris", () => {
     expect(saved.game!.tetris!.paused).toBe(false);
     await clock(1050); expect(actions().at(-1)?.kind).toBe("tetris-step");
   });
+  it.each(["b", "c"])("keeps the four-line preview read-only until explicit %s", async letter => {
+    saved.game = game(); const n = saved.game.tetris!;
+    n.active = { kind: 1, rotation: 1, x: 7, y: 0 }; n.pieces = 7; n.step = 7;
+    for (let row = 8; row < 12; row++) for (let col = 0; col < 7; col++) n.board[row * 8 + col] = 6;
+    await mount(); await key("a"); await key("a"); const before = structuredClone(saved);
+    expect(document.querySelector(".tetris-drop-preview")?.textContent).toContain("预计消除 4 行（第 9、10、11、12 行）");
+    await clock(4000); expect(actions()).toHaveLength(0); expect(saved).toEqual(before);
+    await key(letter);
+    expect(actions()).toMatchObject([{ kind: letter === "b" ? "tetris-drop" : "tetris-resume", step: 7 }]);
+    expect(document.querySelector(".tetris-drop-preview")).toBeNull();
+    expect(saved.game!.tetris!.pieces).toBe(letter === "b" ? 8 : 7);
+    expect(saved.careCount).toBe(0); expect(saved.economy!.coins).toBe(0);
+  });
   it("the explained rules visit returns paused without a hidden resume or reward", async () => {
     saved.game = game(); await mount(); for (let i = 0; i < 4; i++) await key("a");
     expect(document.querySelector(".tetris-operation-hint")?.textContent).toContain("返回后仍暂停");

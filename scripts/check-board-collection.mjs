@@ -104,7 +104,7 @@ async function prepare(kind){
       state=await command(state,'tetris-move',{turn:Math.sign(best.x-state.game.tetris.active.x)});
     }
     state=await command(state,'tetris-pause');
-    if(best.cleared)return {state,turn:0};
+    if(best.cleared)return {state,turn:0,cleared:best.cleared,board:best.board};
     state=await command(state,'tetris-drop');
   }
   assert.fail('no genuine line clear prepared within 40 pieces');
@@ -123,6 +123,10 @@ async function trigger(page,kind,turn,held=false){
     await key(page,'c');if(turn)await key(page,turn<0?'a':'b');
   }else{
     await key(page,'a');await key(page,'a');
+    const preview=page.locator('.tetris-drop-preview');await preview.waitFor();
+    const rows=await page.locator('.tetris-preview-row').evaluateAll(els=>els.map(el=>Number(el.dataset.previewRow)));
+    assert(rows.length>0,'prepared genuine clear must be previewed');
+    assert.equal(await preview.textContent(),`落底预览：预计消除 ${rows.length} 行（第 ${rows.join('、')} 行）。按 B 才固定。`);
     if(held)await page.locator('.button-b:not(:disabled)').tap();else await key(page,'b');
   }
 }
@@ -155,12 +159,31 @@ try{
       await page.waitForFunction(kind=>!document.querySelector('.button-b')?.disabled&&document.querySelector(`.${kind}-overlay`),kind);
       assert.equal(await page.locator(`.${kind}-companion`).getAttribute('data-motion'),'waiting','late collection must not play behind a paused board');
       if(kind==='snake')assert.deepEqual(await page.evaluate(()=>window.snakeProgressChanges), [{text:`果子 ${count(heldReply.state,kind)}/8`,live:'off'}], 'late fruit acknowledgement must be readable without a live announcement');
-      const committed=(await api('state')).state;assert.equal(count(committed,kind),count(heldReply.state,kind));assert.equal(committed.careCount,0);assert.equal(committed.economy.coins,initial.state.economy.coins);
+      const committed=(await api('state')).state;assert.equal(count(committed,kind),count(heldReply.state,kind));
+      if(kind==='tetris'){
+        assert.equal(committed.game.tetris.lines-initial.state.game.tetris.lines,initial.cleared,'actual first clear matches the predicted rows');
+        assert.deepEqual(committed.game.tetris.board,initial.board,'actual first board matches the landing and clear');
+        // Blur retains the selected option. Preview the newly accepted active
+        // piece, without replaying the previous piece's collection animation.
+        const n=committed.game.tetris;
+        const nextLanding=placements(n.board,n.active.kind).find(p=>p.rotation===n.active.rotation&&p.x===n.active.x);
+        assert(nextLanding,'the accepted next piece has a landing');
+        assert.equal(await page.locator('.tetris-preview-row').count(),nextLanding.cleared);
+        await page.locator('.tetris-drop-preview').waitFor();
+      }
+      assert.equal(committed.careCount,0);assert.equal(committed.economy.coins,initial.state.economy.coins);
       await page.unroute('**/api/action',handler);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
       await wait(200);const writes=actions.length;await wait(1100);assert.equal(actions.length,writes,'no automatic resume after blur');
       // Prepare a second real collection, still without awarding or importing a score.
       const second=await prepare(kind);await page.reload();await page.locator(`.${kind}-overlay`).waitFor();
       if(kind==='snake')await observeSnakeProgress(page);
+      if(kind==='tetris'){
+        await key(page,'a');await key(page,'a');
+        await page.locator('.tetris-drop-preview').scrollIntoViewIfNeeded();
+        await page.screenshot({path:join(artifacts,`${mode.name}-drop-preview.png`),fullPage:true});
+        // Return to the same default option used by trigger.
+        for(let i=0;i<3;i++)await key(page,'a');
+      }
       await trigger(page,kind,second.turn);await page.locator(`.${kind}-companion.collecting`).waitFor();
       if(kind==='snake')assert.deepEqual(await page.evaluate(()=>window.snakeProgressChanges), [{text:`果子 ${count(second.state,kind)+1}/8`,live:'polite'}], 'active fruit must announce once');
       await page.locator('.button-c:not(:disabled)').tap();await page.locator(`.${kind}-overlay`).waitFor();
@@ -168,10 +191,15 @@ try{
       await page.waitForFunction(()=>!document.querySelector('.button-b')?.disabled);
       await key(page,'c');assert.equal(await page.locator(`.${kind}-companion`).getAttribute('data-motion'),'waiting','resume must not replay the old collection');await key(page,'c');
       if(kind==='snake')assert.deepEqual(await page.evaluate(()=>window.snakeProgressChanges), [{text:`果子 ${count(second.state,kind)+1}/8`,live:'polite'}], 'resume must not rewrite old progress');
-      const after=(await api('state')).state;assert(count(after,kind)>count(second.state,kind));assert.equal(after.careCount,0);assert.equal(after.economy.coins,initial.state.economy.coins);
+      const after=(await api('state')).state;assert(count(after,kind)>count(second.state,kind));
+      if(kind==='tetris'){
+        assert.equal(after.game.tetris.lines-second.state.game.tetris.lines,second.cleared,'actual second clear matches the preview');
+        assert.deepEqual(after.game.tetris.board,second.board);
+      }
+      assert.equal(after.careCount,0);assert.equal(after.economy.coins,initial.state.economy.coins);
       assert.equal(await page.locator('.lcd button,.lcd [role="button"]').count(),0);assert.deepEqual(errors,[]);
       await page.screenshot({path:join(artifacts,`${mode.name}-${kind}.png`),fullPage:true});
-      results.push({mode:mode.name,kind,first:count(committed,kind),second:count(after,kind),care:after.careCount,actions});
+      results.push({mode:mode.name,kind,first:count(committed,kind),second:count(after,kind),care:after.careCount,predictedClears:kind==='tetris'?[initial.cleared,second.cleared]:undefined,actions});
       await writeFile(join(artifacts,'results.json'),JSON.stringify(results,null,2));
     }finally{release();await context.close();}
   }

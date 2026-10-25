@@ -4,7 +4,7 @@ import { PetArt } from "./PetArt";
 import { RoomDecoration } from "./EquipmentArt";
 import { petGrowth } from "./growth";
 import { gameCompanionVoice } from "./gameCompanionVoice";
-import type { Falling, PetState } from "./types";
+import type { Falling, PetState, Tetris } from "./types";
 import "./tetris-game.css";
 
 const pieceNames = ["I", "O", "T", "S", "Z", "J", "L"];
@@ -31,6 +31,18 @@ export function blockCells(p: Falling) {
   }
   return cells.map(([x, y]) => ({ x: x + p.x, y: y + p.y }));
 }
+// Use the same landing for the ghost and the optional row preview. Neither
+// changes the board: locking and clearing remain server-side actions.
+export function tetrisLanding(n: Pick<Tetris, "board" | "active">) {
+  if (!n.active) return null;
+  const piece = { ...n.active };
+  while (blockCells({ ...piece, y: piece.y + 1 }).every(p => p.y < 12 && !n.board[p.y * 8 + p.x])) piece.y++;
+  const cells = blockCells(piece);
+  const occupied = new Set(cells.map(p => p.y * 8 + p.x));
+  const rows = Array.from({ length: 12 }, (_, row) => row).filter(row =>
+    Array.from({ length: 8 }, (_, col) => row * 8 + col).every(i => n.board[i] || occupied.has(i)));
+  return { cells, rows };
+}
 export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: number; active: boolean; choice: number ;}) {
   const descriptionId = useId();
   const n = pet.game?.tetris;
@@ -40,10 +52,11 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
   const growth = petGrowth(pet, now);
   const companionVoice = gameCompanionVoice(growth, "tetris");
   const cells = n.active ? blockCells(n.active) : [];
-  let ghost = n.active ? { ...n.active } : undefined;
-  if (ghost) {
-    while (blockCells({ ...ghost, y: ghost.y + 1 }).every(p => p.y < 12 && !n.board[p.y * 8 + p.x])) ghost.y++;
-  }
+  const landing = tetrisLanding(n);
+  const preview = paused && !n.end && choice === 2 ? landing : null;
+  const previewText = preview ? preview.rows.length
+    ? `落底预览：预计消除 ${preview.rows.length} 行（第 ${preview.rows.map(row => row + 1).join("、")} 行）。按 B 才固定。`
+    : "落底预览：本块落下后暂不消行。按 B 才固定。" : "";
   return <section className="tetris-game" aria-label="积木俄罗斯方块">
     <header><strong>积木俄罗斯方块</strong><span>消除 {n.lines}/8</span></header>
     <div className="tetris-playfield">
@@ -54,14 +67,15 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
             {n.end ? "本局已结束。" : paused ? "当前暂停。" : "当前下落。"}
             已固定：{n.board.flatMap((v, i) => v ? [`${Math.floor(i / 8) + 1} 行 ${i % 8 + 1} 列`] : []).join("；") || "无"}。
             当前积木：{n.active ? `${pieceNames[n.active.kind - 1]} 型，顺时针旋转 ${n.active.kind === 2 ? 0 : n.active.rotation * 90} 度，占据 ${coordinates(cells)}` : "无"}。
-            {ghost && `落点投影：${coordinates(blockCells(ghost))}。`}
+            {landing && `落点投影：${coordinates(landing.cells)}。`}
             下一块：{pieceNames[n.next - 1]} 型。
           </desc>
           <rect width="80" height="120" fill="#b7c496" />
           {Array.from({ length: 96 }, (_, i) => <rect key={i} x={(i % 8) * 10} y={Math.floor(i / 8) * 10} width="10" height="10" fill="none" stroke="#8f9f74" strokeWidth=".3" />)}
           {n.board.map((v, i) => v ? <rect className="locked-block" key={i} x={(i % 8) * 10 + 1} y={Math.floor(i / 8) * 10 + 1} width="8" height="8" fill="#526d3e" /> : null)}
-          {ghost && blockCells(ghost).map((p, i) => <rect className="ghost-block" key={i} x={p.x * 10 + 2} y={p.y * 10 + 2} width="6" height="6" fill="none" stroke="#6d7e50" strokeDasharray="2 1" />)}
+          {landing && landing.cells.map((p, i) => <rect className="ghost-block" key={i} x={p.x * 10 + 2} y={p.y * 10 + 2} width="6" height="6" fill="none" stroke="#6d7e50" strokeDasharray="2 1" />)}
           {cells.map((p, i) => <g className="active-block" key={i}><rect x={p.x * 10 + 1} y={p.y * 10 + 1} width="8" height="8" fill="#384f30" /><path d={`M${p.x * 10 + 2} ${p.y * 10 + 4}v-2h3`} fill="none" stroke="#e4e5bb" /></g>)}
+          {preview?.rows.map(row => <rect className="tetris-preview-row" data-preview-row={row + 1} key={row} x="1" y={row * 10 + 1} width="78" height="8" fill="none" stroke="currentColor" strokeWidth="1.5" />)}
         </svg>
       </div>
       <aside className="tetris-side"><span>下一块</span><svg viewBox="0 0 40 24" role="img" aria-label={`下一块 ${pieceNames[n.next - 1]}`} shapeRendering="crispEdges">{blockCells({ kind: n.next, rotation: 0, x: 0, y: 0 }).map((p, i) => <rect key={i} x={p.x * 9 + 1} y={p.y * 9 + 1} width="7" height="7" fill="#526d3e" />)}</svg><small>目标 8 行</small><small data-speed-level="1">当前速度：1 级<br />约每秒下落一格</small><small>2 行起结算<br />最多 6 金币</small><small>A 左 · B 右<br />C 操作 / 暂停</small></aside>
@@ -70,7 +84,7 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
         {n.end ? <><span>消除 {n.lines} 行 · A 暂不操作 · B / C 收好本局成绩</span><small>{n.lines >= 2 ? "计入陪伴 · 最多 6 金币" : "消除 2 行后完成才有奖励"}</small></> : <><ol aria-label="积木操作">{tetrisOptions.map((label, i) => <li key={label} aria-current={choice === i} className={choice === i ? "selected" : ""}>{choice === i ? "›" : "·"} {label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></>}
       </div>}
     </div>
-    {paused && !n.end && <p className="tetris-operation-hint" aria-live="polite" aria-atomic="true">{tetrisOperationHints[choice]}</p>}
+    {paused && !n.end && <p className="tetris-operation-hint" aria-live="polite" aria-atomic="true">{tetrisOperationHints[choice]}{preview && <span className="tetris-drop-preview">{previewText}</span>}</p>}
     <div className={`tetris-companion ${collecting ? "collecting" : ""}`} data-motion={collecting ? "collecting" : "waiting"} data-paused={paused || !!n.end} data-form={companionVoice?.form}><div className="tetris-pet"><PetArt index={pet.species} stage={growth.stage} accessory={pet.economy?.equipped.accessory} motion={collecting || n.end === "won" ? "celebrating" : "idle"} /></div><RoomDecoration id={pet.economy?.equipped.room} /><p>{collecting ? "这一排拼好啦，我帮你收起来！" : n.end ? "记住的是一起拼，不只是分数。" : paused ? "慢慢想，我们一起搭。" : "我帮你收积木，落点虚线在下面。"}{companionVoice && <small className="game-companion-voice">{companionVoice.text}</small>}</p></div>
   </section>;
 }

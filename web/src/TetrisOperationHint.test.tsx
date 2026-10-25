@@ -33,7 +33,7 @@ describe("Tetris pause operation consequences", () => {
     const pet = fixture(), before = structuredClone(pet);
     const view = render(<TetrisGame pet={pet} now={now} active choice={choice} />);
     const note = view.container.querySelector(".tetris-operation-hint");
-    expect(note?.textContent).toBe(hint);
+    expect(note?.textContent).toBe(hint + (choice === 2 ? "落底预览：本块落下后暂不消行。按 B 才固定。" : ""));
     expect(note?.getAttribute("aria-live")).toBe("polite");
     expect(note?.getAttribute("aria-atomic")).toBe("true");
     expect(view.container.querySelector(".tetris-overlay .selected")?.textContent).toContain(tetrisOptions[choice]);
@@ -45,12 +45,12 @@ describe("Tetris pause operation consequences", () => {
     expect(view.container.querySelector(".tetris-operation-hint")?.textContent).toBe(hints[1]);
     view.rerender(<TetrisGame pet={pet} now={now} active choice={2} />);
     expect(view.container.querySelectorAll(".tetris-operation-hint")).toHaveLength(1);
-    expect(view.container.querySelector(".tetris-operation-hint")?.textContent).toBe(hints[2]);
+    expect(view.container.querySelector(".tetris-operation-hint")?.textContent).toBe(hints[2] + "落底预览：本块落下后暂不消行。按 B 才固定。");
   });
   it("also explains a local pause after refreshing a server-running game", () => {
     const pet = fixture(); pet.game!.tetris!.paused = false;
     const view = render(<TetrisGame pet={pet} now={now} active={false} choice={2} />);
-    expect(view.container.querySelector(".tetris-operation-hint")?.textContent).toBe(hints[2]);
+    expect(view.container.querySelector(".tetris-operation-hint")?.textContent).toBe(hints[2] + "落底预览：本块落下后暂不消行。按 B 才固定。");
     expect(pet.game!.tetris!.paused).toBe(false);
   });
   it("does not show pause instructions on a running board", () => {

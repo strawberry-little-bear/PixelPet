@@ -35,6 +35,11 @@ async function inspect(page, mode, choice) {
   const note = page.locator('.tetris-operation-hint'); await note.waitFor();
   assert.match(await note.textContent(), new RegExp(hints[choice]));
   assert.equal(await note.getAttribute('aria-live'), 'polite');
+  assert.equal(await page.locator('.tetris-drop-preview').count(), choice === 2 ? 1 : 0);
+  if (choice === 2) {
+    assert.match(await page.locator('.tetris-drop-preview').textContent(), /本块落下后暂不消行。按 B 才固定/);
+    assert.equal(await page.locator('.tetris-preview-row').count(), 0);
+  }
   const layout = await page.locator('.tetris-game').evaluate(el => {
     const clipped = [], range = document.createRange(), walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
@@ -111,7 +116,20 @@ try {
       assert.deepEqual(rotated.board, before.game.tetris.board); assert.equal(rotated.pieces, 0);
       const rotatedBoard = await inspectBoardDescription(page, "tetris", rotated);
       // Drop really locks one piece and resumes, without awarding care or coins.
-      await key(page, 'a'); await key(page, 'a'); await key(page, 'b');
+      await key(page, 'a'); await key(page, 'a');
+      assert.match(await page.locator('.tetris-drop-preview').textContent(), /暂不消行/);
+      const unchanged = await page.locator('.tetris-drop-preview').textContent();
+      await page.evaluate(() => {
+        window.dropPreviewMutations = [];
+        new MutationObserver(records => window.dropPreviewMutations.push(...records.map(r => r.type)))
+          .observe(document.querySelector('.tetris-operation-hint'), { subtree: true, childList: true, characterData: true });
+      });
+      // An ordinary state read must not rewrite the unchanged announcement.
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await wait(1200);
+      assert.deepEqual(await page.evaluate(() => window.dropPreviewMutations), []);
+      assert.equal(await page.locator('.tetris-drop-preview').textContent(), unchanged);
+      await key(page, 'b');
       await page.locator('.tetris-operation-hint').waitFor({ state: 'detached' });
       await key(page, 'c'); await page.locator('.tetris-operation-hint').waitFor();
       const dropped = (await api('state')).state;
@@ -126,9 +144,13 @@ try {
       await page.reload(); await page.locator('.tetris-operation-hint').waitFor(); await wait(1200);
       assert.deepEqual((await api('state')).state.game, dropped.game); assert.equal(writes.length, 4);
       assert.deepEqual(await inspectBoardDescription(page, 'tetris', dropped.game.tetris), droppedBoard);
-      await key(page, 'a'); await key(page, 'a'); await key(page, 'c');
+      await key(page, 'a'); await key(page, 'a');
+      await page.locator('.tetris-drop-preview').waitFor();
+      assert.equal((await api('state')).state.game.tetris.pieces, dropped.game.tetris.pieces);
+      await key(page, 'c');
       await page.locator('.tetris-operation-hint').waitFor({ state: 'detached' });
       await key(page, 'c'); await page.locator('.tetris-operation-hint').waitFor();
+      assert.equal((await api('state')).state.game.tetris.pieces, dropped.game.tetris.pieces, 'C from preview resumes without locking');
       for (let i = 0; i < 3; i++) await key(page, 'a');
       await key(page, 'b'); await page.locator('.game-abandon').waitFor(); await key(page, 'b');
       await page.locator('.content-home').waitFor();
