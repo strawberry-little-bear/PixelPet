@@ -149,3 +149,28 @@ it("bedtime has no skippable clip, so home C dismisses the receipt while the pet
   expect(document.querySelector(".pet-scene")?.getAttribute("data-motion")).toBe("sleeping");
   expect(writes()).toHaveLength(1);
 });
+
+it("freezes this care response through growth sync and status reading, updates on the next care, and clears with C", async () => {
+ await mount();await feed();
+ const summary=()=>document.querySelector(".care-outcome-summary")?.textContent;
+ expect(summary()).toBe("它小口吃好饭团，轻轻靠近你。");
+ saved.growth={...emptyGrowth("adult"),form:"gentle"};saved.revision++;
+ await poll();expect(summary()).toBe("它小口吃好饭团，轻轻靠近你。");
+ await menu(4);expect(summary()).toBe("它小口吃好饭团，轻轻靠近你。");await key("c");
+ actionFeedback={...receipt,kind:"clean",habit:"clean",effect:{at:Date.now(),before:effect.after,after:{...effect.after,clean:92}}};
+ await menu(2);await key("c");
+ expect(summary()).toBe("它洗净身子，静静地依在你身边。");
+ await key("c");expect(outcome()).toBeNull();expect(writes()).toHaveLength(2);
+ cleanup();await mount();expect(outcome()).toBeNull();
+});
+
+it("uses the accepted new stage when care crosses a milestone", async () => {
+ const original=api.getMockImplementation()!;
+ api.mockImplementation(async (...args) => {
+  if(args[0]==="action") saved.growth=emptyGrowth("growing");
+  return original(...args);
+ });
+ await mount();await feed();
+ expect(document.querySelector(".care-outcome-summary")?.textContent).toBe("它吃好饭团，抬起头认真望望你。");
+ expect(writes()).toHaveLength(1);
+});

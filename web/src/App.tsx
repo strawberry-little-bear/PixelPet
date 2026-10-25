@@ -80,6 +80,7 @@ import { CareFeedback } from "./CareFeedback";
 import { QuietMoment } from "./QuietMoment";
 import { nextQuietMemory, quietMemories } from "./quiet-memory";
 import { CareOutcome, hasCareOutcome } from "./CareOutcome";
+import { completedCareOutcome, type CareOutcomeFeedback } from "./care-outcome";
 import { GameOutcome } from "./GameOutcome";
 import { completedGameOutcome, type GameOutcomeRecord } from "./game-outcome";
 import {
@@ -239,7 +240,7 @@ export default function App() {
   const [careFeedback, setCareFeedback] = useState<Feedback | null>(null);
   // Keep the last received receipt readable after the short growth toast.
   // It is page-local history, never reconstructed from later need readings.
-  const [careOutcome, setCareOutcome] = useState<Feedback | null>(null);
+  const [careOutcome, setCareOutcome] = useState<CareOutcomeFeedback | null>(null);
   // Ordinary reads keep this last acknowledged game result unchanged.
   const [gameOutcome, setGameOutcome] = useState<GameOutcomeRecord | null>(null);
   // A page-local visual window, independent of saved dates and server clock anchors.
@@ -1296,7 +1297,7 @@ export default function App() {
         setTileHint({ path: r.tileHint, id: ++tileHintSequence.current, boardKey: r.state.game.tiles.board.join(",") });
       }
       setCareFeedback(r.careFeedback ?? null);
-      setCareOutcome(r.careFeedback ?? null);
+      setCareOutcome(completedCareOutcome(kind, pet, r));
       const clipKind = careClip(kind, r.state.sleeping);
       if (clipKind) {
         const next = { kind: clipKind, id: ++clipSequence.current };

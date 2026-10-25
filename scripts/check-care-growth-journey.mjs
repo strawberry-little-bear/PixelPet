@@ -20,6 +20,12 @@ const port = await new Promise((resolve, reject) => {
 });
 const base = `http://127.0.0.1:${port}`, wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const forms = { balanced: '均衡型', lively: '活力型', gentle: '恬静型', easygoing: '自在型' };
+const adultResponses = {
+  balanced: ['它洗净身子，在你身边安稳地待着。', '它吃好饭团，安稳地陪在你身边。', '它慢慢醒来，安稳地望着身边的你。'],
+  lively: ['它抖抖洗净的身子，朝你轻轻晃一晃。', '它吃好饭团，朝你轻轻晃了晃身子。', '它睁开眼睛，朝你轻轻晃了晃身子。'],
+  gentle: ['它洗净身子，静静地依在你身边。', '它吃好饭团，静静地朝你靠近一点。', '它慢慢醒来，静静地朝你靠近一点。'],
+  easygoing: ['它洗净身子，慢悠悠地舒展一下。', '它慢慢吃好饭团，悠然地眨眨眼。', '它悠悠睁开眼睛，慢慢舒展身子。'],
+};
 const readableText = value => value.replace(/\s+/g, '');
 const results = [];
 let server, browser, log = '', startupError;
@@ -121,7 +127,7 @@ try {
     if (width === 320) await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => {
       document.documentElement.style.fontSize = '28px';
     }));
-    async function care(index, kind) {
+    async function care(index, kind, expectedResponse) {
       const response = page.waitForResponse(response => new URL(response.url()).pathname === '/api/action' &&
         response.request().postDataJSON().kind === kind);
       await choose(page, index);
@@ -150,6 +156,10 @@ try {
         assert((await page.getByRole('group', { name: '本次成长与习惯', exact: true }).innerText()).includes(amount === '0.00' ? '本次没有新增成长点' : `本次成长：+${amount} 点`),
           'detailed receipt must agree with the short prompt and saved diary');
       }
+      if (expectedResponse) {
+        await page.waitForFunction(text => document.querySelector('.care-outcome-summary')?.textContent === text, expectedResponse);
+        assert.equal(await page.locator('.care-outcome-summary').count(), 1, 'one main care response');
+      }
       return { result, body: saved.request().postDataJSON(), headers: await saved.request().allHeaders() };
     }
     async function reload(stage, motion = 'idle') {
@@ -157,6 +167,7 @@ try {
       await page.reload(); await scene(page, stage, motion, stage === 'adult' ? form : undefined);
       await threeKeys(page);
       assert.equal(await page.locator('.care-milestone').count(), 0, 'reload must not reconstruct the action milestone');
+      assert.equal(await page.locator('.care-outcome-summary').count(), 0, 'reload must not reconstruct the care response');
       assert.equal(writes.filter(write => write.path === '/api/action').length, count, 'reload replayed care');
       assert.equal(await page.locator('[data-motion="celebrating"]').count(), 0, 'reload replayed evolution');
     }
@@ -210,7 +221,7 @@ try {
       near(awakeEnd.growth.points - awakeStart.growth.points, awakeHours * (.5 + .75 * averageComfort), 'passive growth');
       assert.deepEqual(awakeEnd.growth.care, awakeStart.growth.care);
       assert.equal(awakeEnd.careCount, awakeStart.careCount);
-      const feed = await care(0, 'feed'), grown = feed.result.state;
+      const feed = await care(0, 'feed', '它吃好饭团，抬起头认真望望你。'), grown = feed.result.state;
       assert.deepEqual(feed.result.careFeedback.milestone, { stage: 'growing', at: feed.result.careFeedback.effect.at });
       assert.equal(feed.result.careFeedback.reason, 'credited'); near(feed.result.careFeedback.points, .25, 'feed bonus');
       assert.equal(grown.growth.stage, 'growing'); assert(grown.growth.growingAt > grown.hatchedAt);
@@ -228,7 +239,7 @@ try {
       const prepared = await api('import', approaching);
       assert.equal(prepared.state.growth.growingAt, grown.growth.growingAt);
       await reload('growing');
-      const bath = await care(2, 'clean'), adult = bath.result.state;
+      const bath = await care(2, 'clean', adultResponses[form][0]), adult = bath.result.state;
       assert.equal(bath.result.careFeedback.reason, 'credited');
       assert.deepEqual(bath.result.careFeedback.milestone, { stage: 'adult', at: bath.result.careFeedback.effect.at, form });
       assert(bath.result.careFeedback.points > 0 && bath.result.careFeedback.points < .06, 'adult bonus must cap');
@@ -252,7 +263,7 @@ try {
       const afterReplay = (await api('state')).state;
       assert.equal(afterReplay.careCount, careCount); assert.deepEqual(immutableAdult(afterReplay), locked);
       // Body care still works during its habit cooldown, without a second bonus.
-      const secondMeal = await care(0, 'feed');
+      const secondMeal = await care(0, 'feed', adultResponses[form][1]);
       assert.equal(secondMeal.result.careFeedback.milestone, undefined);
       assert.equal(secondMeal.result.careFeedback.reason, 'cooldown'); assert.equal(secondMeal.result.careFeedback.points, 0);
       assert.equal(secondMeal.result.state.growth.care.nutrition, 1);
@@ -262,7 +273,9 @@ try {
       await scene(page, 'adult', 'eating', form); await key(page, 'c'); await scene(page, 'adult', 'idle', form);
       await reload('adult'); await diary(secondMeal.result.state.logs[0], form === 'gentle' ? 'cooldown' : undefined);
       const sleep = await care(3, 'sleep'); assert(sleep.result.state.sleeping);
-      assert.equal(sleep.result.careFeedback.milestone, undefined); await scene(page, 'adult', 'sleeping', form);
+      assert.equal(sleep.result.careFeedback.milestone, undefined);
+      await page.waitForFunction(() => document.querySelector('.care-outcome-summary')?.textContent === '晚安，安心睡一会儿。');
+      await scene(page, 'adult', 'sleeping', form);
       await wait(300); await reload('adult', 'sleeping');
       const sleeping = (await api('visit', {})).state, before = sleep.result.state;
       const hours = (sleeping.lastTick - before.lastTick) / 3600000;
@@ -273,7 +286,7 @@ try {
       near(sleeping.needs.mood, before.needs.mood, 'sleep mood');
       near(sleeping.growth.care.rest - before.growth.care.rest, 14 * hours / 28, 'proportional rest habit');
       assert.deepEqual(immutableAdult(sleeping), locked);
-      const wake = await care(3, 'sleep'); assert.equal(wake.result.state.sleeping, false);
+      const wake = await care(3, 'sleep', adultResponses[form][2]); assert.equal(wake.result.state.sleeping, false);
       assert.equal(wake.result.careFeedback.milestone, undefined);
       await scene(page, 'adult', 'waking', form); await key(page, 'c'); await scene(page, 'adult', 'idle', form);
       // The portable backup is restored unchanged into the same isolated server.

@@ -1,5 +1,6 @@
 import { careAmount, fixedCareAmount } from "./careAmount";
 import type { CareFeedback, Needs } from "./types";
+import type { CareOutcomeFeedback } from "./care-outcome";
 import "./care-outcome.css";
 import { SleepSummary } from "./SleepSummary";
 import { CareReadingRegion } from "./CareReadingRegion";
@@ -70,7 +71,8 @@ function milestoneText(f: CareFeedback): string | null {
   return null;
 }
 
-export function CareOutcome({ feedback, readable = false, embedded = false }: { feedback: CareFeedback | null; readable?: boolean; embedded?: boolean }) {
+export function CareOutcome({ feedback, readable = false, embedded = false }: { feedback: CareOutcomeFeedback | null; readable?: boolean; embedded?: boolean }) {
+  const companionResponse = feedback?.companionResponse;
   if (!hasCareOutcome(feedback)) return null;
   const { before, after, at } = feedback.effect;
   const learning = learningSummary(feedback);
@@ -101,7 +103,7 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
   </>;
   const outcome = <section className={`care-outcome${embedded ? " care-outcome-embedded" : ""}`} aria-label="上次操作的即时变化">
     <h3>{embedded ? "本局照顾变化" : "本页上次已确认"} · {action}</h3>
-    {!embedded && <p className="care-outcome-summary">{feeling}</p>}
+    {!embedded && <p className="care-outcome-summary">{companionResponse ?? feeling}</p>}
     {!embedded && <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
       year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
     })}（本地时间）</time>}
