@@ -29,3 +29,12 @@
 .snake-steering-guide p, .snake-steering-guide ul { margin: 3px 0; }
 .snake-steering-guide ul { list-style: none; padding: 0; }
 .snake-steering-guide small { display: block; }
+
+/* Static shape and text carry the warning without relying on color or motion. */
+.snake-body-warning-outline, .snake-body-warning { fill: none; stroke-linecap: square; }
+.snake-body-warning-outline { stroke: #26351f; stroke-width: 3; }
+.snake-body-warning { stroke: #fff6ce; stroke-width: 1.5; }
+@media (forced-colors: active) {
+  .snake-body-warning-outline { stroke: Canvas; forced-color-adjust: none; }
+  .snake-body-warning { stroke: CanvasText; forced-color-adjust: none; }
+}

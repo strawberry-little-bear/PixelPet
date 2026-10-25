@@ -239,6 +239,110 @@ try {
     assert.equal(saved.careCount, 0); assert.equal(saved.economy.coins, 0);
     results.push({ mode: 'desktop', tag: 'straight-fence', reading, eaten: saved.game.snake.eaten });
   } finally { await ctx.close(); }
+  // Construct valid contiguous coils only in the private database. Freeze the
+  // browser clock to inspect a single 650ms beat; the real server still enforces
+  // its own clock, collision rules and expected-step checks.
+  for (const mode of [{ name: 'desktop', width: 1200, height: 850, font: 14 },
+    { name: 'phone-large', width: 320, height: 480, font: 28, contrast: true }]) {
+    for (const scenario of ['body', 'turn-away', 'vacating-tail']) {
+      const at = Date.now();
+      await api('import', { schema: 1, revision: 1, species: 2, name: '蛇身提醒测试', createdAt: at - 3600000,
+        hatchedAt: at - 3600000, lastTick: at, sleeping: false,
+        needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
+      await api('action', { kind: 'play-snake', requestId: crypto.randomUUID() });
+      const fixture = (await api('state')).state, snake = fixture.game.snake;
+      snake.body = scenario === 'vacating-tail'
+        ? [{ x: 4, y: 5 }, { x: 4, y: 4 }, { x: 5, y: 4 }, { x: 5, y: 5 }]
+        : [{ x: 4, y: 5 }, { x: 3, y: 5 }, { x: 3, y: 4 }, { x: 4, y: 4 },
+          { x: 5, y: 4 }, { x: 5, y: 5 }, { x: 5, y: 6 }];
+      Object.assign(snake, { eaten: snake.body.length - 3, step: 20,
+        direction: scenario === 'vacating-tail' ? 1 : 0, food: { x: 9, y: 9 } });
+      const db = new DatabaseSync(join(dir, 'test.db'));
+      try { db.prepare('UPDATE saves SET body=? WHERE id=1').run(JSON.stringify(fixture)); } finally { db.close(); }
+      assert.deepEqual((await api('state')).state.game.snake, snake, 'fixture was rejected or changed');
+      const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height },
+        reducedMotion: 'reduce', forcedColors: mode.contrast ? 'active' : 'none' });
+      let release;
+      try {
+        await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+          document.documentElement.style.fontSize = `${font}px`;
+        }), mode.font);
+        const page = await context.newPage(), writes = [];
+        await page.clock.install({ time: Date.now() }); await page.clock.pauseAt(Date.now() + 50);
+        const releasePromise = new Promise(r => { release = r; });
+        let stepResult;
+        await page.route('**/api/action', async route => {
+          const command = route.request().postDataJSON(); writes.push(command.kind);
+          if (command.kind !== 'snake-step') return route.continue();
+          const response = await route.fetch({ maxRetries: 0 }); stepResult = await response.json();
+          await releasePromise; await route.fulfill({ response });
+        });
+        await page.goto(base); await page.locator('.snake-steering-guide').waitFor();
+        await key(page, 'c'); await page.locator('.snake-navigation-hint').waitFor();
+        // The frozen clock also freezes toast expiry. Close the existing
+        // external notice through its normal UI before inspecting the board.
+        await page.getByRole('button', { name: '关闭提示', exact: true }).click({ force: true });
+        if (scenario !== 'vacating-tail') {
+          assert.equal(await page.locator('.snake-body-warning').count(), 1);
+          assert.equal(await page.locator('.snake-body-warning').getAttribute('d'), 'M63 63l6 6m0 -6l-6 6');
+        }
+        if (scenario === 'turn-away') await key(page, 'b');
+        if (scenario === 'vacating-tail') await key(page, 'a');
+        const dangerous = scenario === 'body';
+        assert.equal(await page.locator('.snake-body-warning').count(), Number(dangerous));
+        const text = await page.locator('.snake-navigation-hint').textContent();
+        assert.equal(text.includes('下一步会碰到蛇身'), dangerous);
+        assert.equal((await page.locator('.snake-boundary-announcement').textContent()).includes('碰到蛇身'), dangerous);
+        const layout = await page.locator('.snake-navigation-hint').evaluate(el => {
+          const range = document.createRange(); range.selectNodeContents(el);
+          const clips = [];
+          for (const box of range.getClientRects()) {
+            if (box.left < -1 || box.right > innerWidth + 1) clips.push('viewport');
+            for (let p = el.parentElement; p; p = p.parentElement) {
+              const css = getComputedStyle(p), rect = p.getBoundingClientRect();
+              if (/hidden|clip/.test(css.overflowY) && (box.top < rect.top - 2 || box.bottom > rect.bottom + 2)) clips.push(p.className);
+            }
+          }
+          const mark = document.querySelector('.snake-body-warning');
+          const markBox = mark?.getBoundingClientRect();
+          const visible = markBox && document.elementFromPoint(markBox.x + markBox.width / 2, markBox.y + markBox.height / 2) === mark;
+          return { clips, overflow: document.documentElement.scrollWidth > innerWidth + 1,
+            stroke: mark && getComputedStyle(mark).stroke, animation: mark && getComputedStyle(mark).animationName, visible };
+        });
+        assert.deepEqual(layout.clips, []); assert(!layout.overflow);
+        if (dangerous) { assert.notEqual(layout.stroke, 'none'); assert.equal(layout.animation, 'none'); assert(layout.visible, 'mark is covered'); }
+        assert.equal(await page.locator('.physical-button').count(), 3);
+        assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
+        await page.screenshot({ path: join(dir, `${mode.name}-${scenario}.png`), fullPage: true });
+        assert.deepEqual(writes, ['snake-resume'], 'read-only warning or queued turn sent a move');
+        assert.deepEqual((await api('state')).state.game.snake.body, snake.body);
+        // Renew the real server lease after inspecting the frozen UI. No cell
+        // moves here; advancing browser time must send exactly one real step.
+        await api('action', { kind: 'snake-resume', gameId: fixture.game.id, step: snake.step, requestId: crypto.randomUUID() });
+        await wait(650); await page.clock.runFor(700);
+        for (let i = 0; i < 100 && !stepResult; i++) await wait(20);
+        assert(stepResult?.state, 'real step did not complete');
+        assert.equal(await page.locator('.snake-body-warning').count(), 0, 'stale mark remained while step was in flight');
+        assert(!(await page.locator('.snake-boundary-announcement').textContent()).includes('碰到蛇身'));
+        release();
+        if (dangerous) {
+          await page.locator('.snake-overlay').waitFor();
+          assert.equal(stepResult.state.game.snake.end, 'body');
+          assert.deepEqual(stepResult.state.game.snake.body, snake.body);
+        } else {
+          const target = scenario === 'vacating-tail' ? { x: 5, y: 5 } : { x: 4, y: 6 };
+          await page.waitForFunction(({ x, y }) => document.querySelector('.snake-field desc')?.textContent.includes(`蛇头：${y + 1} 行 ${x + 1} 列`), target);
+          assert(!stepResult.state.game.snake.end);
+          assert.deepEqual(stepResult.state.game.snake.body[0], scenario === 'vacating-tail' ? { x: 5, y: 5 } : { x: 4, y: 6 });
+        }
+        assert.equal(stepResult.state.game.snake.step, snake.step + 1);
+        assert.equal(stepResult.state.careCount, 0); assert.equal(stepResult.state.economy.coins, 0);
+        assert.deepEqual(writes, ['snake-resume', 'snake-step']);
+        results.push({ mode: mode.name, tag: scenario, fixture: 'constructed contiguous coil',
+          clock: 'browser frozen for inspection, real server step', text, layout, end: stepResult.state.game.snake.end ?? null });
+      } finally { release?.(); await context.close(); }
+    }
+  }
   await writeFile(join(dir, 'results.json'), JSON.stringify({ results, journeys }, null, 2));
   console.log(JSON.stringify({ passed: results.length, artifacts: dir }));
 } finally {

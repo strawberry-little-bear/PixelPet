@@ -36,6 +36,16 @@ function firstFruitAhead(snake: Snake, turn: number): boolean {
   }
 }
 
+// Match the server's next-cell check: an uneaten tail vacates this beat.
+// This is a local warning, not pathfinding or a prediction of an in-flight move.
+function bodyAhead(snake: Snake, heading: number) {
+  const [dx, dy] = [[1, 0], [0, 1], [-1, 0], [0, -1]][heading];
+  const next = { x: snake.body[0].x + dx, y: snake.body[0].y + dy };
+  const eating = next.x === snake.food.x && next.y === snake.food.y;
+  const occupied = eating ? snake.body : snake.body.slice(0, -1);
+  return occupied.some(p => p.x === next.x && p.y === next.y) ? next : undefined;
+}
+
 export function SnakeGame({ pet, now, active, turn, stepping = false }: { pet: PetState; now: number; active: boolean; turn: number; stepping?: boolean; }) {
   const descriptionId = useId(), gridId = useId();
   const snake = pet.game?.snake;
@@ -55,8 +65,13 @@ export function SnakeGame({ pet, now, active, turn, stepping = false }: { pet: P
   const boundaryHint = boundaryWarning
     ? `前方还有 ${boundaryDistance} 格到围栏，提前按 A 左转或 B 右转。`
     : "";
+  const bodyWarning = active && !paused && !ended && !stepping ? bodyAhead(snake, heading) : undefined;
+  const bodyHint = bodyWarning ? "下一步会碰到蛇身，留意转向，C 可暂停看清。" : "";
+  const warningText = bodyHint || (boundaryHint && "快到围栏了，A 左转、B 右转，也可以按 C 暂停看清。");
+  const warningPath = bodyWarning
+    ? `M${bodyWarning.x * 12 + 3} ${bodyWarning.y * 12 + 3}l6 6m0 -6l-6 6` : undefined;
   const navigationHint = active && !snake.paused && !ended
-    ? [snakeFoodHint(head, snake.food), boundaryHint].filter(Boolean).join("；")
+    ? bodyHint || [snakeFoodHint(head, snake.food), boundaryHint].filter(Boolean).join("；")
     : "";
   return <section className="snake-game" aria-label="果园贪吃蛇">
     <header><strong>果园贪吃蛇</strong><span className="snake-progress" aria-live={paused || ended ? "off" : "polite"} aria-atomic="true">果子 {snake.eaten}/8</span></header>
@@ -79,12 +94,16 @@ export function SnakeGame({ pet, now, active, turn, stepping = false }: { pet: P
           {i === 0 && <g transform={`rotate(${snake.direction * 90} 6 6)`}><rect x="8" y="2" width="2" height="2" fill="#e9dfbd" /><rect x="8" y="8" width="2" height="2" fill="#e9dfbd" /></g>}
         </g>)}
         {snake.end !== "won" && <g transform={`translate(${snake.food.x * 12} ${snake.food.y * 12})`}><path d="M3 4h7v5H8v2H5V9H3z" fill="#9d654f" /><path d="M5 2h3v3H5z" fill="#526c3c" /></g>}
+        {warningPath && <>
+          <path className="snake-body-warning-outline" d={warningPath} aria-hidden="true" />
+          <path className="snake-body-warning" d={warningPath} aria-hidden="true" />
+        </>}
       </svg>
       {(paused || ended) && <div className="snake-overlay" role="status"><strong>{ended ? snake.end === "won" ? "果篮装满啦！" : "休息一下再来" : "果园已暂停"}</strong><span>{ended ? `吃到 ${snake.eaten} 颗 · A 暂不操作 · B / C 收好本局成绩` : "A / C 继续 · B 放弃确认"}</span><small>{ended ? snake.eaten >= 3 ? "计入陪伴 · 最多 6 金币" : "吃到 3 颗后完成才有奖励" : "刷新、离开不补跑"}</small></div>}
     </div>
     {/* Coordinates change each beat; keep warnings discrete and readable details quiet. */}
-    <span className="snake-boundary-announcement sr-only" aria-live="polite" aria-atomic="true">{boundaryHint && "快到围栏了，A 左转、B 右转，也可以按 C 暂停看清。"}</span>
-    {navigationHint && <p className="snake-navigation-hint" aria-live="off">{!stepping && firstFruitAhead(snake, turn) ? `第一颗果子在前方，先沿直线走；${navigationHint}` : navigationHint}</p>}
+    <span className="snake-boundary-announcement sr-only" aria-live="polite" aria-atomic="true">{warningText}</span>
+    {navigationHint && <p className="snake-navigation-hint" aria-live="off">{!bodyWarning && !stepping && firstFruitAhead(snake, turn) ? `第一颗果子在前方，先沿直线走；${navigationHint}` : navigationHint}</p>}
     {paused && !ended && <section className="snake-steering-guide" aria-label="继续后的转弯方向" aria-live="polite" aria-atomic="true">
       <strong>蛇头现在朝{directions[snake.direction]}</strong>
       <p className="snake-paused-position">{snakeFoodHint(head, snake.food)} {savedFenceDistance === 0
