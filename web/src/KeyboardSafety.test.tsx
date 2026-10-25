@@ -164,6 +164,21 @@ it.each(['a', 'A', 'ArrowRight', 'ArrowDown'])('normal %j still moves one menu i
 it.each(['c', 'C', 'Escape'])('normal %j still returns home without a write', async value => {
   await mount(); await menu(); await key(value); expect(document.querySelector('.content-home')).toBeTruthy(); expect(writes()).toHaveLength(0);
 });
+it('returns focus to the machine after closing the external save toolbox', async () => {
+  await mount();
+  const toolbox = screen.getByRole('button', { name: /存档盒/ });
+  toolbox.focus();
+  await act(async () => { fireEvent.click(toolbox); });
+  expect(document.querySelector('.tools-menu')).toBeTruthy();
+  expect(document.activeElement).toBe(toolbox);
+
+  await key('Escape', {}, toolbox);
+  expect(document.querySelector('.tools-menu')).toBeNull();
+  expect(document.activeElement).toBe(document.querySelector('.physical-button.button-c'));
+
+  await key('a', {}, document.activeElement!);
+  expect(document.querySelector('.care-menu')).toBeTruthy();
+});
 it('physical buttons still perform A/B/C independently of keyboard filters', async () => {
   await mount(); fireEvent.click(screen.getByRole('button', { name: 'A 选择' }));
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'B 确认' })); });

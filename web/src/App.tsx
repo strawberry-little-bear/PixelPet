@@ -382,6 +382,7 @@ export default function App() {
   } | null>(null);
   const activeEvolution = useRef<typeof evolution>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const toolsWasOpen = useRef(false);
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const pendingImportRef = useRef<PendingImport | null>(null);
   const importSequence = useRef(0);
@@ -414,6 +415,15 @@ export default function App() {
   };
   usePhysicalButtonFocus(JSON.stringify([physicalFocusEpoch.current, page === "import-preview"]),
     tools || help || reset || uncertain || unavailable || corrupt || clockAhead || !foreground || !windowFocused);
+  useEffect(() => {
+    const closed = toolsWasOpen.current && !tools;
+    toolsWasOpen.current = tools;
+    // The toolbox is outside the three-key surface. When it closes without
+    // opening another overlay, return keyboard focus to a real machine key so
+    // A/B/C remain immediately usable after Esc or a mouse close.
+    if (!closed || help || reset || page === "import-preview" || document.hidden || !document.hasFocus()) return;
+    document.querySelector<HTMLButtonElement>(".physical-button.button-c")?.focus({ preventScroll: true });
+  }, [tools, help, reset, page]);
   useReadingViewport(readingRoot, careReadingDestination,
     page === "menu" ? '.care-menu [aria-current="true"]' :
       page === "journal" ? ".screen-journal [data-care-reading-start]" : "[data-care-reading-start]",
