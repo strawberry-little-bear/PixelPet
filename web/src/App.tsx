@@ -209,8 +209,8 @@ export default function App() {
   // Invalidate focus only for interruptions/authoritative replacements, not
   // the player's own acknowledged hatch, game start or completion.
   const physicalFocusEpoch = useRef(0);
-  // Only automatic game steps admit C while writing. Other operations
-  // remain locked; no general input queue or replay of uncertain writes.
+  // Only automatic game steps and the bounded tile input queue admit keys while
+  // writing. Other operations remain locked; uncertain writes are never replayed.
   const [busyAction, setBusyAction] = useState("");
   const busyActionRef = useRef("");
   const pendingFishingPause = useRef<{ id: string; generation?: string; epoch: number } | null>(null);
@@ -311,6 +311,10 @@ export default function App() {
   const snakeTurn = useRef(0);
   const [queuedTurn, setQueuedTurn] = useState(0);
   const [tileCursor, setTileCursor] = useState(0);
+  const tileCursorRef = useRef(0);
+  type TileInput = { kind: "move" } | { kind: "pick" } | { kind: "clear" } | { kind: "abandon" };
+  const tileInputQueue = useRef<TileInput[]>([]);
+  const tileQueueFlushing = useRef(false);
   const [tileLink, setTileLink] = useState<TileLink | null>(null);
   const tileLinkSequence = useRef(0);
   const [tileHint, setTileHint] = useState<(TileHint & { boardKey: string }) | null>(null);
@@ -326,6 +330,10 @@ export default function App() {
   const visibleShopItems = pet && shopCategory ? shopItems(shop, pet, shopCategory) : [];
   const shopItemIndex = selectedShopIndex(visibleShopItems, shopItemId);
   const purchaseReady = !!pet && purchaseMatches(purchaseConfirm, visibleShopItems[shopItemIndex], pet);
+  const setTileCursorValue = (value: number) => {
+    tileCursorRef.current = value;
+    setTileCursor(value);
+  };
   useEffect(() => {
     if (page !== "shop" || !shopCategory || !pet) return;
     const entries = shopItems(shop, pet, shopCategory);
@@ -713,7 +721,7 @@ export default function App() {
       setTools(false);
       setPurchaseConfirm(null);
       setLane(1);
-      setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
+      setTileCursorValue(nextTile(r.state.game?.tiles?.board ?? [], -1));
       setTetrisChoice(0);
       setFishingChoice(0);
       setWalkChoice(0);
@@ -895,6 +903,8 @@ export default function App() {
   }, [tileHint?.id]);
   useEffect(() => {
     tileHintShownFor.current = "";
+    tileInputQueue.current = [];
+    tileQueueFlushing.current = false;
     setTileHint(null);
   }, [pet?.game?.id]);
   useEffect(() => {
@@ -904,7 +914,7 @@ export default function App() {
   }, [pet?.game?.tiles?.board.join(",")]);
   useEffect(() => {
     const board = pet?.game?.tiles?.board;
-    if (board && !board[tileCursor]) setTileCursor(nextTile(board, tileCursor));
+    if (board && !board[tileCursor]) setTileCursorValue(nextTile(board, tileCursor));
   }, [pet?.game?.id, pet?.game?.tiles?.board, tileCursor]);
   useEffect(() => {
     const hunt = pet?.game?.treasure;
@@ -1292,7 +1302,7 @@ export default function App() {
         setPage("game");
         setLane(1);
         setTileHint(null);
-        setTileCursor(nextTile(r.state.game?.tiles?.board ?? [], -1));
+        setTileCursorValue(nextTile(r.state.game?.tiles?.board ?? [], -1));
         setTileLink(null);
       } else if (
         (kind === "catch" || kind === "tile-pick" ||
@@ -1324,6 +1334,7 @@ export default function App() {
       busyActionRef.current = "";
       setBusyAction("");
       setBusy(false);
+      if (kind === "tile-pick" || kind === "tile-clear") queueMicrotask(() => void flushTileInputQueue());
       if (kind === "snake-step" || kind === "tetris-step") {
         const pause = pendingBoardPause.current;
         pendingBoardPause.current = null;
@@ -1375,6 +1386,8 @@ export default function App() {
       audio.current?.cancel();
       setTileLink(null);
       setTileHint(null);
+      tileInputQueue.current = [];
+      tileQueueFlushing.current = false;
       boardEpoch.current++;
       walkEpoch.current++;setWalkSession(""); setTreasureSession(""); setTreasureReaction(null); setStarsReaction(null);
       fishingEpoch.current++;
@@ -1520,6 +1533,62 @@ export default function App() {
       (kind === "tetris-step" && game.kind === "tetris" && tetrisSession === game.id &&
       !!game.tetris && !game.tetris.paused && !game.tetris.end);
   };
+  function enqueueTileInput(key: "A" | "B" | "C") {
+    if (tileInputQueue.current.length >= 3) {
+      setMessage("按键太快了，已保留前面的操作；请稍等一下。");
+      return;
+    }
+    const tiles = pet?.game?.tiles;
+    if (!tiles) return;
+    tileInputQueue.current.push(key === "A"
+      ? { kind: "move" }
+      : key === "B"
+        ? { kind: "pick" }
+        : tiles.pick >= 0 ? { kind: "clear" } : { kind: "abandon" });
+  }
+
+  async function flushTileInputQueue() {
+    if (tileQueueFlushing.current || busyRef.current || page !== "game" || abandoning || tools || help || reset) return;
+    tileQueueFlushing.current = true;
+    try {
+      let cursor = tileCursorRef.current;
+      while (tileInputQueue.current.length > 0 && !busyRef.current) {
+        const game = acceptedPet.current?.game;
+        if (!game?.id || game.kind !== "tiles" || !game.tiles || game.id !== sessionKey ||
+          uncertainRef.current || unavailableRef.current || corruptRef.current || document.hidden || !windowActive.current) {
+          tileInputQueue.current = [];
+          break;
+        }
+        const key = tileInputQueue.current.shift();
+        if (!key) break;
+        if (key.kind === "move") {
+          cursor = nextTile(game.tiles.board, cursor);
+          setTileCursorValue(cursor);
+          setTileDestination({ sessionKey: game.id, target: "selection" });
+          continue;
+        }
+        if (key.kind === "abandon") {
+          tileInputQueue.current = [];
+          setTileLink(null);
+          setTileHint(null);
+          setAbandonGame(game.id);
+          break;
+        }
+        const ok = key.kind === "pick"
+          ? game.tiles.board[cursor] ? await act("tile-pick", { tile: cursor }) : false
+          : game.tiles.pick >= 0 ? await act("tile-clear") : true;
+        if (!ok) {
+          tileInputQueue.current = [];
+          setMessage("棋盘刚刚更新，请重新选择。");
+          break;
+        }
+        cursor = tileCursorRef.current;
+      }
+    } finally {
+      tileQueueFlushing.current = false;
+    }
+  }
+
   const controls = useRef<(key: string) => void>(() => {});
   controls.current = (key: string) => {
     // External overlays own C even while a save write is still in flight.
@@ -1531,6 +1600,12 @@ export default function App() {
       return;
     }
     if (busyRef.current) {
+      if (page === "game" && !abandoning && pet?.game?.kind === "tiles" && pet.game.tiles &&
+        (busyActionRef.current === "tile-pick" || busyActionRef.current === "tile-clear") &&
+        !uncertainRef.current && !unavailableRef.current && !corruptRef.current) {
+        enqueueTileInput(key as "A" | "B" | "C");
+        return;
+      }
       if (key === "C" && pet?.game?.id && canPauseFishingPulse(busyActionRef.current) && !pendingFishingPause.current) {
         audio.current?.cancel();
         fishingEpoch.current++;
@@ -1796,9 +1871,10 @@ export default function App() {
     }
     if (page === "game" && !abandoning && pet.game?.kind === "tiles" && pet.game.tiles) {
       if (key === "A") {
-        setTileCursor((v) => nextTile(pet.game!.tiles!.board, v));
+        const next = nextTile(pet.game!.tiles!.board, tileCursorRef.current);
+        setTileCursorValue(next);
         if (sessionKey) setTileDestination({ sessionKey, target: "selection" });
-      } else if (key === "B") void act("tile-pick", { tile: tileCursor });
+      } else if (key === "B") void act("tile-pick", { tile: tileCursorRef.current });
       else if (pet.game.tiles.pick >= 0) void act("tile-clear");
       else { setTileLink(null); setTileHint(null); setAbandonGame(sessionKey); }
       return;

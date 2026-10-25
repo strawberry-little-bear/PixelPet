@@ -227,6 +227,54 @@ describe("three-key pet tile matching", () => {
     expect(screen.queryByText("正在处理上一手选择，请稍等。")).toBeNull();
   });
 
+  it("queues rapid tile keys in order and drops none while the current action is pending", async () => {
+    saved.game = game();
+    await mount();
+    let calls = 0;
+    let resolveFirst!: (r: Result) => void;
+    api.mockImplementation(async (path, body) => {
+      if (path !== "action" || (body as { kind: string }).kind !== "tile-pick") return result();
+      const tile = (body as { tile: number }).tile;
+      if (calls++ === 0) return new Promise<Result>(resolve => { resolveFirst = resolve; });
+      saved.game!.tiles!.pick = tile;
+      saved.revision++;
+      return result();
+    });
+    await key("b");
+    await key("a");
+    await key("b");
+    expect(actions().map(action => action.tile)).toEqual([0]);
+    saved.game!.tiles!.pick = 0;
+    saved.revision++;
+    await act(async () => {
+      resolveFirst(result());
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(actions().map(action => action.tile)).toEqual([0, 1]);
+    expect(saved.game!.tiles!.pick).toBe(1);
+  });
+
+  it("clears queued tile keys when the window is left before the reply", async () => {
+    const scroll = feedbackGeometry();
+    saved.game = game();
+    await mount();
+    let resolve!: (r: Result) => void;
+    api.mockImplementationOnce(() => new Promise<Result>(r => { resolve = r; }));
+    await key("b");
+    await key("a");
+    await act(async () => { fireEvent(window, new Event("blur")); });
+    saved.game.tiles!.pick = 0;
+    saved.revision++;
+    await act(async () => {
+      resolve(result());
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(actions().map(action => action.kind)).toEqual(["tile-pick"]);
+    expect(scroll).toHaveBeenCalledTimes(0);
+  });
+
   it("removes the processing notice when a tile action is rejected", async () => {
     saved.game = game();
     await mount();
