@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
+import { TetrisStepInterval } from "./TetrisGame";
 import { request } from "./api";
 import { RequestFailure } from "./requestFailure";
 import { emptyGrowth } from "./growth";
@@ -14,7 +15,7 @@ async function clock(ms: number) { await act(async () => { await vi.advanceTimer
 async function mount() { await act(async () => { render(<App />); }); }
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 describe.each(["snake", "tetris"] as const)("%s automatic step pause ordering", kind => {
- const interval = kind === "snake" ? 650 : 1050;
+ const interval = kind === "snake" ? 650 : TetrisStepInterval + 50;
  const model = () => kind === "snake" ? saved.game!.snake! : saved.game!.tetris!;
  const overlay = () => document.querySelector(`.${kind}-overlay`);
  beforeEach(() => {

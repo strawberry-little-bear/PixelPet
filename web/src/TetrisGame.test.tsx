@@ -2,7 +2,7 @@ import { RequestFailure } from "./requestFailure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import App from "./App";
-import { TetrisGame, blockCells } from "./TetrisGame";
+import { TetrisGame, TetrisStepInterval, blockCells } from "./TetrisGame";
 import { memoryWords } from "./AlbumPanel";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
@@ -49,7 +49,7 @@ describe("three-key Tetris", () => {
     await clock(5000); expect(actions().filter(a => a.kind === "tetris-step")).toHaveLength(0);
   });
   it("moves left/right immediately without delaying automatic gravity", async () => {
-    saved.game = game(); await mount(); await key("c"); await clock(500); await key("a"); await key("b"); await clock(550);
+    saved.game = game(); await mount(); await key("c"); await clock(500); await key("a"); await key("b"); await clock(TetrisStepInterval + 50 - 500);
     expect(actions().slice(-3)).toMatchObject([{ kind: "tetris-move", step: 1, turn: -1 }, { kind: "tetris-move", step: 2, turn: 1 }, { kind: "tetris-step", step: 3, gameId: id }]);
     await key("c"); expect(actions().at(-1)).toMatchObject({ kind: "tetris-pause", step: 4 });
     const count = actions().length; await clock(5000); expect(actions()).toHaveLength(count);
@@ -84,7 +84,7 @@ describe("three-key Tetris", () => {
     await key("b"); expect(actions()).toMatchObject([{ kind, step: 0 }]);
     expect(document.querySelector(".tetris-operation-hint")).toBeNull();
     expect(saved.game!.tetris!.paused).toBe(false);
-    await clock(1050); expect(actions().at(-1)?.kind).toBe("tetris-step");
+    await clock(TetrisStepInterval + 50); expect(actions().at(-1)?.kind).toBe("tetris-step");
   });
   it.each(["b", "c"])("keeps the four-line preview read-only until explicit %s", async letter => {
     saved.game = game(); const n = saved.game.tetris!;
@@ -113,7 +113,7 @@ describe("three-key Tetris", () => {
     expect(actions()).toMatchObject([{ kind: "tetris-pause", step: 0 }, { kind: "tetris-rotate", step: 1 }]);
   });
   it("stops on a rejected pulse and requires explicit resume", async () => {
-    saved.game = game(); await mount(); await key("c"); failStep = true; await clock(1050);
+    saved.game = game(); await mount(); await key("c"); failStep = true; await clock(TetrisStepInterval + 50);
     const count = actions().length; await clock(5000); expect(actions()).toHaveLength(count);
     expect(document.querySelector(".tetris-overlay")).toBeTruthy();
   });
@@ -125,7 +125,7 @@ describe("three-key Tetris", () => {
     Object.defineProperty(document, "hidden", { configurable: true, value: false });
     await act(async () => { document.dispatchEvent(new Event("visibilitychange")); }); await clock(3000);
     expect(actions().filter(a => a.kind === "tetris-step")).toHaveLength(0);
-    await key("c"); await clock(1050); expect(actions().at(-1)?.kind).toBe("tetris-step");
+    await key("c"); await clock(TetrisStepInterval + 50); expect(actions().at(-1)?.kind).toBe("tetris-step");
   });
   it("only sends finish for an ended game and does not replay it at mount", async () => {
     saved.game = game(); saved.game.tetris!.end = "won"; saved.game.tetris!.lines = 8; delete saved.game.tetris!.active;

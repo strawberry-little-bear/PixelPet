@@ -75,7 +75,7 @@ func TestTetrisGravityPauseLeaseAndVersion(t *testing.T) {
 		t.Fatal("paused moved")
 	}
 	doBlock(t, &s, "tetris-resume", now)
-	if _, err := s.Apply(blockAction(&s, "tetris-step"), now.Add(999*time.Millisecond)); err == nil {
+	if _, err := s.Apply(blockAction(&s, "tetris-step"), now.Add(time.Duration(TetrisInterval-1)*time.Millisecond)); err == nil {
 		t.Fatal("fast gravity")
 	}
 	// Rapid movement must not postpone gravity, and obsolete commands fail.
@@ -88,7 +88,7 @@ func TestTetrisGravityPauseLeaseAndVersion(t *testing.T) {
 	if _, err := s.Apply(old, now); err == nil {
 		t.Fatal("stale accepted")
 	}
-	now = now.Add(time.Second)
+	now = now.Add(time.Duration(TetrisInterval) * time.Millisecond)
 	doBlock(t, &s, "tetris-step", now)
 	if n.Active.Y != 1 {
 		t.Fatal("no gravity")

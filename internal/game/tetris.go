@@ -11,7 +11,11 @@ import (
 const TetrisWidth = 8
 const TetrisHeight = 12
 const TetrisGoal = 8
-const TetrisInterval = int64(1000)
+
+// Keep the first speed readable on the compact 8x12 board. Hard drops remain
+// available for experienced players, while automatic gravity gives beginners
+// enough time to choose a lane before the next row.
+const TetrisInterval = int64(1500)
 const tetrisLease = int64(3000)
 const tetrisPieceLimit = 120
 const tetrisStepLimit = 20000

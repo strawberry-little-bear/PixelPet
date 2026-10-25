@@ -29,7 +29,7 @@ func TestTetrisPersistConcurrencyAndNoOfflineGravity(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	now = now.Add(1050 * time.Millisecond)
+	now = now.Add(time.Duration(game.TetrisInterval+50) * time.Millisecond)
 	a := &game.Action{Kind: "tetris-step", GameID: id, Step: 1, RequestID: "same-pulse"}
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {

@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { TetrisStepInterval } from "./TetrisGame";
 import { request } from "./api";
 import { emptyGrowth } from "./growth";
 import type { PetState, Result } from "./types";
@@ -73,6 +74,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 const interruptions: Interruption[] = ["background", "help", "tools", "window-blur"];
 const resumptions = ["snake-resume", "tetris-resume", "tetris-rotate", "tetris-drop"];
+const boardStepWait = (kind: string) => kind.startsWith("snake") ? 1100 : TetrisStepInterval + 50;
 describe.each(resumptions)("late %s response", kind => {
   it.each(interruptions.flatMap(interruption => [false, true].map(returnFirst => ({ interruption, returnFirst }))))("does not resume after $interruption (return first=$returnFirst)", async ({ interruption, returnFirst }) => {
     await mount(kind.startsWith("snake") ? "snake" : "tetris");
@@ -87,7 +89,7 @@ describe.each(resumptions)("late %s response", kind => {
     expect(document.querySelector(kind.startsWith("snake") ? ".snake-overlay" : ".tetris-overlay")).toBeTruthy();
     // The committed board remains, but a fresh A/B/C decision is required.
     api.mockImplementation(async (path, body) => { if (path === "action") applyAction(body); return result(); });
-    await key("c"); await clock(1100);
+    await key("c"); await clock(boardStepWait(kind));
     expect(actions().some(a => a.kind === (kind.startsWith("snake") ? "snake-step" : "tetris-step"))).toBe(true);
     expect(actions().every(a => a.gameId === id)).toBe(true);
   });
@@ -105,7 +107,7 @@ describe.each(["tetris-rotate", "tetris-drop"])("local pause before %s", kind =>
   it("still pauses then performs the selected operation without an interruption", async () => {
     await mount("tetris", false); await select(kind);
     expect(actions().map(a => a.kind)).toEqual(["tetris-pause", kind]);
-    await clock(1100); expect(actions().at(-1)?.kind).toBe("tetris-step");
+    await clock(TetrisStepInterval + 50); expect(actions().at(-1)?.kind).toBe("tetris-step");
   });
 });
 
@@ -113,7 +115,7 @@ describe.each(["tetris-rotate", "tetris-drop"])("local pause before %s", kind =>
 describe.each(["snake", "tetris"] as const)("%s collection feedback interruption", kind => {
   it.each(interruptions)("does not replay a late saved collection after %s", async interruption => {
     await mount(kind); await key("c"); const deliver = delayAction(`${kind}-step`, true);
-    await clock(1100); expect(actions().filter(a => a.kind === `${kind}-step`)).toHaveLength(1);
+    await clock(boardStepWait(kind)); expect(actions().filter(a => a.kind === `${kind}-step`)).toHaveLength(1);
     const restore = await interrupt(interruption); await deliver(); await restore();
     expect(document.querySelector(`.${kind}-companion`)?.getAttribute("data-motion")).toBe("waiting");
     expect(document.querySelector(`.${kind}-game header`)?.textContent).toContain("1/8");
@@ -123,7 +125,7 @@ describe.each(["snake", "tetris"] as const)("%s collection feedback interruption
   });
   it.each(interruptions)("clears a foreground collection immediately on %s", async interruption => {
     await mount(kind); await key("c"); const deliver = delayAction(`${kind}-step`, true);
-    await clock(1100); await deliver();
+    await clock(boardStepWait(kind)); await deliver();
     expect(document.querySelector(`.${kind}-companion`)?.getAttribute("data-motion")).toBe("collecting");
     const restore = await interrupt(interruption);
     expect(document.querySelector(`.${kind}-companion`)?.getAttribute("data-motion")).toBe("waiting");

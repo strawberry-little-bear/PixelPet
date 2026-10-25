@@ -7,6 +7,7 @@ import { gameCompanionVoice } from "./gameCompanionVoice";
 import type { Falling, PetState, Tetris } from "./types";
 import "./tetris-game.css";
 
+export const TetrisStepInterval = 1500;
 const pieceNames = ["I", "O", "T", "S", "Z", "J", "L"];
 const coordinates = (cells: { x: number; y: number }[]) => cells.map(p => `${p.y + 1} 行 ${p.x + 1} 列`).join("；");
 const shapes = [
@@ -78,7 +79,7 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
           {preview?.rows.map(row => <rect className="tetris-preview-row" data-preview-row={row + 1} key={row} x="1" y={row * 10 + 1} width="78" height="8" fill="none" stroke="currentColor" strokeWidth="1.5" />)}
         </svg>
       </div>
-      <aside className="tetris-side"><span>下一块</span><svg viewBox="0 0 40 24" role="img" aria-label={`下一块 ${pieceNames[n.next - 1]}`} shapeRendering="crispEdges">{blockCells({ kind: n.next, rotation: 0, x: 0, y: 0 }).map((p, i) => <rect key={i} x={p.x * 9 + 1} y={p.y * 9 + 1} width="7" height="7" fill="#526d3e" />)}</svg><small>目标 8 行</small><small data-speed-level="1">当前速度：1 级<br />约每秒下落一格</small><small>2 行起结算<br />最多 6 金币</small><small>A 左 · B 右<br />C 操作 / 暂停</small></aside>
+      <aside className="tetris-side"><span>下一块</span><svg viewBox="0 0 40 24" role="img" aria-label={`下一块 ${pieceNames[n.next - 1]}`} shapeRendering="crispEdges">{blockCells({ kind: n.next, rotation: 0, x: 0, y: 0 }).map((p, i) => <rect key={i} x={p.x * 9 + 1} y={p.y * 9 + 1} width="7" height="7" fill="#526d3e" />)}</svg><small>目标 8 行</small><small data-speed-level="1">当前速度：1 级<br />约每 1.5 秒下落一格</small><small>2 行起结算<br />最多 6 金币</small><small>A 左 · B 右<br />C 操作 / 暂停</small></aside>
       {(paused || n.end) && <div className="tetris-overlay" role="status">
         <strong>{n.end ? n.end === "won" ? "积木花园拼好啦！" : "歇一歇再来" : "积木已暂停"}</strong>
         {n.end ? <><span>消除 {n.lines} 行 · A 暂不操作 · B / C 收好本局成绩</span><small>{n.lines >= 2 ? "计入陪伴 · 最多 6 金币" : "消除 2 行后完成才有奖励"}</small></> : <><ol aria-label="积木操作">{tetrisOptions.map((label, i) => <li key={label} aria-current={choice === i} className={choice === i ? "selected" : ""}>{choice === i ? "›" : "·"} {label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></>}

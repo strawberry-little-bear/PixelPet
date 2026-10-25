@@ -30,7 +30,7 @@ import { parkCatalog, walkMenuFor, walkTrails, canChooseWalkTrail } from "./walk
 import { completedExperience, experienceWords, recordNewDiscoveries, takeDiscoveryEcho, type CompanionEchoKind } from "./companion";
 import { FishingGame, FishAlbum } from "./FishingGame";
 import { fishCatalogFor, fishingMenu } from "./fishing";
-import { TetrisGame, tetrisOptions } from "./TetrisGame";
+import { TetrisGame, TetrisStepInterval, tetrisOptions } from "./TetrisGame";
 import { SnakeGame } from "./SnakeGame";
 import { StarsGame } from "./StarsGame";
 import { useTileViewport, type TileDestination } from "./useTileViewport";
@@ -1456,7 +1456,7 @@ export default function App() {
       void act("tetris-step", { step: n.step }).then(ok => {
         if (!ok) { setTetrisSession(""); void refresh(); }
       });
-    }, Math.max(40, 1050 - (readServerClock(clock.current) - n.lastFallAt)));
+    }, Math.max(40, TetrisStepInterval + 50 - (readServerClock(clock.current) - n.lastFallAt)));
     return () => clearTimeout(timer);
   }, [pet?.game, tetrisSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {

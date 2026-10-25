@@ -1,6 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { TetrisGame, tetrisOptions } from "./TetrisGame";
+import { TetrisGame, TetrisStepInterval, tetrisOptions } from "./TetrisGame";
 import type { PetState } from "./types";
 
 const now = Date.parse("2026-10-21T04:00:00Z");
@@ -27,7 +27,7 @@ describe("Tetris pause operation consequences", () => {
     const view = render(<TetrisGame pet={pet} now={now} active choice={0} />);
     const speed = view.container.querySelector('[data-speed-level="1"]');
     expect(speed?.textContent).toContain("当前速度：1 级");
-    expect(speed?.textContent).toContain("约每秒下落一格");
+    expect(speed?.textContent).toContain(`约每 ${(TetrisStepInterval / 1000).toFixed(1)} 秒下落一格`);
   });
   it.each(hints.map((hint, choice) => ({ hint, choice })))("explains choice $choice without changing the saved board", ({ hint, choice }) => {
     const pet = fixture(), before = structuredClone(pet);
