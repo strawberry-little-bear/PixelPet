@@ -4,7 +4,7 @@ import { games } from "./games";
 import { companionCompletionTotal, completedExperience, experienceWords, interestCue, interestSummary, recordNewDiscoveries, takeDiscoveryEcho } from "./companion";
 import { CompanionPanel } from "./CompanionPanel";
 import { PetScene } from "./PetScene";
-import type { Companion, GameExperience } from "./types";
+import type { Companion, GameExperience, PetState } from "./types";
 afterEach(cleanup);
 const fresh = (): Companion => ({ since: 1792310000000, interests: games.map(g => ({kind:g.id,points:0,lastAt:0})) });
 describe("bounded explainable shared interests", () => {
@@ -56,6 +56,18 @@ describe("bounded explainable shared interests", () => {
     expect(companionCompletionTotal(c)).toBe("21");
     const { container } = render(<CompanionPanel companion={c} />);
     expect(container.querySelector('[aria-label="共同游戏完成总数"]')?.textContent).toContain("共同完成 21 局");
+  });
+
+  it("keeps each saved game count beside its compact interest record", () => {
+    const c = fresh();
+    c.history = { since: c.since, completions: games.map((game, index) => ({ kind: game.id, count: index })) };
+    c.interests.find(entry => entry.kind === "tetris")!.points = 1;
+    const pet = { schema: 19, lastTick: c.since + 1, companion: c } as PetState;
+    const { container } = render(<CompanionPanel companion={c} pet={pet} />);
+    expect(container.querySelectorAll("[data-completion-count]")).toHaveLength(games.length);
+    expect(container.querySelector('[data-completion-count="stars"]')?.textContent).toBe(" · 0 局");
+    expect(container.querySelector('[data-completion-count="treasure"]')?.textContent).toBe(" · 6 局");
+    expect(container.querySelector('[data-interest="tetris"]')?.textContent).toContain("●○○○○");
   });
 
   it("does not invent a total from malformed or partial history", () => {

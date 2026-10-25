@@ -148,23 +148,23 @@ describe("共同生活回顾", () => {
     expect(container.querySelector('[data-stat="walk-steps"]')?.textContent).toContain("72");
     expect(container.querySelector('[data-stat="fish-caught"]')?.textContent).toContain("2");
     expect(container.querySelector('[data-stat="fish-species"]')?.textContent).toContain("1");
-    expect(container.querySelector('[data-game-stat="stars"]')?.textContent).toContain("留过");
-    expect(container.querySelector('[data-game-stat="tetris"]')?.textContent).toContain("留过");
-    expect(container.querySelector('[data-game-stat="tetris"]')?.textContent).toContain("熟悉度 2 / 5");
-    expect(container.querySelector('[data-game-stat="walk"]')?.textContent).toContain("留过");
-    expect(container.querySelector('[data-game-stat="fishing"]')?.textContent).toContain("尚无");
-    expect(container.querySelector('[data-completion-count="fishing"]')?.textContent).toBe("局数未记录");
-    expect(container.querySelector('[data-game-stat="fishing"]')?.textContent).not.toContain("熟悉度");
-    expect(container.querySelectorAll(".life-summary-game-status")).toHaveLength(7);
-    expect(container.querySelector('[data-game-status="tetris"]')?.textContent).toContain("熟悉度 2 / 5");
-    expect(container.querySelectorAll('[data-game-stat="stars"]')).toHaveLength(1);
+    expect(container.querySelector(".life-summary-games")).toBeNull();
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("成长手册");
     expect(container.querySelector(".life-summary-grid")?.textContent).toContain("3游戏记忆");
     expect(container.querySelector(".life-summary-experiences")?.textContent).toContain("只统计");
-    expect(container.querySelector(".life-summary-games")?.textContent).toContain("纪念每种只留一次");
     expect(container.querySelector(".life-summary-memory")?.textContent).toContain("公园里走过的第一条小路");
     expect(container.querySelector(".life-summary-memory time")?.textContent).toBe("2026/10/20");
     expect(container.querySelector(".life-summary")?.textContent).toContain("不补写旧历史");
     expect(container.querySelector(".life-summary-next")?.textContent).toContain("最近留下的是");
+  });
+
+  it("keeps the long time-change detail after the shared-life summary", () => {
+    const { container } = render(<StatusGuide pet={pet("adult")} rules={rules} />);
+    const summary = container.querySelector(".life-summary");
+    const details = container.querySelector(".status-time-detail");
+    expect(summary).not.toBeNull();
+    expect(details).not.toBeNull();
+    expect(summary!.compareDocumentPosition(details!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("gives an adult pet a gentle direction from saved game interest", () => {
@@ -210,8 +210,8 @@ describe("共同生活回顾", () => {
     expect(summary).toContain("按它当下的需要慢慢照顾");
     expect(container.querySelector('[data-stat="walk-steps"]')?.textContent).toContain("0");
     expect(container.querySelector('[data-stat="fish-caught"]')?.textContent).toContain("0");
-    expect(container.querySelector('[data-game-stat="stars"]')?.textContent).toContain("尚无");
-    expect(container.querySelector('[data-game-stat="treasure"]')?.textContent).toContain("尚无");
+    expect(container.querySelector(".life-summary-games")).toBeNull();
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("成长手册");
     expect(container.querySelector(".life-summary-memory")).toBeNull();
     expect(summary).not.toContain("游戏记忆3");
     expect(current).toEqual(before);

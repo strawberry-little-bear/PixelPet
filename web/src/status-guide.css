@@ -1,5 +1,7 @@
 .status-guide h3 { margin: 0 0 8px; }
 .status-guide p { margin: 8px 0; }
+.status-time-detail { margin-top: 14px; padding-top: 10px; border-top: 1px dashed currentColor; }
+.status-time-detail h4 { margin: 0 0 8px; }
 .status-rates { margin: 8px 0; }
 .status-rates > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 8px; padding: 4px 0; border-bottom: 1px dashed currentColor; }
 .status-rates dt, .status-rates dd { min-width: 0; margin: 0; }

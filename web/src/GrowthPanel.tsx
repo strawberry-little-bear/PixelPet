@@ -171,7 +171,7 @@ export function GrowthPanel({
             <span className="habit-rest-guide">{sleepGrowthGuidance(pet && !pet.growth ? undefined : g, rules)}</span>
           </small>
         </>
-      ) : page === 3 ? <CompanionPanel companion={companion} /> : page === 4 ? (
+      ) : page === 3 ? <CompanionPanel companion={companion} pet={pet} /> : page === 4 ? (
         <div className="growth-time-guide" aria-label="离线与成长说明">
           <h3>不在的时候，也慢慢长大</h3>
           <GrowthBasis stage={g.stage} rules={rules} />

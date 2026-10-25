@@ -144,7 +144,8 @@ describe("shared life summary", () => {
     const summary = lifeSummary(current, created + day);
     expect(summary.interestProgress).toBeNull();
     const { container } = render(<LifeSummary pet={current} now={created + day} />);
-    expect(container.querySelector(".life-summary-interest")).toBeNull();
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("还在慢慢了解彼此");
+    expect(container.querySelector(".life-summary-interest")?.textContent).not.toContain("熟悉度");
     expect(container.textContent).not.toContain("NaN");
   });
 
@@ -197,13 +198,10 @@ describe("saved shared-game completion counts", () => {
     current.companion!.interests = [{ kind: "stars", points: 5, lastAt: created }];
     const before = structuredClone(current);
     const { container } = render(<LifeSummary pet={current} now={created + day + 0.5} />);
-    kinds.forEach((kind, i) => {
-      expect(container.querySelector(`[data-completion-count=${kind}]`)?.textContent).toBe(`共同游戏 ${i + 1} 局`);
-    });
-    expect(container.querySelector("[data-game-stat=stars]")?.textContent).toContain("熟悉度 5 / 5");
-    expect(container.querySelector(".life-summary-tracking")?.textContent).toContain("之前的局数未知，不补算");
-    expect(container.querySelector(".life-summary-tracking time")?.getAttribute("datetime"))
-      .toBe(new Date(created + 60000).toISOString());
+    expect(lifeSummary(current, created + day + 0.5).gameStats.map(game => game.completions))
+      .toEqual(kinds.map((_, i) => i + 1));
+    expect(container.querySelector(".life-summary-games")).toBeNull();
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("成长手册");
     expect(current).toEqual(before);
   });
 
@@ -213,9 +211,9 @@ describe("saved shared-game completion counts", () => {
     current.companion!.interests = [{ kind: "stars", points: 5, lastAt: created }];
     current.album = { since: created, legacy: false, entries: [{kind: "perfect-stars", source: "shared", at: created}] };
     const { container } = render(<LifeSummary pet={current} now={created + day} />);
-    expect(container.querySelectorAll("[data-completion-count]")).toHaveLength(7);
-    expect(container.querySelector("[data-completion-count=stars]")?.textContent).toBe("局数未记录");
-    expect(container.querySelector("[data-game-stat=stars]")?.textContent).toContain("留过");
+    expect(container.querySelectorAll("[data-completion-count]")).toHaveLength(0);
+    expect(container.querySelector(".life-summary-games")).toBeNull();
+    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("成长手册");
     expect(lifeSummary(current, created).gameStats.every(game => game.completions === null)).toBe(true);
   });
 
@@ -224,8 +222,9 @@ describe("saved shared-game completion counts", () => {
     current.companion!.history!.completions[0].count = 0;
     current.companion!.history!.completions[1].count = Number.MAX_SAFE_INTEGER;
     const { container } = render(<LifeSummary pet={current} now={created + day} />);
-    expect(container.querySelector("[data-completion-count=stars]")?.textContent).toBe("共同游戏 0 局");
-    expect(container.querySelector("[data-completion-count=tiles]")?.textContent).toBe(`共同游戏 ≥${Number.MAX_SAFE_INTEGER} 局`);
+    expect(lifeSummary(current, created + day).gameStats.slice(0, 2).map(game => game.completions))
+      .toEqual([0, Number.MAX_SAFE_INTEGER]);
+    expect(container.querySelector(".life-summary-games")).toBeNull();
   });
 
   it.each(["negative", "fraction", "unsafe", "duplicate", "missing", "future", "before", "invalid time"])(

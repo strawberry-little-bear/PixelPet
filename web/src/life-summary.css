@@ -23,6 +23,7 @@
 .life-summary-interest > strong { display: block; }
 .life-summary-interest p { margin: 5px 0; }
 .life-summary-interest small { display: block; line-height: 1.35; }
+.life-summary-details-heading { margin: 14px 0 6px; font-size: 1em; }
 .life-summary-next { margin: 10px 0; padding: 8px; border: 1px solid currentColor; border-radius: 2px; }
 .life-summary-next > strong { display: block; }
 .life-summary-next p { margin: 5px 0; }
@@ -36,16 +37,6 @@
 .life-summary-experience-grid span { line-height: 1.3; word-break: keep-all; }
 .life-summary-experiences small { display: block; line-height: 1.35; }
 
-.life-summary-games { margin: 10px 0; padding: 8px; border: 1px dashed currentColor; border-radius: 2px; }
-.life-summary-games > strong { display: block; }
-.life-summary-games ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10em), 1fr)); gap: 5px 10px; margin: 7px 0 5px; padding: 0; list-style: none; }
-.life-summary-games li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 6px; min-width: 0; }
-.life-summary-games li span { overflow-wrap: anywhere; }
-.life-summary-games li small { overflow-wrap: anywhere; grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2px 7px; font-size: .9em; line-height: 1.25; }
-.life-summary-game-status b { font-weight: normal; }
-.life-summary-games > small { display: block; line-height: 1.35; }
-
-.life-summary-tracking { margin-top: 6px; }
 .life-summary-directions { display: grid; gap: 6px; margin: 7px 0 5px; padding: 0; list-style: none; }
 .life-summary-directions li { display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: baseline; }
 .life-summary-directions b { flex: 0 0 4em; white-space: nowrap; }

@@ -400,6 +400,7 @@
 .companion-rows { display: grid; gap: 1px; font-size: 8px; line-height: 10px; }
 .companion-rows > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: start; }
 .companion-rows > div > span:last-child { color: #547149; letter-spacing: 3px; white-space: nowrap; }
+.companion-row-progress small { letter-spacing: 0; font-size: .85em; }
 .companion-rules, .companion-since { display: block; font-size: 7px; line-height: 10px; margin-top: 4px; }
 .companion-since { margin-top: 2px; opacity: .8; }
 

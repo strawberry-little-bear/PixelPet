@@ -19,6 +19,9 @@ export function StatusGuide({ pet, rules, now = Date.now() }: { pet: PetState; r
   return <section className="status-guide" aria-label="时间与状态说明">
     <h3>时间与状态</h3>
     <p>最近读取：{pet.sleeping ? "正在睡觉" : "清醒中"}</p>
+    <LifeSummary pet={pet} now={now} />
+    <section className="status-time-detail" aria-label="时间变化明细">
+      <h4>时间变化明细</h4>
     {rates ? <>
       <dl className="status-rates" aria-label="每小时基准变化">
         {needLabels.map(([key, label]) => <div key={key} data-need={key}>
@@ -34,6 +37,6 @@ export function StatusGuide({ pet, rules, now = Date.now() }: { pet: PetState; r
     <p>{pet.growth?.stage === "adult"
       ? "成年形态已固定，状态仍会变化；照顾还可以留下习惯与共同经历。"
       : "保持舒适有助成长；不必为了成长反复照顾，习惯只按实际效果和间隔记录。"}</p>
-    <LifeSummary pet={pet} now={now} />
+    </section>
   </section>;
 }

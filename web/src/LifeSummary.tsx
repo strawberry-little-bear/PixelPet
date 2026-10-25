@@ -1,6 +1,6 @@
 import { companionCompletionTotal, interestLimit, interestSummary, validInterestEntries } from "./companion";
 import { games } from "./games";
-import { completionLabel, savedGameHistory } from "./game-history";
+import { savedGameHistory } from "./game-history";
 import { memoryWords } from "./AlbumPanel";
 import { ownedKeepsakes } from "./KeepsakeCorner";
 import type { Memory, PetState } from "./types";
@@ -213,14 +213,14 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       <b data-current-comfort>{formatComfort(summary.currentComfort)}</b>
       <p>只读取当前四项状态的平均值，用来回看此刻；不是任务、成长点或奖励目标。</p>
     </section>
-    <p>{summary.interest}</p>
-    {summary.interestProgress && <section className="life-summary-interest" aria-label="共同游戏兴趣进度">
+    <section className="life-summary-interest" aria-label="共同游戏兴趣进度">
       <strong>共同游戏兴趣</strong>
-      <p>{summary.interestProgress.titles.length === 1
+      <p>{summary.interest}</p>
+      {summary.interestProgress && <p>{summary.interestProgress.titles.length === 1
         ? `${summary.interestProgress.titles[0]} · 熟悉度 ${summary.interestProgress.points} / ${interestLimit}`
-        : `熟悉的游戏不止一种 · 最高熟悉度 ${summary.interestProgress.points} / ${interestLimit}`}</p>
-      <small>这是共同经历的只读记录，不是任务，也不会改变成年形态。</small>
-    </section>}
+        : `熟悉的游戏不止一种 · 最高熟悉度 ${summary.interestProgress.points} / ${interestLimit}`}</p>}
+      <small>这是共同经历的只读记录，不是任务，也不会改变成年形态；逐项局数收在成长手册的「共同游戏·兴趣记录」里。</small>
+    </section>
     <section className="life-summary-next" aria-label={summary.adultDirections ? "可以继续的方向" : "一起生活的下一步"}>
       <strong>{summary.adultDirections ? "可以继续的方向" : "一起生活的下一步"}</strong>
       <p>{summary.nextStep}</p>
@@ -231,6 +231,7 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       </ul>}
       <small>这是陪伴提示，不是任务；按你们的心情来就好。</small>
     </section>
+    <h4 className="life-summary-details-heading">更多共同经历</h4>
     <section className="life-summary-experiences" aria-label="共同经历统计">
       <strong>共同经历统计</strong>
       <div className="life-summary-experience-grid">
@@ -240,23 +241,6 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
         <div data-stat="fish-species"><b>{summary.fishSpecies}</b><span>已识鱼种</span></div>
       </div>
       <small>只统计已经保存的经历：散步按每次完整路线 72 步计算；钓获来自鱼图鉴次数。</small>
-    </section>
-    <section className="life-summary-games" aria-label="各游戏共同经历">
-      <strong>各游戏共同经历</strong>
-      {summary.gameHistorySince !== null
-        ? <small className="life-summary-tracking">共同游戏局数自 <time dateTime={new Date(summary.gameHistorySince).toISOString()}>{new Date(summary.gameHistorySince).toLocaleString("zh-CN", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}</time>（本地时间）起记录；之前的局数未知，不补算；短局和放弃不计。</small>
-        : <small className="life-summary-tracking">这份存档尚未记录共同游戏局数；纪念和熟悉度不能推算过去局数。</small>}
-      <ul>
-        {summary.gameStats.map(game => <li key={game.id} data-game-stat={game.id}>
-          <span>{game.title}</span>
-          <small className="life-summary-game-status" data-game-status={game.id}>
-            <b>{game.recorded ? "留过" : "尚无"}</b>
-            <span data-completion-count={game.id}>{game.completions === null ? "局数未记录" : `共同游戏 ${completionLabel(game.completions)}`}</span>
-            {game.familiarity > 0 && <span>熟悉度 {game.familiarity} / {interestLimit}</span>}
-          </small>
-        </li>)}
-      </ul>
-      <small>纪念每种只留一次；熟悉度与局数是只读记录，即使成长间隔内、熟悉度已满或金币额度用完，符合条件的一局仍会记录；不额外增加成长或奖励。</small>
     </section>
     {summary.recentMemory && <section className="life-summary-memory" aria-label="最近保存的回忆">
       <strong>最近保存的回忆</strong>

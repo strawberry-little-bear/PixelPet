@@ -1,11 +1,13 @@
 import { games } from "./games";
 import { companionCompletionTotal, interestLimit, interestSummary } from "./companion";
-import type { Companion } from "./types";
+import { completionLabel, savedGameHistory } from "./game-history";
+import type { Companion, PetState } from "./types";
 
-export function CompanionPanel({ companion: c }: { companion?: Companion }) {
+export function CompanionPanel({ companion: c, pet }: { companion?: Companion; pet?: PetState }) {
   const recent = c?.recent;
   const recentGame = games.find(game => game.id === recent?.kind);
   const completionTotal = companionCompletionTotal(c);
+  const history = pet ? savedGameHistory(pet) : null;
   return (
     <section className="companion-panel" aria-label="共同游戏与兴趣">
       <div className="habit-heading">
@@ -18,11 +20,13 @@ export function CompanionPanel({ companion: c }: { companion?: Companion }) {
       <div className="companion-rows">
         {games.map(game => {
           const points = c?.interests.find(r => r.kind === game.id)?.points ?? 0;
+          const completions = history?.completions.find(entry => entry.kind === game.id)?.count ?? null;
           return (
             <div key={game.id} data-interest={game.id} data-points={points}>
               <span>{game.title}</span>
-              <span aria-label={`已记住 ${points} 次，上限 ${interestLimit} 次`}>
+              <span className="companion-row-progress" aria-label={`已记住 ${points} 次，上限 ${interestLimit} 次${completions === null ? "" : `，共同游戏 ${completionLabel(completions)}`}`}>
                 {"●".repeat(points)}{"○".repeat(interestLimit - points)}
+                {completions !== null && <small data-completion-count={game.id}> · {completionLabel(completions)}</small>}
               </span>
             </div>
           );
