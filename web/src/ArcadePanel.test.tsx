@@ -308,10 +308,24 @@ describe("playtest feedback: compact repeat entry", () => {
     saved.sleeping = true;
     await mount();
     await select(0);
+    expect(document.querySelector('.care-menu [data-care-kind="arcade"][aria-current="true"]')).toBeTruthy();
+    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("A 选择");
+    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("先叫醒它");
+    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("C 返回");
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button,.lcd input,.lcd a,[role=button]")).toBeNull();
     await key("b");
+    expect(document.querySelector('.care-menu [data-care-kind="arcade"][aria-current="true"]')).toBeTruthy();
     expect(document.querySelector(".game-guide")).toBeNull();
     expect(actions().filter(action => action.kind.startsWith("play"))).toHaveLength(0);
     expect(screen.getByRole("alert").textContent).toContain("正在睡觉");
+    await key("a");
+    expect(document.querySelector('.care-menu [data-care-kind="clean"][aria-current="true"]')).toBeTruthy();
+    expect(actions().filter(action => action.kind.startsWith("play"))).toHaveLength(0);
+    await key("c");
+    expect(document.querySelector(".content-home")).toBeTruthy();
+    expect(saved.sleeping).toBe(true);
+    expect(actions().filter(action => action.kind.startsWith("play"))).toHaveLength(0);
   });
 
   it("keeps a rejected repeat start on the compact card for an explicit retry", async () => {
@@ -326,6 +340,11 @@ describe("playtest feedback: compact repeat entry", () => {
     expect(games.find(game => game.id === "tetris")!.lesson).toContain("按 C 打开旋转、落底等操作");
     expect(games.find(game => game.id === "snake")!.lesson).toContain("果子方向和距离");
     expect(games.find(game => game.id === "snake")!.lesson).toContain("靠近围栏也会提醒");
+  });
+  it("keeps every game icon distinct, especially fishing and walking", () => {
+    expect(new Set(games.map(game => game.icon)).size).toBe(games.length);
+    expect(games.find(game => game.id === "fishing")?.icon)
+      .not.toBe(games.find(game => game.id === "walk")?.icon);
   });
 });
 
