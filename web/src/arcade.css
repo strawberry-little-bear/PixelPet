@@ -22,9 +22,13 @@
 .game-guide .guide-habit { border-left: 2px solid #839567; padding-left: 6px; }
 .treasure-guide-example { margin: 8px 0; padding: 7px; border: 1px dashed currentColor; }
 .treasure-guide-example > strong, .treasure-guide-example > small { display: block; }
-.treasure-example-grid { display: grid; grid-template-columns: repeat(3, 1.8em); justify-content: center; gap: 2px; margin: 6px 0; }
-.treasure-example-grid > span, .treasure-example-grid > b { display: grid; place-items: center; min-height: 1.8em; border: 1px solid #839567; background: #dce9c8; font: 12px var(--mono); }
-.treasure-example-grid > b { background: #a4b98b; }
+.treasure-example-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9em), 1fr)); gap: 8px; margin-top: 6px; }
+.treasure-example-pair figure { margin: 0; min-width: 0; }
+.treasure-example-pair figcaption { font-size: .75rem; line-height: 1.6; overflow-wrap: anywhere; }
+.treasure-example-grid { display: grid; grid-template-columns: repeat(3, 1.8em); justify-content: center; gap: 3px; margin: 6px 0; font: .75rem var(--mono); }
+.treasure-example-grid > span { display: grid; place-items: center; min-height: 1.8em; border: 1px solid #839567; background: #dce9c8; }
+.treasure-example-grid > [data-neighbor="true"] { border: 2px dashed currentColor; }
+.treasure-example-grid > [data-source="true"] { border: 3px double currentColor; font-weight: bold; background: #a4b98b; }
 .game-guide > small { display: block; font-size: 9px; }
 .game-abandon { text-align: center; padding: 15px 0; }
 .game-abandon p { margin: 14px 0; font-size: 12px; }

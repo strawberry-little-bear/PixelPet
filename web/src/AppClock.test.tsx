@@ -58,7 +58,7 @@ it.each([true, false])("shows the authoritative greeting day and preserves expli
   saved.economy!.lastDailyAt = claimed ? server : server - day;
   vi.setSystemTime(server + (claimed ? 7 * day : -7 * day));
   await mount(); await openMenu(9);
-  expect(document.querySelector(".shop-decision")?.textContent).toBe(claimed ? "今日已领取 · 不必连续来" : "B 收下 10 金币");
+  expect(document.querySelector(".shop-decision .shop-action")?.textContent).toBe(claimed ? "今日已领取 · 不必连续来" : "B 收下 10 金币");
   expect(writes()).toHaveLength(0);
   await key("b");
   expect(writes()).toHaveLength(claimed ? 0 : 1);
@@ -129,7 +129,7 @@ for (const direction of [-1, 1]) {
     await mount(); await openMenu(9);
     vi.setSystemTime(server + direction * (7 * day + 1234));
     await act(async () => { vi.advanceTimersByTime(1000); });
-    expect(document.querySelector(".shop-decision")?.textContent).toBe("今日已领取 · 不必连续来");
+    expect(document.querySelector(".shop-decision .shop-action")?.textContent).toBe("今日已领取 · 不必连续来");
     await key("b"); expect(writes()).toHaveLength(0);
   });
 }
@@ -137,12 +137,12 @@ it("still crosses a UTC day by elapsed time after a backward wall-clock jump", a
   servedAt = Date.parse("2026-10-20T23:59:59.500Z");
   saved.economy!.lastDailyAt = servedAt; saved.lastTick = servedAt;
   await mount(); await openMenu(9);
-  expect(document.querySelector(".shop-decision")?.textContent).toBe("今日已领取 · 不必连续来");
+  expect(document.querySelector(".shop-decision .shop-action")?.textContent).toBe("今日已领取 · 不必连续来");
   vi.setSystemTime(server - 7 * day);
   await act(async () => { vi.advanceTimersByTime(1000); });
-  expect(document.querySelector(".shop-decision")?.textContent).toBe("B 收下 10 金币");
+  expect(document.querySelector(".shop-decision .shop-action")?.textContent).toBe("B 收下 10 金币");
   expect(writes()).toHaveLength(0);
   servedAt += 1000; await key("b");
   expect(writes()).toHaveLength(1); expect(writes()[0][1]).toMatchObject({ kind: "daily" });
-  expect(document.querySelector(".shop-decision")?.textContent).toBe("今日已领取 · 不必连续来");
+  expect(document.querySelector(".shop-decision .shop-action")?.textContent).toBe("今日已领取 · 不必连续来");
 });

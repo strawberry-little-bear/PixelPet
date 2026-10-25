@@ -45,25 +45,66 @@ async function selectTreasure(page) {
   assert.equal(await page.locator('.arcade-card.selected').getAttribute('data-game'), 'treasure');
   assert.equal(await page.locator('.arcade-card').count(), 7);
 }
+async function guideExample(page, prefix) {
+  await readable(page, '.game-guide');
+  assert.equal(await page.getByText('示意图，不是本局地图', { exact: true }).count(), 1);
+  const diagrams = page.locator('.treasure-example-grid');
+  assert.equal(await diagrams.count(), 2);
+  for (let index = 0; index < 2; index++) {
+    const diagram = diagrams.nth(index);
+    assert.equal(await diagram.locator('[data-object=true]').count(), 3);
+    assert.equal(await diagram.locator('[data-neighbor=true]').count(), index ? 3 : 8);
+    assert.equal(await diagram.locator('[data-source=true]').textContent(), index ? '1' : '3');
+    assert.equal(await diagram.locator('[data-neighbor=true]').first().evaluate(el => getComputedStyle(el).borderStyle), 'dashed');
+    await diagram.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(dir, `${prefix}-${index}.png`) });
+  }
+  const caption = page.locator('.treasure-example-pair figcaption').last();
+  const captionBox = await caption.evaluate(el => {
+    el.scrollIntoView({ block: 'center', behavior: 'instant' });
+    const rect = el.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, right: rect.right, width: innerWidth, height: innerHeight };
+  });
+  assert(captionBox.top >= -1 && captionBox.bottom <= captionBox.height + 1 && captionBox.right <= captionBox.width + 1,
+    `last caption must be reachable by scrolling: ${JSON.stringify(captionBox)}`);
+}
 async function start(page, repeat = false) {
   await selectTreasure(page); await key(page, 'B');
   await page.locator('.game-guide').waitFor();
-  if (repeat) assert.equal(await page.locator('.game-quick-start').count(), 1);
-  await key(page, 'B');
+  const before = (await api('state')).state;
+  assert(!before.game, 'opening guide must not start a session');
+  if (repeat) {
+    assert.equal(await page.locator('.game-quick-start').count(), 1);
+    assert.equal(await page.locator('.treasure-guide-example').count(), 0);
+    await key(page, 'A');
+  }
+  const size = page.viewportSize(), font = await page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
+  await guideExample(page, `guide-${repeat ? 'review' : 'first'}-${size.width}-${font}`);
+  await key(page, 'A'); assert.equal(await page.locator('.treasure-guide-example').count(), 0);
+  await key(page, 'A'); assert.equal(await page.locator('.treasure-example-grid').count(), 2);
+  await key(page, 'C'); await page.locator('.arcade-panel').waitFor();
+  const after = (await api('state')).state;
+  assert(!after.game); assert.equal(after.careCount, before.careCount);
+  assert.equal(after.economy.coins, before.economy.coins, 'reading guide must not reward');
+  await key(page, 'B'); await key(page, 'B');
   await page.locator('.treasure-pause').waitFor();
 }
-async function readable(page) {
-  const issues = await page.locator('.treasure-game').evaluate(el => {
+async function readable(page, selector = '.treasure-game') {
+  const issues = await page.locator(selector).evaluate(el => {
     const issues = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
       if (!node.textContent.trim()) continue;
+      const lcd = node.parentElement?.closest('.lcd-content');
+      const scrollingLcd = lcd && /auto|scroll/.test(getComputedStyle(lcd).overflowY) ? lcd : null;
       const range = document.createRange(); range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
         for (let parent = node.parentElement; parent; parent = parent.parentElement) {
           const style = getComputedStyle(parent), clip = parent.getBoundingClientRect();
-          if (['hidden', 'clip'].includes(style.overflowY) && (box.top < clip.top - 2 || box.bottom > clip.bottom + 2)) issues.push(node.textContent);
+          // The shell deliberately clips the scrollable LCD; check reachability below.
+          const shellOfScroll = scrollingLcd && parent.contains(scrollingLcd);
+          if (!shellOfScroll && ['hidden', 'clip'].includes(style.overflowY) && (box.top < clip.top - 2 || box.bottom > clip.bottom + 2)) issues.push(node.textContent);
         }
         if (box.left < -1 || box.right > innerWidth + 1) issues.push(node.textContent);
       }
@@ -74,6 +115,16 @@ async function readable(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
   assert.equal(await page.locator('.physical-button').count(), 3);
+  if (selector === '.treasure-game') {
+    for (const footer of ['.treasure-status', '.treasure-rule']) {
+      const line = page.locator(footer);
+      await line.scrollIntoViewIfNeeded();
+      assert(await line.evaluate(el => {
+        const box = el.getBoundingClientRect(), lcd = el.closest('.lcd-content').getBoundingClientRect();
+        return box.top < lcd.bottom && box.bottom > lcd.top && box.top < innerHeight && box.bottom > 0;
+      }), `${footer} cannot be reached inside the scrollable LCD`);
+    }
+  }
 }
 async function finishExplanation(page, found, reason) {
   assert((await page.locator('.treasure-status').textContent()).includes(reason), 'explain why this round ended');
@@ -105,7 +156,7 @@ try {
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
   for (const width of [1200, 320]) for (const font of [14, 28]) {
     await seed();
-    const ctx = await browser.newContext({ viewport: { width, height: 700 }, hasTouch: true,
+    const ctx = await browser.newContext({ viewport: { width, height: width === 320 && font === 28 ? 380 : 700 }, hasTouch: true,
       isMobile: width < 700, reducedMotion: 'reduce', forcedColors: font === 28 ? 'active' : 'none' });
     const page = await ctx.newPage(), errors = [], writes = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -116,7 +167,7 @@ try {
     try {
       await page.goto(base); await start(page); await readable(page);
       // Capture actual text size, not only root-font settings.
-      assert(Math.abs(await page.locator('.treasure-grid span').first().evaluate(el => parseFloat(getComputedStyle(el).fontSize)) - 12 * font / 14) < .1);
+      assert(Math.abs(await page.locator('.treasure-grid span').first().evaluate(el => parseFloat(getComputedStyle(el).fontSize)) - Math.max(13, 8 * font / 14)) < .1);
       await page.locator('.treasure-pause').scrollIntoViewIfNeeded();
       await page.screenshot({ path: join(dir, `pause-${width}-${font}.png`) });
       await key(page, 'C');
@@ -130,7 +181,10 @@ try {
       const count = writes.length; await wait(1300); assert.equal(writes.length, count, 'automatic resume/exploration');
       // Re-read rules, return paused, no model mutation or exploration.
       await key(page, 'A'); await key(page, 'B'); await page.locator('.game-guide').waitFor();
-      await key(page, 'B'); await key(page, 'C'); await page.locator('.treasure-pause').waitFor();
+      await guideExample(page, `guide-paused-${width}-${font}`);
+      await key(page, 'B'); assert.equal(await page.locator('.treasure-guide-example').count(), 0);
+      await key(page, 'B'); assert.equal(await page.locator('.treasure-example-grid').count(), 2);
+      await key(page, 'C'); await page.locator('.treasure-pause').waitFor();
       assert.deepEqual((await api('state')).state.game.treasure, searched);
       await key(page, 'C'); await readable(page);
       await page.locator('.treasure-grid').scrollIntoViewIfNeeded();

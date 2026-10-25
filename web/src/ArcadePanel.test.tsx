@@ -89,7 +89,8 @@ describe("game directory and optional three-key guides", () => {
     const example = document.querySelector(".treasure-guide-example");
     expect(example?.getAttribute("aria-label")).toBe("森林寻宝数字线索示例");
     expect(example?.textContent).toContain("包含斜角");
-    expect(example?.querySelectorAll(".treasure-example-grid > *")).toHaveLength(9);
+    expect(example?.querySelectorAll(".treasure-example-grid")).toHaveLength(2);
+    expect(example?.querySelectorAll(".treasure-example-grid > *")).toHaveLength(18);
     expect(document.querySelector(".lcd button,.lcd [role=button]")).toBeNull();
     await key("a");
     expect(document.querySelector(".treasure-guide-example")).toBeNull();

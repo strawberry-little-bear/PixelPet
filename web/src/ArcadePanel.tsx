@@ -1,3 +1,4 @@
+import { TreasureGuideExample } from "./TreasureGuideExample";
 import { abandonProgress } from "./abandon-progress";
 import { DailyRefresh } from "./DailyRefresh";
 import { interestLimit, validInterestEntries } from "./companion";
@@ -64,15 +65,7 @@ export function GameGuide({ game, page, review = false, paused = false, sleeping
         <li key={step}>{step}。</li>
       )}
     </ul>
-    {game.id === "treasure" && page === 0 && <div className="treasure-guide-example" aria-label="森林寻宝数字线索示例">
-      <strong>数字线索示例</strong>
-      <div className="treasure-example-grid" role="img" aria-label="中间的 2 表示周围八格共有两件小物，包含斜角">
-        <span aria-hidden="true">·</span><span aria-hidden="true">◆</span><span aria-hidden="true">·</span>
-        <span aria-hidden="true">·</span><b>2</b><span aria-hidden="true">·</span>
-        <span aria-hidden="true">·</span><span aria-hidden="true">◆</span><span aria-hidden="true">·</span>
-      </div>
-      <small>中间的 2 会数周围八格，包含斜角；A 选格，B 探索。</small>
-    </div>}
+    {game.id === "treasure" && page === 0 && <TreasureGuideExample />}
     {page === 0 ? <>
       <p className="guide-reward">{game.duration}</p>
       <GameHabit {...rewardContext} />

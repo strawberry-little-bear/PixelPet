@@ -1230,7 +1230,7 @@ describe("quiet companion moments", () => {
     expect(saved).toEqual(before);
     await key("a");
     expect(screen.getByText("陪它发呆")).toBeTruthy();
-    expect(screen.getByText("阳光慢慢挪过屏幕，谁也不用急。")).toBeTruthy();
+    expect(screen.getByText("和它一起安静待一会儿，谁也不用急。")).toBeTruthy();
     await key("c");
     expect(document.querySelector(".content-home")).toBeTruthy();
   });
