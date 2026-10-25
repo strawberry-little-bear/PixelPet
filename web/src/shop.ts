@@ -5,7 +5,7 @@ import type { PetState, Shop } from "./types";
 export const shopSections = [
   { id: "daily", title: "今日问候", description: "每天一次，不用连续来。" },
   { id: "all", title: "全部物品", description: "先试一试，再决定要不要带回家。" },
-  { id: "seasonal", title: "季节主题", description: "秋叶和雪夜留在小窝里，喜欢时再慢慢收集。" },
+  { id: "seasonal", title: "季节主题", description: "春花、贝壳、秋叶和雪夜，全年可选，喜欢时再布置。" },
   { id: "accessory", title: "宠物装扮", description: "不改成长，不遮住自己的模样。" },
   { id: "room", title: "小窝摆件", description: "一个摆件槽，与墙纸、地板独立。" },
   { id: "wallpaper", title: "墙纸", description: "换一面喜欢的墙，不挤掉摆件。" },
@@ -13,7 +13,7 @@ export const shopSections = [
   { id: "owned", title: "已拥有", description: "随时换上或收起，不再扣金币。" },
 ] as const;
 export type ShopCategory = Exclude<(typeof shopSections)[number]["id"], "daily">;
-const seasonalItemIds = new Set(["autumn-wall", "winter-floor"]);
+const seasonalItemIds = new Set(["autumn-wall", "winter-floor", "spring-vase", "summer-shell"]);
 export function isSeasonalItem(id: string) {
   return seasonalItemIds.has(id);
 }

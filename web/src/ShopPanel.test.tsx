@@ -100,6 +100,8 @@ describe("three-key categorized shop previews", () => {
     { id: "mint-floor", name: "薄荷方砖", slot: "floor", price: 22, description: "独立地板" },
     { id: "autumn-wall", name: "秋叶墙纸", slot: "wallpaper", price: 26, description: "秋天的墙" },
     { id: "winter-floor", name: "雪夜地毯", slot: "floor", price: 28, description: "冬天的地面" },
+    { id: "spring-vase", name: "春枝花瓶", slot: "room", price: 18, description: "全年可选的春花" },
+    { id: "summer-shell", name: "海边贝壳", slot: "room", price: 20, description: "全年可选的贝壳" },
   ] };
   it("filters server catalog without reordering or mutating it", () => {
     const p = pet();
@@ -108,7 +110,7 @@ describe("three-key categorized shop previews", () => {
     for (const slot of ["accessory", "room", "wallpaper", "floor"] as const) {
       expect(shopItems(rules, p, slot)).toEqual(rules.catalog.filter(i => i.slot === slot));
     }
-    expect(shopItems(rules, p, "seasonal").map(i => i.id)).toEqual(["autumn-wall", "winter-floor"]);
+    expect(shopItems(rules, p, "seasonal").map(i => i.id)).toEqual(["autumn-wall", "winter-floor", "spring-vase", "summer-shell"]);
     expect(shopItems(rules, p, "owned").map(i => i.id)).toEqual(["leaf-pin"]);
     expect(isSeasonalItem("autumn-wall")).toBe(true);
     expect(isSeasonalItem("mint-floor")).toBe(false);
@@ -119,8 +121,8 @@ describe("three-key categorized shop previews", () => {
     render(<ShopPanel pet={pet()} shop={rules} page={5} now={now} confirm={false} />);
     expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(8);
     expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("墙纸");
-    expect(document.querySelector('[data-section="all"] small')?.textContent).toBe("6 件");
-    expect(document.querySelector('[data-section="seasonal"] small')?.textContent).toBe("2 件");
+    expect(document.querySelector('[data-section="all"] small')?.textContent).toBe("8 件");
+    expect(document.querySelector('[data-section="seasonal"] small')?.textContent).toBe("4 件");
     expect(document.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
     expect(shopSections.map(s => s.id)).toContain("owned");
   });

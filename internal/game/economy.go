@@ -42,6 +42,8 @@ func ShopRules() Shop {
 		{"honey-floor", "蜂蜜木地板", "floor", 18, "一条条温暖木纹，不占小窝摆件的位置。"},
 		{"winter-floor", "雪夜地毯", "floor", 28, "柔软的雪花格纹，让冬日的小脚也有暖处。"},
 		{"mint-floor", "薄荷方砖", "floor", 22, "浅浅的绿格子，和喜欢的地毯一起铺好。"},
+		{"spring-vase", "春枝花瓶", "room", 18, "把一枝春花放在窗边，哪天喜欢都能摆出来。"},
+		{"summer-shell", "海边贝壳", "room", 20, "留一枚海边的小贝壳，陪你在小窝想起夏天。"},
 	}}
 }
 func shopItem(id string) (ShopItem, bool) {

@@ -113,3 +113,81 @@ func TestSchemaEightShopUpgradeSnapshotsAndPreservesOldGear(t *testing.T) {
 		t.Fatal("missing or repeated old snapshot", count)
 	}
 }
+
+func TestSeasonalRoomItemsPersistWithoutReplacingOtherSlots(t *testing.T) {
+	for _, item := range []struct {
+		id    string
+		price int
+	}{{"spring-vase", 18}, {"summer-shell", 20}} {
+		t.Run(item.id, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "seasonal.db")
+			s, err := Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { s.Close() }()
+			now := time.Now().Add(time.Second).Truncate(time.Millisecond)
+			r, err := s.Do(&game.Action{Kind: "hatch", Species: 2}, nil, false, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.State.Economy.Coins = 100
+			r.State.Economy.Owned = []string{"sky-bow", "clover-pot", "autumn-wall", "winter-floor"}
+			oldGear := game.Equipment{Accessory: "sky-bow", Room: "clover-pot", Wallpaper: "autumn-wall", Floor: "winter-floor"}
+			r.State.Economy.Equipped = oldGear
+			if _, err = s.Do(nil, &r.State, false, now); err != nil {
+				t.Fatal(err)
+			}
+			growth, needs, care := *r.State.Growth, r.State.Needs, r.State.CareCount
+			for _, kind := range []string{"buy", "equip"} {
+				for retry := 0; retry < 2; retry++ {
+					r, err = s.Do(&game.Action{Kind: kind, Item: item.id, RequestID: kind + item.id}, nil, false, now)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if kind == "buy" && r.State.Economy.Equipped != oldGear {
+						t.Fatal("purchase automatically equipped item")
+					}
+				}
+			}
+			want := oldGear
+			want.Room = item.id
+			if r.State.Economy.Coins != 100-item.price || len(r.State.Economy.Owned) != 5 || r.State.Economy.Equipped != want {
+				t.Fatal("charge or slot mismatch", r.State.Economy)
+			}
+			if *r.State.Growth != growth || r.State.Needs != needs || r.State.CareCount != care {
+				t.Fatal("cosmetic changed growth or care")
+			}
+			before, _ := json.Marshal(r.State)
+			s.Close()
+			s, err = Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r, err = s.Do(&game.Action{Kind: "equip", Item: item.id, RequestID: "equip" + item.id}, nil, false, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			after, _ := json.Marshal(r.State)
+			if string(before) != string(after) {
+				t.Fatal("restart replay changed state")
+			}
+			backup := r.State
+			r, err = s.Do(nil, &backup, false, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if r.State.Economy.Equipped != want || !reflect.DeepEqual(r.State.Album, backup.Album) {
+				t.Fatal("backup lost decoration or memory")
+			}
+			r, err = s.Do(&game.Action{Kind: "equip", Item: item.id}, nil, false, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want.Room = ""
+			if r.State.Economy.Equipped != want || r.State.Economy.Coins != 100-item.price {
+				t.Fatal("storing item charged coins or replaced other slots")
+			}
+		})
+	}
+}

@@ -14,11 +14,13 @@ export function AccessoryMark({ id, transform }: { id?: string; transform?: stri
   </g>;
 }
 export function RoomDecoration({ id }: { id?: string; }) {
-  if (!id || !["clover-pot", "patchwork-rug", "moon-lamp"].includes(id)) return null;
+  if (!id || !["clover-pot", "patchwork-rug", "moon-lamp", "spring-vase", "summer-shell"].includes(id)) return null;
   return <svg className={`room-decoration decoration-${id}`} data-item={id} viewBox="0 0 64 48" aria-hidden="true" shapeRendering="crispEdges">
     {id === "clover-pot" ? <><path d="M30 29V13h4v16zM18 12V6h8v4h4v10h-8v-4h-4zm16-2V5h9v5h5v7H35zM19 22v-5h8v4h6v6H23v-5zm16-3h10v7H34z" fill="#759366" /><path d="M18 29h30v5H18zm4 5h22v11H22z" fill="#b48e76" /><path d="M25 35h4v8h-4z" fill="#ddc6a2" /></>
       : id === "patchwork-rug" ? <><path d="M3 15h58v26H3z" fill="#879875" /><path d="M7 19h50v18H7z" fill="#d7c7a0" /><path d="M11 22h12v12H11zm27 0h13v12H38z" fill="#c09290" /><path d="M27 22h7v12h-7z" fill="#a5bda0" /><path d="M0 19h3v3H0zm0 10h3v3H0zm61-10h3v3h-3zm0 10h3v3h-3z" fill="#879875" /></>
-        : <><path d="M28 36h8v6H22v4h26v-4H36V27h-8z" fill="#7b8267" /><path d="M31 2h14v4h-8v6h-4v10h5v5h10v-5h5v9h-5v4H31v-4h-6v-8h-4V12h4V6h6z" fill="#e2cb8f" /><path d="M28 10h4v12h-4z" fill="#f7e9b9" /></>}
+        : id === "spring-vase" ? <><path d="M30 30V11h4v19zM24 17h6v4h-6v-4h-5v-4h5zm10 4h5v-4h5v-4h4v8h-5v4h-9z" fill="#807459" /><path d="M17 7h5V3h6v4h5v6h-5v5h-6v-5h-5zm23-1h5V2h5v4h5v5h-5v5h-5v-5h-5z" fill="#bc7783" /><path d="M22 8h5v5h-5zm23-1h5v5h-5z" fill="#f4d6b0" /><path d="M24 26h16v5h5v11h-5v4H24v-4h-5V31h5z" fill="#719a9b" /><path d="M24 31h5v10h-5zM24 26h16v3H24z" fill="#b9d1bf" /></>
+          : id === "summer-shell" ? <><path d="M12 39V24h4v-8h8v-5h16v5h8v8h4v15h-8v4H20v-4z" fill="#ad7c68" /><path d="M16 35V24h4v-5h8v-4h8v4h8v5h4v11h-8v4H24v-4z" fill="#dfb28e" /><path d="M28 17h4v18h-4zM20 23h4v8h4v4h-4v-4h-4zm16-4h4v12h-4v4h-4v-4h4zm8 8h4v4h-4v4h-4v-4h4z" fill="#f3d9b3" /><path d="M24 39h16v4H24z" fill="#bf9277" /></>
+            : <><path d="M28 36h8v6H22v4h26v-4H36V27h-8z" fill="#7b8267" /><path d="M31 2h14v4h-8v6h-4v10h5v5h10v-5h5v9h-5v4H31v-4h-6v-8h-4V12h4V6h6z" fill="#e2cb8f" /><path d="M28 10h4v12h-4z" fill="#f7e9b9" /></>}
   </svg>;
 }
 

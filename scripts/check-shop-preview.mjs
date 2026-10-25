@@ -233,6 +233,90 @@ try {
       throw error;
     } finally { await context.close(); }
   }
+  // Constructed cosmetic inventory, isolated from the earned-coins journey above.
+  // Verify the two seasonal additions through the actual three-key HTTP flow.
+  for (const mode of [
+    { name: 'seasonal-desktop', width: 1200, height: 850, font: 14 },
+    { name: 'seasonal-phone', width: 320, height: 700, font: 14 },
+    { name: 'seasonal-large-forced', width: 320, height: 480, font: 28, forced: true },
+  ]) {
+    for (const [index, item] of [
+      { id: 'spring-vase', name: '春枝花瓶', price: 18 },
+      { id: 'summer-shell', name: '海边贝壳', price: 20 },
+    ].entries()) {
+      const now = Date.now();
+      await api('import', { schema: 1, revision: 1, species: 2, name: '春夏伙伴',
+        createdAt: now - 3600000, hatchedAt: now - 3600000, lastTick: now, sleeping: false,
+        needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
+      const fixture = (await api('state')).state;
+      const gear = { accessory: 'sky-bow', room: 'clover-pot', wallpaper: 'autumn-wall', floor: 'winter-floor' };
+      fixture.economy.coins = 100;
+      fixture.economy.owned = Object.values(gear);
+      fixture.economy.equipped = gear;
+      await api('import', fixture);
+      const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height },
+        hasTouch: true, isMobile: mode.width < 700, reducedMotion: 'reduce', forcedColors: mode.forced ? 'active' : 'none' });
+      const page = await context.newPage(), writes = [], errors = [];
+      try {
+        await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+          document.documentElement.style.fontSize = `${font}px`;
+        }), mode.font);
+        page.on('pageerror', e => errors.push(String(e)));
+        page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/action') writes.push(r.postDataJSON()); });
+        const openItem = async () => {
+          await menu(page, 9); await key(page, 'a'); await key(page, 'a');
+          assert.equal(await page.locator('[data-section=seasonal] small').textContent(), '4 件');
+          await key(page, 'b');
+          for (let i = 0; i < index + 2; i++) await key(page, 'a');
+          assert.equal(await page.locator('.shop-panel h3').evaluate(el => el.firstChild.textContent), item.name);
+        };
+        await page.goto(base); await page.locator('.home-caption').waitFor();
+        const before = (await api('state')).state.economy;
+        await openItem();
+        await caption(page, '仅预览 · 未购买', mode);
+        for (const id of ['sky-bow', 'autumn-wall', 'winter-floor', item.id]) {
+          assert.equal(await page.locator(`.shop-preview [data-item="${id}"]`).count(), 1);
+        }
+        assert.equal(await page.locator('.shop-preview [data-item=clover-pot]').count(), 0);
+        assert.deepEqual((await api('state')).state.economy, before);
+        await page.locator('.shop-preview').screenshot({ path: join(dir, `${mode.name}-${item.id}-preview.png`) });
+        await key(page, 'b'); await key(page, 'c');
+        await key(page, 'b'); await key(page, 'a');
+        assert.deepEqual((await api('state')).state.economy, before);
+        assert.equal(writes.length, 0, 'preview or cancellation wrote to save');
+        await key(page, 'b'); await key(page, 'b');
+        await caption(page, '仅预览 · 未使用', mode);
+        const bought = (await api('state')).state;
+        assert.equal(bought.economy.coins, 100 - item.price);
+        assert.deepEqual(bought.economy.equipped, gear);
+        await key(page, 'b'); await caption(page, '使用中 · 已保存', mode);
+        const expected = { ...gear, room: item.id };
+        assert.deepEqual((await api('state')).state.economy.equipped, expected);
+        await key(page, 'c'); await key(page, 'c'); await page.locator('.content-home').waitFor();
+        await page.reload(); await page.locator('.content-home').waitFor();
+        for (const id of Object.values(expected)) assert.equal(await page.locator(`.content-home [data-item="${id}"]`).count(), 1);
+        const saved = (await api('state')).state;
+        assert.deepEqual(saved.economy.equipped, expected);
+        assert.equal(saved.economy.coins, 100 - item.price);
+        assert.equal(saved.careCount, fixture.careCount);
+        assert.equal(saved.economy.gameCoins, fixture.economy.gameCoins);
+        await page.locator('.pet-scene').first().screenshot({ path: join(dir, `${mode.name}-${item.id}-home.png`) });
+        await openItem(); await key(page, 'b'); await caption(page, '仅预览 · 未使用', mode);
+        assert.deepEqual((await api('state')).state.economy.equipped, { ...gear, room: '' });
+        assert.equal((await api('state')).state.economy.coins, 100 - item.price);
+        assert.equal(writes.filter(w => w.kind === 'buy').length, 1);
+        assert.equal(writes.filter(w => w.kind === 'equip').length, 2);
+        assert.equal(writes.length, 3);
+        assert.equal(await page.locator('.physical-button').count(), 3);
+        assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
+        assert.deepEqual(errors, []);
+        results.push({ mode: mode.name, item: item.id, fixture: 'constructed cosmetic inventory', coins: saved.economy.coins, writes });
+      } catch (error) {
+        await page.screenshot({ path: join(dir, `${mode.name}-${item.id}-failure.png`), fullPage: true }).catch(() => {});
+        throw error;
+      } finally { await context.close(); }
+    }
+  }
   await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2));
   console.log(JSON.stringify({ passed: results.length, artifacts: dir }));
 } finally {
