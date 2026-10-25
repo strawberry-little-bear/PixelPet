@@ -84,6 +84,17 @@ describe("game directory and optional three-key guides", () => {
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelectorAll(".lcd button,.lcd [role=button]")).toHaveLength(0);
   });
+  it("shows a static number clue example in the first treasure guide page", async () => {
+    await mount(); await select(6); await key("b");
+    const example = document.querySelector(".treasure-guide-example");
+    expect(example?.getAttribute("aria-label")).toBe("森林寻宝数字线索示例");
+    expect(example?.textContent).toContain("包含斜角");
+    expect(example?.querySelectorAll(".treasure-example-grid > *")).toHaveLength(9);
+    expect(document.querySelector(".lcd button,.lcd [role=button]")).toBeNull();
+    await key("a");
+    expect(document.querySelector(".treasure-guide-example")).toBeNull();
+    expect(document.querySelector(".guide-steps")?.textContent).toContain("结束后 B / C 收好");
+  });
   it("returns from a guide to the same selection without writing or marking it read", async () => {
     await mount(); await select(2); await key("b"); await key("c");
     expect(document.querySelector('[data-game="snake"][aria-current="true"]')).toBeTruthy();

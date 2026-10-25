@@ -20,6 +20,11 @@
 .game-guide .guide-allowance { border-left: 2px solid currentColor; padding-left: 6px; }
 .game-guide .guide-reward, .game-guide .guide-allowance, .game-guide .guide-habit { font-size: 10px; margin: 6px 0; }
 .game-guide .guide-habit { border-left: 2px solid #839567; padding-left: 6px; }
+.treasure-guide-example { margin: 8px 0; padding: 7px; border: 1px dashed currentColor; }
+.treasure-guide-example > strong, .treasure-guide-example > small { display: block; }
+.treasure-example-grid { display: grid; grid-template-columns: repeat(3, 1.8em); justify-content: center; gap: 2px; margin: 6px 0; }
+.treasure-example-grid > span, .treasure-example-grid > b { display: grid; place-items: center; min-height: 1.8em; border: 1px solid #839567; background: #dce9c8; font: 12px var(--mono); }
+.treasure-example-grid > b { background: #a4b98b; }
 .game-guide > small { display: block; font-size: 9px; }
 .game-abandon { text-align: center; padding: 15px 0; }
 .game-abandon p { margin: 14px 0; font-size: 12px; }
