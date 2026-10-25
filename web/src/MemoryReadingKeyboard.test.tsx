@@ -53,7 +53,7 @@ it.each(readers)("$kind exposes one named read-only stop, with no new control or
   expect(region).toBe(panel()); expect(region.tabIndex).toBe(0); expect(document.activeElement).toBe(button);
   expect(document.querySelectorAll(".memory-reading-region")).toHaveLength(1);
   expect(document.getElementById(region.getAttribute("aria-describedby")!)?.textContent).toContain("↑/↓ 或空格");
-  expect(region.querySelector("button,a,input,[role=button],[aria-live]")).toBeNull();
+  expect(region.querySelector("button,a,input,[role=button]")).toBeNull(); if (reader.kind === "album") expect(region.querySelectorAll("[data-selection-status]")).toHaveLength(1);
   expect(document.querySelectorAll(".physical-button")).toHaveLength(3); expect(writes()).toHaveLength(0);
 });
 it.each(readers)("$kind allows native scrolling/repeats/Enter without paging; letters still navigate", async reader => {

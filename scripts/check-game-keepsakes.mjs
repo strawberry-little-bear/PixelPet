@@ -26,16 +26,44 @@ async function play(page) {
  }
  await page.locator('.game-outcome').waitFor();
 }
+async function selectionStatus(page, scope, text) {
+ const node=page.locator(`[data-selection-status="${scope}"]`);
+ assert.equal(await node.count(),1);assert.equal(await node.getAttribute('role'),'status');
+ assert.equal(await node.getAttribute('aria-live'),'polite');assert.equal(await node.getAttribute('aria-atomic'),'true');
+ assert.match(await node.textContent(),text);assert.match(await node.ariaSnapshot(),text);
+ return node;
+}
+async function menuSelections(page) {
+ await key(page,'a');const node=await selectionStatus(page,'care-menu',/第 1 \/ 13 项，吃点东西/);
+ const identity=await node.elementHandle(),pagination=await page.locator('.care-menu-pagination').innerText();
+ await page.locator('.button-a').focus();
+ for(const [index,label] of ['一起玩耍','洗个澡澡','睡个好觉','看看状态','成长日记'].entries()) {
+  await key(page,'a');assert.match(await node.textContent(),new RegExp(`第 ${index+2} / 13 项，${label}`));
+  assert(await node.evaluate((el,original)=>el===original,identity));
+  assert.equal(await page.locator('.care-menu-pagination').innerText(),pagination);
+  assert(await page.locator('.button-a').evaluate(el=>el===document.activeElement));
+ }
+ const text=await node.textContent();
+ const reply=page.waitForResponse(r=>['/api/state','/api/visit'].includes(new URL(r.url()).pathname));
+ await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));assert((await reply).ok());
+ await page.waitForFunction(()=>!document.querySelector('.button-b')?.disabled);
+ assert.equal(await node.textContent(),text);assert(await node.evaluate((el,original)=>el===original,identity));
+ assert.equal(await page.locator('.care-menu-reading [aria-live],.care-menu-reading [role=status]').count(),1);
+ await page.locator('.care-menu-reading').focus();await key(page,'a');
+ assert(await page.locator('.care-menu-reading').evaluate(el=>el===document.activeElement));
+ await key(page,'c');await page.locator('.home-caption').waitFor();await identity.dispose();
+}
 async function album(page) {
  await key(page,'a');for(let i=0;i<8;i++)await key(page,'a');await key(page,'b');await page.locator('.album-directory').waitFor();
  for(let i=0;i<3;i++)await key(page,'a');assert.equal(await page.locator('[data-album-directory]').getAttribute('data-album-directory'),'play');
- await key(page,'b');
+ await selectionStatus(page,'album-directory',/第 4 \/ 8 项，一起玩过/);
+ await key(page,'b');await selectionStatus(page,'album-page',/一起玩过，第 1 \/ \d+ 页，封面/);
 }
 async function readable(page, panel = ".album-panel", targets = [".album-panel > header", ".album-source:last-child"]) {
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'horizontal overflow');
  const clipped=await page.locator(panel).evaluate(el=>{
   const bad=[],walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let node;
-  while((node=walker.nextNode())){if(!node.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(node);for(const b of range.getClientRects()){
+  while((node=walker.nextNode())){if(!node.textContent.trim()||node.parentElement.closest('.sr-only'))continue;const range=document.createRange();range.selectNodeContents(node);for(const b of range.getClientRects()){
    if(!b.width||!b.height)continue;
    if(b.left < -1 || b.right > innerWidth+1)bad.push(node.textContent);
    for(let p=node.parentElement;p;p=p.parentElement){const style=getComputedStyle(p),clip=p.getBoundingClientRect();if(['hidden','clip','auto','scroll'].includes(style.overflowY)&&(b.top<clip.top-2||b.bottom>clip.bottom+2))bad.push(node.textContent);}
@@ -74,6 +102,7 @@ async function corner(page, touch = false) {
   await key(page,'a');for(let i=0;i<8;i++)await key(page,'a');await key(page,'b');
   for(let i=0;i<7;i++)await key(page,'a');
   assert.equal(await page.locator('[data-album-directory]').getAttribute('data-album-directory'),'keepsakes');
+  await selectionStatus(page,'album-directory',/第 8 \/ 8 项，小窝纪念角/);
   await key(page,'b');await page.locator('.keepsake-corner').waitFor();
  }
  async function confirm() {
@@ -84,6 +113,7 @@ async function corner(page, touch = false) {
  await openCorner();await key(page,'a');
  assert.equal(await page.locator('.keepsake-corner').getAttribute('data-corner-choice'),'star-ribbon');
  assert.match(await page.locator('.corner-action').innerText(),/B 摆在小窝/);
+ await selectionStatus(page,'keepsake-corner',/第 2 \/ 2 项，接星星的小缎带。现在摆着：暂时留空/);
  assert.equal(await page.locator('.corner-date time').getAttribute('datetime'),new Date(cards(before)[0].at).toISOString());
  await readable(page,'.keepsake-corner',['.keepsake-corner > header','.corner-preview','.corner-action','.keepsake-corner > small']);
  await page.screenshot({path:join(dir,`corner-${page.viewportSize().width}-${page.viewportSize().height}.png`),fullPage:true});
@@ -129,7 +159,9 @@ try {
   p.on('pageerror',e=>failures.push(e.message));
   p.on('request',r=>{if(r.method()==='POST'&&!['/api/state','/api/visit'].includes(new URL(r.url()).pathname))writes.push(r.url());});
   await p.addInitScript(font=>document.addEventListener('DOMContentLoaded',()=>{document.documentElement.style.fontSize=`${font}px`;}),mode.font);
-  await p.goto(base);await p.locator('.home-caption').waitFor();await quiet(p,mode.font===28);await album(p);
+  await p.goto(base);await p.locator('.home-caption').waitFor();await menuSelections(p);
+  assert.deepEqual(writes,[]);results.push({check:'selection-status-native-keys-focus-and-stable-sync',...mode,passed:true});
+  await quiet(p,mode.font===28);await album(p);
   for(let i=0;i<backup.album.entries.length+1 && !(await p.locator('[data-keepsake-art]').count());i++)await key(p,'a');
   assert.equal(await p.locator('[data-keepsake-art]').getAttribute('data-keepsake-art'),'star-ribbon');
   assert.match(await p.locator('.album-panel h3').innerText(),/接星星的小缎带/);await readable(p);

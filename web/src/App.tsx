@@ -1,3 +1,4 @@
+import { SelectionStatus } from "./SelectionStatus";
 import { HomeKeepsake, KeepsakeCorner, keepsakeOptions } from "./KeepsakeCorner";
 import { StatusIdentity } from "./StatusIdentity";
 import { usePhysicalButtonFocus } from "./usePhysicalButtonFocus";
@@ -2685,7 +2686,8 @@ export default function App() {
                         {page === "menu" && (
                           <CareReadingRegion className="care-menu-reading" label="照顾菜单阅读区"
                             hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
-                            <div className="care-menu-pagination" aria-live="polite" aria-atomic="true" aria-label="菜单浏览进度">
+                            <SelectionStatus scope="care-menu">第 {selected + 1} / {items.length} 项，{items[selected].kind === "sleep" && pet.sleeping ? careMenuLabel("sleep", true) : items[selected].label}。A 下一项，B 确认，C 返回。</SelectionStatus>
+                            <div className="care-menu-pagination" aria-label="菜单浏览进度">
                               {(() => {
                                 const start = Math.max(0, selected - 5);
                                 const end = Math.min(items.length, start + 6);

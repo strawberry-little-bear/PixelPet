@@ -1,3 +1,4 @@
+import { SelectionStatus } from "./SelectionStatus";
 import { gameKeepsake } from "./game-keepsakes";
 import { GameKeepsakeArt } from "./GameKeepsakeArt";
 import { isOutingMemory, outingMemoryWords } from "./outing-memory";
@@ -42,6 +43,7 @@ export function AlbumDirectory({ pet, choice }: { pet: PetState; choice: number 
   const destinations = albumDestinations(pet);
   const selected = destinations[choice] ?? destinations[0];
   return <section className="album-panel album-directory" aria-label="纪念册分类" data-album-directory={selected.id}>
+    <SelectionStatus scope="album-directory">第 {destinations.indexOf(selected) + 1} / {destinations.length} 项，{selected.label}。A 下一项，B 进入，C 返回。</SelectionStatus>
     <header><strong>我们的纪念册</strong><span>回忆分类</span></header>
     <ul>{destinations.map(category => <li key={category.id} aria-current={selected.id === category.id ? "true" : undefined}>
       <span aria-hidden="true">{selected.id === category.id ? "▸" : ""}</span>{category.label}
@@ -102,7 +104,8 @@ export function AlbumPanel({ pet, shop, now, page, category = "all", missing = f
   const Icon = memory && isOutingMemory(memory.kind) ? BookOpen : memory?.kind === "meal" ? Utensils : memory?.kind === "bath" ? Waves : (memory?.kind === "goodnight" || memory?.kind === "rested") ? Moon : (memory?.kind.includes("stars") || memory?.kind === "tiles" || memory?.kind === "keepsake") ? Sparkles : Heart;
   return <section className="album-panel" aria-label="永久纪念册" data-album-page={currentPage} data-album-category={category} data-album-kind={memory?.kind}>
     <header><strong>{category !== "all" ? categoryLabel : memory ? "小窝的回忆" : "我们的纪念册"}</strong><span>{currentPage + 1} / {memories.length + 1}</span></header>
-    {missing && <small role="status" className="album-source">同步时未找到刚才那条回忆，已返回本类封面。</small>}
+    <SelectionStatus scope="album-page">{categoryLabel}，第 {currentPage + 1} / {memories.length + 1} 页，{memory && words ? words.title : "封面"}。{missing ? "同步时未找到刚才那条回忆，已返回本类封面。" : ""}A 上一页，B 下一页，C 返回分类。</SelectionStatus>
+    {missing && <small className="album-source">同步时未找到刚才那条回忆，已返回本类封面。</small>}
     <div className={`album-picture ${isPortrait ? "album-portrait" : ""}`} aria-hidden="true">
       {memory?.kind === "keepsake" ? <GameKeepsakeArt item={memory.item} /> : isPortrait ? <PetArt index={pet.species} stage={stage} expression="still" /> : memory?.kind === "wallpaper" || memory?.kind === "floor" ? <RoomSurfaceArt id={memory.item} /> : memory?.kind === "decoration" ? <RoomDecoration id={memory.item} /> : memory?.kind === "outfit" ? <PetArt index={pet.species} stage={pet.growth?.stage || "baby"} accessory={memory.item} /> : <Icon size={30} strokeWidth={1.5} />}
       {portraitForm && <span className="album-form" data-album-form={portraitForm}><FormEmblem form={portraitForm} /></span>}

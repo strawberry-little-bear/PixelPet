@@ -25,7 +25,7 @@ describe.each(cases)("saved %s", (kind, title, outingId) => {
     render(<AlbumPanel pet={p} now={at} category="scenery" page={1} />);
     expect(screen.getByText(title)).toBeTruthy(); expect(document.querySelector("time")?.dateTime).toBe(new Date(at).toISOString());
     expect(document.querySelector(".album-panel")?.textContent).not.toMatch(/金币|成长 \+|未解锁|限时/);
-    expect(document.querySelector("button,a,input,[aria-live]")).toBeNull(); expect(p).toEqual(before);
+    expect(document.querySelector("button,a,input")).toBeNull(); expect(document.querySelectorAll("[data-selection-status=album-page]")).toHaveLength(1); expect(p).toEqual(before);
   });
   it("preserves optional provenance through backup preview without inventing or discarding fields", () => {
     const p = pet(); p.album!.entries = [{ kind, at, source: "shared", outingId }];

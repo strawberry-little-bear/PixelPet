@@ -28,7 +28,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 it("puts exactly one successful notice after the device but before the collection", async () => {
   await mount(); await sleep();
-  const notice = screen.getByRole("status"), device = document.querySelector(".play-space")!, collection = document.querySelector(".collection")!;
+  const notice = document.querySelector(".reading-notice")!, device = document.querySelector(".play-space")!, collection = document.querySelector(".collection")!;
   expect(notice.classList.contains("reading-notice")).toBe(true);
   expect(notice.parentElement?.tagName).toBe("MAIN");
   expect(device.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -39,17 +39,17 @@ it("puts exactly one successful notice after the device but before the collectio
   expect(writes()).toHaveLength(1);
 });
 it("keeps the same announcement through reading navigation, without another write", async () => {
-  await mount(); await sleep(); const notice = screen.getByRole("status");
+  await mount(); await sleep(); const notice = document.querySelector(".reading-notice")!;
   await key("a"); expect(document.querySelector(".care-menu")).toBeTruthy();
-  expect(screen.getByRole("status")).toBe(notice);
+  expect(document.querySelector(".reading-notice")!).toBe(notice);
   await key("c"); expect(document.querySelector(".sleep-home-guidance")).toBeTruthy();
-  expect(screen.getByRole("status")).toBe(notice); expect(writes()).toHaveLength(1);
+  expect(document.querySelector(".reading-notice")!).toBe(notice); expect(writes()).toHaveLength(1);
 });
 it("expires at the original duration without clearing advice or moving key focus", async () => {
   await mount(); await sleep();
   const button = screen.getByRole("button", { name: "A 选择" }); button.focus();
   await act(async () => { await vi.advanceTimersByTimeAsync(4199); });
-  expect(screen.getByRole("status").textContent).toContain("晚安");
+  expect(document.querySelector(".reading-notice")!.textContent).toContain("晚安");
   await act(async () => { await vi.advanceTimersByTimeAsync(1); });
   expect(screen.queryByRole("status")).toBeNull();
   expect(document.querySelector(".sleep-home-guidance")?.textContent).toContain("醒来后优先吃点东西");

@@ -87,7 +87,7 @@ describe("authoritative save synchronization across tabs", () => {
     recap = undefined; saved.revision++; await poll();
     expect(document.querySelector(".return-panel")).toBeNull();
     expect(document.querySelector(".content-home")).toBeTruthy();
-    await menu(7); expect(screen.getByRole("status").textContent).toContain("还没有回访小结");
+    await menu(7); expect(document.querySelector(".reading-notice")!.textContent).toContain("还没有回访小结");
     expect(writes()).toHaveLength(0);
   });
 
