@@ -20,9 +20,22 @@ async function play(page) {
  await key(page,'a');await key(page,'a');await key(page,'b');await page.locator('.arcade-card').first().waitFor();
  await key(page,'b');await page.locator('.game-guide').waitFor();await key(page,'b');await page.locator('.star-game').waitFor();
  for(let i=0;i<5;i++) {
-  await wait(950);
-  const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/action'&&r.request().postDataJSON()?.kind==='catch');
-  await key(page,'b');assert((await response).ok());
+  // Catch is server-clocked: wait until a new beat is actually available
+  // instead of racing a fixed 900ms cadence and creating a false failure.
+  for (;;) {
+   const snapshot=await api('state'), game=snapshot.state.game;
+   assert(game && !game.kind,'stars session must remain active before each catch');
+   const beat=Math.floor(Math.max(0,snapshot.serverTime-game.startedAt)/900);
+   if (beat>game.lastBeat) break;
+   await wait(40);
+  }
+  const response=page.waitForResponse(
+    r=>new URL(r.url()).pathname==='/api/action'&&r.request().postDataJSON()?.kind==='catch',
+    {timeout:10000},
+  );
+  await key(page,'b');
+  const reply=await response;
+  assert(reply.ok(),await reply.text());
  }
  await page.locator('.game-outcome').waitFor();
 }

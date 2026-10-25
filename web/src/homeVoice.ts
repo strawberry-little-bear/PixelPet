@@ -1,4 +1,4 @@
-import { tendency } from "./growth";
+import { tendency } from "./growth.ts";
 import type { AdultForm, Growth, GrowthStage } from "./types";
 
 // Present-tense companionship, not a claimed memory, event or care reward.
