@@ -58,3 +58,7 @@
 /* The saved keepsake stays with its recollection, without displacing the pet. */
 .quiet-keepsake { display: flex; justify-content: center; margin-top: 5px; flex-shrink: 0; }
 .quiet-keepsake > svg { width: 28px; height: 28px; }
+
+/* Catalog art accompanies the named recollection; the pet remains the focus. */
+.quiet-discovery { display: flex; justify-content: center; margin-top: 5px; flex-shrink: 0; }
+.quiet-discovery > svg { width: 42px; height: 30px; }

@@ -241,6 +241,67 @@ try {
     await wait(100);
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
+  // Imported catalog records verify saved recollections, not naturally played
+  // catches or walks. The HTTP service still validates and persists the fixture.
+  if (process.argv.includes('--discoveries-only') || !process.argv.some(arg => arg.endsWith('-only'))) {
+    const fish = [['reed-minnow', '青苇小鲦'], ['sun-carp', '暖阳小鲤'], ['ribbon-loach', '丝带泥鳅'],
+      ['lotus-fish', '荷花小鱼'], ['moon-perch', '月纹小鲈'], ['pebble-goby', '石斑虾虎'], ['rain-koi', '雨珠小鲤'], ['willow-darter', '柳影小鳉']];
+    const park = [['leaf', '银杏叶'], ['pinecone', '小松果'], ['feather', '落羽'], ['flower', '落花'], ['shell', '水边贝壳'], ['pebble', '圆石子']];
+    for (const mode of [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 }]) {
+      const at = Date.now(), since = at - 3600000;
+      const seeded = (await api('import', { schema: 1, revision: 1, species: 2, name: '图鉴回忆伙伴',
+        createdAt: since, hatchedAt: since, lastTick: at, sleeping: false,
+        needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] })).state;
+      const expected = [...fish.map(([id, name]) => ({ id, name, source: '鱼', art: 'fish' })),
+        ...park.map(([id, name]) => ({ id, name, source: '公园', art: 'park' }))]
+        .map((entry, index) => ({ ...entry, firstAt: at - 1000 - index * 1000 }));
+      const record = ({ id, firstAt }) => ({ id, firstAt, lastAt: firstAt, count: 1 });
+      seeded.pond = { since, fish: expected.filter(e => e.art === 'fish').map(record) };
+      seeded.park = { since, finds: expected.filter(e => e.art === 'park').map(record), walks: 0, lastWalkAt: 0 };
+      const before = (await api('import', seeded)).state;
+      const context = await browser.newContext({ viewport: { width: mode.width, height: mode.height }, hasTouch: true, reducedMotion: 'reduce' });
+      const page = await context.newPage(), writes = [], errors = [], label = `discoveries-${mode.width}`;
+      page.on('pageerror', error => errors.push(error.message));
+      page.on('request', request => { if (request.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(request.url()).pathname)) writes.push(request.url()); });
+      await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${font}px`; }), mode.font);
+      try {
+        await page.goto(base); await page.locator('.home-caption').waitFor(); await open(page);
+        assert.equal(await page.locator('.quiet-memory-source').count(), 0, 'A discovery needs an explicit B');
+        for (const [index, entry] of expected.entries()) {
+          await physical(page, 'b');
+          const source = page.locator('.quiet-memory-source'), reply = await page.locator('.quiet-moment-copy > p').innerText();
+          assert((await source.innerText()).includes(`从${entry.source}图鉴想起：初次遇见「${entry.name}」`));
+          assert(reply.includes(entry.name), reply); assert.doesNotMatch(reply, /今天|昨天|刚才|完成|奖励|金币|集齐/);
+          assert.equal(await source.locator('time').getAttribute('datetime'), new Date(entry.firstAt).toISOString());
+          assert.equal(await page.locator(`.quiet-discovery .${entry.art}-art`).count(), 1);
+          assert.equal(await page.locator('.quiet-memory-position').innerText(), `闲聊回忆 ${index + 1} / ${expected.length}`);
+          await readable(page); await source.scrollIntoViewIfNeeded();
+          const box = await source.boundingBox(); assert(box && box.y >= -1 && box.y + box.height <= mode.height + 1);
+          if (index === 0 || entry.id === 'leaf') await page.screenshot({ path: join(dir, `${label}-${entry.art}.png`) });
+        }
+        await physical(page, 'b');
+        const source = page.locator('.quiet-memory-source'), first = await source.innerText();
+        const sync = async () => {
+          const response = page.waitForResponse(r => /\/api\/(state|visit)$/.test(new URL(r.url()).pathname));
+          await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); assert((await response).ok());
+        };
+        await sync(); assert.equal(await source.innerText(), first, 'An ordinary read preserves the selected first record');
+        const after = (await api('state')).state;
+        for (const field of ['pond', 'park', 'companion', 'economy', 'album', 'careCount']) assert.deepEqual(after[field], before[field], `${field} must not change during read-only chat`);
+        await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
+        await page.reload(); await page.locator('.home-caption').waitFor(); await open(page); await physical(page, 'b');
+        assert.equal(await source.innerText(), first, 'Reload keeps the catalog record, not a new encounter');
+        // This separate test client puts the temporary pet to sleep; the browser
+        // itself performs no game, care, import or backup writes.
+        await api('action', { kind: 'sleep' }); await sync();
+        await page.waitForFunction(() => document.querySelector('.quiet-moment')?.getAttribute('data-sleeping') === 'true');
+        await physical(page, 'b'); assert.equal(await source.count(), 0); assert.equal(await page.locator('.quiet-discovery').count(), 0);
+        assert.equal((await api('state')).state.sleeping, true);
+        assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+        results.push({ label, fixtureCatalogs: true, discoveries: expected.length, sleeping: true, writes, errors }); console.log('PASS', label);
+      } finally { await context.close(); }
+    }
+  }
   // Controlled ages/care/form fixtures exercise presentation, not natural aging.
   if (process.argv.includes('--reactions-only')) for (const fixture of [
     { label: 'baby', age: 1, reaction: 'peek' },
@@ -342,7 +403,7 @@ try {
   }
   // Mock only the browser's wall clock. The service and temporary save keep real
   // time, so these checks prove presentation boundaries, not seasonal waiting.
-  if (!process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--interest-only')) for (const species of [3, 4]) for (const mode of [
+  if (!process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--interest-only')) for (const species of [3, 4]) for (const mode of [
     { width: 1200, height: 700, font: 14 }, { width: 320, height: 380, font: 28 },
   ]) {
     const at = Date.now();
@@ -396,7 +457,7 @@ try {
     } finally { await context.close(); }
   }
   // Controlled save fixtures verify rendering; these are not natural growth journeys.
-  if (!process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const fixture of [
+  if (!process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const fixture of [
     { stage: 'baby', species: 2, age: 1 },
     { stage: 'growing', species: 3, age: 30 },
     { stage: 'adult', species: 9, age: 80 },
@@ -536,7 +597,7 @@ try {
   }
   // Controlled ownership only supplies fixture inventory. Actual equip/remove
   // requests create all four shared memories through the real service.
-  if (!process.argv.includes('--reactions-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const mode of [
+  if (!process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--atmosphere-only') && !process.argv.includes('--interest-only')) for (const mode of [
     { label: 'items-desktop', width: 1200, height: 700, font: 14 },
     { label: 'items-phone-large', width: 320, height: 380, font: 28 },
   ]) {
@@ -594,7 +655,7 @@ try {
   }
   // Imported familiarity is a controlled rendering fixture, not a claim that
   // these games were naturally played twice with a 30-minute interval.
-  if (!process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
+  if (!process.argv.includes('--discoveries-only') && !process.argv.includes('--reactions-only') && !process.argv.includes('--items-only') && !process.argv.includes('--atmosphere-only')) for (const fixture of [
     { species: 4, kind: 'snake', part: '菌盖', absent: /尾巴/ },
     { species: 6, kind: 'snake', part: '身子', absent: /尾巴/ },
     { species: 3, kind: 'walk', part: '浅水道', absent: /慢慢走走/ },

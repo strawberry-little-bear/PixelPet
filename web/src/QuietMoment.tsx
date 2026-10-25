@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from "react";
+import { FishArt } from "./FishingGame";
+import { ParkArt } from "./WalkingGame";
 import { GameKeepsakeArt } from "./GameKeepsakeArt";
 import { CareReadingRegion } from "./CareReadingRegion";
 import { quietMemories } from "./quiet-memory";
@@ -111,12 +113,15 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
         {atmosphere && <small className="quiet-event" data-season={atmosphere.season}><span>{atmosphere.seasonLabel}小事</span>{atmosphere.event}</small>}
         {memory && <small className="quiet-memory-position">闲聊回忆 {memoryIndex + 1} / {memories.length}</small>}
         {memory?.keepsake && <div className="quiet-keepsake" aria-hidden="true"><GameKeepsakeArt item={memory.keepsake} /></div>}
+        {memory?.discovery && <div className="quiet-discovery" aria-hidden="true">
+          {memory.source === "fish" ? <FishArt id={memory.discovery} /> : <ParkArt id={memory.discovery} />}
+        </div>}
         <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
         {tendencyLine && <small className="quiet-growth-tendency" data-form={tendencyLine.form}><span>当前偏向 · {formNames[tendencyLine.form]}</span>{tendencyLine.text}（还会随着照顾继续变化）</small>}
         {formLine && <small className="quiet-form-line" data-form={form}><span>成长留下的样子</span>{formLine}</small>}
         {interest && <small className="quiet-interest" data-game={interest.kind}><span>一起玩久了</span>{interest.text}</small>}
-        {memory && <small className="quiet-memory-source">{memory.source === "game" ? "从共同游戏记录想起：" : "从纪念册想起："}{memory.title}
-          {(memory.source === "game" || memory.keepsake) && <> · <time dateTime={new Date(memory.at).toISOString()}>{new Date(memory.at).toLocaleString("zh-CN", {
+        {memory && <small className="quiet-memory-source">{memory.source === "fish" ? "从鱼图鉴想起：" : memory.source === "park" ? "从公园图鉴想起：" : memory.source === "game" ? "从共同游戏记录想起：" : "从纪念册想起："}{memory.title}
+          {(memory.source === "game" || memory.keepsake || memory.discovery) && <> · <time dateTime={new Date(memory.at).toISOString()}>{new Date(memory.at).toLocaleString("zh-CN", {
             year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
           })}</time>（本地时间）</>}
         </small>}
