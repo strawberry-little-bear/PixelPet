@@ -329,6 +329,81 @@ try {
   assert.equal(lostRequests.at(-1).body.kind,'create');
   results.push('Unknown/expired lab pointer explains loss, clears only the pointer, and requires explicit B for a new paused practice');
 
+  // Controlled lifecycle ordering exercises the cached-document path even when
+  // this Chrome configuration chooses a full history reload. These dispatched
+  // events are not evidence of OS backgrounding or actual BFCache eligibility.
+  const navigationBase = await start();
+  const navigationEvent = (page, type) => page.evaluate(type =>
+    window.dispatchEvent(new PageTransitionEvent(type, { persisted: true })), type);
+  const { page: restored, requests: restoredWrites, context: restoredContext } = await open(navigationBase,
+    { viewport: { width: 320, height: 740 }, hasTouch: true, isMobile: true });
+  await restored.evaluate(() => document.documentElement.style.fontSize = '32px');
+  await key(restored, 'C'); await idle(restored); await active(restored); await key(restored, 'A');
+  await restored.waitForFunction(() => document.querySelector('#round').textContent === '1 / 12'); await idle(restored);
+  const beforeHide = restoredWrites.length;
+  await navigationEvent(restored, 'pagehide'); await key(restored, 'C'); await wait(200);
+  assert.equal(restoredWrites.length, beforeHide, 'departed document cannot send new operations');
+  await navigationEvent(restored, 'pageshow'); await paused(restored);
+  await readable(restored);
+  await restored.screenshot({ path: join(dir, 'history-restore-320-double-text.png'), fullPage: true });
+  assert.match(await restored.locator('#phase').textContent(), /先核对本局/);
+  await restored.locator('[data-key="C"]').tap(); await paused(restored);
+  assert.equal(restoredWrites.at(-1).body.kind, 'recover');
+  assert.equal(await restored.locator('#round').textContent(), '1 / 12');
+  await restored.locator('[data-key="C"]').tap(); await idle(restored);
+  assert.equal(restoredWrites.at(-1).body.kind, 'resume');
+  await restoredContext.close();
+  results.push('Dispatched pagehide/pageshow: old cue stops, 320px double-text recovery is readable, touch C reconciles then separately resumes');
+
+  for (const kind of ['resume', 'answer', 'restart']) {
+    const { page: cached, requests: cachedWrites, context: cachedContext } = await open(navigationBase);
+    if (kind !== 'resume') {
+      await key(cached, 'C'); await idle(cached); await active(cached); await key(cached, 'A');
+      await cached.waitForFunction(() => document.querySelector('#round').textContent === '1 / 12'); await idle(cached);
+    }
+    if (kind === 'restart') { await key(cached, 'C'); await paused(cached); await key(cached, 'A'); await key(cached, 'B'); }
+    if (kind === 'answer') await active(cached);
+    const captured = Promise.withResolvers(), release = Promise.withResolvers(), delivered = Promise.withResolvers();
+    let held = false;
+    await cached.route('**/lab/command', async route => {
+      if (route.request().postDataJSON().kind !== kind || held) { await route.continue(); return; }
+      held = true;
+      const response = await route.fetch(); captured.resolve(await response.json());
+      await release.promise; await route.fulfill({ response }); delivered.resolve();
+    });
+    await key(cached, kind === 'restart' ? 'B' : kind === 'answer' ? 'A' : 'C');
+    const applied = await captured.promise;
+    await navigationEvent(cached, 'pagehide'); await navigationEvent(cached, 'pageshow');
+    await key(cached, 'B'); await paused(cached);
+    assert.equal(cachedWrites.at(-1).body.kind, 'recover');
+    assert.equal(await cached.locator('#round').textContent(), `${applied.state.observations.length} / 12`);
+    const writes = cachedWrites.length;
+    release.resolve(); await delivered.promise; await wait(150); await paused(cached);
+    assert.match(await cached.locator('#status').textContent(), /核对本局观测并暂停/);
+    assert.equal(cachedWrites.length, writes, 'late response must not resurrect play or send a follow-up');
+    await key(cached, 'C'); await idle(cached);
+    assert.equal(cachedWrites.at(-1).body.kind, 'resume');
+    await cachedContext.close();
+    results.push(`Dispatched history restore with real accepted ${kind} and held reply: manual recovery preserves authoritative observations; late reply is ignored, never replayed`);
+  }
+
+  // A genuine navigate/back covers the browser's chosen history path. Record
+  // whether it reused a document; do not label a full reload as a BFCache pass.
+  const { page: history, requests: historyWrites, context: historyContext } = await open(navigationBase);
+  await history.evaluate(() => { window.labRestored = false; window.addEventListener('pageshow', e => { window.labRestored = e.persisted; }); });
+  await key(history, 'C'); await idle(history); await active(history); await key(history, 'A');
+  await history.waitForFunction(() => document.querySelector('#round').textContent === '1 / 12'); await idle(history);
+  await history.goto(navigationBase + '/styles.css');
+  const backWrites = historyWrites.length;
+  await history.goBack(); await paused(history);
+  const reusedDocument = await history.evaluate(() => window.labRestored === true);
+  assert.equal(await history.locator('#round').textContent(), '1 / 12');
+  assert.equal(historyWrites.slice(backWrites).filter(r => ['resume', 'answer', 'restart'].includes(r.body?.kind)).length, 0);
+  if (reusedDocument) { await key(history, 'C'); await paused(history); assert.equal(historyWrites.at(-1).body.kind, 'recover'); }
+  await key(history, 'C'); await idle(history); assert.equal(historyWrites.at(-1).body.kind, 'resume');
+  await historyContext.close();
+  results.push(`Real navigation/back (${reusedDocument ? 'cached document' : 'full history reload'}): one observation retained, no automatic play, explicit C resumes`);
+
   // A delayed recovery must stay paused even if blurred before it replies.
   const {page:init} = await open(base);
   await init.route('**/lab/command',async route=>{ await wait(300); await route.continue(); });

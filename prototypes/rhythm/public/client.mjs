@@ -12,7 +12,7 @@ function savedSession() {
 function rememberSession(id) {
   try { if (id) sessionStorage.setItem(sessionKey, id); else sessionStorage.removeItem(sessionKey); } catch { /* Storage is optional; server state remains authoritative. */ }
 }
-let savedId = savedSession(), lease = null, needsRecovery = false;
+let savedId = savedSession(), lease = null, needsRecovery = false, pageInactive = false;
 let state = null, anchor = null, busy = false, epoch = 0, selected = 0;
 let pendingKind = null, requestId = 0, confirmRestart = false;
 let suspended = true, pendingPause = false, reason = '按 B 或 C 开始独立练习。', rtt = 0;
@@ -22,13 +22,13 @@ const render = () => {
   document.body.classList.toggle('active', false);
   $('round').textContent = `${state?.observations.length ?? 0} / 12`;
   $('status').textContent = busy ? '正在核对本拍… C 仍可暂停' : reason;
-  $('pause').hidden = playing || !state || (state.status === 'done' && !confirmRestart);
+  $('pause').hidden = playing || !state || (state.status === 'done' && !confirmRestart && !needsRecovery);
   $('pause-title').textContent = confirmRestart ? '确认从头重开？' : '暂停选择';
   $('selection').textContent = confirmRestart ? `重开会清空本局 ${state.observations.length} 次观测，不可撤回。` : needsRecovery ? '▶ 核对本局并暂停（不重发输入）' : selected === 0 ? '▶ 继续练习' : '▶ 从头重开（清空本局观测）';
   $('pause-help').textContent = confirmRestart ? 'A / C 取消，保留观测 · B 确认重开' : needsRecovery ? 'A 不操作 · B / C 手动核对' : 'A 切换继续 / 重开 · B 确认 · C 继续';
   $('symbol').textContent = playing ? state.cue.key === 'A' ? '●' : '▲' : '◇';
   $('direction').textContent = playing ? state.cue.key === 'A' ? '左侧 · A' : '右侧 · B' : state?.status === 'done' ? '本次观测完成' : '已暂停';
-  if (!playing) $('phase').textContent = state?.status === 'done' ? 'B 重开独立练习；不会收取奖励。' : '回来后须明确继续，不补跑旧拍。';
+  if (!playing) $('phase').textContent = needsRecovery ? 'B / C 先核对本局，再单独继续；不重发旧输入。' : state?.status === 'done' ? 'B 重开独立练习；不会收取奖励。' : '回来后须明确继续，不补跑旧拍。';
   $('progress').setAttribute('aria-valuenow', '0'); $('progress').firstElementChild.style.width = '0%';
   $('network').textContent = anchor ? `最近实测往返约 ${Math.round(rtt)}ms · 不是单程或成绩凭据` : '等待连接测量…';
   const observations = state?.observations ?? [];
@@ -74,7 +74,7 @@ function accept(result) {
   anchor = { epoch: result.serverTime + result.rtt / 2, measured: result.received };
 }
 async function send(kind, extra = {}) {
-  if (busy) return;
+  if (busy || pageInactive) return;
   confirmRestart = false;
   const mine = ++epoch; pendingKind = kind; busy = true; render();
   try {
@@ -110,6 +110,7 @@ async function send(kind, extra = {}) {
   }
 }
 async function pause(message = '已暂停，回来后按 B / C 明确继续。') {
+  if (pageInactive) return;
   // Consent is local and short-lived: interruption must never preserve it.
   confirmRestart = false; selected = 0;
   // Invalidate even an outstanding answer/resume before the next paint.
@@ -136,7 +137,7 @@ function askRestart() {
   render(); focusTarget('#pause');
 }
 async function press(key) {
-  if (document.hidden) return;
+  if (document.hidden || pageInactive) return;
   if (key === 'C' && (!suspended || (busy && pendingKind === 'resume'))) { await pause(); return; }
   if (busy) return;
   if (!state) { if (key !== 'A') await send(savedId ? 'recover' : 'create'); return; }
@@ -189,6 +190,26 @@ document.addEventListener('keyup', event => {
 document.addEventListener('visibilitychange', () => { if (document.hidden) void pause('离开页面已暂停；回来不自动继续。'); });
 window.addEventListener('blur', event => { if (event.target === window) void pause('窗口失焦已暂停；回来不自动继续。'); });
 window.addEventListener('offline', () => void pause('连接中断已暂停，不重发旧回应。'));
+// A cached document can return without a new script load. Do not depend on
+// visibility/blur ordering or an in-flight request finishing while it is frozen.
+// Reconciliation rotates the lease and discards the old cue; it is manual, just
+// like an unknown response. No unload fetch or automatic recovery is required.
+function navigationStop(message) {
+  ++epoch; busy = false; pendingKind = null;
+  suspended = true; pendingPause = false; confirmRestart = false; selected = 0;
+  needsRecovery = Boolean(state || savedId);
+  reason = needsRecovery
+    ? `${message}；按 B / C 手动核对本局并暂停，再单独继续。`
+    : `${message}；按 B / C 新建暂停练习，未确认的会话无法定位。`;
+  render();
+}
+window.addEventListener('pagehide', () => {
+  pageInactive = true; navigationStop('页面已离开，旧拍已停止');
+});
+window.addEventListener('pageshow', event => {
+  pageInactive = false;
+  if (event.persisted) navigationStop('页面已恢复，旧拍不重放');
+});
 // A throttled/stalled frame must not silently spend a cue while hidden or stuck.
 let lastFrame = performance.now();
 function tick() {

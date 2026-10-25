@@ -8,7 +8,7 @@ const source = await readFile(new URL('./public/client.mjs', import.meta.url), '
 const pointer = 'pixelpet.rhythm.session.v1', id = 'ab000000-0000-4000-8000-000000000001';
 const settle = () => new Promise(r => setImmediate(r));
 async function client({ server = {}, storage = new Map(), blocked = false } = {}) {
-  let now = 0, frame; const commands = [], events = new Map(), elements = new Map(), failures = [];
+  let now = 0, frame; const commands = [], events = new Map(), elements = new Map(), failures = [], holds = [];
   const element = key => {
     if (!elements.has(key)) elements.set(key, { textContent: '', hidden: false, dataset: {}, style: {}, firstElementChild: { style: {} },
       setAttribute() {}, replaceChildren() {}, getBoundingClientRect: () => ({ top: 0, height: 100 }) });
@@ -36,6 +36,8 @@ async function client({ server = {}, storage = new Map(), blocked = false } = {}
       else { server.state = command(server.state, input, now); server.lastRequest = input.requestId; }
       if (fail?.after) throw new Error('synthetic lost acknowledgement');
       const result = status === 200 ? { state: structuredClone(server.state), lease: server.lease, serverTime: now } : { code, error };
+      const hold = holds.find(h => h.kind === input.kind && !h.used);
+      if (hold) { hold.used = true; await hold.promise; }
       return { ok: status === 200, json: async () => result };
     } });
   await settle();
@@ -46,7 +48,12 @@ async function client({ server = {}, storage = new Map(), blocked = false } = {}
     if (type === 'visibilitychange') document.hidden = true;
     events.get(type)({ target: window }); await settle(); document.hidden = false;
   };
-  return { commands, storage, server, failures, press, answer, element, advance, interrupt };
+  const emit = async (type, detail = {}) => { events.get(type)?.({ target: window, ...detail }); await settle(); };
+  const hold = kind => {
+    let release; const promise = new Promise(resolve => { release = resolve; });
+    holds.push({ kind, promise }); return async () => { release(); await settle(); };
+  };
+  return { commands, storage, server, failures, press, answer, element, advance, interrupt, emit, hold };
 }
 test('same-tab refresh recovers one acknowledged answer, stays paused and stores only a pointer', async () => {
   const c = await client(); await c.press('C'); await c.answer(); const before = structuredClone(c.server.state);
@@ -165,4 +172,74 @@ test('restart confirmation: lost restart acknowledgement recovers without replay
   await c.press('B'); assert.equal(c.commands.at(-1).kind, 'recover');
   assert.equal(c.commands.filter(x => x.kind === 'restart').length, 1);
   assert.equal(c.server.state.status, 'paused');
+});
+
+
+test('history restore stops a live cue until explicit reconciliation and a separate resume', async () => {
+  const c = await client(); await c.press('C'); await c.answer();
+  const before = structuredClone(c.server.state), writes = c.commands.length;
+  await c.emit('pagehide', { persisted: true });
+  for (const event of ['blur', 'visibilitychange', 'offline']) await c.interrupt(event);
+  await c.press('A'); await c.press('C'); await c.advance(5000);
+  assert.equal(c.commands.length, writes, 'a departed page cannot submit, resume or poll');
+  await c.emit('pageshow', { persisted: true });
+  assert.match(c.element('status').textContent, /页面已恢复.*核对/);
+  assert.match(c.element('selection').textContent, /核对本局并暂停/);
+  await c.press('A'); await c.advance(5000); assert.equal(c.commands.length, writes);
+  await c.press('C'); assert.equal(c.commands.at(-1).kind, 'recover');
+  assert.equal(c.server.state.status, 'paused'); assert.equal(c.server.state.cue, null);
+  assert.deepEqual(c.server.state.observations, before.observations);
+  await c.press('C'); assert.equal(c.commands.at(-1).kind, 'resume');
+  assert.equal(c.server.state.sequence, before.sequence + 1);
+});
+for (const kind of ['resume', 'answer', 'pause', 'restart', 'recover'])
+  test(`history restore ignores a delayed ${kind} reply and never resends that operation`, async () => {
+    const c = await client();
+    if (kind === 'restart') await openRestartWithOneObservation(c);
+    else if (kind !== 'resume') { await c.press('C'); await c.answer(); }
+    if (kind === 'recover') {
+      await c.emit('pagehide'); await c.emit('pageshow', { persisted: true });
+    }
+    if (kind === 'answer') for (let i = 0; i < 3; i++) await c.advance(600);
+    const release = c.hold(kind);
+    await c.press(kind === 'answer' ? c.server.state.cue.key : kind === 'restart' ? 'B' : 'C');
+    assert.equal(c.commands.at(-1).kind, kind);
+    const observations = structuredClone(c.server.state.observations), count = c.commands.length;
+    await c.emit('pagehide', { persisted: true }); await c.emit('pageshow', { persisted: true });
+    await c.press('B'); assert.equal(c.commands.at(-1).kind, 'recover');
+    assert.equal(c.commands.length, count + 1);
+    assert.equal(c.server.state.status, 'paused');
+    await release(); await c.advance(5000);
+    assert.match(c.element('status').textContent, /核对本局观测并暂停/);
+    assert.deepEqual(c.server.state.observations, observations);
+    assert.equal(c.commands.length, count + 1, 'late acknowledgement cannot trigger pause or replay');
+    await c.press('C'); assert.equal(c.commands.at(-1).kind, 'resume');
+  });
+test('history restore cancels restart consent but retains all twelve completed observations', async () => {
+  const c = await client(); await c.press('C'); for (let i = 0; i < 12; i++) await c.answer();
+  await c.press('B'); assert.match(c.element('selection').textContent, /清空本局 12 次/);
+  const count = c.commands.length;
+  await c.emit('pagehide'); await c.emit('pageshow', { persisted: true });
+  await c.press('B'); assert.equal(c.commands.at(-1).kind, 'recover');
+  assert.equal(c.server.state.observations.length, 12); assert.equal(c.server.state.status, 'done');
+  assert.equal(c.commands.length, count + 1);
+  await c.press('B'); assert.match(c.element('selection').textContent, /清空本局 12 次/);
+  assert.equal(c.commands.length, count + 1, 'B must request fresh consent, not reuse pre-navigation consent');
+});
+test('history restore before a create reply does not auto-create or resurrect an unknown session', async () => {
+  const c = await client();
+  // Expire the known pointer so the next explicit action creates a new session.
+  c.server.state = null; await c.press('C');
+  const release = c.hold('create'); await c.press('C');
+  const count = c.commands.length;
+  await c.emit('pagehide'); await c.emit('pageshow', { persisted: true });
+  await release(); await c.advance(5000);
+  assert.equal(c.commands.length, count); assert.equal(c.storage.has(pointer), false);
+  assert.match(c.element('status').textContent, /新建暂停练习/);
+  await c.press('B'); assert.equal(c.commands.at(-1).kind, 'create');
+  assert.equal(c.server.state.status, 'paused');
+});
+test('initial pageshow does not interrupt an ordinary first load', async () => {
+  const c = await client(); await c.emit('pageshow', { persisted: false }); await c.press('C');
+  assert.deepEqual(c.commands.map(x => x.kind), ['create', 'resume']);
 });
