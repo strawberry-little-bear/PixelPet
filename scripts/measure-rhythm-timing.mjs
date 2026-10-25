@@ -7,6 +7,7 @@ import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { targetOffsetBounds } from './rhythm-timing-bounds.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
@@ -155,8 +156,18 @@ async function measure(profile) {
         // RTT midpoint estimate is measured locally, never treated as a proof
         // of either one-way delay or what a human actually saw on the display.
         const estimatedTarget = issued.received + cue.target - issued.reply.serverTime - issued.rtt / 2;
+        // An RTT midpoint alone cannot establish whether the displayed phase
+        // preceded the actual target. Keep both possible one-way extremes.
+        // Suppress this conditional envelope when the elapsed clocks disagree.
+        const clockUncertain = row.clockStopped
+          || Math.abs((answer.receivedWall - issued.receivedWall) - (answer.received - issued.received)) > 1000
+          || [issued, answer].some(command => Math.abs((command.receivedWall - command.sentWall) - command.rtt) > 1000);
+        const boundsAt = eventMs => targetOffsetBounds({ sentMs: issued.sent, receivedMs: issued.received,
+          serverMs: issued.reply.serverTime, targetMs: cue.target, eventMs, clockUncertain });
         row.samples.push({ sequence: cue.sequence, issuedRttMs: issued.rtt, answerRttMs: answer.rtt,
-          phaseAfterEstimatedTargetMs: phase.at - estimatedTarget, inputAfterPhaseMs: input.at - phase.at,
+          phaseAfterEstimatedTargetMs: phase.at - estimatedTarget,
+          phaseTargetBoundsMs: boundsAt(phase.at), inputTargetBoundsMs: boundsAt(input.at),
+          inputAfterPhaseMs: input.at - phase.at,
           inputToFetchMs: answer.sent - input.at,
           clientElapsedFromIssueMs: answer.received - issued.received,
           clientWallElapsedFromIssueMs: answer.receivedWall - issued.receivedWall,
@@ -170,6 +181,14 @@ async function measure(profile) {
       // passing interaction assertions must never imply timing fairness.
       row.elapsedWarnings = row.samples.filter(sample => Math.abs(sample.elapsedDifferenceMs)
         > sample.issuedRttMs + sample.answerRttMs + 100).map(sample => sample.sequence);
+      for (const sample of row.samples) {
+        if (row.elapsedWarnings.includes(sample.sequence)) {
+          // A large cross-clock discrepancy also makes the same-rate envelope
+          // unusable; retain the raw measurements and warning for investigation.
+          sample.phaseTargetBoundsMs = sample.inputTargetBoundsMs = { available: false, reason: 'elapsed-uncertainty' };
+        }
+      }
+      row.phaseIntervalsIncludingTarget = row.samples.filter(sample => sample.phaseTargetBoundsMs.position === 'includes-target').length;
       const last = trace.commands.at(-1);
       assert.equal(last.kind, 'pause'); assert.equal(last.reply.state.status, 'paused');
       assert.equal(last.reply.state.observations.length, answers.length);
@@ -202,7 +221,7 @@ async function measure(profile) {
     try { await context?.close(); } finally { await stop(child); }
   }
   results.push(row);
-  console.log(`${row.passed ? 'PASS' : 'FAIL'} ${profile.name}: ${row.samples.length} measured responses${row.clockStopped ? '; clock disagreement paused sampling' : ''}${row.elapsedWarnings?.length ? `; elapsed uncertainty on cues ${row.elapsedWarnings.join(', ')}` : ''}${row.error ? `\n${row.error}` : ''}`);
+  console.log(`${row.passed ? 'PASS' : 'FAIL'} ${profile.name}: ${row.samples.length} measured responses${row.clockStopped ? '; clock disagreement paused sampling' : ''}${row.elapsedWarnings?.length ? `; elapsed uncertainty on cues ${row.elapsedWarnings.join(', ')}` : ''}${row.samples.length ? `; ${row.phaseIntervalsIncludingTarget} phase envelopes include target` : ''}${row.error ? `\n${row.error}` : ''}`);
 }
 try {
   browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -210,7 +229,7 @@ try {
 } finally {
   await browser?.close();
   await writeFile(join(dir, 'results.json'), JSON.stringify({
-    notes: 'Synthetic loopback transport; actual isolated client/server and native Chrome input. DOM text observation and controlled RAF cadence are not photon timing, physical touch, human response, population success rates, or a fairness approval. RTT includes local HTTP/JSON scheduling. Elapsed differences include varying downstream delay and scheduling; warnings flag differences larger than both RTTs plus 100ms, not a clock-drift diagnosis. Up to three responses per running profile are diagnostic samples only. A clock-discontinuity pause ends sampling without automatic continue; passed describes safe interaction, not a complete timing sample. No scores, rewards, production game, save, or player service accessed.',
+    notes: 'Synthetic loopback transport; actual isolated client/server and native Chrome input. DOM text observation and controlled RAF cadence are not photon timing, physical touch, human response, population success rates, or a fairness approval. RTT includes local HTTP/JSON scheduling. Target envelopes use the full issue-request RTT, assume consistent elapsed clock rates, and never assume equal network legs. Envelopes including zero cannot establish whether the DOM phase was before or after the server target. They are withheld on clock/elapsed warnings, and do not bound physical display or human reaction. Elapsed differences include varying downstream delay and scheduling; warnings flag differences larger than both RTTs plus 100ms, not a clock-drift diagnosis. Up to three responses per running profile are diagnostic samples only. A clock-discontinuity pause ends sampling without automatic continue; passed describes safe interaction, not a complete timing sample. No scores, rewards, production game, save, or player service accessed.',
     results, errors,
   }, null, 2));
   console.log(`Report: ${join(dir, 'results.json')}`);

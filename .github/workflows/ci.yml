@@ -38,8 +38,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - name: Check offline rhythm timing arithmetic (not gameplay)
-        run: node --test ../scripts/evaluate-rhythm.test.mjs
+      - name: Check offline rhythm arithmetic and timing envelopes (not gameplay)
+        run: node --test ../scripts/evaluate-rhythm.test.mjs ../scripts/rhythm-timing-bounds.test.mjs
       - name: Check isolated rhythm lab client, protocol and HTTP (no gameplay integration)
         run: node --test ../prototypes/rhythm/*.test.mjs
       - run: pnpm test
