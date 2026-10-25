@@ -1,4 +1,4 @@
-// Real untimed treasure completions: acknowledged page-local results, isolated HTTP/DB.
+// Real treasure completions and short snake attempts: page-local results, isolated HTTP/DB.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -89,10 +89,16 @@ try {
     { ...modes[2], exhausted: true, familiarity: 'familiar' },
   ];
   const adultCases = [modes[0], modes[2]].flatMap(mode => ['credited', 'cooldown'].map(playHabit => ({ ...mode, adult: true, exhausted: true, familiarity: 'credited', playHabit })));
-  const cases = process.argv.includes('--adult-only') ? adultCases : [...baseCases, ...adultCases];
+  const voiceCases = [modes[0], modes[2]].flatMap(mode => [
+    { ...mode, exhausted: true, familiarity: 'credited' },
+    { ...mode, growing: true, exhausted: true, familiarity: 'credited', playHabit: 'credited' },
+    { ...mode, adult: true, form: 'balanced', exhausted: true, familiarity: 'credited', playHabit: 'credited' },
+  ]);
+  const cases = process.argv.includes('--completion-voices-only') ? voiceCases
+    : process.argv.includes('--adult-only') ? adultCases : [...baseCases, ...adultCases, ...voiceCases.filter(mode => mode.growing)];
   for (const mode of cases) {
     const { exhausted, familiarity, playHabit = 'cooldown' } = mode;
-    const at = Date.now(), age = (mode.adult ? 80 : 4) * 3600000;
+    const at = Date.now(), age = (mode.adult ? 80 : mode.growing ? 30 : 4) * 3600000;
     const initial = await api('import', { schema: 1, species: 2, name: '把陪玩收好', createdAt: at - age,
       hatchedAt: at - age, lastTick: at, sleeping: false, needs: { hunger: 70, mood: 70, energy: 80, clean: 80 }, careCount: 0, logs: [] });
     const fixture = initial.state;
@@ -100,7 +106,8 @@ try {
     fixture.economy.gameCoins = exhausted ? initial.shop.gameDailyLimit : 0;
     fixture.economy.coins = 12;
     // Explicit imported history, not natural multi-hour play. Finish below is real.
-    fixture.growth.care.play = 1;
+    fixture.growth.care.play = mode.growing ? 3 : mode.form ? 100 : 1;
+    if (mode.form) fixture.growth.form = mode.form; // Migrated adult, no invented form history.
     fixture.growth.care.lastPlay = initial.serverTime - (playHabit === 'credited' ? 31 * 60000 : 60000);
     fixture.companion.since = fixture.createdAt;
     if (familiarity !== 'credited') {
@@ -117,7 +124,7 @@ try {
       document.documentElement.style.fontSize = `${font}px`; localStorage.setItem('pixelpet-guide-v1-treasure', 'seen');
     }), mode.font);
     const page = await context.newPage(), errors = [], writes = [];
-    const label = `${mode.adult ? 'adult-' : ''}${familiarity}-${playHabit}-${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
+    const label = `${mode.adult ? 'adult-' : mode.growing ? 'growing-' : ''}${familiarity}-${playHabit}-${exhausted ? 'zero' : 'available'}-${mode.width}-${mode.height}-${mode.font}`;
     page.on('pageerror', e => errors.push(e.message));
     page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
     page.on('request', r => { if (r.method() !== 'GET' && !['/api/state', '/api/visit'].includes(new URL(r.url()).pathname)) writes.push({ path: new URL(r.url()).pathname, body: r.postDataJSON() }); });
@@ -160,6 +167,13 @@ try {
       assert.equal(await receipt.locator(':scope > time').getAttribute('datetime'), new Date(confirmed.serverTime).toISOString());
       assert.equal(confirmed.state.companion.recent.id, gameId);
       assert.match(await receipt.innerText(), /本局共同游戏已记录/);
+      const voice = receipt.getByLabel('宠物的游戏回应');
+      assert.equal(await voice.count(), 1);
+      const response = await voice.innerText();
+      assert(response.startsWith('这趟林间探索收好了。'));
+      assert(response.includes(mode.adult ? mode.form === 'gentle' ? '它安静地靠近' : '它稳稳靠近'
+        : mode.growing ? '它轻快地晃了晃' : '小小的它轻轻晃了晃'));
+      assert(!/准备|下一步|跃跃欲试/.test(response), 'A settled response must not promise an ongoing game');
       assert.equal(confirmed.gameReceipt.interest.reason, familiarity);
       assert.equal(confirmed.gameReceipt.interest.gameId, gameId);
       const interestPanel = receipt.getByLabel('本局游戏熟悉度');
@@ -224,6 +238,8 @@ try {
       await page.screenshot({path:join(dir, `${label}-reading-viewport.png`)});
       await reachableLines(page, '.game-outcome');
       await page.screenshot({path:join(dir, `${label}.png`),fullPage:true});
+      await voice.scrollIntoViewIfNeeded();
+      await page.screenshot({path:join(dir, `${label}-voice-viewport.png`)});
       // Status first page also carries exactly the acknowledged receipt.
       await key(page, 'A'); for (let i = 0; i < 4; i++) await key(page, 'A'); await key(page, 'B');
       await page.locator('.screen-status').waitFor(); assert.equal(await receipt.innerText(), text);
@@ -258,6 +274,51 @@ try {
       assert.deepEqual(errors, []); results.push({...mode,heading,movements,passed:true}); console.log('PASS', label);
     } catch (error) {
       await page.screenshot({path:join(dir, `${label}-failure.png`),fullPage:true}); throw error;
+    } finally { await context.close(); }
+  }
+  // Actual automatic movement into the fence stays below the three-fruit
+  // threshold. Ages above are imported fixtures; no terminal game is imported.
+  if (!process.argv.includes('--adult-only')) for (const mode of [modes[0], modes[2]]) {
+    const at = Date.now();
+    await api('import', { schema: 1, species: 2, name: '短局也陪着', createdAt: at - 3600000,
+      hatchedAt: at - 3600000, lastTick: at, sleeping: false,
+      needs: { hunger: 80, mood: 80, energy: 80, clean: 80 }, careCount: 0, logs: [] });
+    await api('action', { kind: 'play-snake', requestId: crypto.randomUUID() });
+    const context = await browser.newContext({viewport: {width: mode.width, height: mode.height}, hasTouch: true, reducedMotion: 'reduce'});
+    await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.fontSize = `${font}px`;
+    }), mode.font);
+    const page = await context.newPage(), errors = [], writes = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', request => {
+      if (request.method() === 'POST' && !['/api/state', '/api/visit'].includes(new URL(request.url()).pathname)) writes.push(request.postDataJSON());
+    });
+    try {
+      await page.goto(base); await page.locator('.snake-overlay').waitFor();
+      await key(page, 'C'); await page.getByText('休息一下再来', {exact: true}).waitFor();
+      const before = (await api('state')).state;
+      assert(before.game.snake.eaten < 3);
+      const finish = page.waitForResponse(r => r.url() === `${base}/api/action` && r.request().postDataJSON().kind === 'snake-finish');
+      await key(page, 'B'); const confirmed = await (await finish).json();
+      const receipt = page.getByLabel('本页最近一次游戏结算'); await receipt.waitFor();
+      assert.equal(await receipt.getByLabel('宠物的游戏回应').innerText(), '这次尝试先到这里。小小的它轻轻晃了晃，靠着你歇一会儿。');
+      assert((await receipt.innerText()).includes('本局未新增共同游戏记录'));
+      assert.deepEqual(confirmed.state.companion, before.companion);
+      assert.deepEqual(confirmed.state.album, before.album);
+      assert.equal(confirmed.state.economy.coins, before.economy.coins);
+      await reachableLines(page, '.game-outcome');
+      await page.screenshot({path: join(dir, `short-snake-${mode.width}.png`), fullPage: true});
+      const text = await receipt.innerText(), count = writes.length;
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await wait(250);
+      assert.equal(await receipt.innerText(), text);
+      assert.equal(await page.locator('.physical-button').count(), 3);
+      assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
+      await page.keyboard.press('c'); assert.equal(await receipt.count(), 0);
+      await page.reload(); await page.locator('.home-caption').waitFor(); assert.equal(await receipt.count(), 0);
+      assert.equal(writes.length, count, 'Reading, dismissal and refresh must not write');
+      assert.deepEqual(errors, []);
+      results.push({...mode, shortSnake: true, eaten: before.game.snake.eaten, passed: true});
+      console.log('PASS', `short-snake-${mode.width}`);
     } finally { await context.close(); }
   }
   await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2));

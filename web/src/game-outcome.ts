@@ -1,8 +1,7 @@
 import { gameKeepsakes } from "./game-keepsakes";
 import { games } from "./games";
 import { savedGameHistory } from "./game-history";
-import { petGrowth } from "./growth";
-import { gameCompanionVoice, type GameCompanionVoice } from "./gameCompanionVoice";
+import { gameCompletionVoice, type GameCompletionVoice } from "./gameCompletionVoice";
 import type { GameInfo } from "./games";
 import type { GameReceipt, InterestGameReceipt, PetState, Result, WalkGameReceipt } from "./types";
 
@@ -14,7 +13,7 @@ export type GameOutcomeRecord = {
   gameReceipt?: GameReceipt;
   completedCount?: number;
   keepsake?: string;
-  companionVoice?: GameCompanionVoice;
+  companionVoice?: GameCompletionVoice;
 };
 const finishActions: Record<GameInfo["id"], string> = {
   stars: "catch", tiles: "tile-pick", snake: "snake-finish", tetris: "tetris-finish",
@@ -32,9 +31,12 @@ export function completedGameOutcome(action: string, before: PetState | null, re
       after.revision < before.revision || typeof result.message !== "string" || !result.message.trim() || result.message.length > 4096 ||
       !Number.isSafeInteger(result.serverTime) || result.serverTime <= 0 || result.serverTime > 8.64e15) return null;
   const recent = after.companion?.recent;
-  const companionVoice = gameCompanionVoice(petGrowth(after, result.serverTime), kind);
-  const record: GameOutcomeRecord = { kind, at: result.serverTime, message: result.message,
-    shared: after.companion ? recent?.id === game.id && recent.kind === kind : null,
+  const shared = after.companion ? recent?.id === game.id && recent.kind === kind : null;
+  // A matching ID without this acknowledgement's timestamp is not proof that
+  // this result saved a shared experience. Keep its companion response neutral.
+  const companionVoice = gameCompletionVoice(after.growth, kind,
+    shared && recent?.at !== result.serverTime ? null : shared);
+  const record: GameOutcomeRecord = { kind, at: result.serverTime, message: result.message, shared,
     ...(companionVoice && { companionVoice }) };
   if (record.shared && recent?.at === result.serverTime) {
     const count = savedGameHistory(after)?.completions.find(entry => entry.kind === kind)?.count;

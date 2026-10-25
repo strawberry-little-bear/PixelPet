@@ -43,33 +43,55 @@ it.each(games)("captures $id only after its own final action, without guessing s
   const after = structuredClone(before); delete after.game; after.revision++;
   const r = { ...result(after), message: "服务端最终成绩 · 实得 +0 金币" }, original = structuredClone(r);
   const receipt = completedGameOutcome(terminalActions[game.id], before, r);
-  expect(receipt).toEqual({ kind: game.id, at, message: r.message, shared: null });
+  expect(receipt).toMatchObject({ kind: game.id, at, message: r.message, shared: null });
   expect(r).toEqual(original);
   render(<GameOutcome outcome={receipt} />);
   expect(outcome()?.textContent).toContain(game.title); expect(outcome()?.textContent).toContain("实得 +0 金币");
   expect(outcome()?.textContent).toContain("未提供共同游戏记录");
   expect(outcome()?.querySelector("button,a,input,[role=button]")).toBeNull(); expect(outcome()?.hasAttribute("aria-live")).toBe(false);
 });
-it("carries the settled growth tendency into one quiet game response", () => {
-  const before = fixture(); before.growth = emptyGrowth("growing"); before.growth.care.play = 3;
+it("uses the confirmed after-stage for a completed shared game", () => {
+  const before = fixture();
   const after = structuredClone(before); delete after.game;
+  after.growth = emptyGrowth("growing"); after.growth.care.play = 3;
+  after.companion = { since: at - 1000, interests: [], recent: { kind: "snake", id, at } };
   const receipt = completedGameOutcome("snake-finish", before, result(after));
   expect(receipt?.companionVoice).toEqual({
-    form: "lively",
-    text: "它跃跃欲试，跟着你的方向动起来。",
+    stage: "growing", form: "lively",
+    text: "这一段追果子的路收好了。它轻快地晃了晃，带着余兴陪在你身边。",
   });
   render(<GameOutcome outcome={receipt} />);
-  expect(screen.getByLabelText("宠物的游戏回应").textContent).toBe("它跃跃欲试，跟着你的方向动起来。");
+  expect(screen.getAllByLabelText("宠物的游戏回应")).toHaveLength(1);
+  expect(screen.getByLabelText("宠物的游戏回应").textContent).toBe(receipt?.companionVoice?.text);
 });
-it("uses a saved adult form and leaves early growth quiet", () => {
-  const before = fixture(); before.growth = emptyGrowth("adult"); before.growth.form = "gentle";
+it("uses a saved adult form at settlement instead of recalculating from new habits", () => {
+  const before = fixture(); before.growth = emptyGrowth("growing"); before.growth.care.play = 3;
   const after = structuredClone(before); delete after.game;
+  after.growth = emptyGrowth("adult"); after.growth.form = "gentle"; after.growth.care.play = 100;
   expect(completedGameOutcome("snake-finish", before, result(after))?.companionVoice).toEqual({
-    form: "gentle",
-    text: "它安静观察着，陪你慢慢想好转弯。",
+    stage: "adult", form: "gentle",
+    text: "游戏先告一段落。它安静地靠近，陪你慢慢放松下来。",
   });
-  const baby = fixture(); const babyAfter = structuredClone(baby); delete babyAfter.game;
-  expect(completedGameOutcome("snake-finish", baby, result(babyAfter))?.companionVoice).toBeUndefined();
+});
+it.each(["snake", "tetris", "fishing"] as const)("does not celebrate an unqualified %s attempt or unrelated shared history", kind => {
+  const before = fixture(); before.game!.kind = kind;
+  const after = structuredClone(before); delete after.game;
+  after.companion = { since: at - 1000, interests: [], recent: { kind, id: "old-session", at } };
+  const receipt = completedGameOutcome(terminalActions[kind], before, result(after));
+  expect(receipt?.shared).toBe(false);
+  expect(receipt?.companionVoice?.text).toBe("这次尝试先到这里。小小的它轻轻晃了晃，靠着你歇一会儿。");
+  expect(receipt?.completedCount).toBeUndefined(); expect(receipt?.keepsake).toBeUndefined();
+});
+it("does not use a stale matching history timestamp as a new saved experience", () => {
+  const before = fixture(), after = structuredClone(before); delete after.game;
+  after.companion = { since: at - 1000, interests: [], recent: { kind: "snake", id, at: at - 1 } };
+  expect(completedGameOutcome("snake-finish", before, result(after))?.companionVoice?.text)
+    .toBe("游戏先告一段落。小小的它轻轻晃了晃，靠着你歇一会儿。");
+});
+it("does not infer a legacy companion stage from elapsed age", () => {
+  const before = fixture(), after = structuredClone(before); delete after.game; delete after.growth;
+  after.hatchedAt = before.hatchedAt = at - 100 * 3600000;
+  expect(completedGameOutcome("snake-finish", before, result(after))?.companionVoice).toBeUndefined();
 });
 it("keeps completion reading safe when a legacy album has nil entries", () => {
   const before = fixture();
@@ -128,9 +150,22 @@ it("App retains a failed-criteria completion after toast, fresh reads and status
   expect(outcome()?.querySelector("time")?.dateTime).toBe(new Date(at).toISOString());
   await act(async () => { await vi.advanceTimersByTimeAsync(17000); });
   saved.needs.hunger = 20; saved.revision++; await poll(); expect(outcome()?.textContent).toBe(text);
+  expect(screen.getByLabelText("宠物的游戏回应").textContent).toContain("小小的它");
   await key("a"); for (let i = 0; i < 4; i++) await key("a"); await key("b");
   expect(outcome()?.textContent).toBe(text); expect(document.querySelector(".lcd-meter b")?.textContent).toBe("20");
   expect(document.querySelectorAll(".physical-button")).toHaveLength(3); expect(writes()).toHaveLength(1);
+});
+it("ordinary polling does not rewrite the settled response when the growing tendency changes", async () => {
+  saved.growth = emptyGrowth("growing"); saved.growth.care.play = 3;
+  await mount(); await key("b");
+  const text = screen.getByLabelText("宠物的游戏回应").textContent;
+  expect(text).toContain("它轻快地晃了晃");
+  saved.growth.care.clean = saved.growth.care.rest = 20; saved.revision++;
+  await poll();
+  expect(screen.getByLabelText("宠物的游戏回应").textContent).toBe(text);
+  expect(writes()).toHaveLength(1);
+  await key("c"); expect(screen.queryByLabelText("宠物的游戏回应")).toBeNull();
+  await poll(); expect(outcome()).toBeNull();
 });
 it("App never reconstructs a result on initial reads or remount", async () => {
   delete saved.game; await mount(); expect(outcome()).toBeNull(); await poll(); expect(outcome()).toBeNull();
