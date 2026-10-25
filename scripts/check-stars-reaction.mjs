@@ -50,17 +50,28 @@ async function key(page, name) {
   await press(page, name);
   await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
 }
-async function catchStar(page, hit = true) {
-  // Choose a fresh beat with enough margin for the real HTTP request.
-  let current = await api('state'), elapsed = current.serverTime - current.state.game.startedAt;
-  let beat = Math.floor(elapsed / 900);
-  if (elapsed % 900 > 200 || beat <= current.state.game.lastBeat) {
-    await wait(900 - elapsed % 900 + 30); current = await api('state');
-    elapsed = current.serverTime - current.state.game.startedAt; beat = Math.floor(elapsed / 900);
-  }
+async function prepareCatch(page, hit = true) {
+  let current = await api('state');
+  const beat = Math.floor((current.serverTime - current.state.game.startedAt) / 900);
   const lane = (beat % 3 + (hit ? 0 : 1)) % 3;
-  const names = ['左边', '中间', '右边'];
-  for (let i = 0; i < 3 && await page.locator('.star-position').innerText() !== `伙伴：${names[lane]}`; i++) await key(page, 'a');
+  const selectedLane = () => page.locator('.game-lane').evaluateAll(nodes => nodes.findIndex(n => n.classList.contains('lane-selected')));
+  // Position text may also contain an adult companion's dialogue. Read the
+  // selected lane, then finish touch scrolling before observing the catch beat.
+  for (let i = 0; i < 3 && await selectedLane() !== lane; i++) await key(page, 'a');
+  assert.equal(await selectedLane(), lane);
+  if (page.viewportSize().width < 700) await page.locator('.button-b').scrollIntoViewIfNeeded();
+  const deadline = performance.now() + 6000;
+  while (performance.now() < deadline) {
+    current = await api('state');
+    const elapsed = current.serverTime - current.state.game.startedAt, nextBeat = Math.floor(elapsed / 900);
+    if (nextBeat > current.state.game.lastBeat && elapsed % 900 < 200 &&
+      nextBeat % 3 === (lane + (hit ? 0 : 2)) % 3) return current;
+    await wait(35);
+  }
+  assert.fail(`No fresh server beat for lane ${lane}, hit=${hit}`);
+}
+async function catchStar(page, hit = true) {
+  const current = await prepareCatch(page, hit);
   const response = page.waitForResponse(r => r.url() === base + '/api/action' && r.request().postDataJSON().kind === 'catch');
   await press(page, 'b'); const r = await response; assert(r.ok(), await r.text());
   const next = await r.json(); assert.equal(r.request().postDataJSON().gameId, current.state.game.id);
@@ -131,11 +142,7 @@ try {
     });
     if (fault === 'late') { await catchStar(page); await quiet(page); }
     else {
-      const current = await api('state'), elapsed = current.serverTime - current.state.game.startedAt;
-      await wait(900 - elapsed % 900 + 30);
-      const at = await api('state'), beat = Math.floor((at.serverTime - at.state.game.startedAt) / 900);
-      const names = ['左边', '中间', '右边'];
-      for (let i = 0; i < 3 && await page.locator('.star-position').innerText() !== `伙伴：${names[beat % 3]}`; i++) await key(page, 'a');
+      await prepareCatch(page);
       await key(page, 'b'); await page.locator('.save-recovery').waitFor(); await quiet(page);
       await key(page, 'b'); await page.locator('.star-game').waitFor(); await quiet(page);
     }

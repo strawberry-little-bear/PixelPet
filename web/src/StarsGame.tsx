@@ -1,4 +1,5 @@
 import { starsReactionMatches, type StarsReaction } from "./stars-reaction";
+import { SelectionStatus } from "./SelectionStatus";
 import { PetArt } from "./PetArt";
 import { petGrowth } from "./growth";
 import { gameCompanionVoice } from "./gameCompanionVoice";
@@ -28,6 +29,10 @@ export function StarsGame({ pet, now, lane, target, message, reaction }: {
           </div>
         ))}
       </div>
+      <SelectionStatus scope="stars">
+        伙伴在{positions[lane]}；A 移到{positions[(lane + 1) % 3]}，B 在当前位置接星，C 打开放弃确认。
+        第 {pet.game.round + 1} / 5 轮，已接住 {pet.game.score} 颗。
+      </SelectionStatus>
       <p className="star-position">伙伴：{positions[lane]}{companionVoice && <small className="game-companion-voice">{companionVoice.text}</small>}</p>
       <p className="star-method">移到亮星下面就能按 B，不必等落到底。每个节拍只接一次，接空也算一轮；等待不扣轮次。</p>
       <div className="game-message">{message || "移到星星下面，按 B 接住！"}</div>

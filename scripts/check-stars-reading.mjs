@@ -82,8 +82,30 @@ try {
       assert(layout.messageFont>=mode.font*.85,'catch feedback must follow root font');
       assert(!layout.overflow); assert.deepEqual(layout.clipped,[]); assert.equal(layout.lcdControls,0);
       assert.match(await page.locator('.game-lanes').getAttribute('aria-label'),/^星星在(左边|中间|右边)；伙伴在中间$/);
+      const status = page.locator('[data-selection-status="stars"]');
+      assert.equal(await status.getAttribute('aria-live'), 'polite');
+      assert.match(await status.textContent(), /伙伴在中间；A 移到右边/);
+      await status.evaluate(el => {
+        window.starsStatusMutations = 0;
+        window.starsStatusNode = el;
+        new MutationObserver(() => window.starsStatusMutations++).observe(el, {childList:true, subtree:true, characterData:true});
+      });
+      // Native keyboard navigation, no catch write; the live node stays mounted.
+      for (const [position, next] of [['右边','左边'], ['左边','中间'], ['中间','右边']]) {
+        await page.keyboard.press('a');
+        await page.waitForFunction(position => document.querySelector('[data-selection-status="stars"]')?.textContent.includes(`伙伴在${position}；`), position);
+        assert.match(await status.textContent(), new RegExp(`伙伴在${position}；A 移到${next}`));
+      }
+      assert.equal(actions.length, 0);
+      const spoken = await status.textContent(), mutations = await page.evaluate(() => window.starsStatusMutations);
+      await wait(1100);
+      assert.equal(await status.textContent(), spoken);
+      assert.equal(await page.evaluate(() => window.starsStatusMutations), mutations, 'automatic star changes must not rewrite speech');
+      assert(await status.evaluate(el => el === window.starsStatusNode));
       await key(page,'a'); assert.equal(await page.locator('.star-position').textContent(),'伙伴：右边');
-      await key(page,'c'); await page.locator('.game-abandon').waitFor(); await key(page,'a');
+      await key(page,'c'); await page.locator('.game-abandon').waitFor();
+      assert.equal(await status.count(), 0); await key(page,'a');
+      assert.match(await status.textContent(), /伙伴在右边；A 移到左边/);
       assert.equal(await page.locator('.star-position').textContent(),'伙伴：右边');
       // Synthetic blur is a controlled boundary, not a physical OS background test.
       await page.evaluate(()=>window.dispatchEvent(new Event('blur'))); await wait(1100);
@@ -102,6 +124,8 @@ try {
           const saved=(await api('state')).state;
           assert.equal(saved.game.round,round+1); assert.equal(saved.economy.coins,before.economy.coins);
           assert.equal(saved.careCount,before.careCount);
+          const speech = (await status.textContent()).replace(/\s+/g, ' ');
+          assert(speech.includes(`第 ${round+2} / 5 轮，已接住 ${saved.game.score} 颗。`), speech);
           assert.match(await page.locator('.game-score').textContent(),new RegExp(`第 ${round+2} / 5 轮`));
           assert.deepEqual((await inspect(page)).clipped,[]);
           if(round===0) {
@@ -121,6 +145,7 @@ try {
         }
       }
       await page.locator('.content-home').waitFor();
+      assert.equal(await status.count(), 0);
       const receipt=await page.locator('.game-outcome').textContent(), match=receipt.match(/一起接住了 (\d) 颗星星！\+(\d) 金币/);
       assert(match,receipt); assert.equal(+match[2],3+(+match[1]));
       const after=(await api('state')).state; assert(!after.game);
