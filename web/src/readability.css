@@ -115,6 +115,11 @@
 .reading-mode .tetris-overlay ol { width: auto; }
 /* Give enlarged pause labels the available width, not the live overlay's 120px. */
 .reading-mode .fishing-pause ol { width: 100%; }
+/* A paused fishing scene is a reading document, not a clipped canvas. Keep
+   the live pond's overflow rule for animation, but let the pause copy grow in
+   normal flow so the LCD's own scroll viewport remains the only boundary. */
+.reading-mode .pond-scene:has(.fishing-pause) { overflow: visible; }
+.reading-mode .fishing-pause { width: 100%; min-height: 102px; box-sizing: border-box; }
 /* Paused board headings and side notes must grow with root-scaled text. */
 .reading-mode :is(.snake-game, .tetris-game) header { height: auto; min-height: 20px; flex-wrap: wrap; gap: 4px; }
 .reading-mode .tetris-side { width: 100%; }
