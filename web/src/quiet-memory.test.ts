@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextQuietMemory, quietMemories } from "./quiet-memory";
+import { nextQuietMemory, previousQuietMemory, quietMemories } from "./quiet-memory";
 import type { Memory, PetState } from "./types";
 
 const pet = (entries: Memory[], lastTick = 1000) => ({
@@ -56,4 +56,14 @@ describe("quiet memory conversations", () => {
     expect(memory.reply).toContain("手记");
     expect(memory.reply).not.toMatch(/今天|刚才|昨天|外面|正在下雨/);
   });
+});
+
+it("browses previous saved memories with wraparound and missing-key fallback", () => {
+  const memories = quietMemories(pet([{ kind: "meal", at: 100, source: "shared" }, { kind: "bath", at: 200, source: "shared" }]));
+  const before = structuredClone(memories);
+  expect(previousQuietMemory(memories, memories[1].key)).toBe(memories[0].key);
+  expect(previousQuietMemory(memories, memories[0].key)).toBe(memories[1].key);
+  expect(previousQuietMemory(memories, "removed")).toBe(memories[1].key);
+  expect(previousQuietMemory([], null)).toBeNull();
+  expect(memories).toEqual(before);
 });

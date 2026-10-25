@@ -42,7 +42,12 @@ it.each([false, true])("locates entry, A selection and B response without moving
   expect(document.querySelector(".quiet-moment-copy")?.textContent).toContain(sleeping ? "晚安" : "一份暖暖的小饭团");
   await key("b"); expect(window.scrollBy).toHaveBeenCalledTimes(5);
   expect(document.activeElement).toBe(button);
-  await key("c"); await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(5);
+  await key("c"); await refresh(); expect(window.scrollBy).toHaveBeenCalledTimes(sleeping ? 5 : 6);
+  if (!sleeping) {
+    expect(document.querySelector(".quiet-memory-source")).toBeNull();
+    expect(document.activeElement).toBe(button);
+    await key("c"); expect(document.querySelector(".home-caption")).not.toBeNull();
+  }
   before.revision = saved.revision; expect(saved).toEqual(before);
   expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
 });

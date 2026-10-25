@@ -1234,7 +1234,7 @@ describe("quiet companion moments", () => {
     await key("c");
     expect(document.querySelector(".content-home")).toBeTruthy();
   });
-  it("chats through actual memories with B, resets with A/C, and leaves the save untouched", async () => {
+  it("chats in both directions, returns with C, and leaves the save untouched", async () => {
     const at = saved.lastTick - 3000;
     saved.album = { since: at, legacy: false, entries: [
       { kind: "hatch", at, source: "saved" },
@@ -1249,7 +1249,7 @@ describe("quiet companion moments", () => {
     await key("b");
     expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("公园里走过的第一条小路");
     expect(screen.getByText(/还记得一起走过的小路/)).toBeTruthy();
-    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("B 再聊一段");
+    expect(document.querySelector(".lcd-bottom")?.textContent).toContain("B 下一段");
     const reading = screen.getByRole("region", { name: "无目的互动阅读区" });
     reading.focus();
     await act(async () => { fireEvent.keyDown(reading, { key: "Enter" }); });
@@ -1261,9 +1261,11 @@ describe("quiet companion moments", () => {
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
     await key("a");
+    expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("一份暖暖的小饭团");
+    await key("c"); await key("a");
     expect(screen.getByText("摸摸它")).toBeTruthy();
     expect(document.querySelector(".quiet-memory-source")).toBeNull();
-    await key("a"); await key("a"); await key("b"); await key("c");
+    await key("a"); await key("a"); await key("b"); await key("c"); await key("c");
     await choose(12);
     expect(screen.getByText("摸摸它")).toBeTruthy();
     expect(document.querySelector(".quiet-memory-source")).toBeNull();
@@ -1271,7 +1273,7 @@ describe("quiet companion moments", () => {
     expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
   });
 
-  it("keeps the selected memory across synchronization, falls back if removed, and clears on pet replacement", async () => {
+  it("keeps the selected memory across synchronization, explains removal, and clears on pet replacement", async () => {
     const at = saved.lastTick - 3000;
     saved.album = { since: at, legacy: false, entries: [{ kind: "meal", at, source: "shared" }] };
     await mount(); await choose(12); await key("a"); await key("a"); await key("b");
@@ -1287,7 +1289,7 @@ describe("quiet companion moments", () => {
     saved.album.entries = saved.album.entries.filter(m => m.kind !== "walk");
     await sync();
     expect(document.querySelector(".quiet-memory-source")).toBeNull();
-    expect(screen.getByText("它摇了摇身子：你好呀，我一直在这里。")).toBeTruthy();
+    expect(screen.getByText(/这段回忆已不在当前读取的记录里/)).toBeTruthy();
     await key("b");
     expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("一份暖暖的小饭团");
     saved.createdAt--; saved.hatchedAt--; saved.album.entries = [];

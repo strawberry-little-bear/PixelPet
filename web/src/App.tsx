@@ -79,7 +79,7 @@ import { AlbumDirectory, AlbumPanel, albumDestinations, type AlbumCategory } fro
 import { ReturnPanel, returnPageCount } from "./ReturnPanel";
 import { CareFeedback } from "./CareFeedback";
 import { QuietMoment } from "./QuietMoment";
-import { nextQuietMemory, quietMemories } from "./quiet-memory";
+import { nextQuietMemory, previousQuietMemory, quietMemories } from "./quiet-memory";
 import { CareOutcome, hasCareOutcome } from "./CareOutcome";
 import { completedCareOutcome, type CareOutcomeFeedback } from "./care-outcome";
 import { GameOutcome } from "./GameOutcome";
@@ -196,7 +196,7 @@ export default function App() {
   const [statusPage, setStatusPage] = useState(0);
   const [quietMomentChoice, setQuietMomentChoice] = useState(0);
   const [quietMomentReplied, setQuietMomentReplied] = useState(false);
-  // Local response identity only: each deliberate awake B press can animate
+  // Local response identity only: each deliberate awake reply or memory turn can animate
   // again, without remounting the reading region or saving an interaction count.
   const [quietResponseId, setQuietResponseId] = useState(0);
   const [quietMemoryKey, setQuietMemoryKey] = useState<string | null>(null);
@@ -2001,6 +2001,22 @@ export default function App() {
       return;
     }
     if (page === "moment") {
+      const browsing = !pet.sleeping && quietMomentChoice === 2 && quietMomentReplied && quietMemoryKey !== null;
+      if (browsing) {
+        if (key === "C") {
+          setQuietMomentReplied(false);
+          setQuietMemoryKey(null);
+          navigateQuietReading(quietMomentChoice);
+        } else {
+          const memories = quietMemories(pet);
+          if (memories.length) {
+            setQuietMemoryKey(value => key === "A" ? previousQuietMemory(memories, value) : nextQuietMemory(memories, value));
+            setQuietResponseId(value => value + 1);
+          }
+          navigateQuietReading(quietMomentChoice, true);
+        }
+        return;
+      }
       if (key === "A") {
         const nextChoice = (quietMomentChoice + 1) % 3;
         setQuietMomentChoice(nextChoice);
@@ -2356,8 +2372,10 @@ export default function App() {
   const quietMemoryCount = page === "moment" && pet ? quietMemories(pet).length : 0;
   const quietMomentHint = pet?.sleeping
     ? "A 换陪伴　 B 安静陪着　 C 返回"
+    : quietMomentChoice === 2 && quietMomentReplied && quietMemoryKey !== null
+    ? "A 上一段　 B 下一段　 C 返回陪伴"
     : quietMomentChoice === 2 && quietMemoryCount
-    ? `A 换回应　 B ${quietMemoryKey ? quietMemoryCount > 1 ? "再聊一段" : "再聊一次" : "聊聊回忆"}　 C 返回`
+    ? "A 换回应　 B 聊聊回忆　 C 返回"
     : "A 换回应　 B 陪一会儿　 C 返回";
   const menuConfirmation = pet ? careMenuConfirmation(pet, items[selected].kind, careRules) : "B 确认";
   const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"

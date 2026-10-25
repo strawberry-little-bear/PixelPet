@@ -102,6 +102,7 @@ it("cycles catalog memories with A/B/C, preserves a selected first record on syn
   await key("b"); expect(document.querySelector(".quiet-discovery .park-art")).not.toBeNull();
   expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("从公园图鉴想起：初次遇见「银杏叶」");
   await key("b"); expect(document.querySelector(".quiet-memory-source")?.textContent).toBe(text);
+  await key("c"); expect(document.querySelector(".quiet-moment")).not.toBeNull();
   await key("c"); expect(document.querySelector(".home-caption")).not.toBeNull();
   expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
   expect(document.querySelectorAll(".physical-button")).toHaveLength(3);

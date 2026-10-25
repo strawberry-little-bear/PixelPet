@@ -103,7 +103,8 @@ async function quiet(page, touch = false) {
  assert.equal(await page.locator('.quiet-memory-source time').getAttribute('datetime'),new Date(cards(saved)[0].at).toISOString());
  await readable(page,'.quiet-moment',['.quiet-moment > header','.quiet-keepsake','.quiet-moment-copy > p','.quiet-memory-source','.quiet-moment-note']);
  await page.screenshot({path:join(dir,`quiet-keepsake-${page.viewportSize().width}-${page.viewportSize().height}.png`),fullPage:true});
- await key(page,'a');assert.equal(await page.locator('.quiet-keepsake').count(),0,'another interaction clears the recollection');
+ await key(page,'c');assert.equal(await page.locator('.quiet-keepsake').count(),0,'C returns to companion choices');
+ assert.equal(await page.locator('.quiet-moment').count(),1);
  await key(page,'c');await page.locator('.home-caption').waitFor();
  await page.reload();await page.locator('.home-caption').waitFor();assert.equal(await page.locator('.quiet-keepsake').count(),0,'reload must not replay a recollection');
 }
@@ -156,7 +157,7 @@ try {
  server.once('error',e=>startupError=e);server.stdout.on('data',d=>log+=d);server.stderr.on('data',d=>log+=d);
  let ready=false;for(let i=0;i<100;i++){if(startupError)throw startupError;assert.equal(server.exitCode,null,log);try{if((await fetch(base+'/api/state')).ok){ready=true;break;}}catch{}await wait(100);}assert(ready,log);
  const now=Date.now();const initial=await api('import',{schema:1,revision:0,species:2,name:'小纪念伙伴',createdAt:now-3600000,hatchedAt:now-3600000,lastTick:now,sleeping:false,needs:{hunger:80,mood:80,clean:80,energy:80},careCount:0,logs:[]});
- assert.equal(initial.state.schema,22);assert.deepEqual(cards(initial.state),[]);
+ assert.equal(initial.state.schema,23);assert.deepEqual(cards(initial.state),[]);
  browser=await chromium.launch({channel:'chrome',headless:true});
  const context=await browser.newContext({viewport:{width:1200,height:850},reducedMotion:'reduce'}),page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));await page.goto(base);await page.locator('.home-caption').waitFor();

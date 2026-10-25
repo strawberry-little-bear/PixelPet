@@ -51,10 +51,11 @@ async function responseVisible(page) {
 }
 async function physical(page, key) {
   const button = page.locator(`.button-${key}`);
+  const browsing = await page.locator('.quiet-memory-navigation').count() > 0;
   const previous = key === 'a' ? await page.locator('.quiet-moment-copy > strong').innerText() : null;
   await button.tap();
   await responseVisible(page);
-  if (key === 'a') {
+  if (key === 'a' && !browsing) {
     const titles = await page.locator('.quiet-moment').getAttribute('data-sleeping') === 'true'
       ? ['轻轻摸摸', '守着它睡', '轻声道晚安'] : ['摸摸它', '陪它发呆', '说声你好'];
     assert.equal(await page.locator('.quiet-moment-copy > strong').innerText(), titles[(titles.indexOf(previous) + 1) % 3], 'Each tap must change the choice once');
@@ -117,7 +118,8 @@ async function repeatedResponses(page, reduced) {
     }), 'A state read must not replay the completed response');
   }
   // Return to the idle third choice so the original memory and sleep flow stays intact.
-  for (let i = 0; i < 3; i++) await physical(page, 'a');
+  if (await page.locator('.quiet-memory-navigation').count()) await physical(page, 'c');
+  else for (let i = 0; i < 3; i++) await physical(page, 'a');
   assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
 }
 // Two representative viewports cover interruptions without multiplying the
@@ -202,6 +204,9 @@ async function interruptedResponses(page, reduced, label) {
     return reduced ? !motion : motion?.playState === 'running';
   }, reduced), 'Only the next explicit B starts a new response');
   await page.screenshot({ path: join(dir, `${label}-reconnected.png`), fullPage: true });
+  await page.keyboard.press('c');
+  assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+  assert.equal(await page.locator('.quiet-moment').count(), 1, 'C returns to company selection first');
   await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
   await open(page);
   assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
@@ -286,8 +291,19 @@ try {
           await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); assert((await response).ok());
         };
         await sync(); assert.equal(await source.innerText(), first, 'An ordinary read preserves the selected first record');
+        assert.match(await page.locator('.lcd-bottom').innerText(), /A 上一段.*B 下一段.*C 返回陪伴/);
+        await physical(page, 'a');
+        assert((await source.innerText()).includes(expected.at(-1).name), 'A wraps to the oldest saved discovery');
+        assert.equal(await page.locator('.quiet-memory-position').innerText(), `闲聊回忆 ${expected.length} / ${expected.length}`);
+        await physical(page, 'a');
+        assert((await source.innerText()).includes(expected.at(-2).name), 'A moves backward exactly once');
+        await physical(page, 'b'); await physical(page, 'b');
+        assert.equal(await source.innerText(), first, 'B wraps forward to the original selected identity');
+        await page.locator('.quiet-memory-navigation').scrollIntoViewIfNeeded(); await readable(page);
         const after = (await api('state')).state;
         for (const field of ['pond', 'park', 'companion', 'economy', 'album', 'careCount']) assert.deepEqual(after[field], before[field], `${field} must not change during read-only chat`);
+        await page.keyboard.press('c');
+        assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
         await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
         await page.reload(); await page.locator('.home-caption').waitFor(); await open(page); await physical(page, 'b');
         assert.equal(await source.innerText(), first, 'Reload keeps the catalog record, not a new encounter');
@@ -525,7 +541,8 @@ try {
       const box = await page.locator('.quiet-moment-note').boundingBox();
       assert(box && box.y >= -1 && box.y + box.height <= mode.height + 1, 'Final note must be reachable');
       await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
-      await physical(page, 'a'); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
+      await physical(page, 'a'); assert.equal(await page.locator('.quiet-memory-source').innerText(), second);
+      await physical(page, 'c'); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
       assert.equal(await page.locator('.quiet-memory-position').count(), 0);
       await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
       await open(page); assert.equal(await page.locator('.quiet-memory-source').count(), 0);
@@ -644,6 +661,8 @@ try {
       await page.screenshot({ path: join(dir, `${mode.label}-reply.png`), fullPage: true });
       await page.reload(); await page.locator('.home-caption').waitFor(); await open(page); await physical(page, 'b');
       assert((await page.locator('.quiet-moment-copy > p').innerText()).includes(`「${names.get(memories[0].item)}」`));
+      await page.keyboard.press('c');
+      assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
       await page.keyboard.press('c'); await page.locator('.home-caption').waitFor();
       const after = (await api('state')).state;
       for (const field of ['album', 'economy', 'careCount', 'companion']) assert.deepEqual(after[field], before[field]);

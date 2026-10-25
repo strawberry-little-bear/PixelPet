@@ -87,6 +87,8 @@ async function quietRecent(page, expected, label) {
   assert.equal(await position.innerText(),firstPosition,'Position wraps with the selected memory');
   assert.equal(await page.locator('.physical-button').count(),3);assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await key(page,'c');assert.equal(await page.locator('.quiet-memory-source').count(),0);
+  assert.equal(await page.locator('.quiet-moment').count(),1);
   await key(page,'c');await page.locator('.home-caption').waitFor();
   await home(page);
   const after=(await api('state')).state;
@@ -94,7 +96,7 @@ async function quietRecent(page, expected, label) {
   assert.equal(after.economy.coins,before.economy.coins);assert.equal(after.growth.points,before.growth.points);assert.deepEqual(after.growth.formRecord,before.growth.formRecord);
   await key(page,'a');for(let i=0;i<12;i++)await key(page,'a');await key(page,'b');await key(page,'a');await key(page,'a');
   assert.equal(await page.locator('.quiet-memory-source').count(),0,'Refresh must not replay a chat');
-  await key(page,'b');assert.equal(await page.locator('.quiet-memory-source time').getAttribute('datetime'),new Date(expected.at).toISOString());await key(page,'c');
+  await key(page,'b');assert.equal(await page.locator('.quiet-memory-source time').getAttribute('datetime'),new Date(expected.at).toISOString());await key(page,'c');await key(page,'c');await page.locator('.home-caption').waitFor();
   assert.deepEqual(writes,[],'Chat and reading must not perform actions');
   results.push({quietRecent:label,source:'real second stars completion',timestamp:expected.at,readOnly:true,refresh:'manual conversation'});
  } finally {page.off('request',onRequest);}
@@ -128,7 +130,10 @@ try {
  assert.equal(backup.companion.history.completions[0].count,2);
  await api('import',backup);await home(page);await summary(page);await count(page,2);await key(page,'c');results.push({exportImport:'preserves counts without a new completion'});
  const old=structuredClone(backup);old.schema=18;delete old.companion.history;
- const migrated=(await api('import',old)).state;assert.equal(migrated.schema,19);assert.equal(migrated.companion.history.completions[0].count,0);assert.deepEqual(migrated.companion.interests,backup.companion.interests);assert.deepEqual(migrated.album,backup.album);
+ // Schema 18 predates game keepsakes and their display choice. Preserve only
+ // records that could actually exist in that version before testing migration.
+ old.album.entries=old.album.entries.filter(entry=>entry.kind!=='keepsake');delete old.album.displayItem;
+ const migrated=(await api('import',old)).state;assert.equal(migrated.schema,23);assert.equal(migrated.companion.history.completions[0].count,0);assert.deepEqual(migrated.companion.interests,backup.companion.interests);assert.deepEqual(migrated.album,old.album);
  await home(page);await summary(page);await count(page,0);assert((await page.locator('.life-summary-tracking').textContent()).includes('之前的局数未知'));await key(page,'c');results.push({legacyFixture:'no invented past games'});
  // Construct an adult with an older, capped fishing interest. This is an
  // explicit history fixture, not five naturally played fishing sessions.

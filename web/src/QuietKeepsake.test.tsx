@@ -100,8 +100,9 @@ it("keeps the selected same-time item on sync, removes it when absent, and uses 
   expect(document.querySelector(".quiet-keepsake [data-keepsake-art]")?.getAttribute("data-keepsake-art")).toBe(selected);
   saved.album!.entries = saved.album!.entries.filter(m => m.item !== selected); saved.revision++;
   await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
-  expect(document.querySelector(".quiet-keepsake")).toBeNull(); expect(copy()).toContain("你好呀");
+  expect(document.querySelector(".quiet-keepsake")).toBeNull(); expect(copy()).toContain("已不在当前读取的记录里");
   await key("b"); expect(document.querySelector(".quiet-keepsake")).not.toBeNull();
+  await key("c"); expect(document.querySelector(".quiet-moment")).not.toBeNull();
   await key("c"); expect(document.querySelector(".home-caption")).not.toBeNull();
   expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
 });

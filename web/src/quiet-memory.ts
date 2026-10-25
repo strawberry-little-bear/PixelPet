@@ -124,3 +124,11 @@ export function nextQuietMemory(memories: QuietMemory[], current: string | null)
   const index = memories.findIndex(m => m.key === current);
   return memories[(index + 1) % memories.length].key;
 }
+
+// Explicit reverse browsing follows the same saved order and stable keys.
+// An unavailable selection starts at the oldest remaining memory.
+export function previousQuietMemory(memories: QuietMemory[], current: string | null): string | null {
+  if (!memories.length) return null;
+  const index = memories.findIndex(m => m.key === current);
+  return memories[index <= 0 ? memories.length - 1 : index - 1].key;
+}

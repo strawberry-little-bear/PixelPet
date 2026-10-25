@@ -68,7 +68,7 @@ it("does not speak a replacement session automatically, and keeps sleeping compa
   const { rerender } = render(<QuietMoment pet={saved} choice={2} replied memoryKey={selected} />);
   saved.companion!.recent!.id = "another-session";
   rerender(<QuietMoment pet={saved} choice={2} replied memoryKey={selected} />);
-  expect(copy()).toContain("你好呀"); expect(document.querySelector(".quiet-memory-source")).toBeNull();
+  expect(copy()).toContain("已不在当前读取的记录里"); expect(document.querySelector(".quiet-memory-source")).toBeNull();
   saved.sleeping = true;
   rerender(<QuietMoment pet={saved} choice={2} replied memoryKey={quietMemories(saved)[0].key} />);
   expect(copy()).toContain("甜甜地睡着"); expect(document.querySelector(".quiet-memory-source")).toBeNull();
@@ -89,8 +89,9 @@ it("selects recent games with three keys, clears replaced history on sync, and m
   await key("b"); expect(saved).toEqual(before);
   saved.companion!.recent = { kind: "walk", id: "another-real-session", at: at - 500 }; saved.revision++;
   await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
-  expect(copy()).toContain("你好呀"); expect(document.querySelector(".quiet-memory-source")).toBeNull();
+  expect(copy()).toContain("已不在当前读取的记录里"); expect(document.querySelector(".quiet-memory-source")).toBeNull();
   await key("b"); expect(document.querySelector(".quiet-memory-source")?.textContent).toContain("最近一次一起玩「公园散步」");
+  await key("c"); expect(document.querySelector(".quiet-moment")).not.toBeNull();
   await key("c"); expect(document.querySelector(".home-caption")).not.toBeNull();
   expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
 });

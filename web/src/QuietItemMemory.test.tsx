@@ -55,7 +55,7 @@ it("does not turn unrelated item fields or old saved-only memories into a named 
   expect(copy()).toContain("一起吃饭"); expect(copy()).not.toContain("嫩叶");
   saved.album!.entries[0] = { kind: "outfit", item: "leaf-pin", source: "saved", at: at - 1000 };
   rerender(<QuietMoment pet={saved} shop={shop} choice={2} replied memoryKey={memoryKey(saved)} />);
-  expect(copy()).toContain("你好呀"); expect(document.querySelector(".quiet-memory-source")).toBeNull();
+  expect(copy()).toContain("当前没有可聊起的回忆"); expect(document.querySelector(".quiet-memory-source")).toBeNull();
 });
 it("keeps bedtime company asleep without recalling clothing", () => {
   const saved = { ...pet(), sleeping: true };
@@ -81,6 +81,7 @@ it("updates the selected recollection from server catalog names without switchin
   shop.catalog = []; saved.revision++;
   await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
   expect(copy()).toContain("记得你挑小装扮时的心意");
+  await key("c"); expect(document.querySelector(".quiet-moment")).not.toBeNull();
   await key("c"); expect(document.querySelector(".home-caption")).not.toBeNull();
   expect(api.mock.calls.every(([path]) => path === "state" || path === "visit")).toBe(true);
 });

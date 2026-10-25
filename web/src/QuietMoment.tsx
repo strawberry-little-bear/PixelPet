@@ -86,8 +86,13 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
   const moment = quietMoments[choice] ?? quietMoments[0];
   const words = pet.sleeping ? sleepingMoments[choice] ?? sleepingMoments[0] : moment;
   const memories = !pet.sleeping && choice === 2 && replied ? quietMemories(pet, shop) : [];
+  const browsing = !pet.sleeping && choice === 2 && replied && memoryKey !== null;
   const memoryIndex = memories.findIndex(m => m.key === memoryKey);
   const memory = memories[memoryIndex];
+  const unavailableMemory = memories.length
+    ? "这段回忆已不在当前读取的记录里。按 A / B 换一段，或按 C 返回陪伴。"
+    : "当前没有可聊起的回忆。按 C 返回陪伴，以后一起遇见时再来。";
+  const reply = browsing && !memory ? unavailableMemory : memory?.reply ?? words.reply;
   const atmosphere = !pet.sleeping ? quietAtmosphere(pet.species, stage, form, now) : null;
   const interest = !pet.sleeping && choice === 1 && replied ? interestCue(pet.companion, petRigKind(pet.species, stage)) : null;
   const formLine = !pet.sleeping ? quietFormLine(stage, form, choice, replied) : null;
@@ -95,7 +100,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
     <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
-      <header><span>不用完成什么</span><small>{choice + 1} / {quietMoments.length}</small></header>
+      <header><span>{browsing ? "一起聊聊回忆" : "不用完成什么"}</span><small>{choice + 1} / {quietMoments.length}</small></header>
       <QuietReactionPet key={`${responseId}:${choice}:${replied}`} growth={growth} choice={choice} sleeping={pet.sleeping}>
         <div className={`growth-size ${petRigClass(pet.species, stage)}`}>
           <PetArt index={pet.species} stage={stage}
@@ -116,7 +121,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
         {memory?.discovery && <div className="quiet-discovery" aria-hidden="true">
           {memory.source === "fish" ? <FishArt id={memory.discovery} /> : <ParkArt id={memory.discovery} />}
         </div>}
-        <p>{replied ? memory?.reply ?? words.reply : words.idle}</p>
+        <p>{replied ? reply : words.idle}</p>
         {tendencyLine && <small className="quiet-growth-tendency" data-form={tendencyLine.form}><span>当前偏向 · {formNames[tendencyLine.form]}</span>{tendencyLine.text}（还会随着照顾继续变化）</small>}
         {formLine && <small className="quiet-form-line" data-form={form}><span>成长留下的样子</span>{formLine}</small>}
         {interest && <small className="quiet-interest" data-game={interest.kind}><span>一起玩久了</span>{interest.text}</small>}
@@ -126,6 +131,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
           })}</time>（本地时间）</>}
         </small>}
       </div>
+      {browsing && <small className="quiet-memory-navigation">A 上一段 · B 下一段 · C 返回陪伴选择</small>}
       <small className="quiet-moment-note">{pet.sleeping ? "它还在睡觉，陪伴不会叫醒它，也没有奖励或惩罚。" : "没有奖励或惩罚，只留下一小会儿陪伴。"}</small>
     </section>
   </CareReadingRegion>;
