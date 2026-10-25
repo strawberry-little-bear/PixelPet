@@ -56,7 +56,7 @@ func TestHTTPSleepAmountKeepsRawRecoveryAndCanonicalDiaryAcrossReload(t *testing
 	if math.Float64bits(summary.EnergyRecovered) != math.Float64bits(wantRaw) || summary.EnergyRecovered == .04 {
 		t.Fatalf("actual recovery changed or was rounded in storage: %.17g", summary.EnergyRecovered)
 	}
-	if !strings.Contains(wake.State.Logs[0].Text, "恢复体力 +0.04") {
+	if !strings.Contains(wake.State.Logs[0].Text, "体力恢复 +0.04") {
 		t.Fatal("diary did not retain canonical precision", wake.State.Logs[0])
 	}
 	if wake.CareFeedback.Points != 0 || wake.CareFeedback.HabitGain != 0 || wake.State.CareCount != 0 {

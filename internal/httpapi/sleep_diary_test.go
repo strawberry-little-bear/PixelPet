@@ -68,7 +68,7 @@ func TestHTTPWakeDiarySurvivesRestartBackupAndImportWithoutReplayingCare(t *test
 				if !strings.Contains(text, "没有完整记录") || strings.Contains(text, "+") {
 					t.Fatal("invented imported sleep", text)
 				}
-			} else if !strings.Contains(text, "实际结算 1.00 小时") || !strings.Contains(text, "恢复体力 +14.00") {
+			} else if !strings.Contains(text, "这一觉") || !strings.Contains(text, "体力恢复 +14.00") || !strings.Contains(text, "睡梦里的成长 +") {
 				t.Fatal(text)
 			}
 			now = now.Add(time.Hour)

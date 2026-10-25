@@ -34,19 +34,24 @@ func TestWakeDiaryRecordsTheSettledSleepAcrossStagesAndReloads(t *testing.T) {
 				}
 				f := sleepToggle(t, &s, now.Add(time.Hour))
 				text := s.Logs[0].Text
-				for _, want := range []string{"本段休息", "实际结算 1.00 小时", "恢复体力 +14.00", "休息习惯 +0.50", "含自然成长", "非起床奖励"} {
+				for _, want := range []string{"这一觉", "体力恢复 +14.00", "休息习惯 +0.50", "睡梦里的成长 +"} {
 					if !strings.Contains(text, want) {
 						t.Fatalf("missing %q in %q", want, text)
 					}
 				}
-				if !strings.Contains(text, fmt.Sprintf("期间成长 +%.2f 点", f.SleepSummary.GrowthPoints)) {
+				if !strings.Contains(text, fmt.Sprintf("睡梦里的成长 +%.2f 点", f.SleepSummary.GrowthPoints)) {
 					t.Fatal(text)
 				}
 				if len(s.Logs) != count+1 || s.Logs[0].At != now.Add(time.Hour).UnixMilli() {
 					t.Fatal("not exactly one wake entry")
 				}
-				if stage == "adult" && !strings.Contains(text, "期间成长 +0.00 点") {
+				if stage == "adult" && !strings.Contains(text, "睡梦里的成长 +0.00 点") {
 					t.Fatal("adult invented growth", text)
+				}
+				for _, internalTerm := range []string{"实际结算", "期间成长", "含自然成长", "非起床奖励"} {
+					if strings.Contains(text, internalTerm) {
+						t.Fatalf("diary exposed internal term %q: %s", internalTerm, text)
+					}
 				}
 				if utf8.RuneCountInString(text) > 200 {
 					t.Fatal("not portable", text)
@@ -65,9 +70,9 @@ func TestWakeDiaryDistinguishesZeroTinyAndUnavailableHistory(t *testing.T) {
 		s := sleepPet(t, now, 40)
 		sleepToggle(t, &s, now)
 		sleepToggle(t, &s, now.Add(elapsed))
-		want := "实际结算 0.00 小时，恢复体力 +0.00，休息习惯 +0.00，期间成长 +0.00 点"
+		want := "这一觉让体力恢复 +0.00，休息习惯 +0.00；睡梦里的成长 +0.00 点也记下来了。"
 		if elapsed > 0 {
-			want = "实际结算 <0.01 小时，恢复体力 +<0.01，休息习惯 +<0.01，期间成长 +<0.01 点"
+			want = "这一觉让体力恢复 +<0.01，休息习惯 +<0.01；睡梦里的成长 +<0.01 点也记下来了。"
 		}
 		if !strings.Contains(s.Logs[0].Text, want) {
 			t.Fatalf("want %s: %s", want, s.Logs[0].Text)
@@ -90,18 +95,14 @@ func TestWakeDiaryPreservesTheOfflineSettlementCap(t *testing.T) {
 			s.Advance(now.Add(12 * time.Hour))
 		}
 		sleepToggle(t, &s, now.Add(24*time.Hour))
-		want := "实际结算 12.00 小时"
-		if split {
-			want = "实际结算 24.00 小时"
-		}
 		text := s.Logs[0].Text
-		if !strings.Contains(text, want) || !strings.Contains(text, "恢复体力 +100.00") {
+		if !strings.Contains(text, "体力恢复 +100.00") {
 			t.Fatal(text)
 		}
-		if strings.Contains(text, "12.00 小时未计入") == split {
+		if strings.Contains(text, "另有 12.00 小时没有计入") == split {
 			t.Fatal("lost capped interval", text)
 		}
-		if strings.Contains(text, "不再补算") == split {
+		if strings.Contains(text, "之后不会重复补算") == split {
 			t.Fatal("missing cap explanation", text)
 		}
 		if utf8.RuneCountInString(text) > 200 {
@@ -144,7 +145,7 @@ func TestWakeDiaryKeepsTheExistingThirtyEntryLimit(t *testing.T) {
 	}
 	sleepToggle(t, &s, now)
 	sleepToggle(t, &s, now.Add(time.Hour))
-	if len(s.Logs) != 30 || !strings.Contains(s.Logs[0].Text, "本段休息") || s.Logs[1].Text != "晚安，小伙伴。睡着时体力会慢慢恢复。" || s.Logs[29].Text != "earlier 7" {
+	if len(s.Logs) != 30 || !strings.Contains(s.Logs[0].Text, "这一觉") || s.Logs[1].Text != "晚安，小伙伴。睡着时体力会慢慢恢复。" || s.Logs[29].Text != "earlier 7" {
 		t.Fatal("changed retention", s.Logs)
 	}
 	if err := s.Validate(now.Add(time.Hour)); err != nil {
@@ -156,7 +157,7 @@ func TestWakeDiaryKeepsTheExistingThirtyEntryLimit(t *testing.T) {
 func TestWakeDiaryRoundsHalfStepsWithoutSettlementPartitionDust(t *testing.T) {
 	for _, n := range []float64{14.325, math.Nextafter(14.325, 0), math.Nextafter(14.325, math.Inf(1))} {
 		text := sleepDiary(&SleepSession{GrowthPoints: n}, 0)
-		if !strings.Contains(text, "期间成长 +14.33 点") {
+		if !strings.Contains(text, "睡梦里的成长 +14.33 点") {
 			t.Fatalf("%.17g: %s", n, text)
 		}
 	}
@@ -169,7 +170,7 @@ func TestWakeDiaryRoundsHalfStepsWithoutSettlementPartitionDust(t *testing.T) {
 		{14.32499999, "14.32"}, {14.32500001, "14.33"},
 	} {
 		text := sleepDiary(&SleepSession{GrowthPoints: tc.n}, 0)
-		if !strings.Contains(text, "期间成长 +"+tc.want+" 点") {
+		if !strings.Contains(text, "睡梦里的成长 +"+tc.want+" 点") {
 			t.Fatalf("%.17g: %s", tc.n, text)
 		}
 	}
