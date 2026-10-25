@@ -250,7 +250,8 @@ describe("quiet waiting feedback without false bites", () => {
     expect(status.getAttribute("role")).toBe("status");
     expect(status.getAttribute("aria-live")).toBe("off");
     expect(status.getAttribute("aria-atomic")).toBe("true");
-    expect(document.querySelector('.fishing-bite')?.getAttribute("role")).toBe("status");
+    expect(document.querySelector('.fishing-bite-announcement')?.getAttribute("role")).toBe("status");
+    expect(document.querySelector('.fishing-bite')?.hasAttribute("role")).toBe(false);
   });
   it.each(['bite', 'result', 'done', 'ready'] as const)("does not mix waiting notes into %s", phase => {
     const pet = fixture(); Object.assign(pet.game!.fishing!, { phase, elapsedMs: 16000 });

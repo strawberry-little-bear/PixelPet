@@ -13,6 +13,7 @@ assert(binary && isAbsolute(binary), 'Set absolute PIXELPET_TEST_BINARY');
 assert(web && isAbsolute(web), 'Set absolute PIXELPET_TEST_WEB to an isolated build');
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
 const dir = await mkdtemp(join(tmpdir(), 'pixelpet-fishing-cue-')), results = [];
+const fixturesOnly = process.argv.includes('--fixtures-only');
 const port = await new Promise((resolve, reject) => {
   const socket = net.createServer(); socket.once('error', reject);
   socket.listen(0, '127.0.0.1', () => { const port = socket.address().port; socket.close(error => error ? reject(error) : resolve(port)); });
@@ -59,12 +60,38 @@ async function naturalBite(page, resumptions) {
   }
   throw Error('no natural bite before deadline');
 }
+// Observe actual DOM identity/mutations, not speech output. Human screen-reader
+// timing and comfort still require a separate real-device playtest.
+async function observeBiteAnnouncement(page) {
+  await page.evaluate(() => {
+    const node = document.querySelector('.fishing-bite-announcement');
+    if (!node) throw Error('bite live region was not established before casting');
+    window.__biteAnnouncement = { node, changes: [] };
+    new MutationObserver(() => window.__biteAnnouncement.changes.push(node.textContent))
+      .observe(node, { subtree: true, childList: true, characterData: true, attributes: true });
+  });
+}
+async function announcement(page, expected) {
+  const actual = await page.evaluate(() => {
+    const node = document.querySelector('.fishing-bite-announcement');
+    return { same: node === window.__biteAnnouncement.node, text: node?.textContent,
+      role: node?.getAttribute('role'), live: node?.getAttribute('aria-live'), atomic: node?.getAttribute('aria-atomic') };
+  });
+  assert.deepEqual(actual, { same: true, text: expected, role: 'status', live: 'polite', atomic: 'true' });
+}
 async function geometry(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input').count(), 0);
   assert.match(await page.locator('.fishing-bite').innerText(), /B 提竿/);
   assert.equal(await page.locator('#sound-description').count(), 1);
+  await announcement(page, '咬钩啦！按 B 提竿');
+  assert.equal(await page.locator('.fishing-bite[role=status]').count(), 0);
+  assert.equal(await page.locator('.fishing-status').getAttribute('aria-live'), 'off');
+  assert(await page.locator('.fishing-bite').evaluate(el => {
+    const box = el.getBoundingClientRect(), scene = el.closest('.pond-scene').getBoundingClientRect();
+    return box.left >= scene.left && box.right <= scene.right && box.top >= scene.top && box.bottom <= scene.bottom;
+  }), 'bite text clipped by scene');
 }
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -79,50 +106,70 @@ try {
   const now = Date.now();
   await api('import', { schema: 1, revision: 1, species: 2, name: '听听鱼漂', createdAt: now - 3600000, hatchedAt: now - 3600000, lastTick: now, sleeping: false, needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
   await api('action', { kind: 'play-fishing' });
-  const context = await browser.newContext({ viewport: { width: 1200, height: 800 }, hasTouch: true, reducedMotion: 'reduce' });
-  await context.addInitScript(observeAudio); const page = await context.newPage(), errors = [], resumptions = [];
-  page.on('pageerror', error => errors.push(error.message));
-  try {
-    await page.goto(base); await page.locator('.fishing-game').waitFor(); await key(page, 'B');
-    await naturalBite(page, resumptions); await geometry(page);
-    assert.equal(await page.evaluate(() => window.__biteAudio.contexts.length), 0);
-    await page.screenshot({ path: join(dir, 'natural-default-silent-bite.png'), fullPage: true });
-    await key(page, 'C'); await page.getByRole('button', { name: '打开声音', exact: true }).tap(); await key(page, 'C');
-    await wait(1200); assert.equal(await cueCount(page), 0, 'resuming an existing bite replayed it');
-    await key(page, 'B'); assert.equal((await api('state')).state.game.fishing.catches.length, 1);
-    results.push({ type: 'natural-default-silent-bite-visual-resume-no-replay' });
-    await page.setViewportSize({ width: 320, height: 700 }); await key(page, 'B'); await naturalBite(page, resumptions);
-    assert.equal(await cueCount(page), 1, 'new live bite did not make exactly one cue'); await geometry(page);
-    const notes = await page.evaluate(() => window.__biteAudio.notes.filter(n => n.frequency === 1040));
-    assert.equal(notes[0].starts.length, 1); assert(Math.abs(notes[0].stops[0].args[0] - notes[0].starts[0].now - .14) < .01);
-    await key(page, 'C'); await page.screenshot({ path: join(dir, 'natural-sounded-bite-paused-320.png'), fullPage: true });
-    await key(page, 'C'); await wait(1200); assert.equal(await cueCount(page), 1, 'same bite repeated after resume');
-    await key(page, 'B'); const state = (await api('state')).state;
-    assert.equal(state.game.fishing.catches.length, 2); assert.equal(state.careCount, 0); assert.equal(state.economy.coins, 0);
-    results.push({ type: 'natural-enabled-live-bite-once-pause-resume-catch', resumptions }); assert.deepEqual(errors, []);
-  } catch (error) { await page.screenshot({ path: join(dir, 'natural-failure.png'), fullPage: true }); console.error('Artifacts:', dir); throw error; }
-  finally { await context.close(); }
+  if (!fixturesOnly) {
+    const context = await browser.newContext({ viewport: { width: 1200, height: 800 }, hasTouch: true, reducedMotion: 'reduce' });
+    await context.addInitScript(observeAudio); const page = await context.newPage(), errors = [], resumptions = [];
+    page.on('pageerror', error => errors.push(error.message));
+    try {
+      await page.goto(base); await page.locator('.fishing-game').waitFor();
+      await observeBiteAnnouncement(page); await announcement(page, ''); await key(page, 'B'); await announcement(page, '');
+      await naturalBite(page, resumptions); await geometry(page);
+      assert.equal(await page.evaluate(() => window.__biteAudio.contexts.length), 0);
+      const changes = await page.evaluate(() => window.__biteAnnouncement.changes.length);
+      const countdown = await page.locator('.fishing-status').innerText();
+      await wait(1200);
+      assert.notEqual(await page.locator('.fishing-status').innerText(), countdown, 'visual countdown did not update');
+      assert.equal(await page.evaluate(() => window.__biteAnnouncement.changes.length), changes, 'countdown mutated the bite live region');
+      await page.screenshot({ path: join(dir, 'natural-default-silent-bite.png'), fullPage: true });
+      await key(page, 'C'); await announcement(page, '');
+      await page.getByRole('button', { name: '打开声音', exact: true }).tap(); await key(page, 'C');
+      await announcement(page, '咬钩啦！按 B 提竿');
+      await wait(1200); assert.equal(await cueCount(page), 0, 'resuming an existing bite replayed it');
+      await key(page, 'B'); await announcement(page, ''); assert.equal((await api('state')).state.game.fishing.catches.length, 1);
+      results.push({ type: 'natural-default-silent-bite-visual-resume-no-replay' });
+      await page.setViewportSize({ width: 320, height: 700 });
+      await page.evaluate(() => { document.documentElement.style.fontSize = '28px'; });
+      await key(page, 'B'); await announcement(page, ''); await naturalBite(page, resumptions);
+      assert.equal(await cueCount(page), 1, 'new live bite did not make exactly one cue'); await geometry(page);
+      const notes = await page.evaluate(() => window.__biteAudio.notes.filter(n => n.frequency === 1040));
+      assert.equal(notes[0].starts.length, 1); assert(Math.abs(notes[0].stops[0].args[0] - notes[0].starts[0].now - .14) < .01);
+      await key(page, 'C'); await page.screenshot({ path: join(dir, 'natural-sounded-bite-paused-320.png'), fullPage: true });
+      await key(page, 'C'); await wait(1200); assert.equal(await cueCount(page), 1, 'same bite repeated after resume');
+      await key(page, 'B'); const state = (await api('state')).state;
+      assert.equal(state.game.fishing.catches.length, 2); assert.equal(state.careCount, 0); assert.equal(state.economy.coins, 0);
+      results.push({ type: 'natural-enabled-live-bite-once-pause-resume-catch', resumptions }); assert.deepEqual(errors, []);
+    } catch (error) { await page.screenshot({ path: join(dir, 'natural-failure.png'), fullPage: true }); console.error('Artifacts:', dir); throw error; }
+    finally { await context.close(); }
+  }
 
   // Isolated response fixtures test timing and interruption boundaries without
   // pretending to be natural fish catches. No fixture action reaches the DB.
   const template = await api('state');
-  for (const mode of ['live', 'saved-bite', 'late', 'help', 'blur', 'mute', 'suspended', 'closed', 'server-paused']) {
-    const context = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: true, reducedMotion: 'reduce' });
+  const cases = ['live', 'saved-bite', 'late', 'help', 'blur', 'mute', 'suspended', 'closed', 'server-paused']
+    .map(mode => ({ mode, width: 320, font: 28 }));
+  cases.push({ mode: 'live', width: 1200, font: 14 }, { mode: 'live', width: 320, font: 14 });
+  for (const { mode, width, font } of cases) {
+    const tag = `${mode}-${width}-${font}`;
+    const context = await browser.newContext({ viewport: { width, height: 700 }, hasTouch: true, reducedMotion: 'reduce' });
+    await context.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.fontSize = `${font}px`;
+    }), font);
     await context.addInitScript(observeAudio); await context.addInitScript(() => localStorage.setItem('pixelpet-sound', 'on'));
     const page = await context.newPage(), fixture = structuredClone(template), errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    Object.assign(fixture.state.game.fishing, { casts: 1, catches: [], phase: mode === 'saved-bite' ? 'bite' : 'wait', step: 1, elapsedMs: 32000, waitMs: 32000, paused: true });
+    Object.assign(fixture.state.game.fishing, { casts: 1, catches: [], phase: mode === 'saved-bite' ? 'bite' : 'wait', step: 1, elapsedMs: mode === 'saved-bite' ? 0 : 31000, waitMs: 32000, candidate: 'reed-minnow', outcome: undefined, lastFish: undefined, paused: true });
     let started = false, release;
     const held = new Promise(resolve => { release = resolve; });
     await page.route('**/api/**', async route => {
       const request = route.request(), path = new URL(request.url()).pathname;
       if (path === '/api/action') {
-        const action = request.postDataJSON(); assert(['fish-resume', 'fish-step'].includes(action.kind), 'unexpected fixture action');
+        const action = request.postDataJSON(); assert(['fish-resume', 'fish-step', 'fish-pause'].includes(action.kind), 'unexpected fixture action');
         const n = fixture.state.game.fishing; fixture.state.revision++; n.step++;
         if (action.kind === 'fish-resume') n.paused = false;
+        else if (action.kind === 'fish-pause') n.paused = true;
         else if (!started) {
-          started = true; await held; n.phase = 'bite'; n.paused = mode === 'server-paused';
-        }
+          started = true; await held; n.phase = 'bite'; n.elapsedMs = 0; n.paused = mode === 'server-paused';
+        } else n.elapsedMs = Math.min(9000, n.elapsedMs + 1000);
         n.lastPulseAt = Date.now();
       } else assert(['/api/state', '/api/visit'].includes(path), 'unexpected fixture endpoint');
       fixture.serverTime = Date.now();
@@ -130,9 +177,11 @@ try {
     });
     try {
       await page.goto(base); await page.locator('.fishing-pause').waitFor(); assert.equal(await cueCount(page), 0);
+      await observeBiteAnnouncement(page); await announcement(page, '');
       await key(page, 'C');
+      await announcement(page, mode === 'saved-bite' ? '咬钩啦！按 B 提竿' : '');
       if (mode === 'suspended' || mode === 'closed') await page.evaluate(async mode => { await window.__biteAudio.contexts[0][mode === 'closed' ? 'close' : 'suspend'](); }, mode);
-      const deadline = Date.now() + 5000; while (!started && Date.now() < deadline) await wait(20); assert(started, 'no pulse request');
+      const deadline = performance.now() + 5000; while (!started && performance.now() < deadline) await wait(20); assert(started, 'no pulse request');
       if (mode === 'late') await wait(1650);
       if (mode === 'help') await page.getByRole('button', { name: '玩法说明', exact: true }).tap();
       if (mode === 'blur') await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.dispatchEvent(new Event('focus')); });
@@ -141,12 +190,27 @@ try {
       release(); await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
       await wait(1200); assert.equal(await cueCount(page), mode === 'live' ? 1 : 0, mode);
       assert.equal(await page.evaluate(() => window.__biteAudio.resumes), resumes, 'automatic cue requested audio permission');
-      assert.deepEqual(errors, []); results.push({ type: 'intercepted-response-boundary', mode });
-    } catch (error) { await page.screenshot({ path: join(dir, 'fixture-failure-' + mode + '.png'), fullPage: true }); console.error('Artifacts:', dir); throw error; }
+      const visibleBite = !['help', 'blur', 'server-paused'].includes(mode);
+      await announcement(page, visibleBite ? '咬钩啦！按 B 提竿' : '');
+      if (visibleBite) {
+        await geometry(page);
+        await page.screenshot({ path: join(dir, `fixture-${tag}.png`), fullPage: true });
+      }
+      if (mode === 'live') {
+        const changes = await page.evaluate(() => window.__biteAnnouncement.changes.length);
+        const countdown = await page.locator('.fishing-status').innerText();
+        await page.waitForFunction(text => document.querySelector('.fishing-status')?.textContent !== text, countdown);
+        assert.equal(await page.evaluate(() => window.__biteAnnouncement.changes.length), changes, 'countdown rewrote bite region');
+        await key(page, 'C'); await announcement(page, '');
+        await key(page, 'C'); await announcement(page, '咬钩啦！按 B 提竿');
+        assert.equal(await cueCount(page), 1, 'manual resume replayed sound');
+      }
+      assert.deepEqual(errors, []); results.push({ type: 'intercepted-response-boundary', mode, width, font });
+    } catch (error) { await page.screenshot({ path: join(dir, 'fixture-failure-' + tag + '.png'), fullPage: true }); console.error('Artifacts:', dir); throw error; }
     finally { release(); await context.close(); }
   }
   await writeFile(join(dir, 'results.json'), JSON.stringify(results, null, 2));
-  console.log(JSON.stringify({ groups: results.length, artifacts: dir, port }));
+  console.log(JSON.stringify({ groups: results.length, fixturesOnly, artifacts: dir, port }));
 } finally {
   if (browser) await browser.close();
   if (server && server.exitCode === null && server.signalCode === null) { const closed = new Promise(resolve => server.once('exit', resolve)); server.kill('SIGTERM'); await closed; }

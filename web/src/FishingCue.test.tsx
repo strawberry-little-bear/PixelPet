@@ -76,6 +76,7 @@ it('polling a new bite cannot announce or automatically resume it',async()=>{
 it.each(['help','tools','hide','blur','mute'])('a late bite after %s is silent',async reason=>{
   await mount();await cast();const pending=pulse();await clock(1100);const response=makeBite();
   await act(async()=>{await interrupt(reason);});await pending.deliver(response);expect(cues()).toHaveLength(0);
+  if(reason!=='mute') expect(document.querySelector('.fishing-bite-announcement')?.textContent ?? '').toBe('');
 });
 it.each(['help','tools','hide','blur','mute','pause','reel'])('interrupting with %s cancels a currently playing bite',async reason=>{
   await mount();await cast();await clock(1100);const cue=cues()[0];expect(cue).toBeTruthy();
