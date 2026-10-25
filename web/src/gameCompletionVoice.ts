@@ -1,4 +1,4 @@
-import { tendency } from "./growth";
+import { hasGrowthEvidence, tendency } from "./growth";
 import type { AdultForm, GameExperience, Growth, GrowthStage } from "./types";
 
 export type GameCompletionVoice = {
@@ -35,10 +35,7 @@ export function gameCompletionVoice(growth: Growth | undefined, game: GameExperi
     if (!validForm(growth.form)) return null;
     form = growth.form;
   } else if (stage === "growing") {
-    const care = growth.care;
-    const evidence = [growth.trackedHours, care?.nutrition, care?.play, care?.clean, care?.rest]
-      .some(value => typeof value === "number" && Number.isFinite(value) && value > 0);
-    if (evidence) {
+    if (hasGrowthEvidence(growth)) {
       // A provisional tendency must not be replaced by a stale adult-form field.
       form = tendency({ ...growth, form: "" });
     }

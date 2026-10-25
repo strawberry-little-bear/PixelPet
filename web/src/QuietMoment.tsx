@@ -8,7 +8,7 @@ import { quietMemories } from "./quiet-memory";
 import { interestCue } from "./companion";
 import { PetArt, petRigClass, petRigKind } from "./PetArt";
 import { GrowthOutfit, FormEmblem } from "./GrowthOutfit";
-import { stageNames, formNames, tendency } from "./growth";
+import { stageNames, formNames, hasGrowthEvidence, tendency } from "./growth";
 import type { AdultForm, Growth, GrowthStage, PetState, Shop } from "./types";
 import { quietAtmosphere } from "./quiet-atmosphere";
 import "./growth.css";
@@ -39,7 +39,7 @@ export function quietFormLine(stage: GrowthStage, form: AdultForm | "", choice: 
 }
 
 export function growingTendencyLine(growth: Growth | undefined, choice: number, replied: boolean) {
-  if (!growth || growth.stage !== "growing" || choice !== 1 || !replied) return null;
+  if (!growth || growth.stage !== "growing" || choice !== 1 || !replied || !hasGrowthEvidence(growth)) return null;
   const form = tendency(growth);
   return { form, text: growingTendencyQuietLines[form] };
 }
@@ -54,10 +54,7 @@ function quietReaction(growth: Growth | undefined, choice: number): QuietReactio
       ? growth.form : "breathe";
   }
   if (growth.stage !== "growing") return "breathe";
-  const care = growth.care;
-  const hasCare = [growth.trackedHours, care?.nutrition, care?.play, care?.clean, care?.rest]
-    .some(value => typeof value === "number" && Number.isFinite(value) && value > 0);
-  if (!hasCare) return "breathe";
+  if (!hasGrowthEvidence(growth)) return "breathe";
   const form = tendency(growth);
   return form === "balanced" ? "breathe" : form;
 }

@@ -1,5 +1,5 @@
 import { games } from "./games";
-import { formNames, tendency } from "./growth";
+import { formNames, hasGrowthEvidence, tendency } from "./growth";
 import type { AdultForm, Growth } from "./types";
 
 export type GamePreference = {
@@ -27,12 +27,6 @@ function validForm(value: unknown): value is AdultForm {
   return value === "balanced" || value === "lively" || value === "gentle" || value === "easygoing";
 }
 
-function hasGrowingEvidence(growth: Growth) {
-  const care = growth.care;
-  return [growth.trackedHours, care?.nutrition, care?.play, care?.clean, care?.rest]
-    .some(value => typeof value === "number" && Number.isFinite(value) && value > 0);
-}
-
 /**
  * A read-only suggestion for the game directory. It reflects saved growth
  * habits, but never changes selection, rewards, growth or the game rules.
@@ -44,7 +38,7 @@ export function gamePreference(growth?: Growth): GamePreference | null {
   if (growth.stage === "adult" && validForm(growth.form)) {
     form = growth.form;
     basis = "adult";
-  } else if (growth.stage === "growing" && hasGrowingEvidence(growth)) {
+  } else if (growth.stage === "growing" && hasGrowthEvidence(growth)) {
     form = tendency(growth);
     basis = "growing";
   } else {

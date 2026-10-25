@@ -51,6 +51,14 @@ export function petGrowth(pet: PetState | null, now: number): Growth {
   }
   return g;
 }
+// A saved stage, point total or care timestamp alone cannot establish a habit.
+// Keep present-tense companionship neutral until recorded care or effective time
+// exists; this does not select or overwrite an adult form.
+export function hasGrowthEvidence(growth: Growth): boolean {
+  const care = growth.care;
+  return [growth.trackedHours, care?.nutrition, care?.play, care?.clean, care?.rest]
+    .some(value => typeof value === "number" && Number.isFinite(value) && value > 0);
+}
 // The same unrounded predicates drive the provisional form and its explanation.
 // Keep the existing server tolerances and priority; the handbook never decides
 // or overwrites a saved adult form.

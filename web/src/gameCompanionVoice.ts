@@ -1,4 +1,4 @@
-import { tendency } from "./growth";
+import { hasGrowthEvidence, tendency } from "./growth";
 import type { AdultForm, GameExperience, Growth } from "./types";
 
 export type GameCompanionVoice = {
@@ -49,12 +49,6 @@ function validForm(value: unknown): value is AdultForm {
   return value === "balanced" || value === "lively" || value === "gentle" || value === "easygoing";
 }
 
-function hasGrowingEvidence(growth: Growth) {
-  const care = growth.care;
-  return [growth.trackedHours, care?.nutrition, care?.play, care?.clean, care?.rest]
-    .some(value => typeof value === "number" && Number.isFinite(value) && value > 0);
-}
-
 /**
  * A read-only line for a game companion. It follows the same saved/provisional
  * tendency rules as the game directory and never changes game state.
@@ -63,7 +57,7 @@ export function gameCompanionVoice(growth: Growth | undefined, game: GameExperie
   if (!growth) return null;
   const form = growth.stage === "adult" && validForm(growth.form)
     ? growth.form
-    : growth.stage === "growing" && hasGrowingEvidence(growth)
+    : growth.stage === "growing" && hasGrowthEvidence(growth)
       ? tendency(growth)
       : null;
   return form ? { form, text: formLines[form][game] } : null;

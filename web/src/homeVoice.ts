@@ -1,4 +1,4 @@
-import { tendency } from "./growth.ts";
+import { hasGrowthEvidence, tendency } from "./growth.ts";
 import type { AdultForm, Growth, GrowthStage } from "./types";
 
 // Present-tense companionship, not a claimed memory, event or care reward.
@@ -130,12 +130,6 @@ const growingTendencySuffix: Record<AdultForm, Voice> = {
   easygoing: { content: "，按自己的节奏来", quiet: "，不赶时间就好" },
 };
 
-function hasGrowingEvidence(growth: Growth) {
-  const care = growth.care;
-  return [growth.trackedHours, care?.nutrition, care?.play, care?.clean, care?.rest]
-    .some(value => typeof value === "number" && Number.isFinite(value) && value > 0);
-}
-
 export function homeVoice(species: number, stage: GrowthStage | undefined, kind: string, form?: AdultForm | ""): string | null {
   if (!Number.isInteger(species) || species < 0 || !["baby", "growing", "adult"].includes(stage ?? "") ||
       (kind !== "content" && kind !== "quiet")) return null;
@@ -151,6 +145,6 @@ export function homeVoice(species: number, stage: GrowthStage | undefined, kind:
 // this avoids turning elapsed time alone into a personality claim.
 export function growingHomeVoice(species: number, growth: Growth | undefined, kind: string): string | null {
   const base = homeVoice(species, growth?.stage, kind, growth?.stage === "adult" ? growth.form : undefined);
-  if (!base || growth?.stage !== "growing" || !hasGrowingEvidence(growth)) return base;
+  if (!base || growth?.stage !== "growing" || !hasGrowthEvidence(growth)) return base;
   return `${base}${growingTendencySuffix[tendency(growth)][kind as keyof Voice]}`;
 }

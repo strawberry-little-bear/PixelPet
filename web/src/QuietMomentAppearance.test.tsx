@@ -76,6 +76,7 @@ it.each([
   ["easygoing", "easygoing", "它正在按自己的节奏慢慢长大。"],
 ] as const)("shows the current growing tendency as provisional feedback: %s", (form, signal, words) => {
   const saved = pet(); saved.growth = emptyGrowth("growing");
+  if (form === "balanced") saved.growth.care.nutrition = 1;
   if (signal === "play") saved.growth.care.play = 2;
   if (signal === "calm") saved.growth.care.clean = saved.growth.care.rest = 2;
   if (signal === "easygoing") { saved.growth.trackedHours = 12; saved.growth.wellbeing = 1; }
@@ -86,6 +87,42 @@ it.each([
   expect(line?.textContent).toContain(words);
   expect(line?.textContent).toContain("还会随着照顾继续变化");
   expect(saved).toEqual(before);
+});
+
+it.each(["empty", "stage progress", "care timestamps"] as const)(
+  "keeps growing daydream feedback neutral without saved evidence: %s", scenario => {
+    const saved = pet(); saved.growth = emptyGrowth("growing");
+    if (scenario === "stage progress") { saved.growth.points = 32; saved.growth.growingAt = 1500; }
+    if (scenario === "care timestamps") {
+      saved.growth.care.lastFeed = saved.growth.care.lastPlay = saved.growth.care.lastClean = 1500;
+    }
+    const before = structuredClone(saved);
+    const { container } = render(<QuietMoment pet={saved} choice={1} replied />);
+    expect(container.querySelector(".quiet-growth-tendency")).toBeNull();
+    expect(container.querySelector(".quiet-moment-copy > p")?.textContent).toBe("它轻轻呼了一口气，和你一起发呆。");
+    expect(container.querySelector(".quiet-moment-pet")?.getAttribute("data-reaction")).toBe("breathe");
+    expect(saved).toEqual(before);
+  },
+);
+
+it("reveals newly saved growing evidence without replaying the current response or moving reading focus", () => {
+  const saved = pet(); saved.growth = emptyGrowth("growing");
+  const { container, rerender } = render(<QuietMoment pet={saved} choice={1} replied responseId={1} />);
+  const reading = screen.getByRole("region", { name: "无目的互动阅读区" });
+  reading.focus();
+  const reaction = container.querySelector(".quiet-moment-pet");
+  expect(container.querySelector(".quiet-growth-tendency")).toBeNull();
+  const updated = structuredClone(saved); updated.revision++; updated.growth!.care.play = 2;
+  rerender(<QuietMoment pet={updated} choice={1} replied responseId={1} />);
+  expect(container.querySelector('.quiet-growth-tendency[data-form="lively"]')?.textContent).toContain("陪玩的痕迹更明显一些");
+  expect(container.querySelector(".quiet-moment-pet")).toBe(reaction);
+  expect(reaction?.getAttribute("data-reaction")).toBe("breathe");
+  expect(document.activeElement).toBe(reading);
+  rerender(<QuietMoment pet={updated} choice={1} replied responseId={2} />);
+  expect(container.querySelector(".quiet-moment-pet")?.getAttribute("data-reaction")).toBe("lively");
+  rerender(<QuietMoment pet={{ ...updated, sleeping: true }} choice={1} replied={false} responseId={2} />);
+  expect(container.querySelector(".quiet-growth-tendency")).toBeNull();
+  expect(container.querySelector(".expression-asleep")).not.toBeNull();
 });
 
 it("keeps the provisional tendency read-only and limited to a completed growing quiet moment", () => {

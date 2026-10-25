@@ -419,7 +419,7 @@ try {
     })),
   ]) for (const mode of [
     { width: 1200, height: 700, font: 14, reduced: false },
-    ...(fixture.label === 'baby' || fixture.label === 'adult-easygoing' ? [
+    ...(fixture.label === 'baby' || fixture.label === 'growing-empty' || fixture.label === 'adult-easygoing' ? [
       { width: 320, height: 380, font: 28, reduced: false },
       { width: 320, height: 380, font: 28, reduced: true },
     ] : []),
@@ -446,6 +446,19 @@ try {
     await page.addInitScript(font => document.addEventListener('DOMContentLoaded', () => {
       document.documentElement.style.fontSize = `${font}px`;
     }), mode.font);
+    // Keep an explicitly empty legacy-style accepted snapshot on this page.
+    // Real reads accrue tiny effective time immediately, so the response-only
+    // projection is required to exercise the no-evidence presentation boundary.
+    // It never changes the temporary database or any care/action response.
+    let emptyEvidenceReply = fixture.label === 'growing-empty';
+    if (emptyEvidenceReply) await page.route(/\/api\/(state|visit)$/, async route => {
+      const response = await route.fetch();
+      if (!emptyEvidenceReply || !response.ok()) return route.fulfill({ response });
+      const reply = await response.json(), g = reply.state.growth;
+      g.trackedHours = 0; g.wellbeing = 0;
+      for (const field of ['nutrition', 'play', 'clean', 'rest']) g.care[field] = 0;
+      await route.fulfill({ response, json: reply });
+    });
     const art = page.locator('.quiet-moment-pet');
     const sync = async () => {
       const read = page.waitForResponse(r => /\/api\/(state|visit)$/.test(new URL(r.url()).pathname));
@@ -460,6 +473,8 @@ try {
       assert.equal(await art.evaluate(el => el.getAnimations().length), 0, 'Selecting an option is not a reply');
       await physical(page, 'b');
       assert.equal(await art.getAttribute('data-reaction'), fixture.reaction);
+      if (emptyEvidenceReply) assert.equal(await page.locator('.quiet-growth-tendency').count(), 0,
+        'A growing stage alone cannot create a balanced-habit claim');
       if (mode.reduced) {
         assert.equal(await art.evaluate(el => el.getAnimations().length), 0, 'Reduced motion keeps all reactions still');
         await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
@@ -488,6 +503,26 @@ try {
         assert(await art.evaluate(el => el !== window.__growthReplyNode && el.getAnimations()[0] !== window.__growthReplyMotion
           && el.getAnimations()[0].playState === 'running'), 'A fresh B starts a new one-shot reply');
       }
+      if (emptyEvidenceReply) {
+        const reading = page.getByRole('region', { name: '无目的互动阅读区' });
+        await reading.focus();
+        await art.evaluate(el => { window.__evidenceReplyNode = el; });
+        await sync();
+        assert.equal(await page.locator('.quiet-growth-tendency').count(), 0,
+          'Repeated empty reads must stay neutral');
+        await page.screenshot({ path: join(dir, `${label}-empty-evidence.png`), fullPage: true });
+        // Stop projecting the response; the real service has now recorded
+        // positive effective time. This is not natural multi-day growth.
+        emptyEvidenceReply = false; await sync();
+        await page.locator('.quiet-growth-tendency[data-form="balanced"]').waitFor();
+        assert(await art.evaluate(el => el === window.__evidenceReplyNode),
+          'New evidence updates the text without replaying the previous response');
+        assert(await reading.evaluate(el => document.activeElement === el),
+          'Ordinary evidence sync must preserve the reading focus');
+        await page.keyboard.press('b'); await responseVisible(page);
+        assert(await art.evaluate(el => el !== window.__evidenceReplyNode), 'Explicit B creates the next response');
+        await page.screenshot({ path: join(dir, `${label}-recorded-evidence.png`), fullPage: true });
+      }
       await readable(page);
       const after = (await api('state')).state;
       assert.deepEqual(after.growth.care, before.growth.care);
@@ -501,7 +536,7 @@ try {
       await page.reload(); await page.locator('.home-caption').waitFor(); await open(page);
       assert.equal(await art.evaluate(el => el.getAnimations().length), 0, 'Reload must not replay a previous B');
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
-      results.push({ label, fixtureAgeCare: true, reaction: fixture.reaction, samples, sleeping: true, writes, errors });
+      results.push({ label, fixtureAgeCare: true, emptyEvidenceResponseFixture: fixture.label === 'growing-empty', reaction: fixture.reaction, samples, sleeping: true, writes, errors });
       console.log('PASS', label);
     } finally { await context.close(); }
   }
