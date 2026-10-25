@@ -43,6 +43,26 @@ describe("shared life summary", () => {
     expect(lifeSummary(pet(), created - 5 * day).daysTogether).toBe(1);
   });
 
+  it("keeps the status page readable when optional history collections are malformed", () => {
+    const broken = { ...pet(),
+      album: { since: created, legacy: false, entries: [
+        null,
+        { kind: "walk", at: created + day, source: "shared" },
+        { at: created + 2 * day },
+      ] },
+      pond: { since: created, fish: [null, { id: "reed-minnow", count: 2 }] },
+      park: { since: created, finds: [null, { id: "leaf", count: 1 }], walks: -4, lastWalkAt: created },
+    } as unknown as PetState;
+    expect(() => render(<LifeSummary pet={broken} now={created + 3 * day} />)).not.toThrow();
+    const summary = lifeSummary(broken, created + 3 * day);
+    expect(summary.memoryCount).toBe(1);
+    expect(summary.gameMemories).toBe(1);
+    expect(summary.discoveries).toBe(2);
+    expect(summary.fishCaught).toBe(2);
+    expect(summary.completedWalks).toBe(0);
+    expect(summary.recentMemory?.title).toBe("公园里走过的第一条小路");
+  });
+
   it.each([0.5, day - 0.5, day + 0.5, 9 * day + 0.5])(
     "counts from hatching even when the egg waited a week (%s ms)", elapsed => {
       const current = { ...pet(), hatchedAt: created + 7 * day };

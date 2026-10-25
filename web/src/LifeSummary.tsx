@@ -1,7 +1,7 @@
 import { companionCompletionTotal, interestLimit, interestSummary, validInterestEntries } from "./companion";
 import { games } from "./games";
 import { completionLabel, savedGameHistory } from "./game-history";
-import { albumMemories, memoryWords } from "./AlbumPanel";
+import { memoryWords } from "./AlbumPanel";
 import type { Memory, PetState } from "./types";
 import "./life-summary.css";
 
@@ -39,11 +39,37 @@ function formatComfort(value: number | null) {
     : `${percent.toFixed(1)}%`;
 }
 
-function recentMemory(pet: PetState) {
-  const memory = albumMemories(pet).filter(entry => validTimestamp(entry.at)).at(-1);
+function savedMemories(pet: PetState): Memory[] {
+  const entries = pet.album?.entries;
+  if (!Array.isArray(entries)) return [];
+  // Imported and very old saves can contain a malformed optional entry. Keep
+  // the read-only status page usable and let the API validator handle writes.
+  return entries.filter(entry => !!entry && typeof entry === "object" && typeof entry.kind === "string");
+}
+
+function recentMemory(memories: Memory[], legacy: boolean) {
+  const memory = memories
+    .filter(entry => validTimestamp(entry.at))
+    .slice()
+    .sort((a, b) => a.at - b.at || a.kind.localeCompare(b.kind) || (a.item ?? "").localeCompare(b.item ?? ""))
+    .at(-1);
   if (!memory) return null;
-  const words = memoryWords(memory, pet.album?.legacy ?? false);
+  const words = memoryWords(memory, legacy);
   return words ? { at: memory.at, title: words.title, story: words.story } : null;
+}
+
+function savedFish(pet: PetState) {
+  const fish = pet.pond?.fish;
+  return Array.isArray(fish)
+    ? fish.filter(entry => !!entry && typeof entry === "object")
+    : [];
+}
+
+function savedParkFinds(pet: PetState) {
+  const finds = pet.park?.finds;
+  return Array.isArray(finds)
+    ? finds.filter(entry => !!entry && typeof entry === "object")
+    : [];
 }
 
 export function lifeSummary(pet: PetState, now: number) {
@@ -52,15 +78,17 @@ export function lifeSummary(pet: PetState, now: number) {
   const daysTogether = validTimestamp(pet.hatchedAt) && validMoment(now)
     ? Math.max(1, Math.floor((now - pet.hatchedAt) / 86400000) + 1)
     : null;
-  const memories = pet.album?.entries ?? [];
+  const memories = savedMemories(pet);
+  const fish = savedFish(pet);
+  const parkFinds = savedParkFinds(pet);
   const gameMemories = new Set(memories.flatMap(entry => entry.kind === "perfect-stars"
     ? ["stars"]
     : gameMemoryKinds.has(entry.kind) ? [entry.kind] : [])).size;
-  const discoveries = (pet.pond?.fish?.length ?? 0) + (pet.park?.finds?.length ?? 0);
+  const discoveries = fish.length + parkFinds.length;
   const completedWalks = Number.isSafeInteger(pet.park?.walks) ? Math.max(0, pet.park?.walks ?? 0) : 0;
-  const fishCaught = (pet.pond?.fish ?? []).reduce((total, fish) =>
-    total + (Number.isSafeInteger(fish.count) ? Math.max(0, fish.count) : 0), 0);
-  const lastMemory = recentMemory(pet);
+  const fishCaught = fish.reduce((total, entry) =>
+    total + (Number.isSafeInteger(entry.count) ? Math.max(0, entry.count) : 0), 0);
+  const lastMemory = recentMemory(memories, pet.album?.legacy ?? false);
   const comfort = currentComfort(pet);
   const interests = validInterestEntries(pet.companion);
   const history = savedGameHistory(pet);
@@ -145,7 +173,7 @@ export function lifeSummary(pet: PetState, now: number) {
     completedWalks,
     walkSteps: completedWalks * walkLength,
     fishCaught,
-    fishSpecies: pet.pond?.fish?.length ?? 0,
+    fishSpecies: fish.length,
     gameStats,
     gameHistorySince: history?.since ?? null,
     interest: pet.companion ? interestSummary(pet.companion) : "还没有保存的共同游戏经历，玩喜欢的就好。",
