@@ -42,7 +42,7 @@ describe("sleep guidance through the existing three-key flow", () => {
     const growth = structuredClone(saved.growth);
     await mount(); await menu(4);
     expect(advice()).toContain("体力已满；醒来后优先洗澡"); expect(writes()).toHaveLength(0);
-    await key("a"); await key("a"); expect(advice()).toContain("先从菜单选「起床啦」");
+    await key("a"); await key("a"); await key("a"); expect(advice()).toContain("先从菜单选「起床啦」");
     await key("c"); await menu(3); await key("c");
     expect(saved.sleeping).toBe(false); expect(saved.careCount).toBe(0);
     await menu(4); expect(advice()).toContain("现在适合洗澡");

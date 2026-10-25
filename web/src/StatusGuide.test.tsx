@@ -74,26 +74,29 @@ beforeEach(() => {
   api.mockImplementation(async () => result());
 });
 describe("status guide three-key navigation and accepted snapshots", () => {
-  it.each(["b", "c"])("A cycles two pages; %s returns; reopening resets", async exit => {
-    await mount(); await openStatus(); expect(statusPageCount).toBe(2);
-    expect(document.querySelector(".status-page-number")?.textContent).toBe("1 / 2");
+  it.each(["b", "c"])("A cycles three pages; %s returns; reopening resets", async exit => {
+    await mount(); await openStatus(); expect(statusPageCount).toBe(3);
+    expect(document.querySelector(".status-page-number")?.textContent).toBe("1 / 3");
     expect(guide()).toBeNull(); await key("a"); expect(guide()).toBeTruthy();
-    expect(document.querySelector(".status-page-number")?.textContent).toBe("2 / 2");
-    expect(document.querySelector(".lcd-top")?.textContent).toContain("MY STATUS");
+    expect(document.querySelector(".status-page-number")?.textContent).toBe("2 / 3");
+    expect(document.querySelector(".life-summary")).not.toBeNull();
     expect(document.querySelector(".lcd-bottom")?.textContent).toContain("A 换页");
+    await key("a"); expect(guide()).toBeTruthy();
+    expect(document.querySelector(".status-page-number")?.textContent).toBe("3 / 3");
+    expect(document.querySelector(".status-time-detail")).not.toBeNull();
     await key("a"); expect(guide()).toBeNull(); await key("a"); await key(exit);
     expect(document.querySelector(".content-home")).toBeTruthy(); await openStatus(); expect(guide()).toBeNull();
     expect(writes()).toHaveLength(0); expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
   });
   it.each([undefined, { ...rules, maxOfflineHours: 0 }, { ...rules, awake: {} }])("clears previously known rates on accepted missing/invalid metadata %#", async invalid => {
-    await mount(); await openStatus(); await key("a"); expect(guide()?.textContent).toContain("−2.5 / 小时");
+    await mount(); await openStatus(); await key("a"); await key("a"); expect(guide()?.textContent).toContain("−2.5 / 小时");
     metadata = invalid; saved.revision++; await poll();
     expect(guide()?.textContent).toContain("详细速率尚未读到"); expect(guide()?.textContent).not.toContain("−2.5 / 小时");
-    await key("a"); expect(document.querySelector(".status-page-number")?.textContent).toBe("1 / 2"); expect(writes()).toHaveLength(0);
+    await key("a"); expect(document.querySelector(".status-page-number")?.textContent).toBe("1 / 3"); expect(writes()).toHaveLength(0);
   });
   it("updates rules and mode only when a snapshot is accepted", async () => {
-    await mount(); await openStatus(); await key("a");
+    await mount(); await openStatus(); await key("a"); await key("a");
     const stale = result(); stale.state.revision--; stale.state.sleeping = true;
     stale.careRules = { ...rules, maxOfflineHours: 5 }; api.mockResolvedValueOnce(stale); await poll();
     expect(guide()?.textContent).toContain("清醒中"); expect(guide()?.textContent).toContain("最多 12 小时");
@@ -116,7 +119,7 @@ describe("status guide three-key navigation and accepted snapshots", () => {
   it("an old server still supports readings and the fallback page", async () => {
     metadata = undefined; await mount(); await openStatus();
     expect(document.querySelector(".content-status")?.textContent).toContain("收到过 0 次温柔照顾");
-    await key("a"); expect(guide()?.textContent).toContain("详细速率尚未读到"); expect(writes()).toHaveLength(0);
+    await key("a"); await key("a"); expect(guide()?.textContent).toContain("详细速率尚未读到"); expect(writes()).toHaveLength(0);
   });
 });
 

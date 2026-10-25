@@ -2,8 +2,9 @@ import type { CareRules, PetState } from "./types";
 import { LifeSummary } from "./LifeSummary";
 import "./status-guide.css";
 
-export const statusPageCount = 2;
+export const statusPageCount = 3;
 const needLabels = [["hunger", "饱食"], ["mood", "心情"], ["clean", "清洁"], ["energy", "体力"]] as const;
+type StatusGuidePage = "all" | "summary" | "rules";
 
 // Optional response metadata must not turn a legacy/malformed response into a
 // made-up numeric rule or a failed write. The normal status readings still work.
@@ -14,13 +15,12 @@ export function validCareRules(value: unknown): value is CareRules {
     [v.awake, v.sleeping].every(rates => rates && needLabels.every(([key]) => typeof rates[key] === "number" && Number.isFinite(rates[key])));
 }
 
-export function StatusGuide({ pet, rules, now = Date.now() }: { pet: PetState; rules: CareRules | null; now?: number }) {
+export function StatusGuide({ pet, rules, now = Date.now(), page = "all" }: {
+  pet: PetState; rules: CareRules | null; now?: number; page?: StatusGuidePage;
+}) {
   const rates = rules?.[pet.sleeping ? "sleeping" : "awake"];
-  return <section className="status-guide" aria-label="时间与状态说明">
-    <h3>时间与状态</h3>
-    <p>最近读取：{pet.sleeping ? "正在睡觉" : "清醒中"}</p>
-    <LifeSummary pet={pet} now={now} />
-    <section className="status-time-detail" aria-label="时间变化明细">
+  const summary = <LifeSummary pet={pet} now={now} />;
+  const timeDetail = <section className="status-time-detail" aria-label="时间变化明细">
       <h4>时间变化明细</h4>
     {rates ? <>
       <dl className="status-rates" aria-label="每小时基准变化">
@@ -37,6 +37,17 @@ export function StatusGuide({ pet, rules, now = Date.now() }: { pet: PetState; r
     <p>{pet.growth?.stage === "adult"
       ? "成年形态已固定，状态仍会变化；照顾还可以留下习惯与共同经历。"
       : "保持舒适有助成长；不必为了成长反复照顾，习惯只按实际效果和间隔记录。"}</p>
-    </section>
+    </section>;
+  if (page === "summary") return <section className="status-guide status-summary" aria-label="共同生活回顾阅读区">{summary}</section>;
+  if (page === "rules") return <section className="status-guide status-rules" aria-label="时间与状态说明">
+    <h3>时间与状态</h3>
+    <p>最近读取：{pet.sleeping ? "正在睡觉" : "清醒中"}</p>
+    {timeDetail}
+  </section>;
+  return <section className="status-guide" aria-label="时间与状态说明">
+    <h3>时间与状态</h3>
+    <p>最近读取：{pet.sleeping ? "正在睡觉" : "清醒中"}</p>
+    {summary}
+    {timeDetail}
   </section>;
 }

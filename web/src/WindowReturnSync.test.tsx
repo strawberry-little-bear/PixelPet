@@ -44,7 +44,7 @@ describe.each(["baby", "growing", "adult"] as GrowthStage[])("return-to-window s
     expect(reads()).toHaveLength(2); expect(reads().at(-1)?.[0]).toBe("visit");
     expect(Array.from(document.querySelectorAll(".lcd-meter b"), e => e.textContent)).toEqual(["21", "34", "45", "56"]);
     expect(document.querySelector(".screen-status")).toBeTruthy();
-    await key("a"); expect(document.querySelector(".status-guide")?.textContent).toContain(sleeping ? "正在睡觉" : "清醒中");
+    await key("a"); await key("a"); expect(document.querySelector(".status-guide")?.textContent).toContain(sleeping ? "正在睡觉" : "清醒中");
     expect(writes()).toHaveLength(0);
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();

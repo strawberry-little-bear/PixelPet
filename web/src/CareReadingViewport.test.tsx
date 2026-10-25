@@ -38,7 +38,7 @@ it.each((["baby", "growing", "adult"] as const).flatMap(stage => [false, true].f
     await mount(stage, sleeping); const before = structuredClone(saved);
     expect(window.scrollBy).not.toHaveBeenCalled();
     const focus = document.querySelector<HTMLButtonElement>(".button-b")!; focus.focus();
-    await open(page); const count = page === "growth" ? 6 : 2;
+    await open(page); const count = page === "growth" ? 6 : 3;
     expect(window.scrollBy).toHaveBeenCalledTimes(1); expect(document.activeElement).toBe(focus);
     for (let i = 1; i <= count; i++) {
       expect(document.querySelectorAll(`.content-${page} [data-care-reading-start]`)).toHaveLength(1);

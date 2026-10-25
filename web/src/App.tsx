@@ -2924,7 +2924,8 @@ export default function App() {
                             <div className="care-total">
                               收到过 {pet.careCount} 次温柔照顾 ♡
                             </div>
-                            </> : <StatusGuide pet={pet} rules={careRules} now={now} />}
+                            </> : <StatusGuide pet={pet} rules={careRules} now={now}
+                              page={statusPage === 1 ? "summary" : "rules"} />}
                             <small className="status-page-number">{statusPage + 1} / {statusPageCount}</small>
                           </CareReadingRegion>
                         )}

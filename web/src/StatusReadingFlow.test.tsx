@@ -57,15 +57,18 @@ it("keeps timestamp and readings on the same accepted revision; local ticks and 
   expect(document.querySelector('.screen-status [aria-label="饱食"]')?.getAttribute("aria-valuenow")).toBe("30");
   expect(writes()).toHaveLength(0);
 });
-it.each(["b", "c"])("keeps the two-page status navigation and %s return unchanged", async exit => {
+it.each(["b", "c"])("keeps the three-page status navigation and %s return unchanged", async exit => {
   await mount(); await openStatus();
   expect(reading()).not.toBeNull();
   await key("a"); expect(document.querySelector(".status-guide")).not.toBeNull();
+  expect(document.querySelector(".life-summary")).not.toBeNull();
+  expect(reading()).toBeNull();
+  await key("a"); expect(document.querySelector(".status-time-detail")).not.toBeNull();
   expect(reading()).toBeNull();
   await key("a"); expect(reading()).not.toBeNull();
   await key(exit); expect(reading()).toBeNull();
   await openStatus(); expect(reading()).not.toBeNull();
-  expect(document.querySelector(".status-page-number")?.textContent).toBe("1 / 2");
+  expect(document.querySelector(".status-page-number")?.textContent).toBe("1 / 3");
   expect(writes()).toHaveLength(0);
 });
 it("uses the legacy saved tick even when growth history is not supplied", async () => {

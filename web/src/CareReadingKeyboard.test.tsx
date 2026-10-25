@@ -36,7 +36,7 @@ afterEach(() => {cleanup(); vi.restoreAllMocks(); vi.useRealTimers();});
 
 it.each(kinds)("%s exposes one named, read-only tab stop on every page, without taking focus", async kind => {
   await open(kind); const button = document.querySelector<HTMLButtonElement>(".button-a")!; button.focus();
-  const pages = kind === "growth" ? 6 : 2;
+  const pages = kind === "growth" ? 6 : 3;
   for (let n = 0; n < pages; n++) {
     const panel = root(kind), name = kind === "growth" ? "成长手册阅读区" : "状态说明阅读区";
     expect(screen.getByRole("region", {name})).toBe(panel);

@@ -68,7 +68,7 @@ describe("three-key care outcome lifetime", () => {
   expect(outcome()?.querySelector("time")?.dateTime).toBe(new Date(at).toISOString());
   await menu(4);expect(outcome()?.textContent).toBe(original);
   expect(document.querySelector(".lcd-meter b")?.textContent).toBe("20");
-  await key("a");expect(outcome()).toBeNull();await key("a");expect(outcome()?.textContent).toBe(original);
+  await key("a");expect(outcome()).toBeNull();await key("a");expect(outcome()).toBeNull();await key("a");expect(outcome()?.textContent).toBe(original);
   await key("c");expect(outcome()?.textContent).toBe(original);expect(writes()).toHaveLength(1);
  });
  it.each(["resting","awake"] as const)("sleep %s reports only the toggle, not earlier elapsed recovery", async reason => {

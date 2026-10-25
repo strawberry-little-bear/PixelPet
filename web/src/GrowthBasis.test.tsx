@@ -106,7 +106,7 @@ describe("growth basis accepted snapshots and three-key navigation", () => {
   });
   it("keeps valid need rates when optional growth metadata is malformed", async () => {
     metadata = { ...rules, growth: { ...growth, restEnergyPerHabit: 0 } }; await open();
-    expect(basis()?.textContent).toContain("成长基准尚未读到"); await key("c"); await key("a"); for (let i = 0; i < 4; i++) await key("a"); await key("b"); await key("a");
+    expect(basis()?.textContent).toContain("成长基准尚未读到"); await key("c"); await key("a"); for (let i = 0; i < 4; i++) await key("a"); await key("b"); await key("a"); await key("a");
     expect(document.querySelector(".status-guide")?.textContent).toContain("−2.5 / 小时"); expect(writes()).toHaveLength(0);
   });
   it("clears the reading on failed reads and safely resumes with a legacy server", async () => {
