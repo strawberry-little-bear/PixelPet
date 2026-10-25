@@ -43,6 +43,7 @@ async function readable(page, selector) {
     let node;
     while ((node = walker.nextNode())) {
       if (!node.textContent.trim()) continue;
+      if (node.parentElement?.closest('.care-reading-hint')) continue;
       const range = document.createRange(); range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
@@ -77,9 +78,13 @@ try {
     await wait(100);
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
-  for (const width of [1200, 320]) for (const font of [14, 28]) for (const motion of ['no-preference', 'reduce']) {
+  const smoke = process.env.PIXELPET_FISHING_ATMOSPHERE_SMOKE === '1';
+  const cases = smoke
+    ? [[1200, 14, 'no-preference']]
+    : [1200, 320].flatMap(width => [14, 28].flatMap(font => ['no-preference', 'reduce'].map(motion => [width, font, motion])));
+  for (const [width, font, motion] of cases) {
     await seed();
-    const ctx = await browser.newContext({ viewport: { width, height: 700 }, hasTouch: true, isMobile: width < 700,
+    const ctx = await browser.newContext({ viewport: { width, height: smoke ? 900 : 700 }, hasTouch: true, isMobile: width < 700,
       reducedMotion: motion, forcedColors: width === 320 ? 'active' : 'none' });
     let page; const errors = [], writes = [], notes = new Set();
     const tag = `${width}-${font}-${motion}`;
@@ -187,7 +192,7 @@ try {
       assert.equal(await page.locator('.outing-caption').getAttribute('data-scenery'), sceneryKey);
       assert.equal(await page.locator('.outing-compact:visible').count(), 0, 'Real bite gets priority over the scenery label');
       const bite = (await api('state')).state.game.fishing;
-      assert.equal(bite.phase, 'bite'); assert(bite.waitMs >= 32000 && bite.waitMs <= 40000);
+      assert.equal(bite.phase, 'bite'); assert(bite.waitMs >= 26000 && bite.waitMs <= 34000);
       assert(bite.elapsedMs < 10000, 'Original reaction window is still open');
       assert.equal(notes.size, 4, 'All four unhurried notes should be visible during a natural wait');
       assert.equal(await page.locator('.fishing-wait-note').count(), 0);

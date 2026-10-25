@@ -127,12 +127,18 @@ func TestFishingPauseExpiryDoesNotUseTimeOrCasts(t *testing.T) {
 				t.Fatal("offline progression")
 			}
 			fishDo(t, &s, late, "fish-resume")
+			if s.Game.Fishing.WaitMS != old.WaitMS {
+				t.Fatal("resume changed saved wait")
+			}
 			late = late.Add(time.Second)
 			fishDo(t, &s, late, "fish-step")
 			if s.Game.Fishing.ElapsedMS != old.ElapsedMS+1000 {
 				t.Fatal("catch-up")
 			}
 			fishDo(t, &s, late, "fish-pause")
+			if s.Game.Fishing.WaitMS != old.WaitMS {
+				t.Fatal("pause changed saved wait")
+			}
 			frozen := *s.Game.Fishing
 			late = late.Add(time.Hour)
 			s.Advance(late)
@@ -152,6 +158,34 @@ func TestFishingPauseExpiryDoesNotUseTimeOrCasts(t *testing.T) {
 		t.Fatal("late beat must save pause", err)
 	}
 }
+
+func TestFishingNewWaitRangeAndLegacyWaitCompatibility(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		s, now := fishingState(t)
+		fishDo(t, &s, now, "fish-cast")
+		if wait := s.Game.Fishing.WaitMS; wait < fishingWaitMinMS || wait > fishingWaitMaxMS || wait%1000 != 0 {
+			t.Fatalf("new wait outside configured range: %d", wait)
+		}
+	}
+
+	for _, wait := range []int{32000, 40000} {
+		t.Run(time.Duration(wait).String(), func(t *testing.T) {
+			s, now := fishingState(t)
+			fishDo(t, &s, now, "fish-cast")
+			s.Game.Fishing.WaitMS = wait
+			if err := s.Validate(now); err != nil {
+				t.Fatalf("legacy wait %d rejected: %v", wait, err)
+			}
+			fishDo(t, &s, now, "fish-pause")
+			now = now.Add(time.Minute)
+			fishDo(t, &s, now, "fish-resume")
+			if s.Game.Fishing.WaitMS != wait {
+				t.Fatalf("legacy wait changed after resume: got %d want %d", s.Game.Fishing.WaitMS, wait)
+			}
+		})
+	}
+}
+
 func TestFishingTimingAndSessionGuards(t *testing.T) {
 	s, now := fishingState(t)
 	for _, kind := range []string{"fish-step", "fish-reel", "fish-finish"} {

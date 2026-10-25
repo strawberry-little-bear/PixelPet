@@ -36,7 +36,7 @@ export const games = [
     leaving: "开始、刷新或离开后保持暂停，不补跑重力。放弃需再确认；结束时 B / C 收好成绩。",
   },
   { id: "fishing", title: "池塘钓鱼", icon: "♓︎", startAction: "play-fishing",
-    summary: "三个钓点 · 三次抛竿", duration: "约 2–3 分钟",
+    summary: "三个钓点 · 三次抛竿", duration: "约 1.5–2.5 分钟",
     controls: "A 换钓点 · B 抛竿 / 提竿 · C 暂停菜单",
     reward: "钓到至少一条并完成三竿：3–6 金币。",
     lesson: "收竿后 A 换钓点，B 抛竿。等到明确的咬钩提示，再按 B 提竿，有 10 秒反应时间。提前提竿也会用掉这一竿；真实钓到才记入鱼图鉴。",

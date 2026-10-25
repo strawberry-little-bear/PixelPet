@@ -11,6 +11,9 @@ import (
 const fishingLease = int64(3500)
 const FishingInterval = int64(1000)
 const FishingWindow = 10000
+const fishingWaitMinMS = 26000
+const fishingWaitMaxMS = 34000
+const fishingLegacyWaitMaxMS = 40000
 const fishCountLimit = 9999
 const fishingStepLimit = 1000000
 
@@ -178,12 +181,12 @@ func (s *State) applyFishing(a Action, now time.Time) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		wait, err := rand.Int(rand.Reader, big.NewInt(9))
+		wait, err := rand.Int(rand.Reader, big.NewInt((fishingWaitMaxMS-fishingWaitMinMS)/1000+1))
 		if err != nil {
 			return "", err
 		}
 		n.Candidate = pool[r.Int64()]
-		n.WaitMS = 32000 + int(wait.Int64())*1000
+		n.WaitMS = fishingWaitMinMS + int(wait.Int64())*1000
 		n.Casts++
 		n.ElapsedMS = 0
 		n.Phase = "wait"
@@ -291,7 +294,7 @@ func (s State) validFishingGame() bool {
 	if n.Phase == "ready" {
 		return n.Casts == 0 && len(n.Catches) == 0 && n.Candidate == "" && n.WaitMS == 0 && n.ElapsedMS == 0 && n.Outcome == "" && n.LastFish == ""
 	}
-	if !s.sessionFish(n.Candidate) || n.WaitMS < 32000 || n.WaitMS > 40000 || n.WaitMS%1000 != 0 || n.Casts < 1 {
+	if !s.sessionFish(n.Candidate) || n.WaitMS < fishingWaitMinMS || n.WaitMS > fishingLegacyWaitMaxMS || n.WaitMS%1000 != 0 || n.Casts < 1 {
 		return false
 	}
 	switch n.Phase {
