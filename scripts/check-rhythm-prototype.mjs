@@ -21,18 +21,19 @@ async function start(up = 0, down = 0, jitter = 0) {
   assert(stdout.includes('\n'), `server startup timeout: ${stderr}`);
   return JSON.parse(stdout.split('\n')[0]).url;
 }
-async function open(url, options = {}) {
+async function open(url, options = {}, init) {
   const context = await browser.newContext(options); contexts.push(context);
+  if (init) await context.addInitScript(init);
   const page = await context.newPage(), requests = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('request', req => { requests.push({ url: req.url(), body: req.postDataJSON?.() }); });
-  await page.goto(url); await page.waitForFunction(() => !document.querySelector('#pause').hidden && !document.querySelector('#status').textContent.includes('正在核对'));
+  await page.goto(url); await page.waitForFunction(() => !document.querySelector('#pause').hidden && !document.querySelector('#status').textContent.includes('正在核对'), null, { polling: 50 });
   return { page, context, requests };
 }
 const key = (p, k) => p.keyboard.press(k);
-const idle = p => p.waitForFunction(() => !document.querySelector('#status').textContent.includes('正在核对'));
-const active = p => p.waitForFunction(() => document.body.classList.contains('active'));
-const paused = p => p.waitForFunction(() => !document.querySelector('#pause').hidden && !document.body.classList.contains('active') && !document.querySelector('#status').textContent.includes('正在核对'));
+const idle = p => p.waitForFunction(() => !document.querySelector('#status').textContent.includes('正在核对'), null, { polling: 50 });
+const active = p => p.waitForFunction(() => document.body.classList.contains('active'), null, { polling: 50 });
+const paused = p => p.waitForFunction(() => !document.querySelector('#pause').hidden && !document.body.classList.contains('active') && !document.querySelector('#status').textContent.includes('正在核对'), null, { polling: 50 });
 async function readable(page) {
   assert.equal(await page.locator('button').count(), 3);
   assert.equal(await page.locator('.screen button,.screen a,.screen input,.screen [role=button]').count(), 0);
@@ -328,6 +329,87 @@ try {
   await key(lost,'B'); await paused(lost); assert.equal(await lost.locator('#round').textContent(),'0 / 12');
   assert.equal(lostRequests.at(-1).body.kind,'create');
   results.push('Unknown/expired lab pointer explains loss, clears only the pointer, and requires explicit B for a new paused practice');
+
+  // Deliberately control RAF delivery while keeping the real DOM, HTTP service
+  // and performance clock. This measures cue consistency under this scheduler,
+  // not physical-device frame rates, reader speech latency or player fairness.
+  const cueBase = await start();
+  for (const compact of [false, true]) {
+    const { page: cuePage, requests: cueWrites, context: cueContext } = await open(cueBase,
+      compact ? { viewport: { width: 320, height: 740 }, hasTouch: true, isMobile: true,
+        reducedMotion: 'reduce', forcedColors: 'active' } : {}, () => {
+        window.labFrames = []; window.labPaints = 0;
+        window.requestAnimationFrame = callback => { window.labFrames.push(callback); return window.labFrames.length; };
+        window.labPaint = () => { window.labPaints++; for (const callback of window.labFrames.splice(0)) callback(performance.now()); };
+        window.labCueChanges = 0;
+        document.addEventListener('DOMContentLoaded', () => new MutationObserver(records => { window.labCueChanges += records.length; })
+          .observe(document.getElementById('phase'), { subtree: true, childList: true, characterData: true }));
+      });
+    if (compact) await cuePage.evaluate(() => document.documentElement.style.fontSize = '32px');
+    const cuePress = k => compact ? cuePage.locator(`[data-key="${k}"]`).tap() : key(cuePage, k);
+    const paint = () => cuePage.evaluate(() => window.labPaint());
+    await paint(); const paints = await cuePage.evaluate(() => window.labPaints);
+    await cuePress('C'); await idle(cuePage);
+    assert.match(await cuePage.locator('#phase').textContent(), /准备.*左侧圆形.*A/);
+    assert.equal(await cuePage.evaluate(() => window.labPaints), paints, 'reply presents preparation without another RAF');
+    assert.equal(await cuePage.locator('#phase').getAttribute('role'), 'status');
+    assert.equal(await cuePage.locator('#phase').getAttribute('aria-atomic'), 'true');
+    const changes = await cuePage.evaluate(() => window.labCueChanges);
+    for (let i = 0; i < 3; i++) { await wait(200); await paint(); }
+    await cuePress('A'); // Early preview input changes the explanatory receipt only.
+    assert.equal(await cuePage.evaluate(() => window.labCueChanges), changes, 'preview frames do not rewrite the live phase');
+    const respond = async expected => {
+      for (let i = 0; i < 15 && !await cuePage.locator('body').evaluate(el => el.classList.contains('active')); i++) {
+        await wait(200); await paint();
+      }
+      await active(cuePage);
+      assert.match(await cuePage.locator('#phase').textContent(), new RegExp(`现在回应.*${expected}`));
+    };
+    for (const [expected, next] of [['A', 'B'], ['B', 'B'], ['B', 'A']]) {
+      await respond(expected);
+      const paintsBeforeReply = await cuePage.evaluate(() => window.labPaints);
+      await cuePress(expected); await idle(cuePage);
+      assert.match(await cuePage.locator('#phase').textContent(), new RegExp(`准备.*${next}`));
+      assert.equal(await cuePage.evaluate(() => window.labPaints), paintsBeforeReply);
+      assert.equal(await cuePage.locator('body').evaluate(el => el.classList.contains('active')), false);
+      assert.equal(await cuePage.locator('#symbol').textContent(), next === 'A' ? '●' : '▲');
+    }
+    assert.equal(await cuePage.locator('#round').textContent(), '3 / 12');
+    await respond('A');
+    if (compact) assert.equal(await cuePage.locator('#symbol').evaluate(el => getComputedStyle(el).animationName), 'none');
+    if (compact) {
+      const visible = await cuePage.evaluate(() => {
+        const cue = document.querySelector('.cue').getBoundingClientRect(), keys = document.querySelector('.keys').getBoundingClientRect();
+        return cue.top >= 0 && cue.bottom <= keys.top;
+      });
+      assert(visible, 'shape, direction and response text stay above the fixed key dock');
+    }
+    await readable(cuePage);
+    await cuePage.screenshot({ path: join(dir, compact ? 'cue-320-double-reduced-forced.png' : 'cue-desktop.png'), fullPage: true });
+    // Layout inspection may consume the response window; explicitly pause and
+    // create a fresh cue before observing the pending-response boundary.
+    await cuePress('C'); await paused(cuePage); await cuePress('C'); await idle(cuePage); await respond('A');
+    const captured = Promise.withResolvers(), release = Promise.withResolvers(), delivered = Promise.withResolvers();
+    await cuePage.route('**/lab/command', async route => {
+      if (route.request().postDataJSON().kind !== 'answer') { await route.continue(); return; }
+      const response = await route.fetch(); captured.resolve();
+      await release.promise; await route.fulfill({ response }); delivered.resolve();
+    });
+    // Reset lastFrame after screenshot work; all clocks and windows stay real.
+    await paint(); await cuePress('A');
+    let captureTimer;
+    try { await Promise.race([captured.promise, new Promise((_, reject) => { captureTimer = setTimeout(() => reject(new Error('expected answer was not received')), 10000); })]); }
+    finally { clearTimeout(captureTimer); }
+    assert.equal(await cuePage.locator('#direction').textContent(), '正在核对');
+    assert.doesNotMatch(await cuePage.locator('#phase').textContent(), /现在回应/);
+    const answerCount = cueWrites.filter(r => r.body?.kind === 'answer').length;
+    await cuePress('B'); assert.equal(cueWrites.filter(r => r.body?.kind === 'answer').length, answerCount);
+    await cuePress('C'); await paused(cuePage);
+    release.resolve(); await delivered.promise; await wait(100); await paused(cuePage);
+    assert.doesNotMatch(await cuePage.locator('#phase').textContent(), /现在回应|准备/);
+    await cueContext.close();
+    results.push(`${compact ? '320px double text, reduced motion, forced colors, touch' : 'Desktop keyboard'}: controlled 200ms RAF cadence, immediate matching direction/phase through repeated B, discrete live-region writes, held reply and C pause without audio`);
+  }
 
   // Controlled lifecycle ordering exercises the cached-document path even when
   // this Chrome configuration chooses a full history reload. These dispatched

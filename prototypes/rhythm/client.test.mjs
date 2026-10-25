@@ -7,10 +7,11 @@ import { createSession, command } from './protocol.mjs';
 const source = await readFile(new URL('./public/client.mjs', import.meta.url), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
 async function client(networkMs = 0) {
-  let now = 0, frame, state;
+  let now = 0, frame, state, nextHold;
   const events = new Map(), commands = [], elements = new Map();
   const element = id => {
-    if (!elements.has(id)) elements.set(id, { textContent: '', hidden: false, dataset: {}, style: {},
+    if (!elements.has(id)) elements.set(id, { value: '', writes: [], get textContent() { return this.value; },
+      set textContent(value) { this.value = value; this.writes.push(value); }, hidden: false, dataset: {}, style: {},
       firstElementChild: { style: {} }, setAttribute() {}, replaceChildren() {},
       getBoundingClientRect: () => ({ top: 0, height: 100 }) });
     return elements.get(id);
@@ -30,6 +31,7 @@ async function client(networkMs = 0) {
       state = input.kind === 'create' ? createSession('isolated-client') : command(state, input, now);
       const result = { state: structuredClone(state), serverTime: now };
       now += networkMs; // Synthetic RTT for the client estimate, not a transport measurement.
+      const held = nextHold; nextHold = null; if (held) await held;
       return { ok: true, json: async () => result };
     },
   });
@@ -52,7 +54,8 @@ async function client(networkMs = 0) {
     await settle();
     return prevented;
   };
-  return { press, advance, active, keyboard, commands, element, state: () => state };
+  const holdNext = () => { let release; nextHold = new Promise(resolve => { release = resolve; }); return async () => { release(); await settle(); }; };
+  return { press, advance, active, keyboard, commands, element, holdNext, state: () => state };
 }
 for (const via of ['keyboard', 'button']) for (const key of ['A', 'B']) {
   test(`${via} ${key} after a long frame gap pauses before any answer, even before next paint`, async () => {
@@ -156,4 +159,63 @@ test('Enter/Space outside the three buttons keep native behavior; letter repeat 
   await c.keyboard('keydown', 'C', undefined, { repeat: true });
   assert.deepEqual(c.commands.map(x => x.kind), ['create']);
   await c.press('C'); assert.equal(c.state().status, 'playing');
+});
+
+
+test('resume presents its direction and preparation together before any animation frame', async () => {
+  const c = await client(); await c.press('C');
+  assert.equal(c.element('direction').textContent, '左侧 · A');
+  assert.equal(c.element('symbol').textContent, '●');
+  assert.match(c.element('phase').textContent, /准备.*左侧圆形.*A/);
+  assert.equal(c.element('progress').firstElementChild.style.width, '0%');
+});
+test('every accepted answer immediately replaces response text with the next preparation, including repeated B', async () => {
+  const c = await client(); await c.active();
+  for (const next of ['B', 'B', 'A']) {
+    await c.press(c.state().cue.key);
+    assert.equal(c.element('symbol').textContent, next === 'A' ? '●' : '▲');
+    assert.match(c.element('phase').textContent, new RegExp(`准备.*${next}`));
+    assert.doesNotMatch(c.element('phase').textContent, /现在回应/);
+    for (let i = 0; i < 3; i++) await c.advance(600);
+    assert.match(c.element('phase').textContent, new RegExp(`现在回应.*${next}`));
+  }
+  assert.equal(c.state().observations.length, 3);
+});
+test('pending response has no actionable cue and ignores extra A/B until the authoritative reply', async () => {
+  const c = await client(); await c.active(); const release = c.holdNext(); await c.press('A');
+  assert.equal(c.element('direction').textContent, '正在核对');
+  assert.equal(c.element('symbol').textContent, '◇');
+  assert.match(c.element('phase').textContent, /请稍等.*C 仍可暂停/);
+  assert.doesNotMatch(c.element('phase').textContent, /现在回应/);
+  const count = c.commands.length; await c.press('A'); await c.press('B');
+  assert.equal(c.commands.length, count); await release();
+  assert.match(c.element('phase').textContent, /准备.*B/);
+});
+test('C cancels a pending cue and its late reply cannot restore response text', async () => {
+  const c = await client(); await c.active(); const release = c.holdNext(); await c.press('A');
+  await c.press('C'); const paused = c.element('phase').textContent;
+  assert.equal(c.element('direction').textContent, '已暂停');
+  assert.doesNotMatch(paused, /现在回应|准备/);
+  await release(); assert.equal(c.element('phase').textContent, paused);
+  assert.equal(c.state().observations.length, 1);
+});
+test('phase text changes only at discrete transitions, not on every frame or harmless preview input', async () => {
+  const c = await client(); await c.press('C');
+  const phase = c.element('phase'), writes = phase.writes.length;
+  for (let i = 0; i < 60; i++) await c.advance(20);
+  await c.press('A'); // Still previewing: no request or changed cue phase.
+  assert.equal(phase.writes.length, writes);
+  await c.advance(600); assert.match(phase.textContent, /现在回应.*A/);
+  assert.equal(phase.writes.length, writes + 1);
+  for (let i = 0; i < 30; i++) await c.advance(20);
+  assert.equal(phase.writes.length, writes + 1);
+});
+for (const interval of [200, 500]) test(`synthetic ${interval}ms frames preserve prepare/respond transitions without changing server windows`, async () => {
+  const c = await client(); await c.press('C');
+  assert.match(c.element('phase').textContent, /准备.*A/);
+  assert.equal(c.state().cue.target, 1800); assert.equal(c.state().cue.deadline, 3600);
+  for (let elapsed = 0; elapsed < 1800; elapsed += interval) await c.advance(interval);
+  assert.match(c.element('phase').textContent, /现在回应.*A/);
+  await c.press('A'); assert.equal(c.state().observations[0].arrival, 'inside');
+  assert.match(c.element('phase').textContent, /准备.*B/);
 });

@@ -19,17 +19,13 @@ let suspended = true, pendingPause = false, reason = '按 B 或 C 开始独立�
 const maxRtt = 600;
 const render = () => {
   const playing = !suspended && state?.status === 'playing';
-  document.body.classList.toggle('active', false);
   $('round').textContent = `${state?.observations.length ?? 0} / 12`;
   $('status').textContent = busy ? '正在核对本拍… C 仍可暂停' : reason;
   $('pause').hidden = playing || !state || (state.status === 'done' && !confirmRestart && !needsRecovery);
   $('pause-title').textContent = confirmRestart ? '确认从头重开？' : '暂停选择';
   $('selection').textContent = confirmRestart ? `重开会清空本局 ${state.observations.length} 次观测，不可撤回。` : needsRecovery ? '▶ 核对本局并暂停（不重发输入）' : selected === 0 ? '▶ 继续练习' : '▶ 从头重开（清空本局观测）';
   $('pause-help').textContent = confirmRestart ? 'A / C 取消，保留观测 · B 确认重开' : needsRecovery ? 'A 不操作 · B / C 手动核对' : 'A 切换继续 / 重开 · B 确认 · C 继续';
-  $('symbol').textContent = playing ? state.cue.key === 'A' ? '●' : '▲' : '◇';
-  $('direction').textContent = playing ? state.cue.key === 'A' ? '左侧 · A' : '右侧 · B' : state?.status === 'done' ? '本次观测完成' : '已暂停';
-  if (!playing) $('phase').textContent = needsRecovery ? 'B / C 先核对本局，再单独继续；不重发旧输入。' : state?.status === 'done' ? 'B 重开独立练习；不会收取奖励。' : '回来后须明确继续，不补跑旧拍。';
-  $('progress').setAttribute('aria-valuenow', '0'); $('progress').firstElementChild.style.width = '0%';
+  paintCue(performance.now());
   $('network').textContent = anchor ? `最近实测往返约 ${Math.round(rtt)}ms · 不是单程或成绩凭据` : '等待连接测量…';
   const observations = state?.observations ?? [];
   const last = observations.at(-1);
@@ -47,6 +43,35 @@ const render = () => {
     return li;
   }));
 };
+// Present direction and phase in the same task as an authoritative reply.
+// Waiting for the next frame can pair a new cue with the previous "respond"
+// instruction, especially on a slow display. Only discrete text changes reach
+// the live region; the progress bar remains an estimated visual countdown.
+function cueText(id, text) {
+  if ($(id).textContent !== text) $(id).textContent = text;
+}
+function paintCue(measured) {
+  const cue = !busy && !suspended && state?.status === 'playing' && anchor ? state.cue : null;
+  let symbol = '◇', direction = state?.status === 'done' ? '本次观测完成' : '已暂停';
+  let phase = needsRecovery ? 'B / C 先核对本局，再单独继续；不重发旧输入。'
+    : state?.status === 'done' ? 'B 重开独立练习；不会收取奖励。' : '回来后须明确继续，不补跑旧拍。';
+  let active = false, pct = 0;
+  if (busy) { direction = '正在核对'; phase = '请稍等，C 仍可暂停。'; }
+  else if (cue) {
+    const now = anchor.epoch + measured - anchor.measured;
+    active = now >= cue.target;
+    symbol = cue.key === 'A' ? '●' : '▲';
+    direction = cue.key === 'A' ? '左侧 · A' : '右侧 · B';
+    const shape = cue.key === 'A' ? '左侧圆形' : '右侧三角';
+    phase = active ? `现在回应 · ${shape}，按 ${cue.key}（本地估计提示）`
+      : `准备 · ${shape}，稍后按 ${cue.key}`;
+    pct = Math.min(100, Math.max(0, (now - (cue.target - 1800)) / 1800 * 100));
+  }
+  document.body.classList.toggle('active', active);
+  cueText('symbol', symbol); cueText('direction', direction); cueText('phase', phase);
+  $('progress').setAttribute('aria-valuenow', String(Math.round(pct)));
+  $('progress').firstElementChild.style.width = `${pct}%`;
+}
 function focusCue() { focusTarget('.cue'); }
 function focusTarget(selector) {
   // Explicit input replies bring the whole cue (direction + timing) above the
@@ -217,15 +242,7 @@ function tick() {
   if (!suspended && !busy && state?.status === 'playing' && anchor) {
     const stopped = cueStopReason(measured, gap);
     if (stopped) void pause(stopped);
-    else {
-      const now = anchor.epoch + measured - anchor.measured, cue = state.cue;
-      const active = now >= cue.target;
-      document.body.classList.toggle('active', active);
-      $('phase').textContent = active ? '现在回应 · 这是本地估计提示' : '准备 · 先看方向，稍后再回应';
-      const pct = Math.min(100, Math.max(0, (now - (cue.target - 1800)) / 1800 * 100));
-      $('progress').setAttribute('aria-valuenow', String(Math.round(pct)));
-      $('progress').firstElementChild.style.width = `${pct}%`;
-    }
+    else paintCue(measured);
   }
   requestAnimationFrame(tick);
 }
