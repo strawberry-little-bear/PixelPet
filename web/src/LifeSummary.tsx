@@ -95,6 +95,14 @@ export function lifeSummary(pet: PetState, now: number) {
     interestLeaders.length > 0 ? `目前更熟悉的是「${interestLeaders.join("」和「")}」` : null,
   ].filter(Boolean).join("；");
   const stage = pet.growth?.stage;
+  const explorationProgress = [
+    completedWalks > 0 ? `已经一起走过 ${completedWalks * walkLength} 步` : null,
+    fishCaught > 0 ? `钓到过 ${fishCaught} 条鱼` : null,
+    discoveries > 0 ? `遇见 ${discoveries} 种真实发现` : null,
+  ].filter((text): text is string => text !== null);
+  const explorationText = explorationProgress.length > 0
+    ? `${explorationProgress.join("，")}；想散步或在池塘边等一会儿时，再把新的风景留给你们。`
+    : "想探索时，可以去池塘边等一会儿，或一起走走；遇见什么都算一次小发现。";
   const adultDirections = stage === "adult" ? [
     {
       id: "review",
@@ -108,9 +116,7 @@ export function lifeSummary(pet: PetState, now: number) {
     {
       id: "explore",
       label: "探索",
-      text: discoveries > 0
-        ? `池塘和公园里已经遇见 ${discoveries} 种真实发现，想散步或等待时再去看看。`
-        : "想探索时，可以去池塘边等一会儿，或一起走走；遇见什么都算一次小发现。",
+      text: explorationText,
     },
     {
       id: "together",

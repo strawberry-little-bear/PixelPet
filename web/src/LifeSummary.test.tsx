@@ -246,12 +246,23 @@ describe("adult-life suggestions from saved experiences", () => {
     const summary = lifeSummary(current, current.lastTick);
     expect(summary.adultDirections?.map(direction => direction.id)).toEqual(["review", "explore", "together"]);
     expect(summary.adultDirections?.[0].text).toContain("公园里走过的第一条小路");
-    expect(summary.adultDirections?.[1].text).toContain("2 种真实发现");
+    expect(summary.adultDirections?.[1].text).toContain("已经一起走过 72 步");
+    expect(summary.adultDirections?.[1].text).toContain("钓到过 2 条鱼");
+    expect(summary.adultDirections?.[1].text).toContain("遇见 2 种真实发现");
     expect(summary.adultDirections?.[2].text).toContain("公园散步");
     const { container } = render(<LifeSummary pet={current} now={current.lastTick} />);
     expect(container.querySelectorAll("[data-adult-directions] li")).toHaveLength(3);
     expect(container.querySelector(".life-summary-next")?.textContent).toContain("可以继续的方向");
     expect(current).toEqual(before);
+  });
+
+  it("uses each saved exploration counter without inventing a missing one", () => {
+    const current = adult();
+    current.park = { since: created, finds: [], walks: 2, lastWalkAt: created };
+    const text = lifeSummary(current, current.lastTick).adultDirections?.[1].text ?? "";
+    expect(text).toContain("已经一起走过 144 步");
+    expect(text).not.toContain("钓到过");
+    expect(text).not.toContain("真实发现");
   });
 
   it("carries the precise saved game total into the adult play direction", () => {
