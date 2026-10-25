@@ -38,7 +38,7 @@ Object.defineProperty(performance, 'now', { value: () => fixture().elapsed });
 `);
   child = spawn(process.execPath, ['--import', pathToFileURL(preload).href,
     fileURLToPath(new URL('./server.mjs', import.meta.url))], {
-    env: { ...process.env, PIXELPET_RHYTHM_PORT: '0', PIXELPET_RHYTHM_UP_MS: '0',
+    env: { ...process.env, PIXELPET_RHYTHM_STORE: '', PIXELPET_RHYTHM_PORT: '0', PIXELPET_RHYTHM_UP_MS: '0',
       PIXELPET_RHYTHM_DOWN_MS: '0', PIXELPET_RHYTHM_JITTER_MS: '0' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

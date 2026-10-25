@@ -1,8 +1,10 @@
-// Opt-in Chrome acceptance of the isolated, in-memory rhythm lab only.
+// Opt-in Chrome acceptance of the isolated rhythm lab only.
 // Starts its own loopback servers, never accepts a production URL/database.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
+import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,9 +14,9 @@ const dir = await mkdtemp(join(tmpdir(), 'pixelpet-rhythm-'));
 const servers = [], contexts = [], results = [], errors = [];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 let browser;
-async function start(up = 0, down = 0, jitter = 0) {
-  const child = spawn(process.execPath, ['prototypes/rhythm/server.mjs'], { cwd: root, env: { ...process.env,
-    PIXELPET_RHYTHM_PORT: '0', PIXELPET_RHYTHM_UP_MS: String(up), PIXELPET_RHYTHM_DOWN_MS: String(down), PIXELPET_RHYTHM_JITTER_MS: String(jitter) }, stdio: ['ignore', 'pipe', 'pipe'] });
+async function start(up = 0, down = 0, jitter = 0, { port = 0, store = '' } = {}) {
+  const child = spawn(process.execPath, ['prototypes/rhythm/server.mjs'], { cwd: root, env: { ...process.env, PIXELPET_RHYTHM_STORE: store,
+    PIXELPET_RHYTHM_PORT: String(port), PIXELPET_RHYTHM_UP_MS: String(up), PIXELPET_RHYTHM_DOWN_MS: String(down), PIXELPET_RHYTHM_JITTER_MS: String(jitter) }, stdio: ['ignore', 'pipe', 'pipe'] });
   servers.push(child);
   let stdout = '', stderr = ''; child.stdout.on('data', d => stdout += d); child.stderr.on('data', d => stderr += d);
   for (let i = 0; i < 100 && !stdout.includes('\n'); i++) { assert(child.exitCode === null, stderr); await wait(50); }
@@ -61,8 +63,45 @@ async function readable(page) {
     assert(hit, 'physical key reachable');
   }
 }
+async function restartChecks() {
+  for (const compact of [false, true]) {
+    const socket = createServer(); await new Promise(resolve => socket.listen(0, '127.0.0.1', resolve));
+    const port = socket.address().port; await new Promise(resolve => socket.close(resolve));
+    const label = compact ? 'restart-320-double' : 'restart-desktop', store = join(dir, `${label}.json`);
+    const url = await start(0, 0, 0, { port, store }); let child = servers.at(-1);
+    const { page, requests } = await open(url, compact ? { viewport: { width: 320, height: 380 }, hasTouch: true,
+      reducedMotion: 'reduce', forcedColors: 'active' } : { viewport: { width: 1100, height: 900 } },
+    compact ? () => document.addEventListener('DOMContentLoaded', () => document.documentElement.style.fontSize = '32px') : undefined);
+    const press = k => compact ? page.locator(`[data-key="${k}"]`).tap() : key(page, k);
+    await press('C'); await idle(page); await active(page); await press('A');
+    await page.waitForFunction(() => document.querySelector('#round').textContent === '1 / 12'); await idle(page);
+    const id = await page.evaluate(() => sessionStorage.getItem('pixelpet.rhythm.session.v1'));
+    const before = await page.locator('#observations').textContent();
+    assert.equal(JSON.parse(await readFile(store, 'utf8')).sessions[0].observations.length, 1);
+    const ended = once(child, 'exit'); child.kill('SIGKILL'); await ended;
+    assert.equal(await start(0, 0, 0, { port, store }), url); child = servers.at(-1);
+    const recovered = page.waitForResponse(r => r.url().endsWith('/lab/command'));
+    await page.reload(); await paused(page);
+    const reply = await (await recovered).json();
+    assert.equal(reply.state.id, id); assert.equal(reply.state.cue, null); assert.equal(reply.state.status, 'paused');
+    assert.equal(await page.locator('#observations').textContent(), before);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('pixelpet.rhythm.session.v1')), id);
+    assert.equal(requests.filter(r => r.body?.kind === 'create').length, 1);
+    assert.equal(requests.at(-1).body.kind, 'recover');
+    await page.waitForTimeout(100); assert.equal(requests.at(-1).body.kind, 'recover');
+    const writes = requests.filter(r => r.body).length;
+    await press('A'); await press('B'); assert.match(await page.locator('#selection').textContent(), /清空本局 1 次观测/);
+    await press('C'); assert.equal(requests.filter(r => r.body).length, writes);
+    await readable(page); await page.screenshot({ path: join(dir, `${label}.png`), fullPage: true });
+    await press('C'); await idle(page); assert.match(await page.locator('#phase').textContent(), /准备/);
+    await press('C'); await paused(page); assert.equal(await page.locator('#observations').textContent(), before);
+    const stopped = once(child, 'exit'); child.kill('SIGTERM'); await stopped;
+    results.push(`${label}: actual abrupt service restart, same-origin session recovery, preserved observation, paused old cue, explicit continue, restart cancellation, readable three keys`);
+  }
+}
 try {
   browser = await chromium.launch({ channel: 'chrome', headless: true });
+  if (!process.argv.includes('--restart-only')) {
   const base = await start();
   // HTTP boundary checks, including actual out-of-order delivery in a second server.
   const leases = new Map();
@@ -544,6 +583,8 @@ try {
     await readable(m); await m.screenshot({path:join(dir,`${label}-recovered.png`),fullPage:true});
     results.push(`${label}: three-key input, same-session paused refresh, readable text, no horizontal overflow, reachable keys`);
   }
+  }
+  await restartChecks();
   assert.deepEqual(errors,[],'browser page errors');
   await writeFile(join(dir,'results.json'),JSON.stringify({results,errors,notes:'Synthetic loopback delays and automated input; no physical-phone, OS-background, audio, or fairness claim.'},null,2));
   console.log(JSON.stringify({dir,checks:results.length,results},null,2));

@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 async function lab(t, jitter = 0) {
-  const child = spawn(process.execPath, [new URL('./server.mjs', import.meta.url).pathname], { env: { ...process.env,
+  const child = spawn(process.execPath, [new URL('./server.mjs', import.meta.url).pathname], { env: { ...process.env, PIXELPET_RHYTHM_STORE: '',
     PIXELPET_RHYTHM_PORT: '0', PIXELPET_RHYTHM_UP_MS: '0', PIXELPET_RHYTHM_DOWN_MS: '0', PIXELPET_RHYTHM_JITTER_MS: String(jitter) }, stdio: ['ignore', 'pipe', 'pipe'] });
   t.after(async () => { if (child.exitCode === null) { child.kill('SIGTERM'); await once(child, 'exit'); } });
   let output = '', errors = ''; child.stdout.on('data', d => output += d); child.stderr.on('data', d => errors += d);
