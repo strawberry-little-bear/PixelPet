@@ -29,7 +29,7 @@ export function OutingEncounterNote({ pet }: { pet: PetState }) {
   if (pet.schema < 14 || !game || !game.id) return null;
   const kind = game.kind === "fishing" ? "encounter-fishing-stars"
     : game.kind === "walk" ? "encounter-walk-kite" : null;
-  if (!kind || !pet.album?.entries.some(m => m.kind === kind && m.source === "shared"
+  if (!kind || !(pet.album?.entries ?? []).some(m => m.kind === kind && m.source === "shared"
     && m.outingId === game.id && m.at >= game.startedAt && m.at <= pet.lastTick)) return null;
   return <small className="outing-encounter"><strong>本局{outingMemoryWords[kind].title}</strong><span>已收进风景手记，之后可在纪念册查看。</span></small>;
 }

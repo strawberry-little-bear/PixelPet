@@ -2255,7 +2255,7 @@ export default function App() {
   const resetSummary = pet && !corrupt ? {
     days: pet.hatchedAt > 0 ? Math.floor(Math.max(0, now - pet.hatchedAt) / 86400000) + 1 : 0,
     logs: (pet.logs ?? []).length,
-    memories: pet.album?.entries.length ?? 0,
+    memories: (pet.album?.entries ?? []).length,
     fishFound: new Set((pet.pond?.fish ?? []).map(fish => fish.id)).size,
     fishTotal: fishCatalogFor(pet).length,
     parkFound: new Set((pet.park?.finds ?? []).map(find => find.id)).size,

@@ -71,6 +71,16 @@ it("uses a saved adult form and leaves early growth quiet", () => {
   const baby = fixture(); const babyAfter = structuredClone(baby); delete babyAfter.game;
   expect(completedGameOutcome("snake-finish", baby, result(babyAfter))?.companionVoice).toBeUndefined();
 });
+it("keeps completion reading safe when a legacy album has nil entries", () => {
+  const before = fixture();
+  before.schema = 21;
+  before.album = { since: at - 1000, legacy: false, entries: null } as unknown as PetState["album"];
+  const after = structuredClone(before);
+  delete after.game;
+  after.companion = { since: at - 1000, interests: [], recent: { kind: "snake", id, at } };
+  expect(() => completedGameOutcome("snake-finish", before, result(after))).not.toThrow();
+  expect(completedGameOutcome("snake-finish", before, result(after))?.keepsake).toBeUndefined();
+});
 it("keeps and renders a validated walking reward breakdown", () => {
   const before = fixture(); before.game!.kind = "walk"; delete before.game!.snake;
   before.game!.walking = { route: Array<"rock">(12).fill("rock"), souvenirs: ["leaf", "shell", "flower"], beat: 72, step: 4, cleared: 8, pose: "", poseUntil: 0, lastPulseAt: at, lastInputAt: 0, paused: true };

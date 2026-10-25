@@ -1393,6 +1393,17 @@ describe("reset focus restoration", () => {
     expect(api.mock.calls.filter(([path]) => path === "reset")).toHaveLength(0);
   });
 
+  it("keeps reset preview readable when a legacy album has a nil entries slice", async () => {
+    saved.album = { since: Date.now(), legacy: false, entries: null } as unknown as PetState["album"];
+    await mount();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /存档盒/ })); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /重新开始/ })); });
+    const summary = screen.getByRole("region", { name: "重新开始会清除的共同经历" });
+    expect(summary.textContent).toContain("永久纪念册");
+    expect(summary.textContent).toContain("0 条");
+    expect(api.mock.calls.filter(([path]) => path === "reset")).toHaveLength(0);
+  });
+
   it("lets C cancel reset confirmation without changing the save", async () => {
     await mount();
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: /存档盒/ })); });

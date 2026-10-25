@@ -27,6 +27,10 @@ describe.each(['fishing','walk'] as const)('%s saved encounter summary',kind=>{
   if(mode==='empty')p.album!.entries=[];if(mode==='different-session')m.outingId=m.outingId!.slice(0,31)+'2';if(mode==='wrong-kind')m.kind=kind==='fishing'?'encounter-walk-kite':'encounter-fishing-stars';if(mode==='missing-id')delete m.outingId;if(mode==='wrong-source')m.source='saved';if(mode==='before-session')m.at=p.game!.startedAt-1;if(mode==='future')m.at=at+1;if(mode==='legacy')p.schema=13;
   const {container}=render(view(p));expect(container.querySelector('.outing-encounter')).toBeNull();
  });
+ it('treats a legacy nil album slice as an empty saved encounter list',()=>{
+  const p=fixture(kind);p.album={...p.album!,entries:null} as unknown as PetState['album'];
+  const {container}=render(view(p));expect(container.querySelector('.outing-encounter')).toBeNull();
+ });
  it.each(['running','wait','bite'] as const)('does not compete with live controls: %s',phase=>{
   const p=fixture(kind);if(p.game!.fishing){p.game!.fishing.paused=false;p.game!.fishing.phase=phase==='running'?'result':phase;}if(p.game!.walking)p.game!.walking.paused=false;
   const {container}=render(view(p));expect(container.querySelector('.outing-encounter')).toBeNull();

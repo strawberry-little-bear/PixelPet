@@ -42,8 +42,8 @@ export function completedGameOutcome(action: string, before: PetState | null, re
   }
   const item = gameKeepsakes.find(entry => entry.game === kind)?.item;
   if (record.shared && recent?.at === result.serverTime && before.album && after.schema >= 21 && item &&
-      !before.album.entries.some(m => m.kind === "keepsake" && m.item === item) &&
-      after.album?.entries.some(m => m.kind === "keepsake" && m.item === item && m.source === "shared" && m.at === result.serverTime)) {
+      !before.album.entries?.some(m => m.kind === "keepsake" && m.item === item) &&
+      after.album?.entries?.some(m => m.kind === "keepsake" && m.item === item && m.source === "shared" && m.at === result.serverTime)) {
     record.keepsake = item;
   }
   const walk = kind === "walk" ? validWalkReceipt(result.gameReceipt?.walk) : undefined;
