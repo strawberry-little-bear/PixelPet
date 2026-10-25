@@ -68,19 +68,33 @@ async function guideExample(page, prefix) {
   assert(captionBox.top >= -1 && captionBox.bottom <= captionBox.height + 1 && captionBox.right <= captionBox.width + 1,
     `last caption must be reachable by scrolling: ${JSON.stringify(captionBox)}`);
 }
+async function guideKeys(page, compact = false) {
+  const action = compact ? 'B 进入暂停' : 'B 跳过说明，进入暂停';
+  const navigation = compact ? '重看规则' : '翻页';
+  assert.equal(await page.locator('.game-guide > small').textContent(), `A ${navigation} · ${action} · C 返回选游戏`);
+  assert.equal(await page.locator('.lcd-bottom > span').first().textContent(), `A ${navigation}  ${action}  C 返回选择`);
+  const footer = page.locator('.game-guide > small');
+  await footer.scrollIntoViewIfNeeded();
+  assert(await footer.evaluate(el => {
+    const box = el.getBoundingClientRect(), lcd = el.closest('.lcd-content').getBoundingClientRect();
+    return box.left >= -1 && box.right <= innerWidth + 1 && box.top < lcd.bottom && box.bottom > lcd.top
+      && box.top < innerHeight && box.bottom > 0;
+  }), 'guide key instruction must remain reachable');
+}
 async function start(page, repeat = false) {
   await selectTreasure(page); await key(page, 'B');
   await page.locator('.game-guide').waitFor();
+  await guideKeys(page, repeat);
   const before = (await api('state')).state;
   assert(!before.game, 'opening guide must not start a session');
   if (repeat) {
     assert.equal(await page.locator('.game-quick-start').count(), 1);
     assert.equal(await page.locator('.treasure-guide-example').count(), 0);
-    await key(page, 'A');
+    await key(page, 'A'); await guideKeys(page);
   }
   const size = page.viewportSize(), font = await page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
   await guideExample(page, `guide-${repeat ? 'review' : 'first'}-${size.width}-${font}`);
-  await key(page, 'A'); assert.equal(await page.locator('.treasure-guide-example').count(), 0);
+  await key(page, 'A'); await guideKeys(page); assert.equal(await page.locator('.treasure-guide-example').count(), 0);
   await key(page, 'A'); assert.equal(await page.locator('.treasure-example-grid').count(), 2);
   await key(page, 'C'); await page.locator('.arcade-panel').waitFor();
   const after = (await api('state')).state;

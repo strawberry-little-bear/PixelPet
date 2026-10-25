@@ -71,7 +71,7 @@ export function GameGuide({ game, page, review = false, paused = false, sleeping
       <GameHabit {...rewardContext} />
     </> : <GuideReward game={game} {...rewardContext} />}
     {paused && <p className="guide-paused-note">只读本局规则；返回仍保持暂停，按暂停画面提示手动继续。</p>}
-    <small>{paused ? "A / B 翻页 · C 返回暂停" : `A 翻页 · ${blocked?.hint ?? gameStartInstruction(game, seen)} · C 返回选游戏`}</small>
+    <small>{paused ? "A / B 翻页 · C 返回暂停" : `A 翻页 · ${blocked?.hint ?? gameStartInstruction(game, seen && !review)} · C 返回选游戏`}</small>
   </section>;
 }
 

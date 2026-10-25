@@ -86,9 +86,9 @@ export function gameStartLabel(game: GameInfo): string {
       : "进入暂停";
 }
 
-export function gameStartInstruction(game: GameInfo, seen: boolean): string {
+export function gameStartInstruction(game: GameInfo, compact: boolean): string {
   const action = gameStartLabel(game);
-  return seen ? `B ${action}` : `跳过说明，${action}`;
+  return compact ? `B ${action}` : `B 跳过说明，${action}`;
 }
 const guideKey = (id: GameInfo["id"]) => `pixelpet-guide-v1-${id}`;
 export function guideSeen(id: GameInfo["id"]): boolean {

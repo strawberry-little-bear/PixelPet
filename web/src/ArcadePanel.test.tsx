@@ -13,6 +13,15 @@ vi.mock("./api", () => ({ request: vi.fn() }));
 const api = vi.mocked(request);
 const rules: Shop = { catalog: [], dailyCoins: 10, gameDailyLimit: 30, maxCoins: 1_000_000 };
 const id = "0123456789abcdef0123456789abcdef";
+// Literal UI expectations: do not derive the promised key/action from the helper under test.
+const entryActions = { stars: "开始", tiles: "开始", snake: "进入暂停", tetris: "进入暂停", fishing: "进入准备", walk: "进入暂停", treasure: "进入暂停" };
+function expectGuideKeys(info: GameInfo, compact = false) {
+  const action = `B ${compact ? "" : "跳过说明，"}${entryActions[info.id]}`;
+  expect(document.querySelector(".game-guide > small")?.textContent)
+    .toBe(`A ${compact ? "重看规则" : "翻页"} · ${action} · C 返回选游戏`);
+  expect(document.querySelector(".lcd-bottom > span")?.textContent)
+    .toBe(`A ${compact ? "重看规则" : "翻页"}  ${action}  C 返回选择`);
+}
 let saved: PetState, failStart: boolean, failCancel: boolean;
 const actions = () => api.mock.calls.filter(c => c[0] === "action").map(c => c[1] as { kind: string; gameId?: string; });
 const response = () => ({ state: structuredClone(saved), message: "", serverTime: Date.now(), shop: rules });
@@ -72,6 +81,7 @@ describe("game directory and optional three-key guides", () => {
     expect(document.querySelector(".game-guide")?.textContent).toContain("第一次一起玩");
     expect(actions()).toHaveLength(0); expect(guideSeen(info.id)).toBe(false);
     for (const [page, text] of [info.lesson, info.leaving, info.lesson].entries()) {
+      expectGuideKeys(info);
       const steps = document.querySelector(".guide-steps");
       expect(steps?.tagName).toBe("UL");
       expect(steps?.textContent).toBe(text);
@@ -260,13 +270,16 @@ describe("playtest feedback: compact repeat entry", () => {
     rememberGuide(info.id); await mount(); await select(index); await key("b");
     expect(document.querySelector(".game-quick-start")?.textContent).toContain(info.title);
     expect(document.querySelector(".guide-steps")).toBeNull();
+    expectGuideKeys(info, true);
     expect(screen.getByText(`A 重看规则 · ${gameStartInstruction(info, true)} · C 返回选游戏`)).toBeTruthy();
     expect(actions()).toHaveLength(0);
     if (info.id === "fishing") expect(screen.getByText("开局后按 B 手动抛竿，不会自动开始等待。")).toBeTruthy();
     await key("a");
     expect(document.querySelector(".game-quick-start")).toBeNull();
     expect(document.querySelector(".guide-steps")?.textContent).toBe(info.lesson);
+    expectGuideKeys(info);
     await key("a"); expect(document.querySelector(".guide-steps")?.textContent).toBe(info.leaving);
+    expectGuideKeys(info);
     await key("c"); expect(document.querySelector(`[data-game="${info.id}"][aria-current="true"]`)).toBeTruthy();
     await key("b"); expect(document.querySelector(".game-quick-start")).toBeTruthy();
     await key("b"); expect(actions().map(action => action.kind)).toEqual([info.startAction]);
@@ -280,6 +293,16 @@ describe("playtest feedback: compact repeat entry", () => {
     if (info.id === "walk") expect(game.walking!.paused).toBe(true);
     expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
     expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
+  });
+  it.each(games.map((game, index) => [game, index] as const))("keeps the $0.id review B action consistent with its instruction", async (info, index) => {
+    rememberGuide(info.id); await mount(); await select(index); await key("b");
+    expectGuideKeys(info, true);
+    await key("a"); expectGuideKeys(info);
+    expect(actions()).toHaveLength(0);
+    await key("b");
+    expect(actions().map(action => action.kind)).toEqual([info.startAction]);
+    expect(document.querySelector(".game-guide")).toBeNull();
+    expect(saved.game).toBeTruthy();
   });
   it("does not offer a start action while the pet is sleeping", async () => {
     saved.sleeping = true;

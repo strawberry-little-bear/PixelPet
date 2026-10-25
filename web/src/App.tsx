@@ -2347,10 +2347,11 @@ export default function App() {
     || (walking && (walking.paused || walkSession !== pet?.game?.id))
     || (fishing && (fishing.paused || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)));
   const startBlocked = gameStartBlock(pet?.sleeping, pet?.needs.energy);
+  const quickGameGuide = page === "game-guide" && guideSeen(games[arcadeChoice].id) && !guideReview;
   const gameNavHint = page === "walk-trail" ? pet?.game?.walking && canChooseWalkTrail(pet.game.walking) ? "A 换小路  B 选好  C 返回暂停" : "C 返回暂停" : page === "pause-guide" ? "A / B 翻页  C 返回暂停" : page === "arcade"
     ? pet?.sleeping ? "A 换游戏  B 暂不可开始  C 返回" : "A 换游戏  B 进入  C 返回"
     : page === "game-guide"
-      ? startBlocked ? `A 翻页  ${startBlocked.hint}  C 返回选择` : `A 翻页  ${gameStartInstruction(games[arcadeChoice], guideSeen(games[arcadeChoice].id) && !guideReview)}  C 返回选择`
+      ? startBlocked ? `A ${quickGameGuide ? "重看规则" : "翻页"}  ${startBlocked.hint}  C 返回选择` : `A ${quickGameGuide ? "重看规则" : "翻页"}  ${gameStartInstruction(games[arcadeChoice], quickGameGuide)}  C 返回选择`
       : abandoning ? "A / C 留在本局  B 确认放弃" : (page === "fish-album" || page === "park-album") ? "A 上一页  B 下一页  C 返回" : "";
   const quietMemoryCount = page === "moment" && pet ? quietMemories(pet).length : 0;
   const quietMomentHint = pet?.sleeping
