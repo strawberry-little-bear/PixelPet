@@ -35,7 +35,8 @@ describe("saved care learning receipt", () => {
   });
   it.each(["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"] as const)("keeps %s cooldown separate from immediate need changes", kind => {
     render(<CareOutcome feedback={{ ...feedback, kind, habit: "play", points: 0, habitGain: 0, reason: "cooldown", retryAt: 1 }} />);
-    expect(learning()?.textContent).toContain("本次没有新增成长点");
+    expect(learning()?.querySelector("strong")?.textContent).toBe("这局也收进共同经历了");
+    expect(learning()?.textContent).not.toContain("本次没有新增成长点");
     expect(learning()?.textContent).toContain("陪玩习惯：本次不计入");
     expect(learning()?.textContent).toContain("记录数值：成长 +0.00 点 · 陪玩习惯：+0");
     expect(learning()?.textContent).toContain("记录时同类习惯仍在间隔内");

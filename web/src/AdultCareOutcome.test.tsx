@@ -49,7 +49,8 @@ it.each(["feed", "clean", "catch", "tile-pick", "snake-finish", "tetris-finish",
   const original = structuredClone(feedback);
   const { container, rerender } = render(<CareOutcome feedback={feedback} embedded={kind.endsWith("finish")} />);
   expect(container.textContent).toContain("已经成年，成长点不再增加。");
-  expect(container.textContent).toContain("本次没有新增成长点");
+  if (kind === "feed" || kind === "clean") expect(container.textContent).toContain("本次没有新增成长点");
+  else expect(container.querySelector(".care-learning strong")?.textContent).toBe("这局也收进共同经历了");
   expect(container.textContent).toMatch(/习惯：\+0/);
   expect(container.textContent).toContain("记录时约还需 25 分钟");
   expect(container.textContent).not.toContain("本次习惯仍已计入");

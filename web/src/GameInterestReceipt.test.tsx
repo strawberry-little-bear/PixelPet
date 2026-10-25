@@ -53,7 +53,8 @@ describe("acknowledged familiarity results", () => {
       expect(interest.textContent).toContain("这款游戏的熟悉度：记录时约还需 10 分钟");
       expect(interest.textContent).not.toContain("25 分钟");
       const care = screen.getByLabelText("本次成长与习惯");
-      expect(care.textContent).toContain(careReason === "credited" ? "本次成长：+0.25 点" : "本次没有新增成长点");
+      expect(care.textContent).toContain(careReason === "credited" ? "本次成长：+0.25 点" : "这局也收进共同经历了");
+      if (careReason === "cooldown") expect(care.querySelector("strong")?.textContent).toBe("这局也收进共同经历了");
       expect(care.textContent).toContain(careReason === "credited" ? "陪玩习惯：+1" : "陪玩习惯：本次不计入");
       if (careReason === "cooldown") expect(care.textContent).toContain("记录时约还需 25 分钟");
       expect(f.result).toEqual(original);
@@ -68,7 +69,7 @@ describe("acknowledged familiarity results", () => {
     render(<GameOutcome outcome={outcome} careFeedback={f.result.careFeedback} />);
     expect(screen.getByLabelText("本局游戏熟悉度").textContent).toContain("熟悉度 +1");
     expect(screen.getByLabelText("散步奖励拆解").textContent).toContain("本次实际到账：+0 金币");
-    expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("本次没有新增成长点");
+    expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("这局也收进共同经历了");
     expect(screen.getByLabelText("本页最近一次游戏结算").textContent).toContain("记录时约还需 10 分钟");
   });
   it.each([

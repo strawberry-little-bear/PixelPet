@@ -83,13 +83,15 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
   const feeling = feedback.kind === "feed" ? "饭团已吃好。" : feedback.kind === "clean" ? "洗得干干净净。" :
     feedback.kind === "sleep" ? feedback.reason === "awake" ? "欢迎回来，醒来啦。" : "晚安，安心睡一会儿。" :
       "这局玩得很开心。";
+  const playCooldown = feedback.reason === "cooldown" &&
+    ["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"].includes(feedback.kind);
   const friendlyHabit = learning?.habit.replace(/：(?:\+0|本次切换不计入)$/, "：本次不计入");
   const preciseHabit = learning?.habit.replace(/：(?:本次不计入|本次切换不计入)$/, "：+0");
   // A game result explains this round's growth before the exact need deltas.
   // Standalone care keeps its feeling and immediate needs first.
   const growthDetails = <>
     {learning && <div className="care-learning" role="group" aria-label="本次成长与习惯">
-      <strong>{feedback.points > 0 ? `本次成长：+${careAmount(feedback.points)} 点` : "本次没有新增成长点"}</strong>
+      <strong>{feedback.points > 0 ? `本次成长：+${careAmount(feedback.points)} 点` : playCooldown ? "这局也收进共同经历了" : "本次没有新增成长点"}</strong>
       <span>{friendlyHabit}</span>
       <p>{learning.reason}</p>
       {(feedback.points === 0 || careHabitUnits(feedback.habitGain) === 0) && (
