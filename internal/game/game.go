@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-const Schema = 22
+const Schema = 23
 
 var Species = []string{"星星狸", "云朵雀", "草莓兔", "海豚宝", "蘑菇菇", "蜜桃熊", "柠檬蛙", "樱花喵", "银河龙", "焦糖犬"}
 
@@ -283,9 +283,12 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		if s.Schema < 23 {
+			walking.Trail = ""
+		}
 		s.Game = &MiniGame{ID: newGameID(), Kind: "walk", Walking: walking, StartedAt: now.UnixMilli(), LastBeat: -1}
 		return "A 跳跃 · B 蹲下 · C 暂停；轻松走完就有陪伴与发现。", nil
-	case "walk-step", "walk-jump", "walk-duck", "walk-pause", "walk-resume", "walk-finish":
+	case "walk-trail", "walk-step", "walk-jump", "walk-duck", "walk-pause", "walk-resume", "walk-finish":
 		return s.applyWalking(a, now)
 	case "play-fishing":
 		if s.Needs.Energy < 10 {

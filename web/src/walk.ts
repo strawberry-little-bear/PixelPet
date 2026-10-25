@@ -9,6 +9,20 @@ export const parkCatalog = [
  {id:"pebble", name:"圆石子", color:"#91a18e", story:"公园里一颗圆圆的小石子。"},
 ] as const;
 export const walkMenu = ["继续散步", "沿途发现", "放弃本次", "风景手记", "玩法说明"];
+export const walkTrails = [
+ {id:"woodland", name:"林荫小径", description:"走进树荫，看看叶片、松果与落羽。", finds:["leaf","pinecone","feather"]},
+ {id:"pond", name:"池畔小路", description:"沿着水边，看看贝壳、圆石与落羽。", finds:["shell","pebble","feather"]},
+ {id:"garden", name:"花园步道", description:"经过花丛，看看落花、叶片与圆石。", finds:["flower","leaf","pebble"]},
+] as const;
+export function canChooseWalkTrail(walking: Walking): boolean {
+ return walking.trail === "park" && walking.beat === 0 && walking.paused;
+}
+export function walkMenuFor(walking: Walking): string[] {
+ return canChooseWalkTrail(walking) ? [...walkMenu, "挑条小路"] : walkMenu;
+}
+export function walkTrailName(walking: Walking): string {
+ return walkTrails.find(trail => trail.id === walking.trail)?.name ?? "公园小路";
+}
 export const walkingCompanions = [
  "小爪迈步，跳起时收爪，低头通过树枝。",
  "小脚走路，展翅越石，收翅低头穿过树枝。",
@@ -30,6 +44,7 @@ export function walkPauseHint(walking: Walking, choice: number): string {
   "B 先打开放弃确认；已遇见的发现保留，未完成不发奖励。",
   "B 回看已保存的风景手记；返回仍暂停，不会生成新发现。",
   "B 重看本局两页玩法；返回仍暂停，等你手动继续。",
+  "B 出发前挑一条小路；只挑一次，不增加奖励。",
  ];
  return hints[choice] ?? hints[0];
 }

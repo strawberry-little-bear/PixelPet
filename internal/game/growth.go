@@ -177,6 +177,10 @@ func (s *State) Upgrade(now time.Time) bool {
 		// Leave the keepsake corner empty; retain every saved memory and game.
 		s.Schema = 22
 	}
+	if s.Schema == 22 {
+		// Preserve old routes and discoveries without inventing a trail choice.
+		s.Schema = 23
+	}
 	return true
 }
 

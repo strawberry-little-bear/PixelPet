@@ -213,3 +213,61 @@ func TestWalkSettlementReceiptReportsBreakdownAndActualAward(t *testing.T) {
 		})
 	}
 }
+
+func TestWalkTrailPersistsChoiceAndReplaysWithoutReroll(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "trails.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { db.Close() }()
+	now := time.Now().Truncate(time.Millisecond).Add(time.Second)
+	if _, err = db.Do(&game.Action{Kind: "hatch", Species: 2}, nil, false, now); err != nil {
+		t.Fatal(err)
+	}
+	r, err := db.Do(&game.Action{Kind: "play-walk"}, nil, false, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &game.Action{Kind: "walk-trail", GameID: r.State.Game.ID, Step: r.State.Game.Walking.Step, Item: "garden", RequestID: "pick-garden"}
+	chosen, err := db.Do(a, nil, false, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := *chosen.State.Game.Walking
+	duplicate, err := db.Do(a, nil, false, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(duplicate.State.Game.Walking, &original) || duplicate.State.Revision != chosen.State.Revision {
+		t.Fatal("duplicate rerolled")
+	}
+	if err = db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := db.Do(nil, nil, false, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(restored.State.Game.Walking, &original) || !restored.State.Game.Walking.Paused {
+		t.Fatal("reload changed route")
+	}
+	a.RequestID = "second-choice"
+	a.Step = original.Step
+	a.Item = "pond"
+	if _, err = db.Do(a, nil, false, now.Add(time.Second)); err == nil {
+		t.Fatal("second choice accepted")
+	}
+	backup := restored.State
+	imported, err := db.Do(nil, &backup, false, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if imported.State.Game != nil || len(imported.State.Park.Finds) != 0 || imported.State.Economy.Coins != 0 {
+		t.Fatal("import invented discoveries or rewards")
+	}
+}

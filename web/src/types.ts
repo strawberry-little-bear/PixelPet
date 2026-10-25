@@ -240,6 +240,6 @@ export type Tetris = {
 export type FishDiscovery = {id:string;firstAt:number;lastAt:number;count:number};
 export type Fishing = {spot:number;casts:number;catches?:string[]|null;phase:"ready"|"wait"|"bite"|"result"|"done";step:number;waitMs:number;elapsedMs:number;candidate:string;lastPulseAt:number;paused:boolean;outcome?:"caught"|"early"|"missed";lastFish?:string};
 
-export type Walking = {route:("rock"|"branch")[];souvenirs:string[];beat:number;step:number;cleared:number;pose:""|"jump"|"duck";poseUntil:number;lastPulseAt:number;lastInputAt:number;paused:boolean};
+export type Walking = {trail?: "park"|"woodland"|"pond"|"garden";route:("rock"|"branch")[];souvenirs:string[];beat:number;step:number;cleared:number;pose:""|"jump"|"duck";poseUntil:number;lastPulseAt:number;lastInputAt:number;paused:boolean};
 
 export type TreasureHunt = { layout: number[]; opened: number[]; step: number; paused: boolean };

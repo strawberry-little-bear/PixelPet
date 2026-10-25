@@ -12,6 +12,9 @@ func TestEncounterDiscoveryMessageOnlyOnFirstSavedRecord(t *testing.T) {
 				s, now := encounterState(t, kind)
 				if mode == "legacy" {
 					s.Schema = 13
+					if s.Game != nil && s.Game.Walking != nil {
+						s.Game.Walking.Trail = ""
+					}
 					if s.Companion != nil {
 						s.Companion.History = nil
 					}

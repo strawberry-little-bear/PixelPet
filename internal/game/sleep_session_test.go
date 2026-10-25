@@ -257,6 +257,9 @@ func TestSchemaSixteenUpgradePreservesEveryActiveGameAndOldSleep(t *testing.T) {
 				}
 			}
 			s.Schema = 16
+			if s.Game != nil && s.Game.Walking != nil {
+				s.Game.Walking.Trail = ""
+			}
 			if s.Companion != nil {
 				s.Companion.History = nil
 			}
@@ -271,6 +274,9 @@ func TestSchemaSixteenUpgradePreservesEveryActiveGameAndOldSleep(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.Schema = 16
+			if s.Game != nil && s.Game.Walking != nil {
+				s.Game.Walking.Trail = ""
+			}
 			if s.Companion != nil {
 				s.Companion.History = nil
 			}

@@ -103,6 +103,9 @@ func TestEncountersUpgradeDoesNotBackfill(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			s, now := encounterState(t, kind)
 			s.Schema = 13
+			if s.Game != nil && s.Game.Walking != nil {
+				s.Game.Walking.Trail = ""
+			}
 			if s.Companion != nil {
 				s.Companion.History = nil
 			}
@@ -225,6 +228,9 @@ func TestEncounterDoesNotAlterDiscoveryOrSettlement(t *testing.T) {
 			rare, now := encounterState(t, kind)
 			ordinary := copyState(rare)
 			ordinary.Schema = 13
+			if ordinary.Game != nil && ordinary.Game.Walking != nil {
+				ordinary.Game.Walking.Trail = ""
+			}
 			if ordinary.Companion != nil {
 				ordinary.Companion.History = nil
 			}

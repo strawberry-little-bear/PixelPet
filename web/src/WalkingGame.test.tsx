@@ -2,8 +2,8 @@ import { RequestFailure } from "./requestFailure";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { WalkingGame, ParkAlbum } from "./WalkingGame";
-import { parkCatalog, walkingCompanions } from "./walk";
+import { WalkingGame, ParkAlbum, WalkTrailPicker } from "./WalkingGame";
+import { parkCatalog, walkingCompanions, walkTrails, walkMenuFor, canChooseWalkTrail } from "./walk";
 import { petRigKind } from "./PetArt";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
@@ -20,8 +20,8 @@ async function clock(ms:number){await act(async()=>{await vi.advanceTimersByTime
 async function mount(){await act(async()=>{render(<App/>)})}
 async function hidden(value:boolean){Object.defineProperty(document,"hidden",{configurable:true,value});await act(async()=>{document.dispatchEvent(new Event("visibilitychange"))})}
 beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-19T10:00:00Z"));Object.defineProperty(document,"hidden",{configurable:true,value:false});localStorage.clear();api.mockReset();saved=fixture();failure="";delayResume=false;
- api.mockImplementation(async(path,body)=>{if(path==="action"){const a=body as {kind:string;step:number};if(a.kind===failure)throw new RequestFailure("这一步没有保存", "rejected");const n=saved.game?.walking;
-  if(n){if(a.kind==="walk-resume"){n.paused=false;n.lastPulseAt=Date.now()}if(a.kind==="walk-pause")n.paused=true;
+ api.mockImplementation(async(path,body)=>{if(path==="action"){const a=body as {kind:string;step:number;item?:string};if(a.kind===failure)throw new RequestFailure("这一步没有保存", "rejected");const n=saved.game?.walking;
+  if(n){if(a.kind==="walk-trail"){n.trail=a.item as Walking["trail"];n.souvenirs=["shell","pebble","feather"];}if(a.kind==="walk-resume"){n.paused=false;n.lastPulseAt=Date.now()}if(a.kind==="walk-pause")n.paused=true;
    if(a.kind==="walk-step"){n.beat++;n.lastPulseAt=Date.now();if(n.beat%24===0)saved.park!.finds!.push({id:n.souvenirs[n.beat/24-1],firstAt:Date.now(),lastAt:Date.now(),count:1})}
    if(a.kind==="walk-jump"||a.kind==="walk-duck"){n.pose=a.kind==="walk-jump"?"jump":"duck";n.poseUntil=Math.min(72,n.beat+3);n.lastInputAt=Date.now()}
    n.step++;
@@ -421,5 +421,60 @@ describe("discoveries do not hide the next obstacle's action feedback", () => {
   await key("c"); expect(document.querySelector(".walk-action-note")).toBeNull();
   expect(document.querySelector(".walk-pause")).toBeTruthy();
   expect(calls().filter(a => a.kind === "walk-jump")).toHaveLength(1);
+ });
+});
+
+
+describe("optional walk trails",()=>{
+ async function openPicker(){for(let i=0;i<5;i++)await key("a");await key("b");expect(screen.getByRole("region",{name:"出发前挑条小路"})).toBeTruthy();}
+ it("cancels without a write and chooses once, returning paused until explicit resume",async()=>{
+  saved.game!.walking!.trail="park";await mount();
+  await openPicker();await key("a");expect(document.querySelector(".walk-trail-selection")?.textContent).toContain("池畔小路");
+  await key("c");await clock(6000);expect(calls()).toHaveLength(0);
+  await openPicker();await key("a");await key("b");
+  expect(calls()).toEqual([expect.objectContaining({kind:"walk-trail",item:"pond",step:0,gameId:id})]);
+  expect(document.querySelector(".walk-pause")).toBeTruthy();expect(screen.queryByRole("region",{name:"出发前挑条小路"})).toBeNull();
+  expect(document.querySelector(".walking-game header")?.textContent).toContain("池畔小路 · 浅水道");
+  expect(document.querySelector('[data-trail-scenery="pond"]')).toBeTruthy();
+  expect(document.querySelector(".walk-pause")?.textContent).not.toContain("挑条小路");
+  await clock(9000);expect(calls()).toHaveLength(1);
+  cleanup();await mount();await clock(9000);expect(calls()).toHaveLength(1);
+  expect(document.querySelector('[data-trail="pond"]')).toBeTruthy();
+  await key("c");await clock(1100);expect(calls().map(a=>a.kind)).toEqual(["walk-trail","walk-resume","walk-step"]);
+ });
+ it("keeps rejected choices readable and never retries an uncertain write",async()=>{
+  saved.game!.walking!.trail="park";await mount();await openPicker();failure="walk-trail";await key("b");
+  expect(screen.getByRole("region",{name:"出发前挑条小路"})).toBeTruthy();await clock(6000);expect(calls()).toHaveLength(1);
+  api.mockRejectedValueOnce(new RequestFailure("结果未知", "unknown"));await key("b");await clock(6000);
+  expect(calls().filter(a=>a.kind==="walk-trail")).toHaveLength(2);
+ });
+ it("keeps a late accepted choice paused after a foreground interruption",async()=>{
+  saved.game!.walking!.trail="park";await mount();await openPicker();
+  const normal=api.getMockImplementation()!;let accept!:()=>void;
+  api.mockImplementation(async(...args)=>{
+   const r=await normal(...args);
+   if(args[0]==="action"&&(args[1] as {kind:string}).kind==="walk-trail")await new Promise<void>(resolve=>{accept=resolve});
+   return r;
+  });
+  await key("b");await hidden(true);await hidden(false);await act(async()=>accept());await clock(7000);
+  expect(calls().map(a=>a.kind)).toEqual(["walk-trail"]);
+  expect(screen.getByRole("region",{name:"出发前挑条小路"})).toBeTruthy();
+  expect(screen.getByText(/本次路线已留好：林荫小径/)).toBeTruthy();
+  await key("b");expect(calls()).toHaveLength(1);
+  await key("c");expect(document.querySelector(".walk-pause")).toBeTruthy();
+ });
+ it.each(walkTrails)("renders $name with a distinct saved scene and no new controls",trail=>{
+  const pet=fixture();pet.game!.walking!.trail=trail.id;
+  render(<WalkingGame pet={pet} active={false} choice={0}/>);
+  expect(document.querySelector(`[data-trail-scenery="${trail.id}"]`)).toBeTruthy();
+  expect(document.querySelector(".walking-game header")?.textContent).toContain(trail.name);
+  cleanup();render(<WalkTrailPicker walking={{...baseWalk(),trail:"park"}} choice={walkTrails.indexOf(trail)}/>);
+  expect(document.querySelector(".walk-trail-selection")?.textContent).toContain(trail.name);
+  expect(document.querySelectorAll("button,a,input,[role=button]")).toHaveLength(0);
+ });
+ it("does not offer legacy, completed, moving or already chosen routes a reroll",()=>{
+  for(const n of [baseWalk(),{...baseWalk(),trail:"pond" as const},{...baseWalk(),trail:"park" as const,beat:1},{...baseWalk(),trail:"park" as const,paused:false}]){
+   expect(canChooseWalkTrail(n)).toBe(false);expect(walkMenuFor(n)).not.toContain("挑条小路");
+  }
  });
 });

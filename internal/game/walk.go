@@ -20,6 +20,7 @@ type Park struct {
 	LastWalkAt int64           `json:"lastWalkAt"`
 }
 type Walking struct {
+	Trail       string   `json:"trail,omitempty"`
 	Route       []string `json:"route"`
 	Souvenirs   []string `json:"souvenirs"`
 	Beat        int      `json:"beat"`
@@ -38,7 +39,7 @@ func newWalking(now time.Time) (*Walking, error) {
 	if _, err := rand.Read(seed[:]); err != nil {
 		return nil, err
 	}
-	n := &Walking{Route: make([]string, 12), Souvenirs: make([]string, 3), Paused: true, LastPulseAt: now.UnixMilli()}
+	n := &Walking{Trail: "park", Route: make([]string, 12), Souvenirs: make([]string, 3), Paused: true, LastPulseAt: now.UnixMilli()}
 	for i := range n.Route {
 		n.Route[i] = "rock"
 		if seed[i]%2 == 1 {
@@ -53,6 +54,30 @@ func newWalking(now time.Time) (*Walking, error) {
 		n.Souvenirs[i] = parkIDs[int(r.Int64())]
 	}
 	return n, nil
+}
+
+// An empty trail belongs to an older session. Never reroll its saved finds.
+func walkTrailPool(trail string) []string {
+	switch trail {
+	case "woodland":
+		return []string{"leaf", "pinecone", "feather"}
+	case "pond":
+		return []string{"shell", "pebble", "feather"}
+	case "garden":
+		return []string{"flower", "leaf", "pebble"}
+	}
+	return nil
+}
+func chooseWalkSouvenirs(pool []string) ([]string, error) {
+	finds := make([]string, 3)
+	for i := range finds {
+		r, err := rand.Int(rand.Reader, big.NewInt(int64(len(pool))))
+		if err != nil {
+			return nil, err
+		}
+		finds[i] = pool[int(r.Int64())]
+	}
+	return finds, nil
 }
 func knownPark(id string) bool {
 	for _, v := range parkIDs {
@@ -121,6 +146,20 @@ func (s *State) applyWalking(a Action, now time.Time) (string, error) {
 		msg := fmt.Sprintf("一起走完公园！避开 %d / 12 处障碍，带回三次沿途发现。", cleared) + coinMessage(coins)
 		s.Log(now, msg)
 		return msg, nil
+	case "walk-trail":
+		if !n.Paused || n.Beat != 0 || n.Trail != "park" {
+			return "", errors.New("只在出发前挑一次小路；这次路线已经留好啦")
+		}
+		pool := walkTrailPool(a.Item)
+		if pool == nil {
+			return "", errors.New("请选择林荫、池畔或花园小路")
+		}
+		finds, err := chooseWalkSouvenirs(pool)
+		if err != nil {
+			return "", err
+		}
+		n.Trail, n.Souvenirs = a.Item, finds
+		message = "小路选好啦，仍在暂停；准备好后再继续散步。"
 	case "walk-pause":
 		n.Paused = true
 	case "walk-resume":
@@ -208,6 +247,13 @@ func (s State) validWalkingGame() bool {
 	if s.Schema < 11 || n == nil || s.Sleeping || g.Fishing != nil || g.Tetris != nil || g.Snake != nil || g.Tiles != nil || g.Round != 0 || g.Score != 0 || g.LastBeat != -1 {
 		return false
 	}
+	if s.Schema < 23 && n.Trail != "" {
+		return false
+	}
+	pool := walkTrailPool(n.Trail)
+	if n.Trail != "" && n.Trail != "park" && pool == nil {
+		return false
+	}
 	if len(n.Route) != 12 || len(n.Souvenirs) != 3 || n.Beat < 0 || n.Beat > WalkLength || n.Step < n.Beat || n.Step > walkStepLimit || n.Cleared < 0 || n.Cleared > n.Beat/6 || n.LastPulseAt < g.StartedAt || n.LastPulseAt > s.LastTick || (n.LastInputAt != 0 && (n.LastInputAt < g.StartedAt || n.LastInputAt > s.LastTick)) || int64(n.Beat)*1000 > s.LastTick-g.StartedAt {
 		return false
 	}
@@ -227,6 +273,15 @@ func (s State) validWalkingGame() bool {
 	for i, id := range n.Souvenirs {
 		if !knownPark(id) {
 			return false
+		}
+		if pool != nil {
+			matched := false
+			for _, allowed := range pool {
+				matched = matched || allowed == id
+			}
+			if !matched {
+				return false
+			}
 		}
 		if n.Beat >= (i+1)*24 {
 			counts[id]++

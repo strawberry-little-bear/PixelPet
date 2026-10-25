@@ -304,6 +304,7 @@ func TestEncounterSchema13MigrationSnapshotsWithoutInventingHistory(t *testing.T
 	old.Apply(game.Action{Kind: "hatch"}, now)
 	old.Apply(game.Action{Kind: "play-walk"}, now)
 	old.Schema = 13
+	old.Game.Walking.Trail = "" // Historical saves predate optional trail choices.
 	if old.Companion != nil {
 		old.Companion.History = nil
 	}

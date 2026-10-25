@@ -1,5 +1,5 @@
 .walking-game,.park-album{color:#405132;font-size:10px;line-height:1.5}
-.walking-game header,.park-album header{display:flex;justify-content:space-between;align-items:center;height:22px}
+.walking-game header,.park-album header{display:flex;justify-content:space-between;align-items:center;min-height:22px;flex-wrap:wrap;gap:4px}
 .walking-game header strong,.park-album header strong{font-size:11px}
 .walking-game header span,.park-album header span{font-size:9px}
 .park-scene{position:relative;height:102px;border:1px solid #798f66;overflow:hidden}
@@ -60,3 +60,8 @@
 .walk-discoveries li > span { display: block; }
 .walk-discoveries li > strong { display: block; }
 .walking-game .walk-discoveries-note { margin-top: 10px; }
+
+.walk-trail-picker { line-height: 1.65; overflow-wrap: anywhere; }
+.walk-trail-picker header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5em; }
+.walk-trail-finds { display: flex; flex-wrap: wrap; justify-content: center; gap: .5em; }
+.walk-trail-finds .park-art { width: 3.5em; max-width: 100%; height: auto; }

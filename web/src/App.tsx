@@ -24,8 +24,8 @@ import type { CareRules } from "./types";
 import { CarePreview, careMenuConfirmation } from "./CarePreview";
 import { TreasureGame } from "./TreasureGame";
 import { nextTreasure, treasureDone, treasureMenu } from "./treasure";
-import { WalkingGame, ParkAlbum } from "./WalkingGame";
-import { parkCatalog, walkMenu } from "./walk";
+import { WalkingGame, ParkAlbum, WalkTrailPicker } from "./WalkingGame";
+import { parkCatalog, walkMenuFor, walkTrails, canChooseWalkTrail } from "./walk";
 import { completedExperience, experienceWords, recordNewDiscoveries, takeDiscoveryEcho, type CompanionEchoKind } from "./companion";
 import { FishingGame, FishAlbum } from "./FishingGame";
 import { fishCatalogFor, fishingMenu } from "./fishing";
@@ -123,6 +123,7 @@ type Page =
   | "shop"
   | "fish-album"
   | "park-album"
+  | "walk-trail"
   | "moment"
   | "import-preview";
 const items = [
@@ -299,6 +300,7 @@ export default function App() {
   const [treasureChoice, setTreasureChoice] = useState(0);
   const [walkSession,setWalkSession] = useState("");
   const [walkChoice,setWalkChoice] = useState(0);
+  const [walkTrailChoice, setWalkTrailChoice] = useState(0);
   const [parkPage,setParkPage] = useState(0);
   const walkEpoch = useRef(0);
   // Observed window focus gates visits as well as local game permission.
@@ -457,14 +459,14 @@ export default function App() {
   };
 
   const [collectionReadingDestination, setCollectionReadingDestination] = useState<{
-    petKey: string | null; sessionKey: string | null; page: "fish-album" | "park-album"; index: number;
+    petKey: string | null; sessionKey: string | null; page: "fish-album" | "park-album" | "walk-trail"; index: number;
   } | null>(null);
   useReadingViewport(readingRoot, collectionReadingDestination, "[data-collection-reading-start]",
     !!careReadingKey && collectionReadingDestination?.petKey === careReadingKey &&
     collectionReadingDestination?.sessionKey === sessionKey && collectionReadingDestination?.page === page &&
-    collectionReadingDestination?.index === (page === "fish-album" ? fishPage : parkPage) &&
+    collectionReadingDestination?.index === (page === "walk-trail" ? walkTrailChoice : page === "fish-album" ? fishPage : parkPage) &&
     !uncertain && !unavailable && !corrupt && !clockAhead && !tools && !help && !reset && foreground && !clip && !evolution);
-  const navigateCollectionReading = (destination: "fish-album" | "park-album", index: number) => {
+  const navigateCollectionReading = (destination: "fish-album" | "park-album" | "walk-trail", index: number) => {
     setCollectionReadingDestination({ petKey: careReadingKey, sessionKey, page: destination, index });
   };
 
@@ -1254,6 +1256,11 @@ export default function App() {
       const experience = completedExperience(activeGameID, r.state.companion?.recent, !!r.careFeedback && !r.state.game, seenExperiences.current);
       if ((discoveryEcho || experience) && !document.hidden && echoEpoch === homeEchoEpoch.current)
         setHomeEcho({ kind: discoveryEcho ?? experience!.kind, monotonicUntil: performance.now() + 12000 });
+      if (kind === "walk-trail" && page === "walk-trail" && r.state.game?.id === pet?.game?.id
+        && activeWalkEpoch === walkEpoch.current && !document.hidden && windowActive.current) {
+        setWalkSession(""); setWalkChoice(0); setPage("game");
+        setPauseReadingDestination({ sessionKey: gameSessionKey(r.state.game), target: "pause" });
+      }
       if (kind === "walk-resume" && activeWalkEpoch === walkEpoch.current && !document.hidden && windowActive.current) setWalkSession(r.state.game?.id ?? "");
       if (["walk-pause","walk-finish","cancel-play"].includes(kind)) {setWalkSession("");setWalkChoice(0);}
       if (["fish-cast", "fish-resume"].includes(kind) && activeEpoch === fishingEpoch.current && !document.hidden && windowActive.current) setFishingSession(r.state.game?.id ?? "");
@@ -1704,6 +1711,20 @@ export default function App() {
       }
       return;
     }
+    if (page === "walk-trail") {
+      const n = pet.game?.kind === "walk" ? pet.game.walking : undefined;
+      if (key === "C" || !n) {
+        setPage(n ? "game" : "home"); setWalkChoice(0);
+        if (n) setPauseReadingDestination({ sessionKey, target: "pause" });
+      } else if (canChooseWalkTrail(n)) {
+        if (key === "A") {
+          const next = (walkTrailChoice + 1) % walkTrails.length;
+          setWalkTrailChoice(next); navigateCollectionReading("walk-trail", next);
+        }
+        else void act("walk-trail", {step:n.step, item:walkTrails[walkTrailChoice].id});
+      }
+      return;
+    }
     if (page === "park-album") {
       if (key === "C") {
         setPage(pet.game?.kind === "walk" ? "game" : "home"); setWalkChoice(0);
@@ -1796,9 +1817,15 @@ export default function App() {
         else void act("walk-finish",{step:n.step});
       }
       else if(n.paused || walkSession!==pet.game.id) {
-        if(key==="A")setWalkChoice(v=>(v+1)%walkMenu.length);
+        if(key==="A")setWalkChoice(v=>(v+1)%walkMenuFor(n).length);
         else if(key==="C" || walkChoice===0)void act("walk-resume",{step:n.step});
         else if(walkChoice===1){walkEpoch.current++;setWalkSession("");setParkPage(0);setPage("park-album");navigateCollectionReading("park-album", 0);}
+        else if (walkChoice === 5) {
+          if (canChooseWalkTrail(n)) {
+            walkEpoch.current++; setWalkSession(""); setWalkTrailChoice(0); setPage("walk-trail");
+            navigateCollectionReading("walk-trail", 0);
+          } else setWalkChoice(0);
+        }
         else if (walkChoice === 4) openPauseGuide();
         else if (walkChoice === 3) {
           walkEpoch.current++; setWalkSession("");
@@ -2317,7 +2344,7 @@ export default function App() {
     || (walking && (walking.paused || walkSession !== pet?.game?.id))
     || (fishing && (fishing.paused || (["wait", "bite"].includes(fishing.phase) && fishingSession !== pet?.game?.id)));
   const startBlocked = gameStartBlock(pet?.sleeping, pet?.needs.energy);
-  const gameNavHint = page === "pause-guide" ? "A / B 翻页  C 返回暂停" : page === "arcade"
+  const gameNavHint = page === "walk-trail" ? pet?.game?.walking && canChooseWalkTrail(pet.game.walking) ? "A 换小路  B 选好  C 返回暂停" : "C 返回暂停" : page === "pause-guide" ? "A / B 翻页  C 返回暂停" : page === "arcade"
     ? pet?.sleeping ? "A 换游戏  B 暂不可开始  C 返回" : "A 换游戏  B 进入  C 返回"
     : page === "game-guide"
       ? startBlocked ? `A 翻页  ${startBlocked.hint}  C 返回选择` : `A 翻页  ${gameStartInstruction(games[arcadeChoice], guideSeen(games[arcadeChoice].id) && !guideReview)}  C 返回选择`
@@ -2674,6 +2701,9 @@ export default function App() {
                             now={now}
                           />
                         )}
+                        {page === "walk-trail" && pet.game?.walking && <CareReadingRegion className="memory-reading-region" label="小路选择阅读区">
+                          <WalkTrailPicker walking={pet.game.walking} choice={walkTrailChoice}/>
+                        </CareReadingRegion>}
                         {page === "park-album" && <CareReadingRegion className="memory-reading-region" label="公园沿途发现阅读区">
                           <ParkAlbum pet={pet} page={parkPage} />
                         </CareReadingRegion>}
