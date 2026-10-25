@@ -162,6 +162,37 @@ try {
  page.on('pageerror',e=>errors.push(e.message));await page.goto(base);await page.locator('.home-caption').waitFor();
  await play(page);assert.match(await page.locator('.game-keepsake-result').innerText(),/一起收好了「接星星的小缎带」/);
  const first=cards((await api('state')).state);assert.equal(first.length,1);assert.equal(first[0].item,'star-ribbon');
+ const settlementWrites=[];
+ const watchSettlement=r=>{if(r.method()==='POST'&&new URL(r.url()).pathname==='/api/action')settlementWrites.push(r.postDataJSON());};
+ page.on('request',watchSettlement);
+ // Resize the same real acknowledgement: do not reconstruct a receipt from a
+ // saved history or mock a completion just to exercise the narrow layout.
+ for(const mode of [{width:1200,height:850,font:14},{width:320,height:700,font:28},{width:320,height:380,font:28}]) {
+  await page.setViewportSize({width:mode.width,height:mode.height});
+  await page.emulateMedia({reducedMotion:'reduce',forcedColors:mode.font===28?'active':'none'});
+  await page.evaluate(font=>{document.documentElement.style.fontSize=`${font}px`;},mode.font);
+  const card=page.getByRole('group',{name:'本次收好的游戏纪念物'});
+  assert.match(await card.ariaSnapshot(),/一起收好了「接星星的小缎带」/);
+  assert.match(await card.innerText(),/纪念册「一起玩过」.*「小窝纪念角」/);
+  const art=card.locator('[data-keepsake-art]');assert.equal(await art.count(),1);
+  assert.equal(await art.getAttribute('data-keepsake-art'),'star-ribbon');assert.equal(await art.getAttribute('aria-hidden'),'true');
+  assert(await art.evaluate(el=>{const b=el.getBoundingClientRect(),card=el.parentElement.getBoundingClientRect();
+   return b.width>=35&&b.height>=35&&b.left>=card.left&&b.right<=card.right&&b.top>=card.top&&b.bottom<=card.bottom;
+  }),'keepsake art must retain its size inside the card');
+  await readable(page,'.game-keepsake-result',['.game-keepsake-result > svg','.game-keepsake-result strong','.game-keepsake-result small']);
+  // Check the final prose line too: reaching the top of a tall paragraph
+  // does not prove its directions can be read in a short viewport.
+  assert(await card.locator('p').evaluate(el=>{
+   el.scrollIntoView({block:'end'});const range=document.createRange();range.selectNodeContents(el);const line=[...range.getClientRects()].at(-1);
+   return line&&line.top>=-1&&line.bottom<=innerHeight+1&&line.left>=-1&&line.right<=innerWidth+1;
+  }),'the last line of the album/corner directions must be reachable');
+  await card.screenshot({path:join(dir,`settlement-keepsake-${mode.width}-${mode.height}.png`)});
+  assert.deepEqual(settlementWrites,[]);assert.deepEqual(cards((await api('state')).state),first);
+  results.push({check:'real-new-keepsake-card-art-and-reading',...mode,passed:true});
+ }
+ page.off('request',watchSettlement);
+ await page.setViewportSize({width:1200,height:850});await page.emulateMedia({reducedMotion:'reduce',forcedColors:'none'});
+ await page.evaluate(()=>{document.documentElement.style.fontSize='14px';});
  await page.reload();await page.locator('.home-caption').waitFor();assert.equal(await page.locator('.game-keepsake-result').count(),0,'reload must not repeat a new-item announcement');
  await play(page);assert.equal(await page.locator('.game-keepsake-result').count(),0);assert.deepEqual(cards((await api('state')).state),first);
  const backup=await api('backup');assert.deepEqual(cards(backup),first);

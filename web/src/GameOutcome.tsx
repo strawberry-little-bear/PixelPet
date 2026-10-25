@@ -1,3 +1,4 @@
+import { GameKeepsakeArt } from "./GameKeepsakeArt";
 import { gameKeepsake } from "./game-keepsakes";
 import { games } from "./games";
 import { completionLabel } from "./game-history";
@@ -30,7 +31,14 @@ export function GameOutcome({ outcome, careFeedback = null, readable = false }: 
     })}（本地时间）</time>
     <p className="game-outcome-message">{outcome.message}</p>
     {outcome.companionVoice && <p className="game-outcome-companion-voice" aria-label="宠物的游戏回应">{outcome.companionVoice.text}</p>}
-    {keepsake && <p className="game-keepsake-result">一起收好了「{keepsake.title}」，可以到纪念册「一起玩过」翻看。每种只留一件，不必集齐。</p>}
+    {keepsake && <div className="game-keepsake-result" role="group" aria-label="本次收好的游戏纪念物">
+      <GameKeepsakeArt item={keepsake.item} />
+      <div>
+        <strong>一起收好了「{keepsake.title}」</strong>
+        <p>可以到纪念册「一起玩过」翻看，也可到「小窝纪念角」挑选摆放。</p>
+        <small>每种只留一件，不必集齐。</small>
+      </div>
+    </div>}
     <CareOutcome feedback={careFeedback} embedded />
     {walk && <div className="walk-reward-breakdown" aria-label="散步奖励拆解">
       <strong>散步奖励拆解</strong>

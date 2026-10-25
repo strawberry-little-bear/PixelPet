@@ -57,20 +57,38 @@ it("accepts display-safe memories and safely renders an unknown item fallback", 
   expect(validCoreResponse(reply)).toBe(true); expect(reply).toEqual(before);
   expect(memoryWords({kind:"keepsake",at,source:"shared",item:"future-item"},false).story).toContain("暂不可用");
 });
-function settlement() {
+const finishActions = {
+  stars: "catch", tiles: "tile-pick", snake: "snake-finish", tetris: "tetris-finish",
+  fishing: "fish-finish", walk: "walk-finish", treasure: "treasure-finish",
+} as const;
+function settlement(kind: (typeof gameKeepsakes)[number]["game"] = "snake") {
   const before=pet(); before.album!.entries=before.album!.entries.filter(m=>m.kind!=="keepsake");
-  before.game={id,kind:"snake",startedAt:at,round:0,score:0,lastBeat:-1};
-  const after=pet(); after.companion={since:at,interests:[],recent:{kind:"snake",id,at}};
+  before.game={id,...(kind !== "stars" && {kind}),startedAt:at,round:0,score:0,lastBeat:-1};
+  const after=pet(); after.companion={since:at,interests:[],recent:{kind,id,at}};
   const result:Result={state:after,message:"已结算，实得 +0 金币",serverTime:at};
   return {before,result};
 }
-it("notices only the matching newly saved item on a confirmed settlement, including +0 coins", () => {
-  const {before,result}=settlement();
-  const outcome=completedGameOutcome("snake-finish",before,result);
-  expect(outcome?.keepsake).toBe("fruit-leaf");
+it.each(gameKeepsakes)("shows only the confirmed $item with art, name and both reading destinations, including +0 coins", entry => {
+  const {before,result}=settlement(entry.game), original=structuredClone({before,result});
+  const outcome=completedGameOutcome(finishActions[entry.game],before,result);
+  expect(outcome?.keepsake).toBe(entry.item);
   render(<GameOutcome outcome={outcome} />);
-  expect(screen.getByText(/一起收好了「果园里的叶子」/)).toBeTruthy();
-  expect(screen.getByText(/纪念册「一起玩过」/)).toBeTruthy();
+  const card=screen.getByRole("group",{name:"本次收好的游戏纪念物"});
+  expect(card.textContent).toContain(`一起收好了「${entry.title}」`);
+  expect(card.querySelectorAll("[data-keepsake-art]")).toHaveLength(1);
+  expect(card.querySelector(`[data-keepsake-art="${entry.item}"]`)?.getAttribute("aria-hidden")).toBe("true");
+  expect(screen.getByText(/纪念册「一起玩过」.*「小窝纪念角」/)).toBeTruthy();
+  expect(screen.getByText(/每种只留一件，不必集齐/)).toBeTruthy();
+  expect(screen.getByText(result.message)).toBeTruthy();
+  expect(document.querySelector("button,a,input,[role=button],[tabindex]")).toBeNull();
+  expect({before,result}).toEqual(original);
+});
+it("does not show a new-item card for an unknown item or missing receipt", () => {
+  const {before,result}=settlement(), outcome=completedGameOutcome("snake-finish",before,result)!;
+  const view=render(<GameOutcome outcome={{...outcome,keepsake:"future-item"}} />);
+  expect(screen.queryByRole("group",{name:"本次收好的游戏纪念物"})).toBeNull();
+  view.rerender(<GameOutcome outcome={null} />);
+  expect(document.querySelector("[data-keepsake-art]")).toBeNull();
 });
 it.each(["repeat","old time","not shared","no album","old schema","wrong item"])("does not claim a new item for %s", condition => {
   const {before,result}=settlement();
@@ -80,5 +98,9 @@ it.each(["repeat","old time","not shared","no album","old schema","wrong item"])
   if(condition==="no album") delete before.album;
   if(condition==="old schema") result.state.schema=20;
   if(condition==="wrong item") result.state.album!.entries=result.state.album!.entries.filter(m=>m.item!=="fruit-leaf");
-  expect(completedGameOutcome("snake-finish",before,result)?.keepsake).toBeUndefined();
+  const outcome=completedGameOutcome("snake-finish",before,result);
+  expect(outcome?.keepsake).toBeUndefined();
+  render(<GameOutcome outcome={outcome} />);
+  expect(screen.queryByRole("group",{name:"本次收好的游戏纪念物"})).toBeNull();
+  expect(document.querySelector("[data-keepsake-art]")).toBeNull();
 });
