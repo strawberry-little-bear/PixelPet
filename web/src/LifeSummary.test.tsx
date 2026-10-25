@@ -254,6 +254,43 @@ describe("adult-life suggestions from saved experiences", () => {
     expect(current).toEqual(before);
   });
 
+  it("carries the precise saved game total into the adult play direction", () => {
+    const current = adult();
+    current.schema = 19;
+    current.companion!.history = {
+      since: created,
+      completions: [
+        { kind: "stars", count: 1 },
+        { kind: "tiles", count: 2 },
+        { kind: "snake", count: 3 },
+        { kind: "tetris", count: 4 },
+        { kind: "fishing", count: 5 },
+        { kind: "walk", count: 6 },
+        { kind: "treasure", count: 7 },
+      ],
+    };
+    const text = lifeSummary(current, current.lastTick).adultDirections?.[2].text;
+    expect(text).toContain("最近一起玩的是「公园散步」");
+    expect(text).toContain("已经一起收好 28 局共同游戏");
+  });
+
+  it("does not turn legacy or partial history into an adult total", () => {
+    const current = adult();
+    current.companion!.history = {
+      since: created,
+      completions: [
+        { kind: "stars", count: 28 },
+        { kind: "tiles", count: 0 },
+        { kind: "snake", count: 0 },
+        { kind: "tetris", count: 0 },
+        { kind: "fishing", count: 0 },
+        { kind: "walk", count: 0 },
+      ],
+    };
+    const text = lifeSummary(current, current.lastTick).adultDirections?.[2].text;
+    expect(text).not.toContain("已经一起收好");
+  });
+
   it("keeps an adult with no saved experiences open without inventing a history", () => {
     const current = adult();
     delete current.companion;

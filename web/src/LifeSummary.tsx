@@ -1,4 +1,4 @@
-import { interestLimit, interestSummary, validInterestEntries } from "./companion";
+import { companionCompletionTotal, interestLimit, interestSummary, validInterestEntries } from "./companion";
 import { games } from "./games";
 import { completionLabel, savedGameHistory } from "./game-history";
 import { albumMemories, memoryWords } from "./AlbumPanel";
@@ -64,6 +64,12 @@ export function lifeSummary(pet: PetState, now: number) {
   const comfort = currentComfort(pet);
   const interests = validInterestEntries(pet.companion);
   const history = savedGameHistory(pet);
+  // Keep this long-term cue behind the same complete-history gate as the
+  // per-game counts. Legacy or partial saves must stay unknown.
+  const completionTotal = history ? companionCompletionTotal(pet.companion) : null;
+  const sharedGameThread = completionTotal !== null && completionTotal !== "0"
+    ? `已经一起收好 ${completionTotal} 局共同游戏`
+    : null;
   const gameStats = games.map(game => ({
     id: game.id,
     title: game.title,
@@ -110,10 +116,12 @@ export function lifeSummary(pet: PetState, now: number) {
       id: "together",
       label: "一起玩",
       text: recentGame
-        ? `最近一起玩的是「${recentGame.title}」，想玩时可以从熟悉的节奏开始。`
+        ? `最近一起玩的是「${recentGame.title}」${sharedGameThread ? `；${sharedGameThread}` : ""}，想玩时可以从熟悉的节奏开始。`
         : interestLeaders.length > 0
-          ? `熟悉的是「${interestLeaders.join("」和「")}」，按今天的心情再选它也可以。`
-          : "今天想玩的时候，按心情从喜欢的游戏里选一个就好。",
+          ? `熟悉的是「${interestLeaders.join("」和「")}」${sharedGameThread ? `；${sharedGameThread}` : ""}，按今天的心情再选它也可以。`
+          : sharedGameThread
+            ? `${sharedGameThread}，今天想玩时按心情选一个就好。`
+            : "今天想玩的时候，按心情从喜欢的游戏里选一个就好。",
     },
   ] as const : null;
   const nextStep = stage === "adult"
