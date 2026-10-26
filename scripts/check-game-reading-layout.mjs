@@ -56,8 +56,8 @@ async function fixture() {
 }
 
 async function key(page, value) {
-  await page.locator(`.button-${value.toLowerCase()}`).tap();
-  await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
+  await page.keyboard.press(value.toUpperCase());
+  await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled, { timeout: 15000 });
 }
 
 async function openGame(page, index) {
@@ -75,6 +75,22 @@ async function pauseIfNeeded(page, id) {
     await key(page, 'c');
     await page.locator('.fishing-pause').waitFor();
   }
+}
+
+async function assertTreasureBoardVisible(page, mode) {
+  await key(page, 'c');
+  await page.waitForFunction(() => document.querySelector('.treasure-game')?.getAttribute('data-paused') === 'false');
+  const cells = await page.locator('.treasure-grid [role="gridcell"]').evaluateAll(elements => {
+    const viewport = document.querySelector('.lcd-content').getBoundingClientRect();
+    return elements.map(element => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
+        visible: rect.top >= viewport.top && rect.bottom <= viewport.bottom && rect.left >= viewport.left && rect.right <= viewport.right };
+    });
+  });
+  assert.equal(cells.length, 9, 'treasure game did not render all nine cells');
+  assert(cells.every(cell => cell.visible),
+    `treasure board is not wholly visible at ${mode.width}px / ${mode.font}px: ${JSON.stringify(cells)}`);
 }
 
 async function shellMetrics(page) {
@@ -240,6 +256,7 @@ try {
         await openGame(page, index);
         await page.locator(selector).waitFor();
         await pauseIfNeeded(page, id);
+        if (id === 'treasure' && mode.width <= 700) await assertTreasureBoardVisible(page, mode);
         const metrics = await assertReadingLayout(page, mode, id);
         const shell = Object.fromEntries(['.device-stage', '.device', '.screen-bezel', '.lcd']
           .map(selector => [selector, metrics[selector].height]));

@@ -98,6 +98,17 @@
     padding: 4px 0;
   }
 }
+@media (max-width: 340px) {
+  /* At 200% text, repeat status labels waste the row height needed to compare
+     all nine cells. The selected-cell sentence and each cell's aria-label keep
+     the full meaning available without visually truncating the active board. */
+  .treasure-game:not([data-paused=true]):not([data-done=true]) .treasure-grid span { display: none; }
+  .treasure-game:not([data-paused=true]):not([data-done=true]) .treasure-grid [role=gridcell] { padding: 1px; }
+  .treasure-game:not([data-paused=true]):not([data-done=true]) .treasure-grid [role=gridcell][aria-selected=true] { padding: 0; }
+  .treasure-game:not([data-paused=true]):not([data-done=true]) .treasure-grid small { line-height: 1; }
+  .treasure-game:not([data-paused=true]):not([data-done=true]) .treasure-grid strong { line-height: 1; }
+  .treasure-game:not([data-paused=true]):not([data-done=true]) .treasure-grid > [role=row] + [role=row] { margin-top: 2px; }
+}
 .treasure-result { margin: 6px 0; }
 /* The generic reading rules enlarge every small/strong/span in the LCD. That
    is useful for prose, but it makes the nine-cell board grow until its status
