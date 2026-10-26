@@ -52,8 +52,10 @@ async function key(page, name) {
 }
 async function prepareCatch(page, hit = true) {
   let current = await api('state');
-  const beat = Math.floor((current.serverTime - current.state.game.startedAt) / 900);
-  const lane = (beat % 3 + (hit ? 0 : 1)) % 3;
+  // The target is stable for the whole round. The 900ms beat only drives the
+  // visual reaction metadata; it must not decide whether a catch scores.
+  const target = current.state.game.round % 3;
+  const lane = (target + (hit ? 0 : 1)) % 3;
   const selectedLane = () => page.locator('.game-lane').evaluateAll(nodes => nodes.findIndex(n => n.classList.contains('lane-selected')));
   // Position text may also contain an adult companion's dialogue. Read the
   // selected lane, then finish touch scrolling before observing the catch beat.
@@ -64,8 +66,7 @@ async function prepareCatch(page, hit = true) {
   while (performance.now() < deadline) {
     current = await api('state');
     const elapsed = current.serverTime - current.state.game.startedAt, nextBeat = Math.floor(elapsed / 900);
-    if (nextBeat > current.state.game.lastBeat && elapsed % 900 < 200 &&
-      nextBeat % 3 === (lane + (hit ? 0 : 2)) % 3) return current;
+    if (nextBeat > current.state.game.lastBeat && elapsed % 900 < 200) return current;
     await wait(35);
   }
   assert.fail(`No fresh server beat for lane ${lane}, hit=${hit}`);
