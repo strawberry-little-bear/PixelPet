@@ -79,18 +79,43 @@ async function settledScroll(page) {
     requestAnimationFrame(frame);
   }));
 }
+async function settledScrollport(page) {
+  return page.locator('.lcd-content').evaluate(element => new Promise((resolve, reject) => {
+    let previous = element.scrollTop, stable = 0;
+    const deadline = performance.now() + 3000;
+    function frame() {
+      stable = element.scrollTop === previous ? stable + 1 : 0;
+      previous = element.scrollTop;
+      if (stable >= 12) return resolve(element.scrollTop);
+      if (performance.now() > deadline) return reject(new Error('LCD scroll did not settle'));
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }));
+}
 async function readAll(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   await page.locator('.care-menu-reading').evaluate(el => {
+    const scrollport = el.closest('.lcd-content');
+    if (!scrollport) throw new Error('Care menu must live in the LCD scrollport');
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+      if (!text.textContent.trim() || text.parentElement?.closest('.sr-only')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
-      const lines = Array.from(range.getClientRects(), r => ({top:r.top + scrollY,left:r.left,width:r.width,height:r.height}));
-      for (const line of lines) {
-        window.scrollTo({top:line.top - 12,behavior:'instant'});
-        const top = line.top - scrollY, hit = document.elementFromPoint(line.left + line.width / 2, top + line.height / 2);
-        if (line.left < -1 || line.left + line.width > innerWidth + 1 || top < 0 || top + line.height > innerHeight || !hit || !text.parentElement.contains(hit))
+      const lineCount = range.getClientRects().length;
+      for (let index = 0; index < lineCount; index++) {
+        // Scrolling the LCD changes the range's viewport coordinates. Read the
+        // current line again after each adjustment instead of reusing stale
+        // coordinates captured before the scroll.
+        const line = range.getClientRects()[index];
+        if (!line) throw new Error('Menu line disappeared: ' + text.textContent);
+        const viewport = scrollport.getBoundingClientRect();
+        const target = scrollport.scrollTop + line.top - viewport.top - 12;
+        scrollport.scrollTop = Math.max(0, Math.min(scrollport.scrollHeight - scrollport.clientHeight, target));
+        const visible = range.getClientRects()[index];
+        if (!visible) throw new Error('Menu line disappeared after scroll: ' + text.textContent);
+        const top = visible.top, hit = document.elementFromPoint(visible.left + visible.width / 2, top + visible.height / 2);
+        if (visible.left < -1 || visible.left + visible.width > innerWidth + 1 || top < 0 || top + visible.height > innerHeight || !hit || !text.parentElement.contains(hit))
           throw new Error('Menu line clipped/unreachable: ' + text.textContent);
       }
     }
@@ -128,11 +153,14 @@ try {
           await page.evaluate(direction => {
             const max = document.documentElement.scrollHeight - innerHeight;
             scrollTo({top:max*(direction>0?.2:.8),behavior:'instant'});
+            const scrollport = document.querySelector('.lcd-content');
+            if (scrollport) scrollport.scrollTop = (scrollport.scrollHeight - scrollport.clientHeight) * (direction > 0 ? .2 : .8);
           }, direction);
-          await wait(200); const top = await page.evaluate(() => scrollY);
+          await wait(200); const before = await page.evaluate(() => ({ outer: scrollY, inner: document.querySelector('.lcd-content')?.scrollTop ?? 0 }));
           await page.keyboard.press(k);
-          await page.waitForFunction(({top,direction}) => direction*(scrollY-top)>1, {top,direction}, {timeout:2500});
-          await wait(200); movements.push({key:k,before:top,after:await page.evaluate(() => scrollY)});
+          await page.waitForFunction(({top,direction}) => direction*((document.querySelector('.lcd-content')?.scrollTop ?? 0)-top)>1,
+            { top: before.inner, direction }, {timeout:2500});
+          await wait(200); movements.push({key:k,before,after:await page.evaluate(() => ({ outer: scrollY, inner: document.querySelector('.lcd-content')?.scrollTop ?? 0 }))});
           assert.equal(await page.locator(current).innerText(), selection);
           assert(await panel.evaluate(el => document.activeElement===el)); assert.deepEqual(writes, []);
         }
@@ -142,11 +170,13 @@ try {
         }
         await settledScroll(page);
         await readAll(page);
-        const position = await settledScroll(page);
+        const position = await settledScroll(page), scrollportPosition = await settledScrollport(page);
         if (stage==='baby') await page.screenshot({path:join(dir,`reading-${label}.png`)});
         const read = page.waitForResponse(r => ['/api/visit','/api/state'].includes(new URL(r.url()).pathname));
         await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await read; await wait(150);
-        assert(await panel.evaluate(el => document.activeElement===el)); assert.equal(await page.evaluate(() => scrollY), position);
+        assert(await panel.evaluate(el => document.activeElement===el));
+        assert.equal(await page.evaluate(() => scrollY), position);
+        assert.equal(await page.locator('.lcd-content').evaluate(el => el.scrollTop), scrollportPosition);
         const after = (await api('state')).state;
         assert.equal(after.sleeping, sleeping); assert.equal(after.careCount, before.careCount);
         for (const k of ['nutrition','play','clean','lastFeed','lastPlay','lastClean']) assert.equal(after.growth.care[k], before.growth.care[k]);

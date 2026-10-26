@@ -326,7 +326,7 @@ func (s *State) Apply(a Action, now time.Time) (string, error) {
 			return "", err
 		}
 		s.Game = &MiniGame{ID: newGameID(), Kind: "tiles", Tiles: tiles, StartedAt: now.UnixMilli(), LastBeat: -1}
-		return "A 移动 · B 选牌 · C 取消选择 / 退出", nil
+		return "A 移动 · B 选牌 · C 撤选 / 放弃确认", nil
 	case "play":
 		if s.Needs.Energy < 10 {
 			return "", errors.New("有点累了，先睡一觉吧")

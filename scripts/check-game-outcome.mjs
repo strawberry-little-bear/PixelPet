@@ -63,6 +63,15 @@ async function nativeReceiptStop(page, region) {
   assert.match(await page.locator(`[id="${await region.getAttribute('aria-describedby')}"]`).innerText(), /Enter 不操作/);
   assert.deepEqual(await region.evaluate(el => { const css = getComputedStyle(el); return [css.outlineWidth, css.outlineStyle]; }), ['2px', 'solid']);
 }
+async function receiptSnapshot(receipt) {
+  return {
+    message: await receipt.locator('.game-outcome-message').textContent(),
+    voice: await receipt.getByLabel('宠物的游戏回应').textContent(),
+    interest: await receipt.getByLabel('本局游戏熟悉度').textContent(),
+    learning: await receipt.getByLabel('本次成长与习惯').textContent(),
+    completion: await receipt.locator('.game-completion-count').textContent(),
+  };
+}
 // Native document scrolling, including every line at double root font size.
 async function reachableLines(page, selector) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
@@ -207,7 +216,7 @@ try {
       await page.screenshot({path:join(dir, `${label}-initial-viewport.png`)});
       console.log('PLACEMENT', label, JSON.stringify(heading));
       assert.equal(await receipt.locator('.game-outcome-message').innerText(), confirmed.message);
-      assert.equal(await receipt.locator(':scope > time').getAttribute('datetime'), new Date(confirmed.serverTime).toISOString());
+      assert.equal(await receipt.locator('.game-outcome-full time').getAttribute('datetime'), new Date(confirmed.serverTime).toISOString());
       assert.equal(confirmed.state.companion.recent.id, gameId);
       assert.match(await receipt.innerText(), /本局共同游戏已记录/);
       const voice = receipt.getByLabel('宠物的游戏回应');
@@ -248,7 +257,7 @@ try {
       assert(!confirmed.state.game);
       if (exhausted) assert.equal(confirmed.state.economy.coins, before.economy.coins);
       else assert(confirmed.state.economy.coins > before.economy.coins);
-      const text = await receipt.innerText(), count = writes.length;
+      const acknowledgedReceipt = await receiptSnapshot(receipt), count = writes.length;
       // Respect a player's native reading position after the one-shot jump.
       // Expire the short message (4.2s), animation and care feedback (8s).
       await page.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
@@ -256,7 +265,7 @@ try {
       await wait(8500);
       assert.equal(await page.evaluate(() => scrollY), readingY, 'Feedback expiry must not replay receipt navigation');
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-      await wait(250); assert.equal(await receipt.innerText(), text);
+      await wait(250); assert.deepEqual(await receiptSnapshot(receipt), acknowledgedReceipt);
       assert.equal(await page.evaluate(() => scrollY), readingY, 'Ordinary sync must not replay receipt navigation');
       const region = page.getByRole('region', { name: '游戏结算阅读区' });
       await nativeReceiptStop(page, region);
@@ -298,14 +307,18 @@ try {
       await page.screenshot({path:join(dir, `${label}-voice-viewport.png`)});
       // Status first page also carries exactly the acknowledged receipt.
       await key(page, 'A'); for (let i = 0; i < 4; i++) await key(page, 'A'); await key(page, 'B');
-      await page.locator('.screen-status').waitFor(); assert.equal(await receipt.innerText(), text);
+      await page.locator('.screen-status').waitFor();
+      assert.deepEqual(await receiptSnapshot(receipt), acknowledgedReceipt,
+        'Status navigation must preserve the acknowledged game receipt');
       assert.equal(await page.getByRole('region', { name: '游戏结算阅读区' }).count(), 0, 'Status must not nest reading stops');
       await reachableLines(page, '.game-outcome');
       assert.equal(writes.length, count, 'reading/navigating the result must not write');
       assert.equal(await page.locator('.physical-button').count(), 3);
       assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
       // C returns from status first; a separate home C acknowledges the result.
-      await key(page, 'C'); assert.equal(await receipt.innerText(), text);
+      await key(page, 'C');
+      assert.equal(await receipt.locator('.game-outcome-message').innerText(), acknowledgedReceipt.message);
+      assert.equal(await receipt.getByLabel('宠物的游戏回应').innerText(), acknowledgedReceipt.voice);
       assert((await page.locator('.lcd-bottom').innerText()).includes('C 收起回执'));
       await nativeReceiptStop(page, region);
       const savedBeforeDismiss = (await api('state')).state;

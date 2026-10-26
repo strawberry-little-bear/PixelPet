@@ -58,12 +58,12 @@
 /* Reading content belongs in the LCD viewport. Keep the physical shell fixed
    while long pauses, receipts and status pages scroll internally. Recovery
    screens opt out below because their explanation is allowed to size itself. */
-.device-stage.reading-mode:not(.recovery-mode):not(.return-mode) { height: 552px; min-height: 0; padding: 12px 0; }
-.reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 516px; min-height: 0; padding-bottom: 38px; }
+.device-stage.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) { height: 552px; min-height: 0; padding: 12px 0; }
+.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .device { height: 516px; min-height: 0; padding-bottom: 38px; }
 .reading-mode .shell-brand, .reading-mode .device-model, .reading-mode .device-buttons { flex-shrink: 0; }
-.reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 284px; min-height: 0; flex-shrink: 0; }
-.reading-mode:not(.recovery-mode):not(.return-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
-.reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 204px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; font-size: .857143rem; line-height: 1.6; }
+.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .screen-bezel { height: 284px; min-height: 0; flex-shrink: 0; }
+.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
+.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .lcd-content { height: 204px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; font-size: .857143rem; line-height: 1.6; }
 .reading-mode .lcd-content :is(p, small, strong, b, span, dt, dd, li, time, header, h3, .care-item, .lcd-meter, .companion-rows, .quiet-atmosphere, .quiet-event) {
   font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere;
 }
@@ -137,7 +137,15 @@
 /* Give enlarged pause labels the complete LCD width, but keep them inside the
    fixed pond/park scene instead of contributing to document height. */
 .game-reading-mode .fishing-pause ol { width: 100%; }
-.game-reading-mode .fishing-pause { width: 100%; min-height: 0; }
+.game-reading-mode .fishing-pause {
+  width: 100%;
+  min-height: 0;
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 8px 4px;
+}
+.game-reading-mode .fishing-pause strong,
+.game-reading-mode .fishing-pause small { align-self: center; }
 .game-reading-mode :is(.park-scene:has(.walk-pause), .pond-scene:has(.fishing-pause)) {
   height: 102px;
   min-height: 0;
@@ -158,14 +166,48 @@
 .game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
 .game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 204px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 @media (max-width: 700px) {
-  .device-stage.reading-mode:not(.recovery-mode):not(.return-mode) { height: 612px; }
-  .reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
-  .reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
-  .reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
+  .device-stage.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) { height: 612px; }
+  .reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .device { height: 592px; }
+  .reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .screen-bezel { height: 364px; }
+  .reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .lcd-content { height: 284px; }
   .device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) { height: 612px; }
   .game-reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
   .device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
   .game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
+}
+
+/* Link & Collect is untimed and keeps its feedback in document flow. Let its
+   LCD grow with the board and text instead of inheriting the fixed viewport
+   used by timed games and ordinary reading pages. The sticky key dock remains
+   the only persistent control at the end of the expanded shell. */
+.device-stage.reading-mode.tiles-mode {
+  height: auto;
+  min-height: 552px;
+  padding: 12px 0;
+}
+.reading-mode.tiles-mode .device {
+  height: auto;
+  min-height: 516px;
+  padding-bottom: 38px;
+}
+.reading-mode.tiles-mode .screen-bezel {
+  height: auto;
+  min-height: 284px;
+}
+.reading-mode.tiles-mode .lcd {
+  height: auto;
+}
+.reading-mode.tiles-mode .lcd-content {
+  height: auto;
+  min-height: 204px;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+@media (max-width: 700px) {
+  .device-stage.reading-mode.tiles-mode { min-height: 612px; }
+  .reading-mode.tiles-mode .device { min-height: 592px; }
+  .reading-mode.tiles-mode .screen-bezel { min-height: 364px; }
+  .reading-mode.tiles-mode .lcd-content { min-height: 284px; }
 }
 @media (forced-colors: active) {
   /* Explicit system colors avoid Chromium composited text backplates hiding
