@@ -343,6 +343,9 @@ describe("playtest feedback: compact repeat entry", () => {
     expect(games.find(game => game.id === "tetris")!.lesson).toContain("按 C 打开旋转、落底等操作");
     expect(games.find(game => game.id === "snake")!.lesson).toContain("果子方向和距离");
     expect(games.find(game => game.id === "snake")!.lesson).toContain("靠近围栏也会提醒");
+    expect(games.find(game => game.id === "walk")!.reward).toContain("路线完成奖励 3 金币");
+    expect(games.find(game => game.id === "walk")!.reward).toContain("避开障碍最多再加 3 金币");
+    expect(games.find(game => game.id === "walk")!.reward).toContain("不要求全部避开");
   });
   it.each([
     [3, "海豚伙伴沿并行浅水道游动，A 跃水，B 下潜。"],

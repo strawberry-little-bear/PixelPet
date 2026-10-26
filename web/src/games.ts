@@ -50,7 +50,7 @@ export const games = [
  { id:"walk", title:"公园散步", icon:"♧", startAction:"play-walk",
  summary:"林荫小路 · 沿途发现", duration:"约 1–1.5 分钟（不含暂停）",
  controls:"自动前进 · A 跳跃 · B 蹲下 · C 暂停",
- reward:"走完并收好：3–6 金币，不要求避开所有障碍。",
+ reward:"路线完成奖励 3 金币；避开障碍最多再加 3 金币，不要求全部避开。",
  lesson:`${walkLessonIntro}${walkLandMethod}${walkLessonEnd}不同伙伴会用自己的动作通过障碍，运行中会提示当前动作。`,
  leaving:"C 暂停可看沿途发现或放弃确认。刷新、离开后手动继续，不离线赶路。每24步的真实发现会保留；到终点 B / C 收好才计陪伴。",
  },
