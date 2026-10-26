@@ -1,4 +1,9 @@
 import type { Economy, PetState, Shop } from "./types";
+import { walkingCompanions } from "./walk";
+
+const walkLessonIntro = "每六步一处障碍，提前提示。";
+const walkLandMethod = "A 越石，B 低头过树枝，姿势保持三步。";
+const walkLessonEnd = "绊到继续走，不扣状态。";
 
 // One directory owns both the selector and its three-key guides. Game mechanics
 // and server-authoritative scoring stay in their individual implementations.
@@ -46,7 +51,7 @@ export const games = [
  summary:"林荫小路 · 沿途发现", duration:"约 1–1.5 分钟（不含暂停）",
  controls:"自动前进 · A 跳跃 · B 蹲下 · C 暂停",
  reward:"走完并收好：3–6 金币，不要求避开所有障碍。",
- lesson:"每六步一处障碍，提前提示。A 越石，B 低头过树枝，姿势保持三步。绊到继续走，不扣状态。换成海豚伙伴时走浅水道：A 跃水、B 下潜。",
+ lesson:`${walkLessonIntro}${walkLandMethod}${walkLessonEnd}不同伙伴会用自己的动作通过障碍，运行中会提示当前动作。`,
  leaving:"C 暂停可看沿途发现或放弃确认。刷新、离开后手动继续，不离线赶路。每24步的真实发现会保留；到终点 B / C 收好才计陪伴。",
  },
  { id: "treasure", title: "森林寻宝", icon: "◆", startAction: "play-treasure",
@@ -58,6 +63,14 @@ export const games = [
  },
 ] as const;
 export type GameInfo = (typeof games)[number];
+
+/** Keep the directory guide in the same species-specific voice as the live walk. */
+export function gameLesson(game: GameInfo, species?: number): string {
+  if (game.id !== "walk" || species === undefined) return game.lesson;
+  const method = walkingCompanions[species] ?? walkingCompanions[0];
+  if (species === 3) return `${walkLessonIntro}${method}${walkLessonEnd}`;
+  return `${walkLessonIntro}${walkLandMethod}${method}${walkLessonEnd}`;
+}
 
 // Keep the guide language aligned with what B actually does for each game.
 // Stars and tiles start immediately; fishing enters its ready state; the

@@ -2740,8 +2740,8 @@ export default function App() {
                             selectionRemembered={arcadeSelectionRemembered}
                           />
                         )}
-                        {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused economy={pet.economy} growth={growth} shop={shop} now={now} />}
-                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} sleeping={pet.sleeping} energy={pet.needs.energy} economy={pet.economy} growth={growth} shop={shop} now={now} />}
+                        {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused species={pet.species} economy={pet.economy} growth={growth} shop={shop} now={now} />}
+                        {page === "game-guide" && <GameGuide game={games[arcadeChoice]} page={guidePage} review={guideReview} species={pet.species} sleeping={pet.sleeping} energy={pet.needs.energy} economy={pet.economy} growth={growth} shop={shop} now={now} />}
                         {abandoning && <AbandonGame game={pet.game} />}
                         {page === "shop" && (
                           <ShopPanel

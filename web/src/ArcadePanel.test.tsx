@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
 import { ArcadePanel } from "./ArcadePanel";
-import { gameAllowance, gameStartInstruction, games, guideSeen, rememberGuide } from "./games";
+import { gameAllowance, gameLesson, gameStartInstruction, games, guideSeen, rememberGuide } from "./games";
 import type { GameInfo } from "./games";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
@@ -80,7 +80,8 @@ describe("game directory and optional three-key guides", () => {
     await key("b");
     expect(document.querySelector(".game-guide")?.textContent).toContain("第一次一起玩");
     expect(actions()).toHaveLength(0); expect(guideSeen(info.id)).toBe(false);
-    for (const [page, text] of [info.lesson, info.leaving, info.lesson].entries()) {
+    const lesson = gameLesson(info, saved.species);
+    for (const [page, text] of [lesson, info.leaving, lesson].entries()) {
       expectGuideKeys(info);
       const steps = document.querySelector(".guide-steps");
       expect(steps?.tagName).toBe("UL");
@@ -276,7 +277,7 @@ describe("playtest feedback: compact repeat entry", () => {
     if (info.id === "fishing") expect(screen.getByText("开局后按 B 手动抛竿，不会自动开始等待。")).toBeTruthy();
     await key("a");
     expect(document.querySelector(".game-quick-start")).toBeNull();
-    expect(document.querySelector(".guide-steps")?.textContent).toBe(info.lesson);
+    expect(document.querySelector(".guide-steps")?.textContent).toBe(gameLesson(info, saved.species));
     expectGuideKeys(info);
     await key("a"); expect(document.querySelector(".guide-steps")?.textContent).toBe(info.leaving);
     expectGuideKeys(info);
@@ -342,6 +343,15 @@ describe("playtest feedback: compact repeat entry", () => {
     expect(games.find(game => game.id === "tetris")!.lesson).toContain("按 C 打开旋转、落底等操作");
     expect(games.find(game => game.id === "snake")!.lesson).toContain("果子方向和距离");
     expect(games.find(game => game.id === "snake")!.lesson).toContain("靠近围栏也会提醒");
+  });
+  it.each([
+    [3, "海豚伙伴沿并行浅水道游动，A 跃水，B 下潜。"],
+    [2, "后脚轻跳，收前爪越石，低头收耳通过。"],
+  ] as const)("uses the current companion's walking method in the guide for species %i", async (species, method) => {
+    saved.species = species;
+    await mount(); await select(5); await key("b");
+    expect(document.querySelector(".guide-steps")?.textContent).toContain(method);
+    expect(document.querySelector(".guide-steps")?.textContent).not.toContain("换成海豚伙伴");
   });
   it("keeps every game icon distinct, especially fishing and walking", () => {
     expect(new Set(games.map(game => game.icon)).size).toBe(games.length);

@@ -4,7 +4,7 @@ import { DailyRefresh } from "./DailyRefresh";
 import { interestLimit, validInterestEntries } from "./companion";
 import { GameHabit, GuideReward } from "./GuideReward";
 import type { GuideRewardContext } from "./GuideReward";
-import { gameStartBlock, gameStartInstruction, games, gameAllowance, guideSeen } from "./games";
+import { gameLesson, gameStartBlock, gameStartInstruction, games, gameAllowance, guideSeen } from "./games";
 import type { GameInfo } from "./games";
 import { gameIsPreferred, gamePreference, gamePreferenceLabel } from "./gamePreference";
 import type { Companion, Economy, Growth, PetState, Shop } from "./types";
@@ -44,9 +44,10 @@ export function ArcadePanel({ choice, economy, companion, growth, shop, now, sle
   </section>;
 }
 
-export function GameGuide({ game, page, review = false, paused = false, sleeping = false, energy, ...rewardContext }: GuideRewardContext & { game: GameInfo; page: number; review?: boolean; paused?: boolean; sleeping?: boolean; energy?: number; }) {
+export function GameGuide({ game, page, review = false, paused = false, sleeping = false, energy, species, ...rewardContext }: GuideRewardContext & { game: GameInfo; page: number; review?: boolean; paused?: boolean; sleeping?: boolean; energy?: number; species?: number; }) {
   const seen = guideSeen(game.id);
   const blocked = paused ? null : gameStartBlock(sleeping, energy);
+  const lesson = gameLesson(game, species);
   const notice = blocked && <p className="game-start-note" role="status" aria-label="开局前的照顾提示">{blocked.note}</p>;
   if (seen && !review && !paused) return <section className="game-guide game-quick-start" aria-label={`${game.title}开始准备`} data-guide={game.id}>
     <header>准备再玩 · {game.title}</header>
@@ -62,7 +63,7 @@ export function GameGuide({ game, page, review = false, paused = false, sleeping
     {notice}
     <strong>{page === 0 ? game.controls : "暂停、离开与奖励"}</strong>
     <ul className="guide-steps">
-      {(page === 0 ? game.lesson : game.leaving).split("。").filter(Boolean).map(step =>
+      {(page === 0 ? lesson : game.leaving).split("。").filter(Boolean).map(step =>
         <li key={step}>{step}。</li>
       )}
     </ul>
