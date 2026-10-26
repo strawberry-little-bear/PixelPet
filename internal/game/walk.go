@@ -69,13 +69,19 @@ func walkTrailPool(trail string) []string {
 	return nil
 }
 func chooseWalkSouvenirs(pool []string) ([]string, error) {
+	if len(pool) < 3 {
+		return nil, errors.New("沿途发现候选不足")
+	}
+	remaining := append([]string(nil), pool...)
 	finds := make([]string, 3)
 	for i := range finds {
-		r, err := rand.Int(rand.Reader, big.NewInt(int64(len(pool))))
+		r, err := rand.Int(rand.Reader, big.NewInt(int64(len(remaining))))
 		if err != nil {
 			return nil, err
 		}
-		finds[i] = pool[int(r.Int64())]
+		index := int(r.Int64())
+		finds[i] = remaining[index]
+		remaining = append(remaining[:index], remaining[index+1:]...)
 	}
 	return finds, nil
 }

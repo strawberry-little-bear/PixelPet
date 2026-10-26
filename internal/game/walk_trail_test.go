@@ -55,6 +55,33 @@ func TestWalkTrailChoiceAndNaturalCompletion(t *testing.T) {
 		})
 	}
 }
+
+func TestWalkTrailChoiceUsesEachCandidateOncePerNewWalk(t *testing.T) {
+	for _, trail := range []string{"woodland", "pond", "garden"} {
+		t.Run(trail, func(t *testing.T) {
+			pool := walkTrailPool(trail)
+			for i := 0; i < 32; i++ {
+				finds, err := chooseWalkSouvenirs(pool)
+				if err != nil {
+					t.Fatal(err)
+				}
+				counts := map[string]int{}
+				for _, id := range finds {
+					counts[id]++
+				}
+				if len(counts) != len(pool) {
+					t.Fatalf("new walk repeated a finding: trail=%s finds=%v", trail, finds)
+				}
+				for _, id := range pool {
+					if counts[id] != 1 {
+						t.Fatalf("new walk did not use each candidate once: trail=%s finds=%v", trail, finds)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestWalkTrailRejectsUnknownStaleAndLateChoice(t *testing.T) {
 	s, now := walkingState(t)
 	id := s.Game.ID
