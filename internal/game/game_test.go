@@ -67,6 +67,34 @@ func TestActionRulesAndMiniGame(t *testing.T) {
 	}
 }
 
+func TestStarsTargetStaysOnItsRoundUntilCatch(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	s := New(now)
+	if _, err := s.Apply(Action{Kind: "hatch", Species: 2}, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(Action{Kind: "play"}, now); err != nil {
+		t.Fatal(err)
+	}
+	gameID := s.Game.ID
+	waits := []time.Duration{31 * time.Second, 43 * time.Second, 12 * time.Second, 90 * time.Second, 4 * time.Second}
+	for round, wait := range waits {
+		at := now.Add(wait)
+		for previous := 0; previous < round; previous++ {
+			at = at.Add(waits[previous])
+		}
+		if _, err := s.Apply(Action{Kind: "catch", GameID: gameID, Lane: round % 3}, at); err != nil {
+			t.Fatalf("round %d after %s: %v", round+1, at.Sub(now), err)
+		}
+		if round < len(waits)-1 && (s.Game.Round != round+1 || s.Game.Score != round+1) {
+			t.Fatalf("round %d did not use its fixed target: game=%+v", round+1, s.Game)
+		}
+	}
+	if s.Game != nil {
+		t.Fatal("five acknowledged rounds should finish the game")
+	}
+}
+
 func TestImportValidation(t *testing.T) {
 	now := time.Now()
 	s := New(now)
