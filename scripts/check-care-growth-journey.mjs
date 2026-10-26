@@ -70,10 +70,27 @@ async function readable(page) {
         if (!box.width || !box.height) continue;
         const element = text.parentElement;
         if (element?.matches('[data-care-reading-start]') && getComputedStyle(element).clipPath !== 'none') continue;
-        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
+        if (box.left < area.left - 1 || box.right > area.right + 1) problems.push(text.textContent);
+        let protectedByScroll = false;
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) problems.push('clipped: ' + text.textContent);
+          const scrollable = /auto|scroll/.test(css.overflowY) && parent.scrollHeight > parent.clientHeight + 1;
+          const top = scrollable ? rect.top - parent.scrollTop : rect.top;
+          const bottom = scrollable ? top + parent.scrollHeight : rect.bottom;
+          if (scrollable) {
+            if (box.top < top - 1 || box.bottom > bottom + 1) problems.push('clipped: ' + text.textContent);
+            protectedByScroll = true;
+            break;
+          }
+          if (/hidden|clip/.test(css.overflowY) && (box.top < top - 1 || box.bottom > bottom + 1)) problems.push('clipped: ' + text.textContent);
+        }
+        // The LCD footer is outside the scrollport. Only content that is not
+        // protected by a scrollable ancestor must stay above it in the live
+        // viewport; long diary pages may legitimately extend below it in
+        // virtual scroll coordinates.
+        const lcd = text.parentElement.closest('.lcd-content');
+        if (!protectedByScroll && (!lcd || lcd.scrollHeight <= lcd.clientHeight + 1)) {
+          if (box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
         }
       }
     }

@@ -66,6 +66,12 @@ async function settled(v) { await v.page.waitForFunction(() => !document.querySe
 async function readable(v) {
   const layout = await v.page.locator('.lcd-content').evaluate(el => {
     const box = el.getBoundingClientRect(), ranges = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    // Ordinary reading pages intentionally scroll inside the fixed LCD. Use
+    // the scrollport's virtual content bounds here; comparing every range to
+    // its current viewport would report the lower half of a long page as
+    // clipped before the user has scrolled there.
+    const scroll = { left: box.left, right: box.right,
+      top: box.top - el.scrollTop, bottom: box.top - el.scrollTop + el.scrollHeight };
     while (walker.nextNode()) {
       if (!walker.currentNode.textContent.trim()) continue;
       const hint = walker.currentNode.parentElement.closest('.care-reading-hint');
@@ -75,9 +81,9 @@ async function readable(v) {
       }
       const range = document.createRange(); range.selectNodeContents(walker.currentNode);
       const panel = walker.currentNode.parentElement.closest('.return-mode .return-panel');
-      const scroll = panel ? { left: panel.getBoundingClientRect().left, right: panel.getBoundingClientRect().right,
-        top: panel.getBoundingClientRect().top - panel.scrollTop, bottom: panel.getBoundingClientRect().top - panel.scrollTop + panel.scrollHeight } : null;
-      for (const r of range.getClientRects()) if (r.width && r.height) ranges.push({ text: walker.currentNode.textContent.trim().slice(0, 120), left: r.left, right: r.right, top: r.top, bottom: r.bottom, scroll });
+      const bounds = panel ? { left: panel.getBoundingClientRect().left, right: panel.getBoundingClientRect().right,
+        top: panel.getBoundingClientRect().top - panel.scrollTop, bottom: panel.getBoundingClientRect().top - panel.scrollTop + panel.scrollHeight } : scroll;
+      for (const r of range.getClientRects()) if (r.width && r.height) ranges.push({ text: walker.currentNode.textContent.trim().slice(0, 120), left: r.left, right: r.right, top: r.top, bottom: r.bottom, scroll: bounds });
     }
     return { box: { left: box.left, right: box.right, top: box.top, bottom: box.bottom }, ranges, overflow: document.documentElement.scrollWidth > innerWidth + 1 };
   });
