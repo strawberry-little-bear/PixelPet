@@ -53,7 +53,7 @@ it("identifies a remembered game position without confusing a first visit", asyn
 
   // Home -> care menu -> arcade.
   await key("a"); await key("a"); await key("b");
-  expect(screen.getByRole("note", { name: "上次游戏位置" }).textContent).toBe("上次停在这里 · A 继续浏览");
+  expect(screen.getByRole("note", { name: "上次游戏位置" }).textContent).toBe(`上次选中：${games[0].title} · A 下一款 · B 看规则`);
   expect(document.querySelector('.arcade-card[aria-current="true"]')?.getAttribute("data-game")).toBe(games[0].id);
 
   await key("a");
