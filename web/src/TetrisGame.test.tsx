@@ -141,6 +141,33 @@ describe("three-key Tetris", () => {
     expect(view.container.querySelector("[data-item=leaf-pin]")).toBeTruthy();
     expect(view.container.querySelector(".tetris-companion")?.getAttribute("data-motion")).toBe("waiting");
   });
+  it("warns when the locked stack reaches the top without changing the board", () => {
+    saved.game = game();
+    const stackAt = (rows: number[]) => {
+      const next = structuredClone(saved), n = next.game!.tetris!;
+      for (const row of rows) n.board[row * 8] = 6;
+      return next;
+    };
+    let current = stackAt(Array.from({ length: 8 }, (_, i) => i + 4));
+    const view = render(<TetrisGame pet={current} now={current.lastTick} active choice={0} />);
+    expect(view.container.querySelector(".tetris-field")?.getAttribute("data-stack-warning")).toBe("clear");
+    expect(view.queryByRole("status", { name: /堆叠提醒/ })).toBeNull();
+
+    current = stackAt([3, ...Array.from({ length: 8 }, (_, i) => i + 4)]);
+    view.rerender(<TetrisGame pet={current} now={current.lastTick} active choice={0} />);
+    expect(view.container.querySelector(".tetris-field")?.getAttribute("data-stack-warning")).toBe("near");
+    expect(view.getByRole("status", { name: /堆叠提醒/ }).textContent).toContain("上方只剩 3 行空间");
+
+    current = stackAt([1, 3, ...Array.from({ length: 8 }, (_, i) => i + 4)]);
+    view.rerender(<TetrisGame pet={current} now={current.lastTick} active choice={0} />);
+    expect(view.container.querySelector(".tetris-field")?.getAttribute("data-stack-warning")).toBe("critical");
+    expect(view.getByRole("status", { name: /堆叠提醒/ }).textContent).toContain("上方只剩 1 行空间");
+
+    current.game!.tetris!.end = "stacked";
+    view.rerender(<TetrisGame pet={current} now={current.lastTick} active choice={0} />);
+    expect(view.container.querySelector(".tetris-field")?.getAttribute("data-stack-warning")).toBe("clear");
+    expect(view.queryByRole("status", { name: /堆叠提醒/ })).toBeNull();
+  });
   it("celebrates only a newly saved line clear, then returns to waiting", async () => {
     saved.game = game(); saved.game.tetris!.paused = false; const view = render(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);
     saved = structuredClone(saved); saved.game!.tetris!.lines = 2; view.rerender(<TetrisGame pet={saved} now={saved.lastTick} active choice={0} />);

@@ -54,6 +54,10 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
   const companionVoice = gameCompanionVoice(growth, "tetris");
   const cells = n.active ? blockCells(n.active) : [];
   const landing = tetrisLanding(n);
+  const topIndex = n.board.findIndex(Boolean);
+  const topRow = topIndex < 0 ? -1 : Math.floor(topIndex / 8);
+  const stackRemaining = topRow < 0 ? 12 : topRow;
+  const stackWarning = !n.end && topRow >= 0 && topRow <= 3;
   const preview = paused && !n.end && choice === 2 ? landing : null;
   const previewText = preview ? preview.rows.length
     ? `落底预览：预计消除 ${preview.rows.length} 行（第 ${preview.rows.map(row => row + 1).join("、")} 行）。按 B 才固定。`
@@ -61,12 +65,13 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
   return <section className="tetris-game" aria-label="积木俄罗斯方块">
     <header><strong>积木俄罗斯方块</strong><span>消除 {n.lines}/8</span></header>
     <div className="tetris-playfield">
-      <div className="tetris-field">
+      <div className="tetris-field" data-stack-warning={stackWarning ? stackRemaining <= 1 ? "critical" : "near" : "clear"}>
         <svg viewBox="0 0 80 120" role="img" aria-label={`积木棋盘，已消除 ${n.lines} 行，已放 ${n.pieces} 块`} aria-describedby={descriptionId} shapeRendering="crispEdges">
           <desc id={descriptionId}>
             棋盘 12 行 8 列，行从上到下、列从左到右，均从 1 开始。
             {n.end ? "本局已结束。" : paused ? "当前暂停。" : "当前下落。"}
             已固定：{n.board.flatMap((v, i) => v ? [`${Math.floor(i / 8) + 1} 行 ${i % 8 + 1} 列`] : []).join("；") || "无"}。
+            {stackWarning ? `上方还剩 ${stackRemaining} 行空间。` : ""}
             当前积木：{n.active ? `${pieceNames[n.active.kind - 1]} 型，顺时针旋转 ${n.active.kind === 2 ? 0 : n.active.rotation * 90} 度，占据 ${coordinates(cells)}` : "无"}。
             {landing && `落点投影：${coordinates(landing.cells)}。`}
             下一块：{pieceNames[n.next - 1]} 型。
@@ -79,7 +84,7 @@ export function TetrisGame({ pet, now, active, choice }: { pet: PetState; now: n
           {preview?.rows.map(row => <rect className="tetris-preview-row" data-preview-row={row + 1} key={row} x="1" y={row * 10 + 1} width="78" height="8" fill="none" stroke="currentColor" strokeWidth="1.5" />)}
         </svg>
       </div>
-      <aside className="tetris-side"><span>下一块</span><svg viewBox="0 0 40 24" role="img" aria-label={`下一块 ${pieceNames[n.next - 1]}`} shapeRendering="crispEdges">{blockCells({ kind: n.next, rotation: 0, x: 0, y: 0 }).map((p, i) => <rect key={i} x={p.x * 9 + 1} y={p.y * 9 + 1} width="7" height="7" fill="#526d3e" />)}</svg><small>目标 8 行</small><small data-speed-level="1">当前速度：1 级<br />约每 1.5 秒下落一格</small><small>2 行起结算<br />最多 6 金币</small><small>A 左 · B 右<br />C 操作 / 暂停</small></aside>
+      <aside className="tetris-side"><span>下一块</span><svg viewBox="0 0 40 24" role="img" aria-label={`下一块 ${pieceNames[n.next - 1]}`} shapeRendering="crispEdges">{blockCells({ kind: n.next, rotation: 0, x: 0, y: 0 }).map((p, i) => <rect key={i} x={p.x * 9 + 1} y={p.y * 9 + 1} width="7" height="7" fill="#526d3e" />)}</svg><small>目标 8 行</small>{stackWarning && <small className="tetris-stack-warning" role="status" aria-label={`堆叠提醒：上方只剩 ${stackRemaining} 行空间`}>堆叠提醒：上方只剩 {stackRemaining} 行空间</small>}<small data-speed-level="1">当前速度：1 级<br />约每 1.5 秒下落一格</small><small>2 行起结算<br />最多 6 金币</small><small>A 左 · B 右<br />C 操作 / 暂停</small></aside>
       {(paused || n.end) && <div className="tetris-overlay" role="status">
         <strong>{n.end ? n.end === "won" ? "积木花园拼好啦！" : "歇一歇再来" : "积木已暂停"}</strong>
         {n.end ? <><span>消除 {n.lines} 行 · A 暂不操作 · B / C 收好本局成绩</span><small>{n.lines >= 2 ? "计入陪伴 · 最多 6 金币" : "消除 2 行后完成才有奖励"}</small></> : <><ol aria-label="积木操作">{tetrisOptions.map((label, i) => <li key={label} aria-current={choice === i} className={choice === i ? "selected" : ""}>{choice === i ? "›" : "·"} {label}</li>)}</ol><small>A 选择 · B 确认 · C 继续</small></>}

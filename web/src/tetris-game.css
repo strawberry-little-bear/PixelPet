@@ -3,6 +3,8 @@
 .tetris-game header strong { font-size: 11px; }
 .tetris-playfield { position: relative; display: flex; justify-content: center; gap: 12px; height: 126px; }
 .tetris-field { width: 82px; height: 122px; border: 1px solid #556b45; flex-shrink: 0; }
+.tetris-field[data-stack-warning="near"] { border-color: #8a7048; animation: tetris-stack-pulse 1.8s steps(2, end) infinite; }
+.tetris-field[data-stack-warning="critical"] { border-color: #9a5c45; animation: tetris-stack-pulse .9s steps(2, end) infinite; }
 .tetris-field > svg { display: block; width: 80px; height: 120px; }
 .tetris-side { display: flex; flex-direction: column; gap: 8px; width: 76px; }
 .tetris-side > svg { width: 40px; height: 24px; flex-shrink: 0; }
@@ -19,6 +21,15 @@
 .tetris-companion p { font-size: 9px; margin: 0; }
 .tetris-companion .room-decoration { width: 20px; height: 24px; flex-shrink: 0; }
 .tetris-companion.collecting p { font-weight: bold; }
+.tetris-stack-warning { color: #8a4f3e; font-weight: bold; }
+
+@keyframes tetris-stack-pulse {
+  50% { box-shadow: 0 0 0 2px #d7b36a; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tetris-field[data-stack-warning="near"], .tetris-field[data-stack-warning="critical"] { animation: none; }
+}
 
 .tetris-operation-hint { margin: 6px 0; padding: 4px 6px; border-left: 2px solid currentColor; font-size: inherit; line-height: 1.6; overflow-wrap: anywhere; }
 
