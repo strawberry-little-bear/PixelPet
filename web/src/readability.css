@@ -102,36 +102,70 @@
 .reading-mode .lcd-bottom > span:last-child { font-size: inherit; flex-shrink: 0; }
 .reading-mode .save-recovery { height: auto; overflow: visible; }
 .reading-mode .save-recovery h2 { font-size: 1.142857rem; overflow-wrap: anywhere; }
-/* A paused overlay may grow with text, without stretching the live board. */
-.reading-mode :is(.snake-overlay, .tetris-overlay, .walk-pause, .fishing-pause) { position: relative; inset: auto; padding: 10px 4px; line-height: 1.6; }
-.reading-mode .snake-field:has(.snake-overlay) { height: auto; width: 100%; min-height: 122px; }
-.reading-mode .snake-field:has(.snake-overlay) > svg { margin: auto; }
-.reading-mode .tetris-playfield:has(.tetris-overlay) { height: auto; flex-wrap: wrap; }
-/* Make paused/result cells and landing marks readable at the chosen text size.
-   Cap the board at the LCD width and preserve its 8:12 aspect ratio. */
-.reading-mode .tetris-field { width: min(100%, 12rem); height: auto; }
-.reading-mode .tetris-field > svg { width: 100%; height: auto; }
-.reading-mode .tetris-overlay { width: 100%; }
-.reading-mode .tetris-overlay ol { width: auto; }
-/* Give enlarged pause labels the available width, not the live overlay's 120px. */
-.reading-mode .fishing-pause ol { width: 100%; }
-/* A paused fishing scene is a reading document, not a clipped canvas. Keep
-   the live pond's overflow rule for animation, but let the pause copy grow in
-   normal flow so the LCD's own scroll viewport remains the only boundary. */
-.reading-mode .pond-scene:has(.fishing-pause) { overflow: visible; }
-.reading-mode .fishing-pause { width: 100%; min-height: 102px; box-sizing: border-box; }
-/* Paused board headings and side notes must grow with root-scaled text. */
-.reading-mode :is(.snake-game, .tetris-game) header { height: auto; min-height: 20px; flex-wrap: wrap; gap: 4px; }
-.reading-mode .tetris-side { width: 100%; }
-.reading-mode .park-scene:has(.walk-pause), .reading-mode .pond-scene:has(.fishing-pause) { height: auto; min-height: 102px; }
-.reading-mode :is(.walking-game, .fishing-game) header { height: auto; min-height: 22px; }
-.reading-mode .walk-pause > div { flex-direction: column; }
-.reading-mode :is(.snake-companion, .tetris-companion) { height: auto; min-height: 38px; }
+/* Game pauses/results keep the board as a viewport. The text-heavy overlay
+   scrolls inside that viewport instead of changing the physical shell height.
+   This is intentionally separate from ordinary reading pages and recovery. */
+.game-reading-mode :is(.snake-overlay, .tetris-overlay, .walk-pause, .fishing-pause) {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 4px;
+  line-height: 1.6;
+}
+.game-reading-mode .snake-field:has(.snake-overlay) {
+  width: 146px;
+  height: 122px;
+  min-height: 0;
+  overflow: hidden;
+}
+.game-reading-mode .snake-field:has(.snake-overlay) > svg { margin: auto; }
+.game-reading-mode .tetris-playfield:has(.tetris-overlay) {
+  height: 126px;
+  min-height: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+/* Keep the board geometry stable while the overlay handles enlarged text. */
+.game-reading-mode .tetris-field { width: 82px; height: 122px; }
+.game-reading-mode .tetris-field > svg { width: 80px; height: 120px; }
+.game-reading-mode .tetris-side { width: 76px; }
+.game-reading-mode .tetris-overlay { width: auto; }
+.game-reading-mode .tetris-overlay ol { width: auto; }
+/* Give enlarged pause labels the complete LCD width, but keep them inside the
+   fixed pond/park scene instead of contributing to document height. */
+.game-reading-mode .fishing-pause ol { width: 100%; }
+.game-reading-mode .fishing-pause { width: 100%; min-height: 0; }
+.game-reading-mode :is(.park-scene:has(.walk-pause), .pond-scene:has(.fishing-pause)) {
+  height: 102px;
+  min-height: 0;
+  overflow: hidden;
+}
+/* Paused board headings and side notes may wrap, but remain inside the LCD. */
+.game-reading-mode :is(.snake-game, .tetris-game) header { height: auto; min-height: 20px; flex-wrap: wrap; gap: 4px; }
+.game-reading-mode :is(.walking-game, .fishing-game) header { height: auto; min-height: 22px; }
+.game-reading-mode .walk-pause > div { flex-direction: column; }
+.game-reading-mode :is(.snake-companion, .tetris-companion) { height: auto; min-height: 38px; }
+
+/* Keep the shell contract explicit for game reading states. This is redundant
+   with the generic reading rules above by design: later game-specific CSS must
+   not be able to turn a pause or result back into an auto-height device. */
+.device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) { height: 552px; min-height: 0; padding: 12px 0; }
+.game-reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 516px; min-height: 0; padding-bottom: 38px; }
+.device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 284px; min-height: 0; flex-shrink: 0; }
+.game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
+.game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 204px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 @media (max-width: 700px) {
   .device-stage.reading-mode:not(.recovery-mode):not(.return-mode) { height: 612px; }
   .reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
   .reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
   .reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
+  .device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) { height: 612px; }
+  .game-reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
+  .device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
+  .game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
 }
 @media (forced-colors: active) {
   /* Explicit system colors avoid Chromium composited text backplates hiding

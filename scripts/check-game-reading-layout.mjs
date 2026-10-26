@@ -97,6 +97,8 @@ async function shellMetrics(page) {
 async function assertReadingLayout(page, mode, id) {
   const state = await page.locator('.device-stage').getAttribute('class');
   assert.match(state, /reading-mode/, `${id} did not enter reading mode`);
+  const shellClass = { tiles: 'tiles-mode', treasure: 'treasure-mode' }[id] || 'game-reading-mode';
+  assert.match(state, new RegExp(shellClass), `${id} did not opt into its bounded reading shell`);
   assert.doesNotMatch(state, /recovery-mode/, `${id} unexpectedly entered recovery mode`);
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0,
@@ -107,11 +109,36 @@ async function assertReadingLayout(page, mode, id) {
   const before = await shellMetrics(page);
   const content = page.locator('.lcd-content');
   assert.equal(before['.lcd-content'].overflowY, 'auto', `${id} LCD content is not independently scrollable`);
-  const expectedScreen = mode.width <= 700 ? 364 : 284;
+  const expectedScreen = id === 'treasure'
+    ? (mode.width <= 700 ? 364 : 460)
+    : (mode.width <= 700 ? 364 : 284);
   assert(Math.abs(before['.screen-bezel'].height - expectedScreen) < 1,
     `${id} screen bezel height changed: ${before['.screen-bezel'].height}`);
   assert(before['.lcd-content'].clientHeight > 0,
     `${id} LCD content has no readable viewport`);
+
+  const pauseSelector = {
+    snake: '.snake-overlay',
+    tetris: '.tetris-overlay',
+    fishing: '.fishing-pause',
+    walk: '.walk-pause',
+  }[id];
+  if (pauseSelector) {
+    const pause = await page.locator(pauseSelector).count();
+    assert.equal(pause, 1, `${id} did not render its paused/terminal panel`);
+    const pauseStyle = await page.locator(pauseSelector).evaluate(element => {
+      const style = getComputedStyle(element);
+      const parent = element.parentElement;
+      return {
+        position: style.position,
+        overflowY: style.overflowY,
+        parentHeight: parent?.getBoundingClientRect().height ?? 0,
+      };
+    });
+    assert.equal(pauseStyle.position, 'absolute', `${id} pause panel left board flow`);
+    assert.match(pauseStyle.overflowY, /auto|scroll/, `${id} pause panel cannot scroll its long copy`);
+    assert(pauseStyle.parentHeight < 200, `${id} pause board grew with panel content: ${pauseStyle.parentHeight}`);
+  }
 
   const overflow = before['.lcd-content'].scrollHeight - before['.lcd-content'].clientHeight;
   if (overflow > 1) {
@@ -189,7 +216,7 @@ try {
     { width: 320, height: 568, font: 28 },
   ];
   for (const mode of modes) {
-    let shellBaseline;
+    const shellBaselines = new Map();
     for (const [index, [id, selector]] of games.entries()) {
       await fixture();
       const context = await browser.newContext({
@@ -216,10 +243,15 @@ try {
         const metrics = await assertReadingLayout(page, mode, id);
         const shell = Object.fromEntries(['.device-stage', '.device', '.screen-bezel', '.lcd']
           .map(selector => [selector, metrics[selector].height]));
-        if (!shellBaseline) shellBaseline = shell;
-        for (const selector of Object.keys(shellBaseline)) {
-          assert(Math.abs(shell[selector] - shellBaseline[selector]) < 1,
-            `${id} ${selector} height differs from the ${mode.width}px reading shell: ${shell[selector]} vs ${shellBaseline[selector]}`);
+        const shellKey = id === 'treasure' ? 'treasure' : 'standard';
+        const shellBaseline = shellBaselines.get(shellKey);
+        if (shellBaseline) {
+          for (const selector of Object.keys(shellBaseline)) {
+            assert(Math.abs(shell[selector] - shellBaseline[selector]) < 1,
+              `${id} ${selector} height differs from the ${mode.width}px reading shell: ${shell[selector]} vs ${shellBaseline[selector]}`);
+          }
+        } else {
+          shellBaselines.set(shellKey, shell);
         }
         assert.deepEqual(errors, [], `${id} emitted browser errors: ${errors.join('; ')}`);
         results.push({ ...mode, id, overflow: metrics.overflow, passed: true });
