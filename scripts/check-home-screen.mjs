@@ -48,9 +48,12 @@ try {
   assert.equal(manifest.url, `${base}/manifest.webmanifest`);
   assert.deepEqual(manifest.errors, []);
   const data = JSON.parse(manifest.data);
+  assert.equal(new URL(data.id, manifest.url).href, `${base}/`);
   assert.equal(new URL(data.start_url, manifest.url).href, `${base}/`);
   assert.equal(new URL(data.scope, manifest.url).href, `${base}/`);
   assert.equal(data.display, 'standalone');
+  assert.deepEqual(data.categories, ['games', 'lifestyle']);
+  assert.equal(data.prefer_related_applications, false);
   const apple = page.locator('link[rel="apple-touch-icon"]');
   assert.equal(await apple.count(), 1, 'Apple home-screen icon must be linked.');
   const applePath = await apple.getAttribute('href');
