@@ -49,17 +49,33 @@ async function key(page, k) {
 async function readAll(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   await page.locator('.growth-look-guide').evaluate(el => {
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
-    while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
-      const range = document.createRange(); range.selectNodeContents(text);
-      const lines = Array.from(range.getClientRects(), r => ({top:r.top + scrollY,left:r.left,width:r.width,height:r.height}));
-      for (const line of lines) {
-        window.scrollTo({top:line.top - 12,behavior:'instant'});
-        const top = line.top - scrollY, hit = document.elementFromPoint(line.left + line.width / 2, top + line.height / 2);
-        if (line.left < -1 || line.left + line.width > innerWidth + 1 || top < 0 || top + line.height > innerHeight || !hit || !text.parentElement.contains(hit))
-          throw new Error('Growth date line clipped/unreachable: ' + text.textContent);
+    const scrollport = el.closest('.lcd-content');
+    if (!scrollport) throw new Error('Growth guide is missing its LCD scrollport');
+    const initialWindowY = scrollY, initialScrollTop = scrollport.scrollTop;
+    try {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
+      while ((text = walker.nextNode())) {
+        if (!text.textContent.trim()) continue;
+        const range = document.createRange(); range.selectNodeContents(text);
+        const lineCount = range.getClientRects().length;
+        for (let index = 0; index < lineCount; index++) {
+          let line = Array.from(range.getClientRects())[index];
+          if (!line?.width || !line.height) continue;
+          const view = scrollport.getBoundingClientRect();
+          if (line.top < view.top) scrollport.scrollTop += line.top - view.top - 1;
+          else if (line.bottom > view.bottom) scrollport.scrollTop += line.bottom - view.bottom + 1;
+          line = Array.from(range.getClientRects())[index] ?? line;
+          const currentView = scrollport.getBoundingClientRect();
+          const hit = document.elementFromPoint(line.left + line.width / 2, line.top + line.height / 2);
+          if (line.left < currentView.left - 1 || line.right > currentView.right + 1 ||
+              line.top < currentView.top - 1 || line.bottom > currentView.bottom + 1 ||
+              !hit || !text.parentElement.contains(hit))
+            throw new Error('Growth date line clipped/unreachable: ' + text.textContent);
+        }
       }
+    } finally {
+      scrollport.scrollTop = initialScrollTop;
+      window.scrollTo({top: initialWindowY, behavior: 'instant'});
     }
   });
 }
