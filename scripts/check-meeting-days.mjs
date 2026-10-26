@@ -52,7 +52,7 @@ try {
     await wait(100);
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
-  for (const [width, height, font] of [[1200, 800, 14], [320, 700, 28]]) for (const age of [0, 2]) {
+  for (const [width, height, font] of [[1200, 800, 14], [390, 844, 14], [320, 700, 28]]) for (const age of [0, 2]) {
     const now = Date.now(), tag = `${width}-${font}-day${age + 1}`;
     // Both eggs waited a week. One hatches through the UI; the other is a legal
     // legacy save already hatched two days ago. LastTick is current in both.
@@ -89,6 +89,26 @@ try {
         assert.equal(await page.locator('.physical-button').count(), 3);
         assert.equal(await page.locator('.lcd button,.lcd input,.lcd a').count(), 0);
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+        const grid = page.locator('.life-summary-grid');
+        const layout = await grid.evaluate(element => {
+          const box = element.getBoundingClientRect();
+          const cells = [...element.children].map(child => {
+            const rect = child.getBoundingClientRect();
+            const label = child.querySelector('span');
+            return {
+              top: Math.round(rect.top * 10) / 10,
+              right: rect.right,
+              labelWidth: label?.getBoundingClientRect().width ?? 0,
+              labelScrollWidth: label?.scrollWidth ?? 0,
+            };
+          });
+          const rows = [...new Set(cells.map(cell => cell.top))].sort((a, b) => a - b);
+          return { width: box.width, right: box.right, cells, rowSizes: rows.map(top => cells.filter(cell => cell.top === top).length) };
+        });
+        assert.equal(layout.cells.length, 5);
+        assert(layout.cells.every(cell => cell.right <= layout.right + 1), `${tag} summary metrics overflow the grid`);
+        assert(layout.cells.every(cell => cell.labelScrollWidth <= cell.labelWidth + 1), `${tag} summary label is clipped`);
+        if (width === 390 && font === 14) assert.deepEqual(layout.rowSizes, [3, 2]);
       };
       await verifySummary();
       await page.locator('.life-summary-grid').scrollIntoViewIfNeeded();

@@ -41,3 +41,11 @@
 .life-summary-directions li { display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: baseline; }
 .life-summary-directions b { flex: 0 0 4em; white-space: nowrap; }
 .life-summary-directions span { flex: 1 1 12em; min-width: 0; line-height: 1.35; }
+
+/* Keep the five headline metrics balanced on a normal phone. At the smaller
+   320px / enlarged-text breakpoint the existing auto-fit rule must still be
+   allowed to fall back to two columns without creating horizontal overflow. */
+@media (min-width: 341px) and (max-width: 700px) {
+  .life-summary-grid { grid-template-columns: repeat(3, minmax(4.2em, 1fr)); }
+  .life-summary-experience-grid { grid-template-columns: repeat(3, minmax(4.2em, 1fr)); }
+}
