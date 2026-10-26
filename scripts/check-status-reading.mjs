@@ -67,11 +67,51 @@ async function readable(page) {
       const rect = reading.getBoundingClientRect(), lastMeter = [...document.querySelectorAll('.lcd-meter')].at(-1).getBoundingClientRect();
       if (lastMeter.bottom > rect.top + 1 || rect.bottom > document.querySelector('.care-advice').getBoundingClientRect().top + 1) errors.push('reading overlaps another section');
     }
-    return errors;
+    const shell = Object.fromEntries(['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content']
+      .map(selector => [selector, document.querySelector(selector).getBoundingClientRect().height]));
+    return { errors, shell, scrollable: lcdScrollable, scrollTop: lcd.scrollTop, scrollHeight: lcd.scrollHeight, clientHeight: lcd.clientHeight };
   });
-  assert.deepEqual(problems, []);
+  assert.deepEqual(problems.errors, []);
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,[aria-label="状态记录时间"] [tabindex]').count(), 0);
+  return problems;
+}
+function assertSameShell(actual, expected, label) {
+  for (const [selector, height] of Object.entries(expected)) {
+    assert(Math.abs(actual[selector] - height) < 1,
+      `${label} ${selector} height changed between status pages: ${actual[selector]} vs ${height}`);
+  }
+}
+async function assertSummaryBottom(page) {
+  const bottom = await page.locator('.lcd-content').evaluate(lcd => {
+    const content = lcd.getBoundingClientRect();
+    const summary = lcd.querySelector('.status-summary .life-summary-next')?.getBoundingClientRect();
+    const summaryTop = summary ? summary.top - content.top + lcd.scrollTop : null;
+    const maxScroll = lcd.scrollHeight - lcd.clientHeight;
+    lcd.scrollTop = maxScroll;
+    const readable = lcd.querySelector('.status-summary .life-summary')?.getBoundingClientRect();
+    const readableContent = lcd.getBoundingClientRect();
+    const pageNumber = lcd.querySelector('.status-page-number')?.getBoundingClientRect();
+    return {
+      maxScroll,
+      scrollTop: lcd.scrollTop,
+      summaryTop,
+      summaryBottomOffset: summary && summaryTop !== null ? summaryTop + summary.height : null,
+      scrollHeight: lcd.scrollHeight,
+      lifeSummaryBottom: readable?.bottom ?? null,
+      pageNumberBottom: pageNumber?.bottom ?? null,
+      contentBottom: readableContent.bottom,
+      contentTop: readableContent.top,
+    };
+  });
+  assert(bottom.maxScroll > 0, `status summary must have an internal scroll range: ${JSON.stringify(bottom)}`);
+  assert(Math.abs(bottom.scrollTop - bottom.maxScroll) < 1, `status summary did not reach its scroll end: ${JSON.stringify(bottom)}`);
+  assert(bottom.summaryTop !== null && bottom.summaryTop >= -1 && bottom.summaryBottomOffset <= bottom.scrollHeight + 1,
+    `status summary direction is not reachable inside LCD: ${JSON.stringify(bottom)}`);
+  assert(bottom.lifeSummaryBottom !== null && bottom.lifeSummaryBottom <= bottom.contentBottom + 1 && bottom.lifeSummaryBottom >= bottom.contentTop - 1,
+    `status summary bottom is not reachable inside LCD: ${JSON.stringify(bottom)}`);
+  assert(bottom.pageNumberBottom !== null && bottom.pageNumberBottom <= bottom.contentBottom + 1,
+    `status page number is not reachable inside LCD: ${JSON.stringify(bottom)}`);
 }
 let server, browser, log = '', startupError;
 try {
@@ -125,20 +165,26 @@ try {
         }
         const sizes = await reading.evaluate(el => ({ text: parseFloat(getComputedStyle(el).fontSize), root: parseFloat(getComputedStyle(document.querySelector('.lcd-content')).fontSize) }));
         assert.equal(sizes.text, sizes.root, 'do not shrink the timestamp text');
-        await readable(page);
+        const layout = await readable(page);
         await reading.scrollIntoViewIfNeeded(); await page.locator('.button-c').scrollIntoViewIfNeeded();
-        return iso;
+        return { iso, layout };
       };
       await page.goto(base); await page.locator('.home-caption').waitFor(); await openStatus(page);
-      const first = await verify();
-      await key(page, 'a'); assert.equal(await page.locator('.status-reading').count(), 0); await readable(page);
+      const first = await verify(), shell = first.layout.shell;
+      assert.equal(first.layout.scrollTop, 0, 'status page 1 must start at the top of the LCD');
+      await key(page, 'a'); assert.equal(await page.locator('.status-reading').count(), 0);
+      const summary = await readable(page); assertSameShell(summary.shell, shell, `${mode.label} status page 2`);
+      await assertSummaryBottom(page);
       assert.equal(await page.locator('.status-summary').count(), 1);
-      await key(page, 'a'); assert.equal(await page.locator('.status-reading').count(), 0); await readable(page);
+      await key(page, 'a'); assert.equal(await page.locator('.status-reading').count(), 0);
+      const rules = await readable(page); assertSameShell(rules.shell, shell, `${mode.label} status page 3`);
+      assert.equal(rules.scrollTop, 0, 'status page 3 must reset the LCD scroll position');
       assert.equal(await page.locator('.status-rules').count(), 1);
       if (stage === 'baby' && zone === 'America/Los_Angeles') await page.screenshot({ path: join(dir, `${sleeping ? 'sleep' : 'awake'}-${mode.label}.png`), fullPage: true });
       await key(page, 'c'); assert.equal(await page.locator('.status-reading').count(), 0);
       await page.reload(); await page.locator('.home-caption').waitFor(); await openStatus(page);
-      const refreshed = await verify(); assert(Date.parse(refreshed) >= Date.parse(first));
+      const refreshed = await verify(); assert(Date.parse(refreshed.iso) >= Date.parse(first.iso));
+      assertSameShell(refreshed.layout.shell, shell, `${mode.label} refreshed status page 1`);
       assert.deepEqual(writes, []); assert.deepEqual(errors, []);
       results.push({ stage, sleeping, zone, mode: mode.label, first, refreshed });
       console.log('PASS', results.length, stage, sleeping, zone, mode.label);
