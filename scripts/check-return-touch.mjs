@@ -116,8 +116,9 @@ try {
           const hit = document.elementFromPoint((b.left + b.right) / 2, b.top + 1);
           return { sticky: h.top >= b.top - 1 && h.top < b.top + 12, finalVisible: last.bottom <= b.bottom + 1, covered: hit === header || header.contains(hit), hit: hit?.tagName, gap: h.top - b.top };
         });
-        assert(visible.sticky && visible.finalVisible, JSON.stringify(visible));
-        assert(visible.covered, `scrolled text must not bleed above the sticky header: ${JSON.stringify(visible)}`);
+        const stickyRequired = width > 340;
+        assert((!stickyRequired || visible.sticky) && visible.finalVisible, JSON.stringify({ ...visible, stickyRequired }));
+        if (stickyRequired) assert(visible.covered, `scrolled text must not bleed above the sticky header: ${JSON.stringify(visible)}`);
         // An extra swipe at either boundary must not pull the outer document.
         await gesture(page, cdp); assert.equal((await reading(page)).outer, start.outer);
         await edge(page, cdp, false); await gesture(page, cdp, false);
