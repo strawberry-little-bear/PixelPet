@@ -17,8 +17,16 @@ let server,browser,log='',startupError;
 async function api(path,body) { const r=await fetch(`${base}/api/${path}`,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); assert(r.ok,await r.clone().text());return r.json(); }
 async function key(page,k) { await page.locator('.button-'+k+':not([disabled])').waitFor(); await page.keyboard.press(k); await page.waitForFunction(()=>!document.querySelector('.button-b')?.disabled); }
 async function home(page) { await page.reload();await page.locator('.home-caption').waitFor();await key(page,'c'); }
-async function summary(page) { await key(page,'a');for(let i=0;i<4;i++)await key(page,'a');await key(page,'b');await key(page,'a');await page.locator('.life-summary-games').waitFor(); }
-async function count(page,n) { assert.equal(await page.locator('[data-completion-count=stars]').textContent(),`共同游戏 ${n} 局`); }
+async function summary(page) {
+ await key(page,'a');for(let i=0;i<4;i++)await key(page,'a');await key(page,'b');await key(page,'a');
+ await page.locator('.life-summary').waitFor();
+ assert((await page.locator('.life-summary-interest').textContent()).includes('成长手册'),
+  'life summary must point detailed game counts to the handbook');
+}
+async function count(page,n) {
+ const state=(await api('state')).state, entry=state.companion?.history?.completions?.find(row=>row.kind==='stars');
+ assert.equal(entry?.count,n,'saved stars completion count');
+}
 async function companion(page, expected) {
  const writes=[];
  const onRequest=req=>{if(req.method()==='POST'&&new URL(req.url()).pathname.startsWith('/api/'))writes.push(req.url());};
@@ -64,17 +72,23 @@ async function quietRecent(page, expected, label) {
   assert(first.includes('从共同游戏记录想起：最近一次一起玩「接星星」'),first);
   assert.equal(await source.locator('time').getAttribute('datetime'),new Date(expected.at).toISOString());
   assert(!(await page.locator('.quiet-moment-copy > p').innerText()).match(/今天|刚才|昨天|奖励|成长|金币/));
-  // Read each wrapped source line through native document scrolling, including
-  // date/time at 200% root size. Visibility alone would miss clipped text.
+  // Read each wrapped source line through the LCD scrollport, including the
+  // date/time at 200% root size. The reading shell intentionally keeps the
+  // device fixed, so document scrolling alone cannot reveal these lines.
   await source.evaluate(el=>{
-   const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let text;
-   while((text=walker.nextNode())){
-    if(!text.textContent.trim())continue;
+   const scrollport=el.closest('.lcd-content');if(!scrollport)throw new Error('Missing LCD scrollport');
+   const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),texts=[];let text;
+   while((text=walker.nextNode()))if(text.textContent.trim())texts.push(text);
+   for(const text of texts){
     const range=document.createRange();range.selectNodeContents(text);
-    const lines=Array.from(range.getClientRects(),r=>({left:r.left,top:r.top+scrollY,width:r.width,height:r.height}));
-    for(const line of lines){window.scrollTo({top:line.top-12,behavior:'instant'});const y=line.top-scrollY;
-     const hit=document.elementFromPoint(line.left+line.width/2,y+line.height/2);
-     if(line.left < -1 || line.left+line.width>innerWidth+1 || y<0 || y+line.height>innerHeight || !hit || !text.parentElement.contains(hit))throw new Error('Unreachable recent-game source: '+text.textContent);
+    for(const rect of Array.from(range.getClientRects())){
+     const view=scrollport.getBoundingClientRect();
+     if(rect.top<view.top+2)scrollport.scrollTop+=rect.top-(view.top+12);
+     else if(rect.bottom>view.bottom-2)scrollport.scrollTop+=rect.bottom-(view.bottom-12);
+     const current=Array.from(range.getClientRects()).find(candidate=>Math.abs(candidate.left-rect.left)<1);
+     const line=current ?? rect, after=scrollport.getBoundingClientRect();
+     if(line.left < after.left-1 || line.right > after.right+1 || line.top < after.top-1 || line.bottom > after.bottom+1)
+      throw new Error('Unreachable recent-game source: '+text.textContent);
     }
    }
   });
@@ -105,13 +119,12 @@ async function layout(page) {
  assert.equal(await page.locator('.physical-button').count(),3);
  assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow');
- const clipped=await page.locator('.life-summary-games,.life-summary-next').evaluateAll(elements=>elements.flatMap(el=>{
+ const clipped=await page.locator('.life-summary-next,.life-summary-experiences').evaluateAll(elements=>elements.flatMap(el=>{
   const b=el.getBoundingClientRect(),walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),bad=[];let node;
   while((node=walker.nextNode())){const range=document.createRange();range.selectNodeContents(node);for(const r of range.getClientRects())if(r.width&&r.height&&(r.left<b.left-1||r.right>b.right+1))bad.push(node.textContent);}
   return bad;
  }));assert.deepEqual(clipped,[],'game history or next-step text clipped');
- const titleLines=await page.locator('.life-summary-games li span').evaluateAll(elements=>elements.map(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length;}));assert(titleLines.every(n=>n<=2),'game titles broken into narrow vertical columns');
- const last=page.locator('.life-summary-games > small').last();await last.scrollIntoViewIfNeeded();assert(await last.isVisible());
+ const details=page.locator('.life-summary-experiences');await details.scrollIntoViewIfNeeded();assert(await details.isVisible());
  await page.locator('.button-c').scrollIntoViewIfNeeded();await key(page,'c');await page.locator('.home-caption').waitFor();
 }
 try {
@@ -134,7 +147,7 @@ try {
  // records that could actually exist in that version before testing migration.
  old.album.entries=old.album.entries.filter(entry=>entry.kind!=='keepsake');delete old.album.displayItem;
  const migrated=(await api('import',old)).state;assert.equal(migrated.schema,23);assert.equal(migrated.companion.history.completions[0].count,0);assert.deepEqual(migrated.companion.interests,backup.companion.interests);assert.deepEqual(migrated.album,old.album);
- await home(page);await summary(page);await count(page,0);assert((await page.locator('.life-summary-tracking').textContent()).includes('之前的局数未知'));await key(page,'c');results.push({legacyFixture:'no invented past games'});
+ await home(page);await summary(page);await count(page,0);assert((await page.locator('.life-summary-interest').textContent()).includes('逐项局数收在成长手册'));await key(page,'c');results.push({legacyFixture:'no invented past games'});
  // Construct an adult with an older, capped fishing interest. This is an
  // explicit history fixture, not five naturally played fishing sessions.
  const adultAt=Date.now();
@@ -188,6 +201,6 @@ try {
  }
  // Constructed upper-bound display; this is not actual lifetime play.
  const extreme=structuredClone(adultSaved);for(const row of extreme.companion.history.completions)row.count=Number.MAX_SAFE_INTEGER;await api('import',extreme);
- const ctx=await browser.newContext({viewport:{width:320,height:568}}),p=await ctx.newPage();await p.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize='28px'));await p.goto(base);await p.locator('.home-caption').waitFor();await key(p,'c');await summary(p);assert((await p.locator('[data-completion-count=stars]').textContent()).includes('≥'));await layout(p);await ctx.close();results.push({extremeNumberFixture:'wraps and shows lower bound'});
+ const ctx=await browser.newContext({viewport:{width:320,height:568}}),p=await ctx.newPage();await p.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.fontSize='28px'));await p.goto(base);await p.locator('.home-caption').waitFor();await key(p,'c');await summary(p);const extremeState=(await api('state')).state;assert.equal(extremeState.companion.history.completions[0].count,Number.MAX_SAFE_INTEGER);await layout(p);await ctx.close();results.push({extremeNumberFixture:'preserves upper-bound count in saved history'});
  await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({passed:results.length,artifacts:dir,results},null,2));
 } finally {await browser?.close();if(server&&server.exitCode===null){server.kill('SIGTERM');await new Promise(r=>server.once('exit',r));}}
