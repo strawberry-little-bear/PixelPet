@@ -39,6 +39,27 @@ it("announces the actual game count at the care-menu entrance, without a stale p
   expect(api.mock.calls.some(([path]) => path === "action")).toBe(false);
 });
 
+it("identifies a remembered game position without confusing a first visit", async () => {
+  await open();
+  await key("b");
+  expect(screen.queryByRole("note", { name: "上次游戏位置" })).toBeNull();
+
+  // Select the second game, then deliberately wrap back to the first one so
+  // choice 0 is covered as a remembered position too.
+  await key("a");
+  for (let i = 0; i < games.length - 1; i++) await key("a");
+  expect(document.querySelector('.arcade-card[aria-current="true"]')?.getAttribute("data-game")).toBe(games[0].id);
+  await key("c");
+
+  // Home -> care menu -> arcade.
+  await key("a"); await key("a"); await key("b");
+  expect(screen.getByRole("note", { name: "上次游戏位置" }).textContent).toBe("上次停在这里 · A 继续浏览");
+  expect(document.querySelector('.arcade-card[aria-current="true"]')?.getAttribute("data-game")).toBe(games[0].id);
+
+  await key("a");
+  expect(screen.queryByRole("note", { name: "上次游戏位置" })).toBeNull();
+});
+
 it("lets A/B/C discover every listed game, read both rule pages and return without writes", async () => {
   await open();
   await key("b");

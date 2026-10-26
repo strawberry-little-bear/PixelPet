@@ -10,8 +10,8 @@ import { gameIsPreferred, gamePreference, gamePreferenceLabel } from "./gamePref
 import type { Companion, Economy, Growth, PetState, Shop } from "./types";
 import "./arcade.css";
 
-export function ArcadePanel({ choice, economy, companion, growth, shop, now, sleeping = false, energy }: {
-  choice: number; economy?: Economy; companion?: Companion; growth?: Growth; shop: Shop | null; now: number; sleeping?: boolean; energy?: number;
+export function ArcadePanel({ choice, economy, companion, growth, shop, now, sleeping = false, energy, selectionRemembered = false }: {
+  choice: number; economy?: Economy; companion?: Companion; growth?: Growth; shop: Shop | null; now: number; sleeping?: boolean; energy?: number; selectionRemembered?: boolean;
 }) {
   const game = games[choice] ?? games[0];
   const blocked = gameStartBlock(sleeping, energy);
@@ -20,6 +20,7 @@ export function ArcadePanel({ choice, economy, companion, growth, shop, now, sle
   const allowance = gameAllowance(economy, shop, now);
   return <section className="arcade-panel" aria-label="一起玩耍">
     <header>和小伙伴一起玩 <small>{choice + 1} / {games.length}</small></header>
+    {selectionRemembered && <p className="arcade-memory-note" role="note" aria-label="上次游戏位置">上次停在这里 · A 继续浏览</p>}
     {blocked && <p className="game-start-note" role="status" aria-label="开局前的照顾提示">{blocked.note}{!sleeping && "可以先按 B 看规则。"}</p>}
     <div className="arcade-cards">
       {games.map((item, i) => <div key={item.id} className={`arcade-card ${choice === i ? "selected" : ""}`} data-game={item.id} aria-current={choice === i}>

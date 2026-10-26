@@ -277,6 +277,7 @@ export default function App() {
   const [journalCursor, setJournalCursor] = useState(() => startJournal([]));
   const [growthPage, setGrowthPage] = useState(0);
   const [arcadeSelection, setArcadeSelection] = useState<{ petKey: string; choice: number } | null>(null);
+  const [arcadeSelectionNotice, setArcadeSelectionNotice] = useState<{ petKey: string; choice: number } | null>(null);
   const [guidePage, setGuidePage] = useState(0);
   const [guideReview, setGuideReview] = useState(false);
   // A current-session reader, never a start card. Its B only turns a page.
@@ -410,8 +411,13 @@ export default function App() {
   // Page-local browsing memory, not a saved preference or an instruction to play.
   // Polls, care and growth keep it; another pet/save must not inherit it.
   const arcadeChoice = careReadingKey && arcadeSelection?.petKey === careReadingKey ? arcadeSelection.choice : 0;
+  const arcadeSelectionRemembered = !!careReadingKey && arcadeSelectionNotice?.petKey === careReadingKey && arcadeSelectionNotice.choice === arcadeChoice;
   const setArcadeChoice = (choice: number) => {
     if (careReadingKey) setArcadeSelection({ petKey: careReadingKey, choice });
+  };
+  const rememberArcadeEntry = () => {
+    if (careReadingKey && arcadeSelection?.petKey === careReadingKey) setArcadeSelectionNotice(arcadeSelection);
+    else setArcadeSelectionNotice(null);
   };
   usePhysicalButtonFocus(JSON.stringify([physicalFocusEpoch.current, page === "import-preview"]),
     tools || help || reset || uncertain || unavailable || corrupt || clockAhead || !foreground || !windowFocused);
@@ -1762,7 +1768,7 @@ export default function App() {
     if (page === "arcade") {
       if (key === "A") {
         const next = (arcadeChoice + 1) % games.length;
-        setArcadeChoice(next); navigateArcadeReading("arcade", next);
+        setArcadeSelectionNotice(null); setArcadeChoice(next); navigateArcadeReading("arcade", next);
       } else if (key === "C") setPage("home");
       else if (pet.sleeping) setError("它正在睡觉，先从菜单选「起床啦」，醒来后再一起玩。");
       else { setGuidePage(0); setGuideReview(false); setPage("game-guide"); navigateArcadeReading("game-guide"); }
@@ -1786,7 +1792,7 @@ export default function App() {
         else setGuidePage(v => (v + 1) % 2);
         navigateArcadeReading("game-guide");
       }
-      else if (key === "C") { setPage("arcade"); navigateArcadeReading("arcade"); }
+      else if (key === "C") { rememberArcadeEntry(); setPage("arcade"); navigateArcadeReading("arcade"); }
       else if (blocked) setError(blocked.note);
       else {
         const game = games[arcadeChoice];
@@ -2106,7 +2112,7 @@ export default function App() {
           setError("它正在睡觉，先从菜单选「起床啦」，醒来后再一起玩。");
           return;
         }
-        setPage("arcade"); navigateArcadeReading("arcade");
+        rememberArcadeEntry(); setPage("arcade"); navigateArcadeReading("arcade");
       } else if (item.kind === "moment") {
         setQuietMomentChoice(0);
         setQuietMomentReplied(false);
@@ -2261,6 +2267,7 @@ export default function App() {
       const r = await request("import", pending.backup.data, acceptedGeneration.current);
       initialized.current = true;
       setArcadeSelection(null);
+      setArcadeSelectionNotice(null);
       setAlbumReturnSession(null);
       discardImport();
       latestRevision.current = -1;
@@ -2295,6 +2302,7 @@ export default function App() {
       const r = await request("reset", { confirm: true }, acceptedGeneration.current);
       initialized.current = true;
       setArcadeSelection(null);
+      setArcadeSelectionNotice(null);
       setAlbumReturnSession(null);
       discardImport();
       latestRevision.current = -1;
@@ -2718,6 +2726,7 @@ export default function App() {
                             now={now}
                             sleeping={pet.sleeping}
                             energy={pet.needs.energy}
+                            selectionRemembered={arcadeSelectionRemembered}
                           />
                         )}
                         {page === "pause-guide" && pauseGuide && <GameGuide game={pauseGuide} page={guidePage} paused economy={pet.economy} growth={growth} shop={shop} now={now} />}

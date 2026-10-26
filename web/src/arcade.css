@@ -6,6 +6,7 @@
 .arcade-card.selected { border: 1px solid #556b45; background: #a4b98b66; opacity: 1; }
 .arcade-card > span { margin-right: 5px; }
 .arcade-card strong { font-size: 10px; }
+.arcade-memory-note { margin: 5px 0; color: #637447; font-size: 9px; }
 .arcade-details { margin-top: 5px; font-size: 9px; }
 .arcade-familiar, .arcade-preference { margin-top: 7px !important; padding-top: 5px; border-top: 1px dashed currentColor; }
 .arcade-preference strong { font-weight: bold; }
