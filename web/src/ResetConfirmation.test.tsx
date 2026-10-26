@@ -63,6 +63,13 @@ it("treats A/B/C and Enter as text input, while Escape cancels and restores phys
   expect(document.activeElement).toBe(document.querySelector(".physical-button.button-c"));
   expect(resets()).toHaveLength(0);
 });
+it("lets the physical C button cancel reset confirmation while text input is focused", async () => {
+  await mount(); await type("ABC"); input().focus();
+  await click("C 返回");
+  expect(document.querySelector(".modal")).toBeNull();
+  expect(document.activeElement).toBe(document.querySelector(".physical-button.button-c"));
+  expect(resets()).toHaveLength(0);
+});
 it("clears old confirmation on cancellation and requires it again after reopening", async () => {
   await mount(); await type("ABC伙伴"); await click("关闭"); await open();
   expect(input().value).toBe(""); expect(confirm().disabled).toBe(true); expect(resets()).toHaveLength(0);
