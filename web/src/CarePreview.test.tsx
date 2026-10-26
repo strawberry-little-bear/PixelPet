@@ -38,6 +38,8 @@ describe("read-only care preview", () => {
     expect(text).toContain("最多补 5 点到 100");
     expect(text).toContain("清洁基准下降 3 点，到 0 为止");
     expect(text).toContain("饱食达到 96 后不能喂食");
+    expect(text).toContain("饱食已满足需求并接近满值；本次仍可确认，但不计喂食习惯。");
+    expect(text).not.toContain("饱食已满足（需求已满足）");
   });
 
   it.each([0, 1, 3, 60])("qualifies the feed side effect when cleanliness is %s", clean => {

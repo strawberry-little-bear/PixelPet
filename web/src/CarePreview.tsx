@@ -112,7 +112,9 @@ export function carePreview(pet: PetState, kind: CareKind, rules?: CareRules | n
   // both would prevent a habit credit. Missing legacy growth is not evidence
   // of a new reward; let the next authoritative response supply its history.
   if (careNeed(need, config.habitAt, rules) > config.habitAt) return [effect, ...(capped ? [capped] : []), feeding
-    ? "饱食已满足（需求已满足）；饱食 ≤70 时喂食才记习惯，本次不记。"
+    ? capped
+      ? "饱食已满足需求并接近满值；本次仍可确认，但不计喂食习惯。"
+      : "饱食已满足（需求已满足）；饱食 ≤70 时喂食才记习惯，本次不记。"
     : "清洁已满足（需求已满足）；清洁 ≤65 时洗澡才记习惯，本次不记。"];
   if (!pet.growth) return [effect, "成长记录尚未读到；是否记习惯，以照顾后的结果为准。"];
   const last = feeding ? pet.growth.care.lastFeed : pet.growth.care.lastClean;
