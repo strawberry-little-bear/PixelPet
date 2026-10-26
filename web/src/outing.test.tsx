@@ -85,7 +85,7 @@ describe('decorative scenery components', () => {
   it('shows the story in reading captions but keeps only the label on the live scene', () => {
     const scenery = outingScenery(session(47))!;
     const { container, rerender } = render(<OutingCaption scenery={scenery} />);
-    expect(container.textContent).toContain('本局固定的游戏内风景，不对应现实天气、季节或当前时间。');
+    expect(container.textContent).toContain('每局独立生成的想象风景，不对应现实天气、季节或当前时间，也不代表连续变化。');
     expect(container.textContent).toContain(scenery.story);
     rerender(<OutingCaption scenery={scenery} compact />);
     expect(container.textContent).not.toContain(scenery.story);

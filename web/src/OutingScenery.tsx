@@ -18,7 +18,7 @@ export function OutingCaption({ scenery, compact = false }: { scenery: Scenery; 
   if (!scenery) return null;
   return <small className={`outing-caption${compact ? " outing-compact" : ""}`} data-scenery={scenery.key}>
     <span className="outing-label">本局风景（虚构） · {scenery.label}</span>
-    {!compact && <span>本局固定的游戏内风景，不对应现实天气、季节或当前时间。</span>}
+    {!compact && <span>每局独立生成的想象风景，不对应现实天气、季节或当前时间，也不代表连续变化。</span>}
     {!compact && <span>{scenery.story}</span>}
   </small>;
 }
