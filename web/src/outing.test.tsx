@@ -42,7 +42,7 @@ describe('fictional outing selection', () => {
       expect(scene.story).toContain(dialogue[Math.floor(i / 12)]);
       if (kind === 'fishing' && i % 3 === 2) expect(scene.story).toContain('不是咬钩信号');
       const { container, unmount } = render(<OutingCaption scenery={scene} compact />);
-      expect(container.textContent).toBe(`虚构风景 · ${scene.label}`);
+      expect(container.textContent).toBe(`本局风景（虚构） · ${scene.label}`);
       expect(container.querySelector('[aria-live]')).toBeNull();
       unmount();
     }
@@ -85,6 +85,7 @@ describe('decorative scenery components', () => {
   it('shows the story in reading captions but keeps only the label on the live scene', () => {
     const scenery = outingScenery(session(47))!;
     const { container, rerender } = render(<OutingCaption scenery={scenery} />);
+    expect(container.textContent).toContain('本局固定的游戏内风景，不对应现实天气、季节或当前时间。');
     expect(container.textContent).toContain(scenery.story);
     rerender(<OutingCaption scenery={scenery} compact />);
     expect(container.textContent).not.toContain(scenery.story);
@@ -94,7 +95,7 @@ describe('decorative scenery components', () => {
     for (const kind of ['fishing', 'walk'] as const) {
       const state = pet(index, kind), before = structuredClone(state), scenery = outingScenery(state.game)!;
       const { container, unmount } = render(kind === 'fishing' ? <FishingGame pet={state} active choice={0} /> : <WalkingGame pet={state} active choice={0} />);
-      expect(container.querySelector('.outing-caption')?.textContent).toBe(`虚构风景 · ${scenery.label}`);
+      expect(container.querySelector('.outing-caption')?.textContent).toBe(`本局风景（虚构） · ${scenery.label}`);
       const sky = container.querySelector('.outing-sky')!;
       expect(sky.getAttribute('data-weather')).toBe(scenery.weather.id);
       expect(sky.getAttribute('data-light')).toBe(scenery.light.id);
