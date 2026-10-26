@@ -90,6 +90,13 @@
   .treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
   .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
   .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
+
+  /* The active board is rendered before companion art and scrolled detail so
+     every cell can be compared in the first LCD view. */
+  .treasure-game:not([data-paused=true]):not([data-done=true]) > .treasure-selection {
+    position: static;
+    padding: 4px 0;
+  }
 }
 .treasure-result { margin: 6px 0; }
 /* The generic reading rules enlarge every small/strong/span in the LCD. That

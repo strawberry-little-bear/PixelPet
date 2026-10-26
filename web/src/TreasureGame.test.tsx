@@ -60,6 +60,8 @@ describe("untimed treasure presentation",()=>{
  it("keeps one current-selection readout only while choosing, and preserves pause/terminal meaning",()=>{
   const n=saved.game!.treasure!; n.paused=false;
   const view=render(<TreasureGame pet={saved} active cursor={4} choice={0}/>);
+  const grid=view.container.querySelector(".treasure-grid")!, companion=view.container.querySelector(".treasure-companion")!;
+  expect(grid.compareDocumentPosition(companion)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   const status=()=>view.container.querySelector(".treasure-status")!;
   expect(status().classList.contains("treasure-selection")).toBe(true);
   expect(status().textContent).toBe("当前选中：5号格 · 未探索 · B 探索");
