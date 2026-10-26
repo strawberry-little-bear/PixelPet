@@ -76,9 +76,9 @@ export function gameLesson(game: GameInfo, species?: number): string {
 // Stars and tiles start immediately; fishing enters its ready state; the
 // remaining games deliberately open paused so a refresh cannot auto-run them.
 export function gameFinishInstruction(game: GameInfo): string {
-  return ["snake", "tetris"].includes(game.id)
-    ? "A 暂不操作 · B / C 收好本局成绩"
-    : "A 暂不操作 · B / C 收好本局发现";
+  return ["fishing", "walk", "treasure"].includes(game.id)
+    ? "A 暂不操作 · B / C 收好本局发现"
+    : "A 暂不操作 · B / C 收好本局成绩";
 }
 
 // All seven games require an awake pet with at least 10 energy. This only

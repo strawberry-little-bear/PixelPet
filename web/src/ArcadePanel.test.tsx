@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
 import { ArcadePanel } from "./ArcadePanel";
-import { gameAllowance, gameLesson, gameStartInstruction, games, guideSeen, rememberGuide } from "./games";
+import { gameAllowance, gameFinishInstruction, gameLesson, gameStartInstruction, games, guideSeen, rememberGuide } from "./games";
 import type { GameInfo } from "./games";
 import { emptyGrowth } from "./growth";
 import { request } from "./api";
@@ -360,6 +360,14 @@ describe("playtest feedback: compact repeat entry", () => {
     expect(new Set(games.map(game => game.icon)).size).toBe(games.length);
     expect(games.find(game => game.id === "fishing")?.icon)
       .not.toBe(games.find(game => game.id === "walk")?.icon);
+  });
+  it("uses成绩 for board games and discovery for finding games at finish", () => {
+    for (const id of ["stars", "tiles", "snake", "tetris"] as const) {
+      expect(gameFinishInstruction(games.find(game => game.id === id)!)).toBe("A 暂不操作 · B / C 收好本局成绩");
+    }
+    for (const id of ["fishing", "walk", "treasure"] as const) {
+      expect(gameFinishInstruction(games.find(game => game.id === id)!)).toBe("A 暂不操作 · B / C 收好本局发现");
+    }
   });
 });
 
