@@ -51,6 +51,13 @@ async function readable(page, selector) {
     let node;
     while ((node = walker.nextNode())) {
       if (!node.textContent.trim()) continue;
+      // A paused Tetris board deliberately covers the field and its side
+      // legend with an opaque overlay. The covered legend is not part of the
+      // visible reading surface; validate the overlay and the live hint
+      // below it instead of treating the board viewport as a text container.
+      const playfield = node.parentElement?.closest('.tetris-playfield');
+      if (playfield?.querySelector('.tetris-overlay') &&
+          !node.parentElement?.closest('.tetris-overlay')) continue;
       // Reading guidance is intentionally screen-reader-only until the region
       // receives keyboard focus. Do not mistake its 1px clipped box for a
       // product layout failure; when focused, clipPath becomes none and the
@@ -60,11 +67,16 @@ async function readable(page, selector) {
       const range = document.createRange(); range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
+        let scrollport = null;
         for (let parent = node.parentElement; parent; parent = parent.parentElement) {
           const style = getComputedStyle(parent), clip = parent.getBoundingClientRect();
+          if (!scrollport && ['auto', 'scroll'].includes(style.overflowY)) {
+            scrollport = { element: parent, rect: clip };
+          }
+          const outerOfScrollport = scrollport && parent.contains(scrollport.element);
           if ((['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowX) &&
             (box.left < clip.left - 1 || box.right > clip.right + 1)) ||
-            (['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowY) &&
+            (!outerOfScrollport && ['hidden', 'clip'].includes(style.overflowY) &&
             (box.top < clip.top - 1 || box.bottom > clip.bottom + 1))) {
             failures.push({ text: node.textContent, parent: parent.className }); break;
           }
