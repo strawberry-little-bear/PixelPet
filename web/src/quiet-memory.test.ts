@@ -50,6 +50,25 @@ describe("quiet memory conversations", () => {
     expect(nextQuietMemory(memories.slice(0, 1), current)).toBe(memories[0].key);
   });
 
+  it("does not repeat a game in quiet conversation after its keepsake is saved", () => {
+    const saved = pet([
+      { kind: "stars", at: 100, source: "shared", score: 3 },
+      { kind: "keepsake", at: 200, source: "shared", item: "star-ribbon" },
+      { kind: "walk", at: 300, source: "shared" },
+    ]);
+    saved.schema = 21;
+    const memories = quietMemories(saved);
+    expect(memories.map(memory => memory.title)).toEqual([
+      "公园里走过的第一条小路", "接星星的小缎带",
+    ]);
+    expect(memories.some(memory => memory.title === "一起追过的星光")).toBe(false);
+  });
+
+  it("keeps the original game memory when no keepsake exists", () => {
+    const saved = pet([{ kind: "stars", at: 100, source: "shared", score: 3 }]);
+    expect(quietMemories(saved).map(memory => memory.title)).toEqual(["一起追过的星光"]);
+  });
+
   it("offers a timeless response to recorded scenery without claiming real weather", () => {
     const [memory] = quietMemories(pet([{ kind: "scenery-walk-rain", at: 100, source: "shared" }]));
     expect(memory.title).toBe("细雨里的沿途发现");

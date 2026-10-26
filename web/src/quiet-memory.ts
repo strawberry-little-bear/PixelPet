@@ -1,4 +1,4 @@
-import { gameKeepsake, type GameKeepsakeItem } from "./game-keepsakes";
+import { gameKeepsake, gameKeepsakes, type GameKeepsakeItem } from "./game-keepsakes";
 import { games } from "./games";
 import { fishCatalog, fishCatalogFor } from "./fishing";
 import { parkCatalog } from "./walk";
@@ -57,6 +57,7 @@ const parkReplies = {
   pebble: "它轻轻晃了晃：想起「圆石子」，平常的小路上，也有值得一起记住的小东西。",
 } satisfies Record<typeof parkCatalog[number]["id"], string>;
 const savedTime = (n: number | undefined): n is number => typeof n === "number" && Number.isSafeInteger(n) && n > 0 && n <= 8.64e15;
+const keepsakeForGame = (game: string) => gameKeepsakes.find(entry => entry.game === game);
 
 function discoveryMemories(pet: PetState): QuietMemory[] {
   if (!savedTime(pet.hatchedAt)) return [];
@@ -85,9 +86,23 @@ const newestFirst = (a: QuietMemory, b: QuietMemory) => b.at - a.at || a.key.loc
 
 export function quietMemories(pet: PetState, shop?: Shop | null): QuietMemory[] {
   if (!Number.isSafeInteger(pet.lastTick) || pet.lastTick <= 0) return [];
+  // A qualifying game can have both its original album card and a later
+  // keepsake card. The album should preserve both records, but the shorter
+  // "聊聊回忆" list should not make the same game sound like two separate
+  // recent moments. Keep the keepsake as the richer, tangible memory.
+  const ownedKeepsakeGames = new Set(
+    (pet.album?.entries ?? [])
+      .filter(m => m.source === "shared" && m.kind === "keepsake")
+      .map(m => gameKeepsake(m.item)?.game)
+      .filter((game): game is typeof gameKeepsakes[number]["game"] => !!game),
+  );
   const memories: QuietMemory[] = (pet.album?.entries ?? [])
-    .filter(m => m.source === "shared" && m.kind !== "days"
-      && Number.isSafeInteger(m.at) && m.at > 0 && m.at <= pet.lastTick)
+    .flatMap(m => {
+      const matchingKeepsake = keepsakeForGame(m.kind);
+      return m.source === "shared" && m.kind !== "days"
+        && !(matchingKeepsake && ownedKeepsakeGames.has(matchingKeepsake.game))
+        && Number.isSafeInteger(m.at) && m.at > 0 && m.at <= pet.lastTick ? [m] : [];
+    })
     .slice().sort((a, b) => b.at - a.at || a.kind.localeCompare(b.kind) || (a.item ?? "").localeCompare(b.item ?? ""))
     .flatMap(m => {
       const keepsake = m.kind === "keepsake" && pet.schema >= 21 ? gameKeepsake(m.item) : undefined;
@@ -113,7 +128,8 @@ export function quietMemories(pet: PetState, shop?: Shop | null): QuietMemory[] 
   const game = games.find(game => game.id === recent.kind);
   // The first completed session is already represented by its album entry.
   const alreadyRemembered = memories.some(m => m.at === recent.at &&
-    (m.key === `${recent.kind}:${recent.at}` || (recent.kind === "stars" && m.key === `perfect-stars:${recent.at}`)));
+    (m.key === `${recent.kind}:${recent.at}` || (recent.kind === "stars" && m.key === `perfect-stars:${recent.at}`)
+      || (m.keepsake && gameKeepsake(m.keepsake)?.game === recent.kind)));
   if (game && !alreadyRemembered) memories.push({ key: `game:${recent.id}:${recent.at}`, at: recent.at, source: "game",
     title: `最近一次一起玩「${game.title}」`, reply: replies[game.id] });
   return memories.sort(newestFirst);
