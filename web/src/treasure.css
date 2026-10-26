@@ -60,6 +60,16 @@
 /* Keep the tall grid inside the LCD. The physical keys remain in normal
    document flow, so their sticky tray cannot cover the third row before the
    player makes a selection. A/B/C can still reveal the current target. */
+.device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) {
+  height: 735px;
+  min-height: 0;
+  padding: 12px 0;
+}
+.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .device {
+  height: 699px;
+  min-height: 0;
+  padding-bottom: 38px;
+}
 .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel {
   height: 460px;
   flex-shrink: 0;
@@ -76,6 +86,8 @@
   flex-shrink: 0;
 }
 @media (max-width: 700px) {
+  .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) { height: 612px; }
+  .treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
   .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
   .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
 }

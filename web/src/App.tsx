@@ -2179,6 +2179,13 @@ export default function App() {
       // shortcuts remain available after a tool button has lost the overlay.
       if (e.target instanceof HTMLButtonElement &&
         !e.target.classList.contains("physical-button") && ["enter", " "].includes(key)) return;
+      // While an action is in flight, Enter/Space is only a native activation
+      // attempt. Never turn a repeated activation after focus recovery into a
+      // queued A/B/C gameplay input; letter shortcuts keep their queue path.
+      if (busyRef.current && ["enter", " "].includes(key)) {
+        e.preventDefault();
+        return;
+      }
       // Only a focused native reading region opts out of Down/Space shortcuts.
       // Held keys and Shift+Space keep their browser scroll behavior; letters
       // and shortcuts on physical buttons still perform the original controls.
@@ -2192,6 +2199,13 @@ export default function App() {
       // turn that native activation into the global B/confirm shortcut.
       const button = e.target instanceof HTMLButtonElement &&
         e.target.classList.contains("physical-button") ? e.target : null;
+      // A disabled physical key cannot perform a native activation. Do not
+      // turn its Enter/Space event into a queued game input after the current
+      // request finishes; letter A/B/C shortcuts keep their existing behavior.
+      if (button?.disabled && (key === "enter" || key === " ")) {
+        e.preventDefault();
+        return;
+      }
       const focusedKey = button && (key === "enter" || key === " ")
         ? ["A", "B", "C"].find(control => button.classList.contains(`button-${control.toLowerCase()}`))
         : undefined;
