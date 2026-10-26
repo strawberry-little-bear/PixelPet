@@ -86,11 +86,11 @@ it("finishes the wake clip, then gives the acknowledged feedback eight full seco
   await mount(); expect(claims()).toHaveLength(0);
   await care(); await tick(1399); expect(claims()).toHaveLength(0);
   await tick(1); expectHomeFeedback();
-  expect(screen.getByRole("group", { name: "这次睡眠的实际结算" }).textContent).toContain("恢复体力：+14.00");
-  const historical = receipt()?.textContent;
+  expect(receipt()?.querySelector(".care-outcome-compact-summary")?.textContent).toContain("睡眠结算：恢复体力 +14.00");
+  const historical = receipt()?.querySelector(".care-outcome-compact-summary")?.textContent;
   await tick(7999); expectHomeFeedback();
   await tick(1); expect(returning()).not.toBeNull(); expect(claims()).toHaveLength(1);
-  await key("c"); expect(receipt()?.textContent).toBe(historical);
+  await key("c"); expect(receipt()?.querySelector(".care-outcome-compact-summary")?.textContent).toBe(historical);
   expect(feedback()).toBeNull();
   await tick(15000); expect(returning()).toBeNull(); expect(claims()).toHaveLength(1);
   expect(actions()).toHaveLength(1);

@@ -71,7 +71,12 @@ function milestoneText(f: CareFeedback): string | null {
   return null;
 }
 
-export function CareOutcome({ feedback, readable = false, embedded = false }: { feedback: CareOutcomeFeedback | null; readable?: boolean; embedded?: boolean }) {
+export function CareOutcome({ feedback, readable = false, embedded = false, compact = false }: {
+  feedback: CareOutcomeFeedback | null;
+  readable?: boolean;
+  embedded?: boolean;
+  compact?: boolean;
+}) {
   const companionResponse = feedback?.companionResponse;
   if (!hasCareOutcome(feedback)) return null;
   const { before, after, at } = feedback.effect;
@@ -87,6 +92,12 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
     ["catch", "tile-pick", "snake-finish", "tetris-finish", "fish-finish", "walk-finish", "treasure-finish"].includes(feedback.kind);
   const friendlyHabit = learning?.habit.replace(/：(?:\+0|本次切换不计入)$/, "：本次不计入");
   const preciseHabit = learning?.habit.replace(/：(?:本次不计入|本次切换不计入)$/, "：+0");
+  const compactChanges = changedNeeds.map(([key, label]) => `${label} ${change(after[key] - before[key])}`).join("、");
+  const compactLearning = learning
+    ? feedback.points > 0 ? `成长 +${careAmount(feedback.points)} 点 · ${friendlyHabit}`
+      : playCooldown ? `共同经历已记录 · ${friendlyHabit}`
+        : `成长 +${careAmount(feedback.points)} 点 · ${friendlyHabit}`
+    : null;
   // A game result explains this round's growth before the exact need deltas.
   // Standalone care keeps its feeling and immediate needs first.
   const growthDetails = <>
@@ -104,29 +115,38 @@ export function CareOutcome({ feedback, readable = false, embedded = false }: { 
       <small>这是本次已确认的阶段变化，不含操作前的自然成长；之后读取不会改写这条回执。</small>
     </div>}
   </>;
-  const outcome = <section className={`care-outcome${embedded ? " care-outcome-embedded" : ""}`} aria-label="上次操作的即时变化">
+  const outcome = <section className={`care-outcome${embedded ? " care-outcome-embedded" : ""}${compact ? " care-outcome-compact-view" : ""}`} aria-label="上次操作的即时变化">
     <h3>{embedded ? "本局照顾变化" : "本页上次已确认"} · {action}</h3>
-    {!embedded && <p className="care-outcome-summary">{companionResponse ?? feeling}</p>}
-    {!embedded && <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
-      year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
-    })}（本地时间）</time>}
-    {embedded && growthDetails}
-    <div className="care-outcome-details" aria-label="即时状态变化">
-      {embedded ? <div className="care-outcome-compact" aria-label="本局照顾后的状态变化">
-        {changedNeeds.length === 0 ? <p>这次没有新的状态变化。</p> : changedNeeds.map(([key, label]) => <span key={key} data-need={key}>
-          <strong>{label}</strong> {fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}（{change(after[key] - before[key])}）
-        </span>)}
-      </div> : changedNeeds.length === 0 ? <p>这次没有新的状态变化。</p> : <dl>
-        {changedNeeds.map(([key, label]) => <div key={key} data-need={key}>
-          <dt>{label}</dt>
-          <dd><span>{fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}</span><strong>{change(after[key] - before[key])}</strong></dd>
-        </div>)}
-      </dl>}
+    {compact && <div className="care-outcome-compact-summary" aria-label="本次照顾摘要">
+      {!embedded && <p className="care-outcome-summary">{companionResponse ?? feeling}</p>}
+      {compactChanges && <p>状态变化：{compactChanges}</p>}
+      {compactLearning && <p>{compactLearning}</p>}
+      {milestone && <p>{milestone}</p>}
+      {!embedded && feedback.kind === "sleep" && <SleepSummary feedback={feedback} compact />}
+    </div>}
+    <div className="care-outcome-full" aria-hidden={compact || undefined}>
+      {!embedded && <p className="care-outcome-summary">{companionResponse ?? feeling}</p>}
+      {!embedded && <time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleString("zh-CN", {
+        year:"numeric", month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
+      })}（本地时间）</time>}
+      {embedded && growthDetails}
+      <div className="care-outcome-details" aria-label="即时状态变化">
+        {embedded ? <div className="care-outcome-compact" aria-label="本局照顾后的状态变化">
+          {changedNeeds.length === 0 ? <p>这次没有新的状态变化。</p> : changedNeeds.map(([key, label]) => <span key={key} data-need={key}>
+            <strong>{label}</strong> {fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}（{change(after[key] - before[key])}）
+          </span>)}
+        </div> : changedNeeds.length === 0 ? <p>这次没有新的状态变化。</p> : <dl>
+          {changedNeeds.map(([key, label]) => <div key={key} data-need={key}>
+            <dt>{label}</dt>
+            <dd><span>{fixedCareAmount(before[key])} → {fixedCareAmount(after[key])}</span><strong>{change(after[key] - before[key])}</strong></dd>
+          </div>)}
+        </dl>}
+      </div>
+      {!embedded && growthDetails}
+      {!embedded && feedback.kind === "sleep" && <p>入睡和起床不立即恢复体力；睡着期间才逐步恢复，到满为止。</p>}
+      {!embedded && <small>以上仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>}
+      {!embedded && <SleepSummary feedback={feedback} />}
     </div>
-    {!embedded && growthDetails}
-    {!embedded && feedback.kind === "sleep" && <p>入睡和起床不立即恢复体力；睡着期间才逐步恢复，到满为止。</p>}
-    {!embedded && <small>以上仅含操作即时变化，不含此前时间结算；不是当前读数。本页暂存，刷新后不保留。</small>}
-    {!embedded && <SleepSummary feedback={feedback} />}
   </section>;
   // Home has no surrounding reading region. Status already has its own stop,
   // so opt in only at home and never expose an empty stop for invalid metadata.

@@ -239,6 +239,22 @@ it("keeps embedded care details compact because the game receipt already owns th
   expect(receipt.querySelector(".care-outcome-embedded > time")).toBeNull();
   expect(receipt.querySelectorAll("time")).toHaveLength(1);
 });
+it("keeps the home game receipt compact while preserving detailed settlement for status", () => {
+  const feedback: CareFeedback = {
+    kind: "walk-finish", reason: "credited", points: .25, habit: "play", habitGain: 1,
+    effect: { at, before: { hunger: 60, mood: 70, clean: 80, energy: 50 }, after: { hunger: 60, mood: 75, clean: 80, energy: 50 } },
+  };
+  const outcomeRecord = { kind: "walk" as const, at, message: "路线完成，收好了一段散步。", shared: true,
+    gameReceipt: { walk: { cleared: 8, total: 12, routeCoins: 3, performanceCoins: 2, awardedCoins: 5 } } };
+  render(<GameOutcome outcome={outcomeRecord} careFeedback={feedback} readable compact />);
+  const region = screen.getByRole("region", { name: "游戏结算阅读区" });
+  const receipt = screen.getByLabelText("本页最近一次游戏结算");
+  expect(receipt.querySelector(".game-outcome-compact-meta")?.textContent).toContain("金币 +5");
+  expect(receipt.querySelector(".care-outcome-compact-summary")?.textContent).toContain("心情 +5.00");
+  expect(receipt.querySelector(".game-outcome-full[aria-hidden='true']")).toBeTruthy();
+  expect(receipt.querySelector(".walk-reward-breakdown")?.textContent).toContain("路线完成奖励：+3 金币");
+  expect(region.querySelector("button,a,input,[role=button],[tabindex]")).toBeNull();
+});
 it("a subsequent accepted completion replaces, rather than appends to, the page receipt", async () => {
   await mount(); await key("b"); expect(outcome()).toBeTruthy();
   saved.game = fixture().game; saved.game!.id = "another-session"; saved.revision++; await poll();

@@ -80,12 +80,18 @@ it("explicit A/B/C keep home and menu behavior; only an explicit menu B performs
   await key("b", reading()); expect(document.querySelector(".care-menu")).toBeTruthy(); expect(writes()).toHaveLength(1);
   await key("b"); expect(writes()).toHaveLength(2);
 });
-it("status keeps its existing single reading stop and an unchanged receipt body", async () => {
-  await care("wake"); const text = reading().querySelector(".care-outcome")!.textContent;
+it("status keeps its existing single reading stop while expanding the compact home receipt", async () => {
+  await care("wake"); const homeSummary = reading().querySelector(".care-outcome-compact-summary")?.textContent;
+  expect(homeSummary).toContain("睡眠结算：恢复体力 +20.00");
   await menu(4); expect(screen.queryByRole("region", { name: "照顾结果阅读区" })).toBeNull();
   const status = screen.getByRole("region", { name: "状态说明阅读区" });
   expect(status.querySelectorAll("[tabindex='0']")).toHaveLength(0);
-  expect(status.querySelector(".care-outcome")!.textContent).toBe(text); expect(writes()).toHaveLength(1);
+  expect(status.querySelector(".care-outcome-full[aria-hidden]")).toBeNull();
+  expect(status.querySelector(".care-outcome-compact-summary")).toBeNull();
+  expect(status.querySelector(".sleep-summary")?.textContent).toContain("这次睡眠 · 已确认");
+  expect(status.querySelector(".sleep-summary")?.textContent).toContain("恢复体力：+20.00");
+  expect(homeSummary).not.toBe(status.querySelector(".care-outcome")!.textContent);
+  expect(writes()).toHaveLength(1);
 });
 it.each(["Enter", " "])("%j on a physical B remains native activation rather than receipt reading", async k => {
   await care(); const button = document.querySelector<HTMLButtonElement>(".button-b")!; button.focus();

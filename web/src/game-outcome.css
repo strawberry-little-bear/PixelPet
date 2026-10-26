@@ -1,5 +1,7 @@
 .game-outcome { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #839567; color: #50643e; text-align: left; overflow-wrap: anywhere; }
 .game-outcome h3 { margin: 0 0 4px; }
+.game-outcome-compact-meta { margin: 6px 0; line-height: 1.55; color: #405532; }
+.game-outcome-full[aria-hidden="true"] { display: none; }
 .game-outcome > time, .game-outcome > small { display: block; }
 .game-outcome p { margin: 6px 0; white-space: pre-wrap; }
 .game-outcome-companion-voice { margin: 7px 0; padding-left: 7px; border-left: 2px solid #9aae7d; color: #647553; font-size: .9em; line-height: 1.55; }

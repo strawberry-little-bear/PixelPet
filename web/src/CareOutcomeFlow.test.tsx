@@ -41,10 +41,16 @@ describe("three-key care outcome lifetime", () => {
   await mount();await feed();
   expect(screen.getByLabelText("本次成长与习惯").textContent).toContain(points === 0 ? "本次没有新增成长点" : `本次成长：+${points.toFixed(2)} 点`);
   expect(screen.getByLabelText("本次成长与习惯").textContent).toContain("喂食习惯：+1");
-  const original=outcome()?.textContent;
+  const homeSummary = outcome()?.querySelector(".care-outcome-compact-summary")?.textContent;
+  expect(homeSummary).toContain(points === 0 ? "成长 +0.00 点" : `成长 +${points.toFixed(2)} 点`);
   saved.growth.points+=stage==="adult"?0:2;saved.growth.care.nutrition+=3;saved.revision++;
   await poll();expect(document.querySelector("[data-feedback=idle]")).not.toBeNull();
-  await menu(4);expect(outcome()?.textContent).toBe(original);expect(writes()).toHaveLength(1);
+  expect(outcome()?.querySelector(".care-outcome-compact-summary")?.textContent).toBe(homeSummary);
+  await menu(4);
+  expect(outcome()?.querySelector(".care-outcome-full[aria-hidden]")).toBeNull();
+  expect(outcome()?.querySelector(".care-learning")?.textContent).toContain(points === 0 ? "本次没有新增成长点" : `本次成长：+${points.toFixed(2)} 点`);
+  expect(outcome()?.querySelector(".care-learning")?.textContent).toContain("喂食习惯：+1");
+  expect(writes()).toHaveLength(1);
  });
  it("a rejected action or a recovery read cannot invent learning credit", async () => {
   await mount();api.mockRejectedValueOnce(new RequestFailure("not saved","rejected"));
@@ -61,22 +67,27 @@ describe("three-key care outcome lifetime", () => {
   expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();expect(writes()).toHaveLength(1);
  });
  it("remains readable after the eight-second toast, with unchanged saved time through newer polls and status navigation", async () => {
-  await mount();await feed();const original=outcome()?.textContent;
+  await mount();await feed();const homeSummary = outcome()?.querySelector(".care-outcome-compact-summary")?.textContent;
   saved.needs.hunger=20;saved.lastTick=at+15000;saved.revision++;await poll();
   expect(document.querySelector("[data-feedback=idle]")).not.toBeNull();
-  expect(outcome()?.textContent).toBe(original);
+  expect(outcome()?.querySelector(".care-outcome-compact-summary")?.textContent).toBe(homeSummary);
   expect(outcome()?.querySelector("time")?.dateTime).toBe(new Date(at).toISOString());
-  await menu(4);expect(outcome()?.textContent).toBe(original);
+  await menu(4);
+  expect(outcome()?.querySelector(".care-outcome-full[aria-hidden]")).toBeNull();
+  expect(outcome()?.querySelector(".care-outcome-details")?.textContent).toContain("饱食");
   expect(document.querySelector(".lcd-meter b")?.textContent).toBe("20");
-  await key("a");expect(outcome()).toBeNull();await key("a");expect(outcome()).toBeNull();await key("a");expect(outcome()?.textContent).toBe(original);
-  await key("c");expect(outcome()?.textContent).toBe(original);expect(writes()).toHaveLength(1);
+  await key("a");expect(outcome()).toBeNull();await key("a");expect(outcome()).toBeNull();await key("a");
+  expect(outcome()?.querySelector(".care-outcome-full[aria-hidden]")).toBeNull();
+  expect(outcome()?.querySelector(".care-outcome-details")?.textContent).toContain("饱食");
+  await key("c");expect(outcome()?.querySelector(".care-outcome-details")?.textContent).toContain("饱食");expect(writes()).toHaveLength(1);
  });
  it.each(["resting","awake"] as const)("sleep %s reports only the toggle, not earlier elapsed recovery", async reason => {
   saved.sleeping=reason==="awake";
   actionFeedback={kind:"sleep",reason,points:0,habitGain:0,effect:{...effect,before:{...effect.before,energy:44},after:{...effect.before,energy:44}}};
   await mount();await menu(3);if(reason==="awake")await key("c");
-  expect(outcome()?.textContent).toContain(reason==="awake"?"起床":"入睡");
-  expect(outcome()?.textContent).toContain("这次没有新的状态变化。");
+  expect(outcome()?.querySelector("h3")?.textContent).toContain(reason==="awake"?"起床":"入睡");
+  expect(outcome()?.querySelector(".care-outcome-compact-summary")?.textContent).not.toContain("这次没有新的状态变化。");
+  expect(outcome()?.querySelector(".care-outcome-full[aria-hidden]")?.textContent).toContain("这次没有新的状态变化。");
  });
  it("replaces the receipt on another confirmed care and clears it for an action without care feedback", async () => {
   await mount();await feed();

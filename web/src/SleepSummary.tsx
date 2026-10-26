@@ -22,12 +22,12 @@ function recordedSleep(f: CareFeedback): Summary | null {
   return s;
 }
 
-export function SleepSummary({ feedback }: { feedback: CareFeedback }) {
+export function SleepSummary({ feedback, compact = false }: { feedback: CareFeedback; compact?: boolean }) {
   const summary = recordedSleep(feedback);
   // CareOutcome has already validated the acknowledged immediate effect.
   // An absent legacy/imported history is unknown, not a zero-length sleep.
   // Keep malformed optional metadata quiet, rather than diagnosing save damage.
-  if (!summary) return feedback.sleepSummary == null && isUncreditedWake(feedback)
+  if (!summary) return !compact && feedback.sleepSummary == null && isUncreditedWake(feedback)
     ? <p className="sleep-summary-unavailable" role="note" aria-label="整段睡眠记录说明">本次没有可展示的完整睡眠记录，不倒推入睡时间或整段恢复；上面是起床即时变化，不代表睡着期间没有恢复。</p>
     : null;
   // Compare only the acknowledged server endpoints and accumulated settlement.
@@ -35,6 +35,7 @@ export function SleepSummary({ feedback }: { feedback: CareFeedback }) {
   // the whole sleep again or use the current browser clock to extend it.
   const elapsedHours = (summary.wokeAt - summary.startedAt) / 3600000;
   const unsettledHours = Math.max(0, elapsedHours - summary.settledHours);
+  if (compact) return <p className="sleep-summary-compact">睡眠结算：恢复体力 +{amount(summary.energyRecovered)} · 睡眠期间成长 +{amount(summary.growthPoints)} 点。</p>;
   return <div className="care-learning sleep-summary" role="group" aria-label="这次睡眠的实际结算">
     <h3>这次睡眠 · 已确认</h3>
     <span>入睡：<time dateTime={new Date(summary.startedAt).toISOString()}>{localTime(summary.startedAt)}</time></span>

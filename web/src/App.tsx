@@ -2855,9 +2855,9 @@ export default function App() {
                               <CareAdvice pet={pet} />
                             </CareReadingRegion>}
                             {gameOutcome ? (
-                              <GameOutcome outcome={gameOutcome} careFeedback={careOutcome} readable />
+                              <GameOutcome outcome={gameOutcome} careFeedback={careOutcome} readable compact />
                             ) : (
-                              <CareOutcome feedback={careOutcome} readable />
+                              <CareOutcome feedback={careOutcome} readable compact />
                             )}
                           </>
                         )}

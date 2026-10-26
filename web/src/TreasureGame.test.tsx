@@ -210,14 +210,16 @@ describe("three-key treasure flow",()=>{
     : `本次成长：+${result.points.toFixed(2)} 点`);
   expect(learning.textContent).toContain(result.habitGain === 0 ? "陪玩习惯：本次不计入" : `陪玩习惯：+${result.habitGain}`);
   expect(learning.textContent).toContain(result.reason==="credited"?"已计入":"记录时同类习惯仍在间隔内");
-  const receipt=screen.getByLabelText("上次操作的即时变化").textContent;
+  const receipt=screen.getByLabelText("上次操作的即时变化").querySelector(".care-outcome-compact-summary")?.textContent;
   await key("c"); // Explicitly skip the play clip before the toast reading interval.
   saved.growth!.points=60;saved.growth!.care.play=20;saved.needs.mood=30;saved.revision++;
   await clock(15000);expect(document.querySelector("[data-feedback=idle]")).not.toBeNull();
-  expect(screen.getByLabelText("上次操作的即时变化").textContent).toBe(receipt);
+  expect(screen.getByLabelText("上次操作的即时变化").querySelector(".care-outcome-compact-summary")?.textContent).toBe(receipt);
   // Status page reads the same acknowledged snapshot, not the latest totals.
   for(const k of ["a","a","a","a","a","b"])await key(k);
-  expect(screen.getByLabelText("上次操作的即时变化").textContent).toBe(receipt);
+  const statusReceipt=screen.getByLabelText("上次操作的即时变化");
+  expect(statusReceipt.querySelector(".care-outcome-full[aria-hidden]")).toBeNull();
+  expect(statusReceipt.querySelector(".care-learning")?.textContent).toContain(result.reason === "cooldown" ? "这局也收进共同经历了" : result.points === 0 ? "本次没有新增成长点" : `本次成长：+${result.points.toFixed(2)} 点`);
   expect(calls()).toHaveLength(1);expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
   expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
   cleanup();await mount();expect(screen.queryByLabelText("上次操作的即时变化")).toBeNull();

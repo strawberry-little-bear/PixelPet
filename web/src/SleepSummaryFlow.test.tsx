@@ -10,11 +10,13 @@ vi.mock("./api",()=>({request:vi.fn()}));
 const api=vi.mocked(request),at=Date.parse("2026-10-19T02:00:00Z");
 let saved:PetState,generation:string;
 const result=():Result=>({state:structuredClone(saved),message:"",serverTime:Date.now(),saveGeneration:generation});
+const homeReceipt=()=>screen.queryByRole("region",{name:"上次操作的即时变化"});
 const summary=()=>screen.queryByRole("group",{name:"这次睡眠的实际结算"});
 const writes=()=>api.mock.calls.filter(([p])=>p==="action");
 const key=async(key:string)=>{await act(async()=>{fireEvent.keyDown(window,{key});});};
 const mount=async()=>{await act(async()=>{render(<App/>);});};
 async function wake(){await key("a");for(let i=0;i<3;i++)await key("a");await key("b");await key("c");}
+async function status(){await key("a");for(let i=0;i<4;i++)await key("a");await key("b");}
 async function poll(){await act(async()=>{vi.advanceTimersByTime(15000);});}
 beforeEach(()=>{
  vi.useFakeTimers();vi.setSystemTime(at);localStorage.clear();api.mockReset();generation="a".repeat(32);
@@ -33,17 +35,19 @@ beforeEach(()=>{
 afterEach(()=>{cleanup();vi.useRealTimers();});
 it("does not expose an active session as a completed sleep; explicit wake shows the server receipt",async()=>{
  await mount();expect(summary()).toBeNull();await wake();
- expect(summary()?.textContent).toContain("恢复体力：+14.00");
+ expect(homeReceipt()?.querySelector(".care-outcome-compact-summary")?.textContent).toContain("睡眠结算：恢复体力 +14.00");
+ expect(summary()).toBeNull();
  expect(writes()).toHaveLength(1);expect(writes()[0][3]).toBe(true);
  expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
  expect(document.querySelector(".lcd button,.lcd input,.lcd a")).toBeNull();
 });
 it("keeps the original receipt after polls and status navigation, never reconstructs it on reload",async()=>{
- await mount();await wake();const original=summary()?.textContent;
+ await mount();await wake();const original=homeReceipt()?.querySelector(".care-outcome-compact-summary")?.textContent;
  saved.revision++;saved.needs.energy=20;saved.growth!.care.rest+=2;await poll();
- expect(summary()?.textContent).toBe(original);
- await key("a");for(let i=0;i<4;i++)await key("a");await key("b");expect(summary()?.textContent).toBe(original);
- cleanup();await mount();expect(summary()).toBeNull();expect(writes()).toHaveLength(1);
+ expect(homeReceipt()?.querySelector(".care-outcome-compact-summary")?.textContent).toBe(original);
+ await status();expect(summary()?.textContent).toContain("恢复体力：+14.00");
+ expect(summary()?.textContent).not.toBe(original);
+ cleanup();await mount();expect(homeReceipt()).toBeNull();expect(summary()).toBeNull();expect(writes()).toHaveLength(1);
 });
 it.each(["unknown","rejected"] as const)("a %s wake or its recovery read cannot invent the missing receipt",async disposition=>{
  await mount();
@@ -52,14 +56,16 @@ it.each(["unknown","rejected"] as const)("a %s wake or its recovery read cannot 
  await wake();expect(summary()).toBeNull();await key("b");expect(summary()).toBeNull();expect(writes()).toHaveLength(1);
 });
 it("clears the confirmed sleep receipt when the save generation changes",async()=>{
- await mount();await wake();expect(summary()).not.toBeNull();generation="b".repeat(32);saved.revision++;await poll();
- expect(summary()).toBeNull();expect(writes()).toHaveLength(1);
+ await mount();await wake();expect(homeReceipt()).not.toBeNull();generation="b".repeat(32);saved.revision++;await poll();
+ expect(homeReceipt()).toBeNull();expect(summary()).toBeNull();expect(writes()).toHaveLength(1);
 });
 it.each([12,24])("keeps the %s-hour settlement comparison fixed after the browser clock and live state change",async settledHours=>{
  saved.createdAt=at-26*3600000;saved.hatchedAt=saved.createdAt;
  saved.sleepSession!.startedAt=at-24*3600000;saved.sleepSession!.settledHours=settledHours;
  saved.growth!.trackedHours=settledHours;
  await mount();await wake();
+ expect(homeReceipt()?.querySelector(".care-outcome-compact-summary")?.textContent).toContain("睡眠结算：恢复体力 +14.00");
+ await status();
  expect(summary()?.textContent).toContain("入睡至起床：24.00 小时");
  expect(summary()?.textContent).toContain(`实际结算：${settledHours.toFixed(2)} 小时`);
  if(settledHours===12)expect(summary()?.textContent).toContain("未计入结算：12.00 小时");
@@ -76,6 +82,7 @@ it.each([16,17])("explains an untracked schema %s sleep before and after an ackn
  expect(writes()).toHaveLength(0);
  await key("b");await key("c");
  expect(summary()).toBeNull();
+ await status();
  const notice=screen.getByRole("note",{name:"整段睡眠记录说明"});
  expect(notice.textContent).toContain("不代表睡着期间没有恢复");
  saved.revision++;saved.needs.energy=100;await poll();expect(notice.textContent).toContain("不代表睡着期间没有恢复");
