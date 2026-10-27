@@ -48,6 +48,24 @@ PIXELPET_DB="$DEV_DIR/test.db" go run ./cmd/pet
 
 添加到主屏幕、图标资源和服务连接条件见[主屏幕与独立窗口](HOME_SCREEN.md)。
 
+### 实体手机隔离试玩
+
+需要在手机上检查前后台、锁屏、扬声器／耳机或 VoiceOver／TalkBack 时，可临时把**独立构建**开放给同一可信 Wi-Fi 下的手机。此服务没有身份认证，只能用于一次性测试宠物和临时数据库；不要连接玩家存档，不要在公共 Wi-Fi 或公网使用。它是普通 HTTP 浏览器访问，不代表已验收 PWA 安装行为。
+
+从仓库根目录在终端前台运行，保持终端开启：
+
+```sh
+DEVICE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pixelpet-device.XXXXXX")"
+go build -o "$DEVICE_DIR/pixelpet" ./cmd/pet
+(cd web && pnpm exec tsc --noEmit && pnpm exec vite build --emptyOutDir --outDir "$DEVICE_DIR/web")
+PIXELPET_DB="$DEVICE_DIR/device-test.db" \
+PIXELPET_ADDR="0.0.0.0:18081" \
+PIXELPET_WEB="$DEVICE_DIR/web" \
+"$DEVICE_DIR/pixelpet"
+```
+
+若 `18081` 已被占用，换一个本机空闲端口。查看运行电脑当前 Wi-Fi 的局域网 IPv4 地址，在手机连接同一可信 Wi-Fi 后访问 `http://电脑的局域网IPv4:18081/`。只允许操作测试宠物；结束后在服务终端按 `Ctrl+C`。临时目录保留在本机，确认不再需要后可自行删除。详细步骤与结果记入[真人设备验收记录](REAL_DEVICE_ACCEPTANCE.md)。
+
 ### Windows 与 exFAT
 
 `web/pnpm-workspace.yaml` 已固定使用 `nodeLinker: hoisted`，让 pnpm 使用平铺的依赖目录。Windows exFAT、同步盘或受限目录无法创建 symlink 时，先删除已有的 `web/node_modules`，再在 `web/` 中重新执行 `pnpm install --frozen-lockfile`。不要把依赖目录从 NTFS 复制到 exFAT 后继续复用；重新安装可以避免旧链接残留。安装完成后仍使用同一条 `pnpm build` 命令。
