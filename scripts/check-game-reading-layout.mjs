@@ -102,6 +102,7 @@ async function shellMetrics(page) {
       return [selector, {
         height: box.height,
         width: box.width,
+        cssHeight: getComputedStyle(element).height,
         scrollHeight: element.scrollHeight,
         clientHeight: element.clientHeight,
         overflowY: getComputedStyle(element).overflowY,
@@ -132,6 +133,10 @@ async function assertReadingLayout(page, mode, id) {
     `${id} screen bezel height changed: ${before['.screen-bezel'].height}`);
   assert(before['.lcd-content'].clientHeight > 0,
     `${id} LCD content has no readable viewport`);
+  for (const selector of ['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content']) {
+    assert.notEqual(before[selector].cssHeight, 'auto',
+      `${id} ${selector} reverted to auto height in a bounded reading mode`);
+  }
 
   const pauseSelector = {
     snake: '.snake-overlay',

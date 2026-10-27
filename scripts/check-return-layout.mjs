@@ -20,7 +20,12 @@ const base = `http://127.0.0.1:${port}`; let server, browser, log = '', startupE
 const wait = ms => new Promise(r => setTimeout(r, ms));
 async function key(page, k) { await page.locator(`.button-${k}:not(:disabled)`).tap(); }
 async function review(page) { await key(page, 'a'); for (let i = 0; i < 7; i++) await key(page, 'a'); await key(page, 'b'); await page.locator('.return-panel').waitFor(); }
-async function size(page) { return page.evaluate(() => Object.fromEntries(['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content'].map(s => [s, document.querySelector(s).getBoundingClientRect().height]))); }
+async function size(page) {
+  return page.evaluate(() => Object.fromEntries(['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content'].map(s => {
+    const element = document.querySelector(s), style = getComputedStyle(element);
+    return [s, { height: element.getBoundingClientRect().height, cssHeight: style.height }];
+  })));
+}
 async function sync(page) { await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); }
 async function bottom(page, width) {
   const panel = page.locator('.return-panel'); await panel.focus(); await page.keyboard.press('End');
@@ -89,7 +94,10 @@ try {
       await page.screenshot({ path: join(dir, `return-first-${width}-${font}-${sleeping ? 'sleep' : 'awake'}.png`), fullPage: true });
       await key(page, 'b'); const second = await size(page); console.log('SIZES', JSON.stringify({ width, font, sleeping, first, second }));
       assert.deepEqual(first, second, 'changing recap page must not stretch any device/screen height');
-      assert.equal(second['.lcd-content'], width <= 700 ? 284 : 380);
+      assert.equal(second['.lcd-content'].height, width <= 700 ? 284 : 380);
+      for (const selector of ['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content']) {
+        assert.notEqual(second[selector].cssHeight, 'auto', `${selector} reverted to auto height in return mode`);
+      }
       assert.equal(await page.locator('.device-stage.return-mode').count(), 1);
       const bounds = await textBounds(page); assert(bounds.inside && !bounds.overflow, JSON.stringify(bounds));
       await page.screenshot({ path: join(dir, `return-top-${width}-${font}-${sleeping ? 'sleep' : 'awake'}.png`), fullPage: true });
