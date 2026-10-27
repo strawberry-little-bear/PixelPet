@@ -123,10 +123,11 @@
 }
 .game-reading-mode .snake-field:has(.snake-overlay) > svg { margin: auto; }
 .game-reading-mode .tetris-playfield:has(.tetris-overlay) {
-  height: 126px;
-  min-height: 0;
+  height: auto;
+  min-height: 126px;
   flex-wrap: nowrap;
-  overflow: hidden;
+  align-items: flex-start;
+  overflow: visible;
 }
 /* Keep the board geometry stable while the overlay handles enlarged text. */
 .game-reading-mode .tetris-field { width: 82px; height: 122px; }

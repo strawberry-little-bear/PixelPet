@@ -19,6 +19,7 @@ await new Promise(r => listener.close(r));
 const base = `http://127.0.0.1:${port}`, wait = ms => new Promise(r => setTimeout(r, ms));
 const hints = ['B / C 继续下落', '旋转一次后继续下落', '放到底并固定', '再次确认前不会丢掉本局', '返回后仍暂停'];
 const results = [], journeys = [], endResults = [];
+let timingResult;
 let server, browser, startupError, log = '';
 async function api(path, data) {
   const response = await fetch(`${base}/api/${path}`, data === undefined ? {} : {
@@ -34,18 +35,20 @@ async function key(page, letter) {
 async function inspectGeometry(page, reading) {
   const geometry = await page.locator('.tetris-field > svg').evaluate(svg => {
     const rect = el => { const r = el.getBoundingClientRect(); return { x: r.x, right: r.right, width: r.width, height: r.height }; };
-    return { board: rect(svg), field: rect(svg.parentElement), lcd: rect(svg.closest('.lcd-content')),
-      playfield: rect(svg.closest('.tetris-playfield')), root: parseFloat(getComputedStyle(document.documentElement).fontSize),
+    return { board: rect(svg), field: rect(svg.parentElement), side: rect(svg.closest('.tetris-playfield').querySelector('.tetris-side')),
+      lcd: rect(svg.closest('.lcd-content')), playfield: rect(svg.closest('.tetris-playfield')),
       reading: !!svg.closest('.reading-mode'), overflow: document.documentElement.scrollWidth > innerWidth + 1 };
   });
   assert.equal(geometry.reading, reading); assert(!geometry.overflow);
-  const { board, field, lcd, playfield, root } = geometry;
+  const { board, field, lcd, side, playfield } = geometry;
   assert(board.x >= lcd.x - 1 && board.right <= lcd.right + 1, 'board escapes LCD');
   assert(Math.abs(board.height / board.width - 1.5) < .01, 'board cells lose their aspect ratio');
   if (reading) {
-    assert(board.width > 120, 'reading board still uses tiny live dimensions');
-    assert(Math.abs(field.width - Math.min(playfield.width, root * 12)) < 1, 'board ignores root size or LCD width');
+    assert.equal(board.width, 80, 'reading mode changes the stable board width');
+    assert.equal(board.height, 120, 'reading mode changes the stable board height');
+    assert.equal(field.width, 82, 'reading board field is clipped or rescaled');
     assert(Math.abs(field.height - board.height - 2) < 1, 'board is vertically clipped');
+    assert(playfield.height >= side.height - 1, 'reading mode clips the side instructions');
   } else {
     assert.equal(board.width, 80); assert.equal(board.height, 120); assert.equal(playfield.height, 126);
   }
@@ -58,7 +61,7 @@ async function inspectReadability(page) {
       const node = walker.currentNode; if (!node.textContent.trim()) continue;
       range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
-        if (box.left < -1 || box.right > innerWidth + 1) clipped.push(node.textContent);
+        if (box.left < -1 || box.right > innerWidth + 1) clipped.push({ text: node.textContent, reason: 'viewport', box: { left: box.left, right: box.right } });
         let passedScrollport = false;
         for (let p = node.parentElement; p; p = p.parentElement) {
           const css = getComputedStyle(p), rect = p.getBoundingClientRect();
@@ -67,7 +70,7 @@ async function inspectReadability(page) {
           const horizontalClip = box.left < rect.left - 2 || box.right > rect.right + 2;
           const verticalClip = box.top < rect.top - 2 || box.bottom > rect.bottom + 2;
           if (horizontalClip || (!passedScrollport && verticalClip && (['hidden', 'clip'].includes(css.overflowY) || ['auto', 'scroll'].includes(css.overflowY)))) {
-            clipped.push(node.textContent);
+            clipped.push({ text: node.textContent, ancestor: p.className, box: { left: box.left, right: box.right, top: box.top, bottom: box.bottom }, rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom } });
           }
         }
       }
@@ -76,7 +79,7 @@ async function inspectReadability(page) {
       font: parseFloat(getComputedStyle(el.querySelector('.tetris-operation-hint, .tetris-overlay > span')).fontSize),
       rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize) };
   });
-  assert.deepEqual(layout.clipped, []); assert(!layout.overflow);
+  assert.deepEqual(layout.clipped, [], `reading text is clipped: ${JSON.stringify(layout.clipped)}`); assert(!layout.overflow);
   assert(layout.font >= layout.rootFont * .85, 'reading text ignores enlarged size');
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
@@ -231,8 +234,39 @@ try {
       assert.deepEqual(errors, []); endResults.push({ mode: mode.name, geometry, layout, board, pieces: ended.game.tetris.pieces });
     } finally { await context.close(); }
   }
-  await writeFile(join(dir, 'results.json'), JSON.stringify({ results, journeys, endResults }, null, 2));
-  console.log(JSON.stringify({ passed: results.length, journeys: journeys.length, endResults: endResults.length, artifacts: dir }));
+  const at = Date.now();
+  await api('import', { schema: 1, revision: 1, species: 2, name: '节拍测试伙伴', createdAt: at - 3600000,
+    hatchedAt: at - 3600000, lastTick: at, sleeping: false,
+    needs: { hunger: 80, mood: 80, clean: 80, energy: 80 }, careCount: 0, logs: [] });
+  await api('action', { kind: 'play-tetris', requestId: crypto.randomUUID() });
+  const timingContext = await browser.newContext({ viewport: { width: 1200, height: 850 } });
+  try {
+    const page = await timingContext.newPage(), writes = [], errors = [];
+    page.on('pageerror', e => errors.push(String(e)));
+    page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/action') writes.push(r.postDataJSON()); });
+    await page.goto(base); await page.locator('.tetris-operation-hint').waitFor();
+    await page.evaluate(() => { window.tetrisResumeAt = performance.now(); });
+    await key(page, 'c'); await page.locator('.tetris-operation-hint').waitFor({ state: 'detached' });
+    await wait(1550);
+    assert.deepEqual(writes.map(w => w.kind), ['tetris-resume'], 'gravity ran before the advertised interval');
+    const beforeDrop = (await api('state')).state.game.tetris;
+    const dropResponse = await page.waitForResponse(response => {
+      const request = response.request();
+      return request.method() === 'POST' && new URL(response.url()).pathname === '/api/action' &&
+        request.postDataJSON()?.kind === 'tetris-step';
+    }, { timeout: 2200 });
+    assert(dropResponse.ok());
+    const elapsed = await page.evaluate(() => performance.now() - window.tetrisResumeAt);
+    const afterDrop = (await api('state')).state.game.tetris;
+    assert(elapsed >= 1750, `gravity fired too early at ${Math.round(elapsed)}ms`);
+    assert.equal(afterDrop.active.y, beforeDrop.active.y + 1, 'the scheduled gravity tick did not move one row');
+    assert.deepEqual(writes.map(w => w.kind), ['tetris-resume', 'tetris-step']);
+    await key(page, 'c'); await page.locator('.tetris-operation-hint').waitFor();
+    assert.deepEqual(errors, []);
+    timingResult = { intervalMs: 1800, elapsedMs: Math.round(elapsed), activeRowDelta: afterDrop.active.y - beforeDrop.active.y };
+  } finally { await timingContext.close(); }
+  await writeFile(join(dir, 'results.json'), JSON.stringify({ results, journeys, endResults, timingResult }, null, 2));
+  console.log(JSON.stringify({ passed: results.length, journeys: journeys.length, endResults: endResults.length, timingResult, artifacts: dir }));
 } finally {
   console.log('Artifacts:', dir); await writeFile(join(dir, 'server.log'), log);
   if (browser) await browser.close();
