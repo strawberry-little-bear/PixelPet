@@ -64,7 +64,7 @@ go vet ./...
 go build -o "$CHECK_DIR/pixelpet" ./cmd/pet
 
 (cd web && pnpm install --frozen-lockfile)
-(cd web && pnpm test)
+(cd web && pnpm test) # Uses one isolated jsdom worker with a 30s test timeout
 (cd web && pnpm exec tsc --noEmit)
 (cd web && pnpm exec vite build --outDir "$CHECK_DIR/web")
 
