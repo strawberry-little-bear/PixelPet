@@ -1,39 +1,51 @@
-# Real Device Acceptance
+# 真人设备验收记录
 
-Browser automation does not certify natural multi-day care, physical-device lifecycle behavior, acoustic comfort, or human screen-reader usability. Record those separately from simulated time, imported fixtures, and DOM assertions. Do not reset, import over, or otherwise replace the player's save to prepare a run.
+自动化浏览器不能证明自然多日养成、实体设备生命周期、声音舒适度或真人读屏体验。请把这些结果与模拟时间、导入夹具和 DOM 断言分开记录。不要为了测试重置、覆盖或导入替换正式玩家存档。
 
-## Natural Growth
+## 自然成长
 
-Use a normally played pet and keep the app closed between visits. Record the local date/time, displayed stage and growth values, sleep state, and care/play actions at each visit. Include at least one overnight absence and continue across the next natural stage transition. On return, check that elapsed needs settle once, a return summary appears only when eligible, and reopening or refreshing does not repeat growth, rewards, care actions, or the summary. Adult form and points should remain locked after adulthood. Note any unusually long absence or device clock/time-zone change; do not infer a multi-day result from a constructed age or a controlled clock.
+使用日常游玩的宠物，离开期间关闭应用。每次回来记录本地日期、时间和时区，阶段与成长数值、睡眠和需求状态，以及期间实际进行的照顾／游戏。至少覆盖一次隔夜离开，并持续观察下一次自然阶段变化。回来后确认离线需求只结算一次；符合条件时出现回访小结，刷新或重新打开不会重复成长、奖励、照顾次数或小结。成年后形态和成长点应保持锁定。若发生长时间离开、设备时钟或时区变化，请注明；构造年龄和受控时钟不能当作自然多日证据。
 
-| Visit | Local date/time + time zone | Stage / points | Sleep / needs | Actions since last visit | Return settlement / duplicate check |
+| 访问 | 本地日期／时间／时区 | 阶段／成长点 | 睡眠／需求 | 期间实际操作 | 回访结算／重复检查 |
 |---|---|---|---|---|---|
-| Start | | | | | |
-| Return 1 | | | | | |
-| Return 2 | | | | | |
-| Stage transition | | | | | |
+| 起始 | | | | | |
+| 回访 1 | | | | | |
+| 回访 2 | | | | | |
+| 阶段变化 | | | | | |
+| 成年复核 | | | | | |
 
-## Phone Background / Foreground
+## 手机前后台
 
-Record phone model, OS version, browser and version, and whether the app is an installed PWA. On a non-destructive page, background the browser for several minutes, lock and unlock the screen once, then return. Check that the page remains responsive, the visible pet state agrees with a fresh read, no old sound plays late, and no care/game action is repeated. Repeat once with the browser process discarded by the OS if practical. Do not use DevTools lifecycle emulation as the real-device result.
+记录手机型号、操作系统版本、浏览器与版本，以及是否安装为 PWA。在不涉及破坏性操作的页面，将浏览器切到后台数分钟、锁屏并解锁一次，再回到应用。检查页面仍能响应、宠物显示与重新读取的状态一致、旧声音没有延迟播放、照顾或游戏操作没有重复。条件允许时，再检查系统回收浏览器进程后的恢复。不要把 DevTools 生命周期模拟写成实体手机通过。
 
-## Speaker / Headphone Comfort
-
-Record device, output route, system volume, in-app sound setting, room conditions, and tester impression. Start at the lowest comfortable system volume in a quiet room. Enable sound, try several A/B/C navigation presses, one confirmation, and (if available without waiting through a long round) one automatic game cue. Increase volume only in small steps; repeat separately on the phone speaker and headphones. Verify mute takes effect immediately, backgrounding cancels pending cues, and returning does not replay them. Stop immediately for discomfort, sharpness, startling loudness, or unexpected sound; note the exact action and route. Automated frequency/gain assertions are implementation checks, not proof of perceived loudness or comfort.
-
-| Output route | Device volume | In-app sound | Navigation / confirmation | Automatic cue | Mute / background | Comfort notes |
-|---|---|---|---|---|---|---|
-| Speaker | | | | | | |
-| Headphones | | | | | | |
-
-## VoiceOver / TalkBack
-
-Record screen-reader name/version, phone/OS, browser, and verbosity settings. With the screen reader already active, navigate from the browser chrome to the app and through the LCD using swipe navigation and the screen reader's rotor/controls. Check that the pet name and stage, changing needs, selected menu item, page numbers, game instructions, pause/result state, and A/B/C labels are announced in a useful order; live updates should not repeatedly interrupt unrelated reading. Activate only the visible A/B/C controls and confirm focus remains understandable after menus, dialogs, and page changes. Check portrait at 320–390 CSS px and enlarged text; look for clipped text, focus hidden behind the browser/keyboard, and horizontal scrolling. Record confusing, missing, repeated, or excessively chatty announcements verbatim. Automated accessibility-tree checks are supporting evidence, not a human screen-reader pass.
-
-| Screen reader / version | Device / OS | Browser | View / text size | Flow exercised | Announcement or focus issue |
+| 日期 | 手机／系统 | 浏览器／PWA | 后台时长／锁屏 | 返回后状态与操作 | 延迟声音／重复操作／问题 |
 |---|---|---|---|---|---|
 | | | | | | |
 
-## Result
+## 扬声器与耳机舒适度
 
-Mark each area **Pass**, **Fail**, or **Not run**, and attach dates and observations. Keep simulated-time tests, desktop browser automation, and physical-device observations as separate evidence. A missing real device or a short observation window is **Not run**, not Pass.
+记录设备、输出路线、系统音量、游戏内音效设置、环境和主观感受。在安静环境从最低舒适系统音量开始，开启音效，尝试几次 A/B/C 导航、一次确认，以及（无需等待很久时）一次自动游戏提示。每次只小幅提高音量，并分别用手机扬声器和耳机试听。检查静音是否立即生效、切后台是否取消待播放音效、回来后是否错误重播。如有不适、尖锐刺耳、突然过响或意外声音，立即停止并记下触发操作与输出路线。自动化的频率／增益断言只是实现检查，不代表真实听感舒适。
+
+| 日期／路线 | 设备与系统音量 | 游戏音效设置 | 导航／确认听感 | 自动提示听感 | 静音／切后台 | 环境与主观记录 |
+|---|---|---|---|---|---|---|
+| 扬声器 | | | | | | |
+| 耳机 | | | | | | |
+
+## VoiceOver／TalkBack 真人读屏
+
+记录读屏器名称与版本、手机／系统、浏览器和播报详细度。先开启读屏器，再从浏览器界面进入应用，通过滑动浏览和转子／读屏控制操作 LCD。检查宠物名称与阶段、变化中的需求、当前选中项、页码、游戏说明、暂停／结算状态及 A/B/C 标签是否按合理顺序播报；实时状态不应反复打断无关阅读。仅操作可见的 A/B/C 按键，并检查菜单、弹窗和换页后的焦点是否仍容易理解。在竖屏 320–390 CSS px 和放大文字下检查裁切、焦点被浏览器／键盘遮挡及横向滚动。逐字记录难懂、缺失、重复或过度频繁的播报。自动化无障碍树检查只能作为辅助证据，不能代替真人读屏。
+
+| 日期 | 读屏器／版本 | 手机／系统／浏览器 | 视口／字号 | 实际操作流程 | 播报或焦点问题原文 |
+|---|---|---|---|---|---|
+| | | | | | |
+
+## 当前状态
+
+| 验收项 | 状态 | 证据／备注 |
+|---|---|---|
+| 自然多日成长与阶段变化 | 未实测 | 等待日常存档的真实跨日记录；不使用构造年龄代替 |
+| 手机前后台、锁屏与恢复 | 未实测 | 需要实体手机操作 |
+| 扬声器与耳机舒适度 | 未实测 | 需要真人试听 |
+| VoiceOver／TalkBack | 未实测 | 需要真人读屏 |
+
+每项只能标记为 **通过**、**失败** 或 **未实测**，并记录日期和观察。模拟时间、桌面浏览器自动化和实体设备观察必须分开；设备不可用或观察时间不足时应保留为“未实测”，不能记为通过。

@@ -46,10 +46,13 @@ async function inspect(page, testCase, mode, actions, errors) {
     };
     const title = document.querySelector('.companion-title');
     const screen = document.querySelector('.home-caption, .status-name');
+    const shell = Object.fromEntries(['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content', '.device-buttons']
+      .map(selector => [selector, rect(document.querySelector(selector))]));
     const containers = [title, screen];
     const children = [...title.children, ...screen.querySelectorAll('strong, small, span, .pet-sprite')];
     return {
       viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+      shell,
       containers: containers.map(rect), children: children.map(rect),
       overflow: containers.map(e => e.scrollWidth > e.clientWidth + 1),
       name: title.querySelector('h2').textContent,
@@ -72,12 +75,14 @@ async function inspect(page, testCase, mode, actions, errors) {
   check(layout.name === testCase.name && layout.screenName === testCase.name, 'name was truncated or replaced');
   check(layout.stage === '幼年期', 'stage label lost');
   check(layout.buttons === 3 && layout.lcdControls === 0, 'three-key constraint violated');
+  check(Object.values(layout.shell).every(box => box.height > 0 && box.width > 0), 'device shell geometry is missing');
   check(actions.length === 0, 'read-only navigation wrote an action');
   check(errors.length === 0, 'browser runtime error');
   const entry = { ...testCase, mode, layout, failures: checks };
   cases.push(entry);
   if (checks.length) failures.push(entry);
   console.log(checks.length ? 'FAIL' : 'PASS', testCase.label, testCase.width, testCase.zoom, mode, checks.join('; '));
+  return layout;
 }
 try {
   server = spawn(binary, [], {
@@ -118,12 +123,22 @@ try {
       await page.addInitScript(zoom => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = 14 * zoom + 'px'; }), zoom);
       await page.goto(base); await page.locator('.home-caption').waitFor(); await page.evaluate(() => document.fonts.ready);
       const testCase = { ...sample, width, zoom, touch };
-      await inspect(page, testCase, 'home', actions, errors);
+      const homeLayout = await inspect(page, testCase, 'home', actions, errors);
       if (sample.label === 'wide-ascii-12' && ((width === 320 && zoom === 2) || (width === 1200 && zoom === 1))) {
         await page.screenshot({ path: join(directory, `name-${width}-${zoom}.png`), fullPage: true });
       }
       await key(page, 'a', touch); for (let i = 0; i < 4; i++) await key(page, 'a', touch); await key(page, 'b', touch);
-      await page.locator('.status-name').waitFor(); await inspect(page, testCase, 'status', actions, errors);
+      await page.locator('.status-name').waitFor();
+      const statusLayout = await inspect(page, testCase, 'status', actions, errors);
+      const shellChanges = Object.keys(homeLayout.shell).filter(selector =>
+        Math.abs(homeLayout.shell[selector].height - statusLayout.shell[selector].height) > 1
+        || Math.abs(homeLayout.shell[selector].width - statusLayout.shell[selector].width) > 1);
+      if (shellChanges.length) {
+        const failure = { ...testCase, mode: 'home-to-status', failures: [`device shell resized: ${shellChanges.join(', ')}`] };
+        failures.push(failure);
+        cases.push(failure);
+        console.log('FAIL', testCase.label, testCase.width, testCase.zoom, failure.failures[0]);
+      }
       await key(page, 'c', touch); await page.locator('.home-caption').waitFor();
       const current = await (await fetch(`${base}/api/state`)).json();
       assert.equal(current.state.name, sample.name); assert.equal(current.state.sleeping, sample.sleeping);

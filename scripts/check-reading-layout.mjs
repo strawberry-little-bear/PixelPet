@@ -17,6 +17,7 @@ const allSuites = [
   'check-collection-reading',
   'check-shop-reading',
   'check-status-reading',
+  'check-name-layout',
   'check-growth-response',
   'check-arcade-reading',
   'check-game-reading-layout',
