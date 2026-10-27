@@ -100,7 +100,7 @@ it.each(kinds.flatMap(kind => [true, false].map(offscreen => ({ kind, offscreen 
   "$kind explicit guide navigation anchors only offscreen content ($offscreen)", async ({ kind, offscreen }) => {
     const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
-      const menu = this.matches(".fishing-pause,.walk-pause,.tetris-overlay"), header = this.matches(".game-guide > header");
+      const menu = this.matches(".fishing-pause > strong,.walk-pause > strong,.tetris-overlay > strong"), header = this.matches(".game-guide > header");
       const top = menu || header ? offscreen ? -500 : 40 : 0, height = menu ? 400 : header ? 100 : 0;
       return { top, bottom: top + height, left: 0, right: 200, width: 200, height, x: 0, y: top, toJSON: () => ({}) };
     });

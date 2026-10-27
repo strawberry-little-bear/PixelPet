@@ -32,7 +32,7 @@ beforeEach(() => {
   localStorage.clear(); generation = "a".repeat(32); api.mockReset(); api.mockImplementation(async () => response());
   vi.spyOn(window, "scrollBy").mockImplementation(() => {});
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
-    const height = this.matches("[data-collection-reading-start],.fishing-pause,.walk-pause") ? 80 : 0, top = -500;
+    const height = this.matches("[data-collection-reading-start],.fishing-pause > strong,.walk-pause > strong") ? 80 : 0, top = -500;
     return { top, bottom: top + height, left: 0, right: 200, width: 200, height, x: 0, y: top, toJSON: () => ({}) };
   });
 });

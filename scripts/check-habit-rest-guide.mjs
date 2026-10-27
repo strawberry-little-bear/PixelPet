@@ -8,6 +8,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname,isAbsolute,join,resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertReadingFlow } from './reading-layout-assertions.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const binary=process.env.PIXELPET_TEST_BINARY,web=process.env.PIXELPET_TEST_WEB;
 assert(binary&&isAbsolute(binary),'Set absolute PIXELPET_TEST_BINARY');
@@ -37,18 +38,7 @@ async function check(p,stage,metadata){
  return text;
 }
 async function layout(p){
- const errors=await p.locator('.growth-panel').evaluate(el=>{
-  const box=el.closest('.lcd-content').getBoundingClientRect(),footer=document.querySelector('.lcd-bottom').getBoundingClientRect(),errors=[];
-  const walk=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let n;
-  while((n=walk.nextNode())){if(!n.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(n);
-   for(const r of range.getClientRects()){
-    if(!r.width||!r.height)continue;
-    if(r.left<box.left-1||r.right>box.right+1||r.top<box.top-1||r.bottom>Math.min(box.bottom,footer.top)+1)errors.push(n.textContent);
-    for(let e=n.parentElement;e;e=e.parentElement){const s=getComputedStyle(e),b=e.getBoundingClientRect();if(/hidden|clip|auto|scroll/.test(s.overflowY)&&(r.top<b.top-1||r.bottom>b.bottom+1))errors.push('clipped '+n.textContent);}
-   }
-  }return errors;
- });assert.deepEqual(errors,[],'habit page text clipped');
- assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'horizontal overflow');
+ await assertReadingFlow(p, '.growth-panel', 'habit guide');
  assert.equal(await p.locator('.physical-button').count(),3);assert.equal(await p.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(),0);
  return p.locator('.habit-rest-guide').evaluate(el=>({font:parseFloat(getComputedStyle(el).fontSize),height:el.getBoundingClientRect().height}));
 }

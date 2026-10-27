@@ -15,7 +15,7 @@ export function usePauseReadingViewport(
   blocked: boolean,
 ) {
   useReadingViewport(root, request, request?.target === "guide"
-    ? ".game-guide > header" : ".fishing-pause,.walk-pause,.tetris-overlay,.treasure-pause",
+    ? ".game-guide > header" : ".fishing-pause > strong,.walk-pause > strong,.tetris-overlay > strong,.treasure-pause > strong",
     !blocked && !!sessionKey && request?.sessionKey === sessionKey &&
     page === (request?.target === "guide" ? "pause-guide" : "game"));
 }

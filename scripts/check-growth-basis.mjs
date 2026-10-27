@@ -7,6 +7,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertReadingFlow } from './reading-layout-assertions.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds({ root });
@@ -38,30 +39,24 @@ async function seed(stage, sleeping) {
 async function key(page, key) { await page.locator('.button-' + key + ':not(:disabled)').tap(); }
 async function open(page) { await key(page, 'a'); for (let i = 0; i < 6; i++) await key(page, 'a'); await key(page, 'b'); }
 async function inspect(page, mode, section = 'basis') {
+  const flow = await assertReadingFlow(page, section === 'sleep' ? '.care-preview' : section === 'snapshot' ? '.growth-current' : '.growth-basis', `growth ${section}`);
   const layout = await page.evaluate(section => {
     const parent = document.querySelector('.lcd-content').getBoundingClientRect();
     const texts = [...document.querySelectorAll(section === 'sleep' ? '.care-preview, .care-preview p, .care-preview strong, .care-preview small' : section === 'snapshot' ? '.growth-current, .growth-current h4, .growth-current dt, .growth-current dd, .growth-current p' : '.growth-basis, .growth-basis h4, .growth-basis p')];
-    const content = document.querySelector('.lcd-content'), walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT), ranges = [];
-    while (walker.nextNode()) {
-      if (!walker.currentNode.textContent.trim()) continue;
-      const range = document.createRange(); range.selectNodeContents(walker.currentNode);
-      ranges.push(...[...range.getClientRects()].filter(r => r.width && r.height));
-    }
     return {
-      textInside: ranges.every(r => r.left >= parent.left - 1 && r.right <= parent.right + 1 && r.top >= parent.top - 1 && r.bottom <= parent.bottom + 1),
       overflow: document.documentElement.scrollWidth > innerWidth + 1,
-      inside: texts.every(e => { const r = e.getBoundingClientRect(); return r.left >= parent.left - 1 && r.right <= parent.right + 1 && r.top >= parent.top - 1 && r.bottom <= parent.bottom + 1; }),
+      inside: texts.every(e => { const r = e.getBoundingClientRect(); return r.left >= parent.left - 1 && r.right <= parent.right + 1; }),
       rootSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
       textSize: Math.min(...texts.slice(1).map(e => parseFloat(getComputedStyle(e).fontSize))),
       minKey: Math.min(...[...document.querySelectorAll('.physical-button')].map(e => Math.min(e.offsetWidth, e.offsetHeight))),
     };
   }, section);
-  assert.equal(layout.textInside, true, JSON.stringify(layout)); assert.equal(layout.overflow, false, JSON.stringify(layout)); assert.equal(layout.inside, true, JSON.stringify(layout));
+  assert.equal(layout.overflow, false, JSON.stringify(layout)); assert.equal(layout.inside, true, JSON.stringify(layout));
   assert(layout.textSize >= layout.rootSize * .85 && layout.minKey >= 44, JSON.stringify(layout));
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
   if (section !== 'sleep') assert.equal(await page.locator('.growth-page-dots').textContent(), section === 'snapshot' ? '1 / 6' : '5 / 6');
-  return { mode, ...layout };
+  return { mode, ...layout, flow };
 }
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`, PIXELPET_DB: join(dir, 'test.db'), PIXELPET_WEB: web }, stdio: ['ignore', 'pipe', 'pipe'] });

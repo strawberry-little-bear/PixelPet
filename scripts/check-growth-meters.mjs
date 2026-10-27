@@ -7,6 +7,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertReadingFlow } from './reading-layout-assertions.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const binary=process.env.PIXELPET_TEST_BINARY,web=process.env.PIXELPET_TEST_WEB;
 assert(binary&&isAbsolute(binary),'Set absolute PIXELPET_TEST_BINARY');
@@ -49,21 +50,7 @@ async function check(page,selector,p){
 }
 async function layout(page,selector){
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow');
- const errors=await page.locator(selector).evaluate(el=>{
-  const content=el.closest('.lcd-content')??el,box=content.getBoundingClientRect(),footer=document.querySelector('.lcd-bottom').getBoundingClientRect(),errors=[];
-  const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let n;
-  while((n=walker.nextNode())){if(!n.textContent.trim()||n.parentElement.closest('[aria-hidden="true"]'))continue;
-   // Reading hints are intentionally hidden until keyboard focus. Check their
-   // geometry only when visible, as in the care/growth journey regression.
-   if(n.parentElement.matches('[data-care-reading-start]')&&getComputedStyle(n.parentElement).clipPath!=='none')continue;
-   const range=document.createRange();range.selectNodeContents(n);
-   for(const r of range.getClientRects()){
-    if(!r.width||!r.height)continue;
-    if(r.left<box.left-1||r.right>box.right+1||r.top<box.top-1||r.bottom>(el.closest('.lcd-content')?Math.min(box.bottom,footer.top):box.bottom)+1)errors.push(n.textContent);
-    for(let p=n.parentElement;p;p=p.parentElement){const css=getComputedStyle(p),b=p.getBoundingClientRect();if(/hidden|clip|auto|scroll/.test(css.overflowY)&&(r.top<b.top-1||r.bottom>b.bottom+1))errors.push('clipped '+n.textContent);}
-   }
-  }return errors;
- });assert.deepEqual(errors,[],'reading text clipped');
+ await assertReadingFlow(page, selector, 'growth meter reading');
  assert.equal(await page.locator('.physical-button').count(),3);
  assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,[role=slider]').count(),0);
 }

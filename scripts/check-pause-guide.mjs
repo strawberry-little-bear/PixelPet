@@ -41,9 +41,14 @@ async function visibleAnchor(page, selector) {
     const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
     return { box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, display: style.display, visibility: style.visibility, text: element.textContent };
   }));
-  const height = await page.evaluate(() => innerHeight), scrollY = await page.evaluate(() => window.scrollY);
+  const metrics = await page.evaluate(() => ({
+    height: innerHeight, scrollY, maxScroll: document.documentElement.scrollHeight - innerHeight,
+    stage: (() => { const rect = document.querySelector('.device-stage').getBoundingClientRect(); return { top: rect.top, bottom: rect.bottom, height: rect.height }; })(),
+    lcd: (() => { const rect = document.querySelector('.lcd-content').getBoundingClientRect(); return { top: rect.top, bottom: rect.bottom, height: rect.height }; })(),
+  }));
+  const { height } = metrics;
   const visible = details.find(({ box, display, visibility }) => display !== 'none' && visibility !== 'hidden' && box.y >= -1 && box.y + box.height <= height + 1);
-  assert(visible, `${selector} outside visible viewport: ${JSON.stringify({ height, scrollY, details })}`);
+  assert(visible, `${selector} outside visible viewport: ${JSON.stringify({ ...metrics, details })}`);
 }
 async function open(page) {
   for (const k of ['A', 'A', 'A', 'A', 'B']) await key(page, k);
