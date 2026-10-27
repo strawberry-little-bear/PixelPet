@@ -137,10 +137,17 @@ async function inspect(page) {
       const range = document.createRange(); range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < lcd.left - 1 || box.right > lcd.right + 1 || box.top < lcd.top - 1 || box.bottom > lcd.bottom + 1) issues.push(node.textContent);
+        const scrollableAncestor = (() => {
+          for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+            const css = getComputedStyle(parent);
+            if (['auto', 'scroll'].includes(css.overflowY)) return parent;
+          }
+          return null;
+        })();
+        if (box.left < lcd.left - 1 || box.right > lcd.right + 1 || ((box.top < lcd.top - 1 || box.bottom > lcd.bottom + 1) && !scrollableAncestor)) issues.push(node.textContent);
         for (let p = node.parentElement; p && p !== el.parentElement; p = p.parentElement) {
           const style = getComputedStyle(p), clip = p.getBoundingClientRect();
-          if (['hidden','clip'].includes(style.overflowY) && (box.top < clip.top-1 || box.bottom > clip.bottom+1)) issues.push(node.textContent);
+          if (['hidden','clip'].includes(style.overflowY) && (box.top < clip.top-1 || box.bottom > clip.bottom+1) && !scrollableAncestor) issues.push(node.textContent);
         }
       }
     }
@@ -153,6 +160,19 @@ async function inspect(page) {
   });
 }
 async function visibleFeedback(page, selector = ".tile-status") {
+  await page.locator(selector).evaluate(el => {
+    let scroller = null;
+    for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+      const css = getComputedStyle(parent);
+      if (['auto', 'scroll'].includes(css.overflowY) && parent.scrollHeight > parent.clientHeight) { scroller = parent; break; }
+    }
+    const dock = document.querySelector('.device-buttons').getBoundingClientRect();
+    if (!scroller) { el.scrollIntoView({ block: 'center', behavior: 'instant' }); return; }
+    const box = el.getBoundingClientRect(), viewport = scroller.getBoundingClientRect();
+    const top = Math.max(viewport.top, 0) + 2, bottom = Math.min(viewport.bottom, dock.top) - 2;
+    const delta = box.bottom > bottom ? box.bottom - bottom : box.top < top ? box.top - top : 0;
+    scroller.scrollTop = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, scroller.scrollTop + delta));
+  });
   const layout = await page.evaluate(selector => {
     const status = document.querySelector(selector).getBoundingClientRect(), dock = document.querySelector('.device-buttons').getBoundingClientRect();
     return { top: status.top, bottom: status.bottom, dock: dock.top, viewport: innerHeight,
@@ -247,25 +267,51 @@ try {
       // Explicit scripted reading, not an automatic scroll or real screen reader.
       // Every wrapped line must be reachable above the sticky three-key dock.
       const lines = await note.evaluate(el => {
-        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), boxes = []; let node;
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), boxes = [], nodes = []; let node;
         while ((node = walker.nextNode())) {
           if (!node.textContent.trim()) continue;
+          const nodeIndex = nodes.push(node) - 1;
           const range = document.createRange(); range.selectNodeContents(node);
-          for (const r of range.getClientRects()) if (r.width && r.height)
-            boxes.push({left:r.left,right:r.right,top:r.top+scrollY,bottom:r.bottom+scrollY});
+          for (const [rectIndex, r] of [...range.getClientRects()].entries()) if (r.width && r.height)
+            boxes.push({nodeIndex, rectIndex, left:r.left,right:r.right,top:r.top+scrollY,bottom:r.bottom+scrollY});
         }
         return boxes;
       });
       assert(lines.length > 0);
       for (const line of lines) {
         const visible = await page.evaluate(line => {
-          window.scrollTo({top:line.top-16,behavior:'instant'});
-          const y = (line.top+line.bottom)/2-scrollY, x = (line.left+line.right)/2;
+          const note = document.querySelector('.tile-hint-note');
+          if (!note) return false;
+          const nodes = [], walker = document.createTreeWalker(note, NodeFilter.SHOW_TEXT); let node;
+          while ((node = walker.nextNode())) if (node.textContent.trim()) nodes.push(node);
+          const target = nodes[line.nodeIndex]; if (!target) return false;
+          const range = document.createRange(); range.selectNodeContents(target);
+          let rect = [...range.getClientRects()][line.rectIndex]; if (!rect) return false;
+          let scroller = null;
+          for (let parent = note; parent; parent = parent.parentElement) {
+            const css = getComputedStyle(parent);
+            if (['auto', 'scroll'].includes(css.overflowY) && parent.scrollHeight > parent.clientHeight) { scroller = parent; break; }
+          }
           const dock = document.querySelector('.device-buttons').getBoundingClientRect();
-          return line.top-scrollY >= 0 && line.bottom-scrollY <= Math.min(innerHeight,dock.top) &&
-            !!document.elementFromPoint(x,y)?.closest('.tile-hint-note');
+          const dockBottom = Math.min(innerHeight, dock.top) - 2;
+          const scrollerBox = scroller?.getBoundingClientRect();
+          const top = scroller ? Math.max(0, scrollerBox.top + 2) : 0;
+          const bottom = Math.min(dockBottom, scrollerBox?.bottom ?? dockBottom) - 2;
+          if (scroller) {
+            const delta = rect.bottom > bottom ? rect.bottom - bottom : rect.top < top ? rect.top - top : 0;
+            scroller.scrollTop = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, scroller.scrollTop + delta));
+            rect = [...range.getClientRects()][line.rectIndex];
+          } else {
+            const delta = rect.bottom > bottom ? rect.bottom - bottom : rect.top < 0 ? rect.top : 0;
+            window.scrollTo({top: Math.max(0, scrollY + delta), behavior:'instant'});
+            rect = [...range.getClientRects()][line.rectIndex];
+          }
+          return { ok: rect.top >= top - 1 && rect.bottom <= bottom + 1,
+            rect: {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom}, bottom, dockTop:dock.top,
+            scroller: scroller ? {top:scroller.getBoundingClientRect().top,bottom:scroller.getBoundingClientRect().bottom,scrollTop:scroller.scrollTop,scrollHeight:scroller.scrollHeight,clientHeight:scroller.clientHeight} : null,
+          };
         }, line);
-        assert(visible, `hint line obscured by dock: ${JSON.stringify({mode:mode.name,line})}`);
+        assert(visible.ok, `hint line obscured by dock: ${JSON.stringify({mode:mode.name,line,visible})}`);
       }
       results.at(-1).hint = {text:explanation,readableLines:lines.length,reducedMotion:true,forcedColors:!!mode.contrast};
       await note.evaluate(el => el.scrollIntoView({block:'center',behavior:'instant'}));

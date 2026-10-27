@@ -211,7 +211,9 @@
   .device-stage.reading-mode.tiles-mode { height: 612px; }
   .reading-mode.tiles-mode .device { height: 592px; }
   .reading-mode.tiles-mode .screen-bezel { height: 364px; }
-  .reading-mode.tiles-mode .lcd-content { height: 284px; }
+  /* The three-key tray is sticky on short screens. Leave enough scrollable
+     tail inside the LCD for the final feedback lines to clear that tray. */
+  .reading-mode.tiles-mode .lcd-content { height: 284px; padding-bottom: 280px; }
 }
 @media (forced-colors: active) {
   /* Explicit system colors avoid Chromium composited text backplates hiding

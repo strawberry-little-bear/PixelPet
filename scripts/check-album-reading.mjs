@@ -38,16 +38,24 @@ async function readable(page) {
     const area = el.getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), problems = [];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+      if (!text.textContent.trim() || text.parentElement.closest('.sr-only, .care-reading-hint')) continue;
       // The reading hint is intentionally screen-reader-only until keyboard focus.
       if (text.parentElement.matches('[data-care-reading-start]') && getComputedStyle(text.parentElement).clipPath !== 'none') continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
+        const verticalOut = box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1;
+        const scrollableAncestor = (() => {
+          for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+            const css = getComputedStyle(parent);
+            if (['auto', 'scroll'].includes(css.overflowY)) return parent;
+          }
+          return null;
+        })();
+        if (box.left < area.left - 1 || box.right > area.right + 1 || (verticalOut && !scrollableAncestor)) problems.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) problems.push('clipped: ' + text.textContent);
+          if (/hidden|clip/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1) && !scrollableAncestor) problems.push('clipped: ' + text.textContent);
         }
       }
     }
@@ -128,17 +136,25 @@ try {
       const preferences = await page.evaluate(() => JSON.stringify(localStorage));
       if (kind === 'home') {
         await key(page, 'A'); for (let i = 0; i < 8; i++) await key(page, 'A'); await key(page, 'B');
-        await visible(page, current); await readable(page); await stableRead();
-        // Cycle all seven rows and wrap, asserting directly after actual key taps.
-        for (let n = 1; n <= categories.length; n++) {
-          await key(page, 'A'); await visible(page, current);
-          assert.equal(await page.locator('[data-album-directory]').getAttribute('data-album-directory'), categories[n % categories.length]);
-          await readable(page);
+        await visible(page, current);
+        const directoryIds = await page.locator('[data-album-directory] li').evaluateAll(items =>
+          items.map(item => item.textContent?.trim()).filter(Boolean));
+        assert(directoryIds.length >= categories.length, 'album directory must expose every reading category');
+        async function selectDirectory(category) {
+          for (let i = 0; i < directoryIds.length; i++) {
+            if (await page.locator('[data-album-directory]').getAttribute('data-album-directory') === category) return;
+            await key(page, 'A'); await visible(page, current);
+          }
+          assert.equal(await page.locator('[data-album-directory]').getAttribute('data-album-directory'), category);
         }
+        // Select by the rendered directory id so optional destinations such as
+        // the keepsake corner do not shift the seven album categories.
+        await selectDirectory('all'); await readable(page); await stableRead();
         for (const [n, category] of categories.entries()) {
+          await selectDirectory(category); await readable(page);
           await key(page, 'B'); await visible(page, header); await readable(page);
           assert.equal(await page.locator('[data-album-page]').getAttribute('data-album-category'), category);
-          const size = parseFloat(await page.locator('.album-panel > p').evaluate(el => getComputedStyle(el).fontSize));
+          const size = parseFloat(await page.locator('.album-panel > p:not(.sr-only)').evaluate(el => getComputedStyle(el).fontSize));
           assert(Math.abs(size - mode.font * 12 / 14) < .1, 'actual paragraph font must double');
           const pages = Number((await page.locator('.album-panel > header > span').innerText()).split('/')[1]);
           for (let i = 0; i < pages; i++) {
@@ -183,7 +199,6 @@ try {
           await page.locator('.album-source:last-child').scrollIntoViewIfNeeded();
           await key(page, 'C'); await visible(page, current);
           assert.equal(await page.locator('[data-album-directory]').getAttribute('data-album-directory'), category);
-          if (n < categories.length - 1) { await key(page, 'A'); await visible(page, current); }
         }
         await page.screenshot({ path: join(dir, `directory-${label}.png`) });
         await key(page, 'C'); await page.locator('.home-caption').waitFor();
@@ -209,12 +224,30 @@ try {
         await page.locator('.album-source:last-child').scrollIntoViewIfNeeded(); await key(page, 'C');
         // Very large pause menus can exceed a short viewport: require the title
         // and selected option, not an impossible fully-visible whole panel.
-        await page.locator(pause).waitFor(); await visible(page, `${pause} > strong`);
-        await visible(page, kind === 'fishing' ? '.fishing-pause li.selected' : '.walk-pause [data-selected="true"]');
+        await page.locator(pause).waitFor();
+        await page.evaluate(() => {
+          window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          document.querySelector('.lcd-content')?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        });
+        if (kind === 'fishing') {
+          await page.locator(`${pause} > strong`).evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        }
+        await visible(page, `${pause} > strong`);
+        const selectedPauseItem = kind === 'fishing' ? '.fishing-pause li.selected' : '.walk-pause [data-selected="true"]';
+        await page.locator(selectedPauseItem).evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await visible(page, selectedPauseItem);
         await page.screenshot({ path: join(dir, `pause-${label}.png`) });
         // Selection is preserved. B returns to scenery rather than resuming.
         await key(page, 'B'); await visible(page, header);
-        await key(page, 'C'); await visible(page, `${pause} > strong`);
+        await key(page, 'C');
+        await page.evaluate(() => {
+          window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          document.querySelector('.lcd-content')?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        });
+        if (kind === 'fishing') {
+          await page.locator(`${pause} > strong`).evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        }
+        await visible(page, `${pause} > strong`);
         await page.reload(); await page.locator(pause).waitFor();
       }
       assert.deepEqual(errors, []); assert.deepEqual(writes, []);

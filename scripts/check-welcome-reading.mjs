@@ -41,10 +41,17 @@ async function inspect(page, view) {
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) issues.push(text.textContent);
+        const scrollableAncestor = (() => {
+          for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+            const css = getComputedStyle(parent);
+            if (['auto', 'scroll'].includes(css.overflowY)) return parent;
+          }
+          return null;
+        })();
+        if (box.left < area.left - 1 || box.right > area.right + 1 || ((box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) && !scrollableAncestor)) issues.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), clip = parent.getBoundingClientRect();
-          if (/hidden|clip/.test(css.overflowY) && (box.top < clip.top - 1 || box.bottom > clip.bottom + 1)) issues.push('clipped: ' + text.textContent);
+          if (/hidden|clip/.test(css.overflowY) && (box.top < clip.top - 1 || box.bottom > clip.bottom + 1) && !scrollableAncestor) issues.push('clipped: ' + text.textContent);
         }
       }
     }

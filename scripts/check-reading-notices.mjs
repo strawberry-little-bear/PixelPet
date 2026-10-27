@@ -30,7 +30,18 @@ async function key(page, k) {
 async function unobscured(page, label) {
   const metrics = [];
   for (const target of await page.locator('.sleep-home-guidance p,.care-outcome-reading p,.lcd-bottom,.physical-button').all()) {
-    await target.evaluate(el => el.scrollIntoView({ block: 'end', behavior: 'instant' }));
+    if (!await target.isVisible()) continue;
+    await target.evaluate(el => {
+      let scroller = null;
+      for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+        const css = getComputedStyle(parent);
+        if (['auto', 'scroll'].includes(css.overflowY) && parent.scrollHeight > parent.clientHeight) { scroller = parent; break; }
+      }
+      if (!scroller) { el.scrollIntoView({ block: 'end', behavior: 'instant' }); return; }
+      const box = el.getBoundingClientRect(), viewport = scroller.getBoundingClientRect();
+      const targetTop = scroller.scrollTop + box.bottom - viewport.bottom;
+      scroller.scrollTop = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, targetTop));
+    });
     const metric = await target.evaluate(el => {
       const t = document.querySelector('.toast').getBoundingClientRect(), ranges = [];
       if (el.matches('.physical-button')) ranges.push(el.getBoundingClientRect());
@@ -43,7 +54,7 @@ async function unobscured(page, label) {
         r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top).length,
         toastPosition: getComputedStyle(document.querySelector('.toast')).position };
     });
-    assert(metric.visible > 0, 'Must actually show target when checking overlap');
+    assert(metric.visible > 0, `${label}: must actually show target when checking overlap: ${JSON.stringify(metric)}`);
     if (metric.hidden) await page.screenshot({ path: join(dir, `${label}-overlap.png`) });
     assert.equal(metric.hidden, 0, JSON.stringify(metric)); metrics.push(metric);
   }

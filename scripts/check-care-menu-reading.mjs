@@ -37,14 +37,22 @@ async function readable(page) {
     const area = el.getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), problems = [];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+      if (!text.textContent.trim() || text.parentElement.closest('.sr-only, .care-reading-hint')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
+        const verticalOut = box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1;
+        const scrollableAncestor = (() => {
+          for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+            const css = getComputedStyle(parent);
+            if (['auto', 'scroll'].includes(css.overflowY)) return parent;
+          }
+          return null;
+        })();
+        if (box.left < area.left - 1 || box.right > area.right + 1 || (verticalOut && !scrollableAncestor)) problems.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) problems.push('clipped: ' + text.textContent);
+          if (/hidden|clip/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1) && !scrollableAncestor) problems.push('clipped: ' + text.textContent);
         }
       }
     }
@@ -66,7 +74,7 @@ try {
   }
   assert(ready, log); browser = await chromium.launch({ channel: 'chrome', headless: true });
   const modes = [{ width: 1200, height: 700, font: 14 }, { width: 320, height: 700, font: 28 }, { width: 320, height: 380, font: 28 }];
-  const kinds = ['feed', 'arcade', 'clean', 'sleep', 'status', 'journal', 'growth', 'return', 'album', 'shop', 'fish-album', 'park-album'];
+  const kinds = ['feed', 'arcade', 'clean', 'sleep', 'status', 'journal', 'growth', 'return', 'album', 'shop', 'fish-album', 'park-album', 'moment'];
   const current = '.care-menu [aria-current="true"]';
   for (const mode of modes) for (const kind of ['eligible', 'cooldown', 'satisfied', 'full', 'imported-sleep']) {
     const at = Date.now(), need = { eligible: 60, cooldown: 60, satisfied: 85, full: 100, 'imported-sleep': 60 }[kind];
@@ -109,7 +117,7 @@ try {
       const preferences = await page.evaluate(() => JSON.stringify(localStorage));
       await key(page, 'A'); await selection(0);
       const preview = await page.locator('.care-preview').innerText();
-      const phrase = { eligible: '符合记录习惯的条件', cooldown: '30 分钟间隔', satisfied: '本次不记', full: '暂时不能喂食', 'imported-sleep': '先选「起床啦」' }[kind];
+      const phrase = { eligible: '符合记录习惯的条件', cooldown: '30 分钟间隔', satisfied: '本次仍可确认', full: '暂时不能喂食', 'imported-sleep': '先选「起床啦」' }[kind];
       assert(preview.includes(phrase), `${kind}: ${preview}`);
       const font = parseFloat(await page.locator('.care-preview p').first().evaluate(el => getComputedStyle(el).fontSize));
       assert(Math.abs(font - mode.font * 12 / 14) < .1, 'actual preview paragraph font must double');

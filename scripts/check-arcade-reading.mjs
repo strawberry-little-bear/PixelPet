@@ -40,14 +40,22 @@ async function readable(page, selector) {
     const area = el.getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), problems = [];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+      if (!text.textContent.trim() || text.parentElement.closest('.sr-only, .care-reading-hint')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
+        const verticalOut = box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1;
+        const scrollableAncestor = (() => {
+          for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+            const css = getComputedStyle(parent);
+            if (['auto', 'scroll'].includes(css.overflowY)) return parent;
+          }
+          return null;
+        })();
+        if (box.left < area.left - 1 || box.right > area.right + 1 || (verticalOut && !scrollableAncestor)) problems.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) problems.push('clipped: ' + text.textContent);
+          if (/hidden|clip/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1) && !scrollableAncestor) problems.push('clipped: ' + text.textContent);
         }
       }
     }

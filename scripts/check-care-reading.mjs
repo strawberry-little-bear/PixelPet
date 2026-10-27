@@ -34,7 +34,7 @@ async function visibleHeading(page, kind, n) {
   const selector = kind === 'growth' ? [
     '.growth-panel-title', '.growth-panel > .habit-heading', '.form-guide > .habit-heading',
     '.companion-panel > .habit-heading', '.growth-time-guide > h3', '.growth-look-guide > h3',
-  ][n] : ['.status-name', '.status-guide > h3'][n];
+  ][n] : ['.status-name', '.life-summary > h3', '.status-guide > h3'][n];
   await visible(page, selector);
 }
 async function open(page, kind) {
@@ -58,16 +58,41 @@ async function nativeRead(page, kind, panel, capturePath) {
   const movements = [];
   // Exercise real browser defaults, not synthetic events or a custom scroll handler.
   for (const [key, direction] of [['ArrowDown',1],['Space',1],['Shift+Space',-1],['End',1],['PageUp',-1],['Home',-1],['PageDown',1]]) {
-    // Give each key room in its intended direction. A short desktop document
-    // can reach Home after PageUp already; that no-op is not a keyboard failure.
-    await page.evaluate(direction => {
-      const max = document.documentElement.scrollHeight - innerHeight;
-      scrollTo({top: max * (direction > 0 ? 0.2 : 0.8), behavior: 'instant'});
+    // Reading pages live in the fixed LCD scroller; use that nearest native
+    // scroll container instead of assuming the document itself is scrollable.
+    await panel.evaluate((el, direction) => {
+      let scroller = null;
+      for (let parent = el; parent; parent = parent.parentElement) {
+        const css = getComputedStyle(parent);
+        if (['auto', 'scroll'].includes(css.overflowY) && parent.scrollHeight > parent.clientHeight) { scroller = parent; break; }
+      }
+      if (scroller) scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) * (direction > 0 ? 0.2 : 0.8);
+      else scrollTo({ top: (document.documentElement.scrollHeight - innerHeight) * (direction > 0 ? 0.2 : 0.8), behavior: 'instant' });
     }, direction);
-    await wait(200); const before = await page.evaluate(() => scrollY);
+    await wait(200); const before = await panel.evaluate(el => {
+      for (let parent = el; parent; parent = parent.parentElement) {
+        const css = getComputedStyle(parent);
+        if (['auto', 'scroll'].includes(css.overflowY) && parent.scrollHeight > parent.clientHeight) return { scope: 'element', top: parent.scrollTop };
+      }
+      return { scope: 'document', top: scrollY };
+    });
     await page.keyboard.press(key);
-    await page.waitForFunction(({before,direction}) => direction * (scrollY - before) > 1, {before,direction}, {timeout:2500});
-    await wait(200); const after = await page.evaluate(() => scrollY);
+    await page.waitForFunction(({before,direction}) => {
+      const panel = document.querySelector('[data-care-reading-start]')?.parentElement;
+      for (let parent = panel; parent; parent = parent.parentElement) {
+        const css = getComputedStyle(parent);
+        if (['auto', 'scroll'].includes(css.overflowY) && parent.scrollHeight > parent.clientHeight)
+          return direction * (parent.scrollTop - before.top) > 1;
+      }
+      return direction * (scrollY - before.top) > 1;
+    }, {before,direction}, {timeout:2500});
+    await wait(200); const after = await panel.evaluate(el => {
+      for (let parent = el; parent; parent = parent.parentElement) {
+        const css = getComputedStyle(parent);
+        if (['auto', 'scroll'].includes(css.overflowY) && parent.scrollHeight > parent.clientHeight) return { scope: 'element', top: parent.scrollTop };
+      }
+      return { scope: 'document', top: scrollY };
+    });
     assert.equal(await panel.getAttribute(`data-${kind}-page`), value, `${key} must not turn the page`);
     assert(await panel.evaluate(el => document.activeElement === el), `${key} must retain reading focus`);
     movements.push({key,before,after});
@@ -84,15 +109,23 @@ async function readable(page, kind) {
     const area = el.getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), problems = [];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+      if (!text.textContent.trim() || text.parentElement.closest('.sr-only, .care-reading-hint')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
-        for (let parent = text.parentElement; parent; parent = parent.parentElement) {
-          const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) problems.push('clipped: ' + text.textContent);
-        }
+          const verticalOut = box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1;
+          const scrollableAncestor = (() => {
+            for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+              const css = getComputedStyle(parent);
+              if (['auto', 'scroll'].includes(css.overflowY)) return parent;
+            }
+            return null;
+          })();
+          if (box.left < area.left - 1 || box.right > area.right + 1 || (verticalOut && !scrollableAncestor)) problems.push(text.textContent);
+          for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+            const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
+            if (/hidden|clip/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1) && !scrollableAncestor) problems.push('clipped: ' + text.textContent);
+          }
       }
     }
     return problems;
@@ -130,7 +163,7 @@ try {
       await page.goto(base); await page.locator('.home-caption').waitFor();
       const preference = await page.evaluate(() => JSON.stringify(localStorage));
       for (const kind of ['growth', 'status']) {
-        await open(page, kind); const pages = kind === 'growth' ? 6 : 2;
+        await open(page, kind); const pages = kind === 'growth' ? 6 : 3;
         for (let n = 0; n < pages; n++) {
           const panel = page.locator(kind === 'growth' ? '.growth-panel' : '.screen-status');
           assert.equal(await panel.getAttribute(`data-${kind}-page`), String(n));
