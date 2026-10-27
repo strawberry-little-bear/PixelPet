@@ -118,8 +118,12 @@ afterEach(() => {
 
 describe("three-key pet tile matching", () => {
   function feedbackGeometry() {
-    const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    const scroll = vi.fn(({ top }: ScrollToOptions) => { document.documentElement.scrollTop = Math.max(0, Number(top)); });
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: scroll });
+    Object.defineProperty(HTMLElement.prototype, "scrollTop", { configurable: true, get: () => 0, set: () => {} });
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function(this: Element) {
+      if (this.matches(".lcd-content"))
+        return { top: 0, bottom: 300, width: 300, height: 300, left: 0, right: 300, x: 0, y: 0, toJSON: () => ({}) };
       const top = this.matches(".device-buttons") ? 500 : this.matches(".tile-board") ? -600 : -400;
       return { top, bottom: top + 100, width: 200, height: 100, left: 0, right: 200, x: 0, y: top, toJSON: () => ({}) };
     });

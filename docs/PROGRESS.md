@@ -3276,3 +3276,11 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 隔离 Chrome 验收发现暂停／结算阅读模式中，固定 126px 高度并启用 `overflow:hidden` 的棋盘区会裁切右侧速度、奖励及按键说明。阅读态改为按侧栏内容自然增高，固定 LCD 外壳与棋盘本身尺寸不变；长内容由现有 LCD 滚动区承载。
 - 更新 `scripts/check-tetris-operation.mjs` 断言，使其匹配当前固定 80×120 棋盘设计，并检查侧栏没有被棋盘区裁切；新增真实计时旅程，确认继续后 1.55 秒尚未下落、实际下落在 1,868ms 发生且只移动一格。
 - 桌面及 320px／双倍根字号／强制颜色浏览器旅程 **10/10 状态、2/2 完整流程、2/2 真实终局**通过；前端全量 **231 文件／6060 项**、TypeScript、隔离 Vite 生产构建、Go `test -race -count=1 ./...`、`go vet ./...` 与 `git diff --check` 均通过。全程使用临时 SQLite、随机端口和仓库外构建，未触碰正式存档或玩家服务。
+
+## 2026-10-27 · 修复连连看与游戏暂停阅读外壳
+
+- 真实游戏阅读布局复验发现连连看仍沿用 `height:auto`，长提示会把设备外壳和 LCD 撑高；现将连连看单独纳入固定阅读外壳，桌面保持 552／516／284／204px，窄屏保持 612／592／364／284px，棋盘、提示和结算内容在 LCD 内滚动，三枚实体按键位置不随内容移动。
+- `useTileViewport` 的 A/B/C 阅读定位改为只滚动 LCD 容器，不再滚动整页或把实体按键当作页面底线；补充重复请求、后台请求、不可见内容、反馈定位和 `scrollTop` 下界回归。
+- 同一轮真实布局检查又发现俄罗斯方块暂停侧栏的长文会撑高棋盘区；暂停棋盘固定 126px，侧栏在自身区域滚动，暂停说明仍由 LCD 滚动区承载，不裁切速度、奖励和按键说明。
+- 定向前端 **53/53**，状态阅读 **48/48**，七款游戏阅读布局 **21/21**；前端全量 **231 个测试文件／6060 项**、TypeScript `--noEmit`、独立 Vite 生产构建、Go `test -race ./...`、`go vet ./...` 和 `git diff --check` 全部通过。独立构建：`/tmp/pixelpet-continue-web.cmY3rQ/`、`/tmp/pixelpet-continue-bin.ljcS6d`；浏览器报告：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-game-reading-layout-ZAoMAv`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-status-reading-1Yp8xt`。
+- 本轮仅使用隔离浏览器、随机端口和临时 SQLite，未访问、重启或部署正式服务，未操作 `data/pixelpet.db`、共享 `web/dist` 或共享 `bin`。自动化视口检查不代替实体手机、真人读屏和自然多日游玩验收；持续迭代目标保留。

@@ -123,16 +123,16 @@
 }
 .game-reading-mode .snake-field:has(.snake-overlay) > svg { margin: auto; }
 .game-reading-mode .tetris-playfield:has(.tetris-overlay) {
-  height: auto;
+  height: 126px;
   min-height: 126px;
   flex-wrap: nowrap;
   align-items: flex-start;
-  overflow: visible;
+  overflow: hidden;
 }
 /* Keep the board geometry stable while the overlay handles enlarged text. */
 .game-reading-mode .tetris-field { width: 82px; height: 122px; }
 .game-reading-mode .tetris-field > svg { width: 80px; height: 120px; }
-.game-reading-mode .tetris-side { width: 76px; }
+.game-reading-mode .tetris-side { width: 76px; min-height: 0; max-height: 122px; overflow-y: auto; overscroll-behavior: contain; }
 .game-reading-mode .tetris-overlay { width: auto; }
 .game-reading-mode .tetris-overlay ol { width: auto; }
 /* Give enlarged pause labels the complete LCD width, but keep them inside the
@@ -177,38 +177,41 @@
   .game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
 }
 
-/* Link & Collect is untimed and keeps its feedback in document flow. Let its
-   LCD grow with the board and text instead of inheriting the fixed viewport
-   used by timed games and ordinary reading pages. The sticky key dock remains
-   the only persistent control at the end of the expanded shell. */
+/* Link & Collect is untimed, but it still uses the same physical shell as
+   every other reading page. Its board, hints and feedback scroll inside the
+   LCD so a long message cannot stretch the device or move the three keys. */
 .device-stage.reading-mode.tiles-mode {
-  height: auto;
-  min-height: 552px;
+  height: 552px;
+  min-height: 0;
   padding: 12px 0;
 }
 .reading-mode.tiles-mode .device {
-  height: auto;
-  min-height: 516px;
+  height: 516px;
+  min-height: 0;
   padding-bottom: 38px;
 }
 .reading-mode.tiles-mode .screen-bezel {
-  height: auto;
-  min-height: 284px;
+  height: 284px;
+  min-height: 0;
+  flex-shrink: 0;
 }
 .reading-mode.tiles-mode .lcd {
-  height: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .reading-mode.tiles-mode .lcd-content {
-  height: auto;
-  min-height: 204px;
-  overflow: visible;
-  scrollbar-gutter: auto;
+  height: 204px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 @media (max-width: 700px) {
-  .device-stage.reading-mode.tiles-mode { min-height: 612px; }
-  .reading-mode.tiles-mode .device { min-height: 592px; }
-  .reading-mode.tiles-mode .screen-bezel { min-height: 364px; }
-  .reading-mode.tiles-mode .lcd-content { min-height: 284px; }
+  .device-stage.reading-mode.tiles-mode { height: 612px; }
+  .reading-mode.tiles-mode .device { height: 592px; }
+  .reading-mode.tiles-mode .screen-bezel { height: 364px; }
+  .reading-mode.tiles-mode .lcd-content { height: 284px; }
 }
 @media (forced-colors: active) {
   /* Explicit system colors avoid Chromium composited text backplates hiding

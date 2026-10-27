@@ -13,18 +13,21 @@ export function useTileViewport(root: RefObject<HTMLElement | null>, request: Ti
     const status = root.current?.querySelector<HTMLElement>(".tile-status");
     const board = root.current?.querySelector<SVGElement>(".tile-board");
     const message = root.current?.querySelector<HTMLElement>(".tile-message");
-    const dock = root.current?.closest(".device-stage")?.querySelector<HTMLElement>(".device-buttons");
-    if (!status || !board || !message || !dock) return;
+    const viewport = root.current;
+    if (!viewport || !status || !board || !message) return;
+    const viewportBox = viewport.getBoundingClientRect();
     const statusBox = status.getBoundingClientRect(), grid = board.getBoundingClientRect();
     const box = request.target === "feedback" ? message.getBoundingClientRect() : statusBox;
-    const bottom = Math.min(window.innerHeight, dock.getBoundingClientRect().top) - 12;
-    if (!box.width || !box.height) return;
-    // Keep the board and selection with feedback when they fit. On a short
-    // screen, B/C prioritize the operation result, while A prioritizes the
-    // current/selected description. The rest remains in native document flow.
-    const top = box.bottom - grid.top <= bottom - 12 ? grid.top
-      : box.bottom - statusBox.top <= bottom - 12 ? statusBox.top : box.top;
-    if (top >= 12 && box.bottom <= bottom) return;
-    window.scrollBy({ top: top - 12, behavior: "instant" });
+    if (!box.width || !box.height || !viewportBox.width || !viewportBox.height) return;
+    // Keep the board with the selected/feedback text when they fit. The tile
+    // board now lives in the fixed LCD viewport, so only that native scroll
+    // container moves; the page and physical key dock stay put.
+    const top = box.bottom - grid.top <= viewportBox.height - 24 ? grid.top
+      : box.bottom - statusBox.top <= viewportBox.height - 24 ? statusBox.top : box.top;
+    const currentTop = viewportBox.top + 12;
+    const currentBottom = viewportBox.bottom - 12;
+    const delta = top < currentTop ? top - currentTop : box.bottom > currentBottom ? box.bottom - currentBottom : 0;
+    if (!delta) return;
+    viewport.scrollTo({ top: Math.max(0, viewport.scrollTop + delta), behavior: "instant" });
   }, [root, request, sessionKey, enabled]);
 }
