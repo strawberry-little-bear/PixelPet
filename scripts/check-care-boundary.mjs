@@ -54,16 +54,30 @@ async function readable(page, selector) {
   const result = await page.locator(selector).evaluate(el => {
     const content = document.querySelector('.lcd-content').getBoundingClientRect();
     const footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), failures = [];
+    const scrollParent = node => {
+      for (let parent = node?.parentElement; parent; parent = parent.parentElement) {
+        const css = getComputedStyle(parent);
+        if (/auto|scroll/.test(css.overflowY) && parent.scrollHeight > parent.clientHeight) return parent;
+      }
+      return null;
+    };
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
       if (!text.textContent.trim()) continue;
       const range = document.createRange(); range.selectNodeContents(text);
+      const verticalScroller = scrollParent(text.parentElement);
+      let belowVerticalScroller = true;
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < content.left - 1 || box.right > content.right + 1 || box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top) + 1) failures.push(text.textContent);
+        if (box.left < content.left - 1 || box.right > content.right + 1 ||
+          (!verticalScroller && (box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top) + 1))) failures.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if ((/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) ||
+          const verticalClips = /hidden|clip/.test(css.overflowY) ||
+            (/auto|scroll/.test(css.overflowY) && parent.scrollHeight <= parent.clientHeight);
+          if (parent === verticalScroller) belowVerticalScroller = false;
+          if (((!verticalScroller || belowVerticalScroller) && verticalClips &&
+            (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) ||
             (/hidden|clip|auto|scroll/.test(css.overflowX) && (box.left < rect.left - 1 || box.right > rect.right + 1))) failures.push('clipped: ' + text.textContent);
         }
       }

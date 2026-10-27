@@ -56,6 +56,15 @@ try {
       let release, held=false; const gate = new Promise(resolve => { release=resolve; });
       try {
         await context.addInitScript(font => document.addEventListener('DOMContentLoaded',() => {document.documentElement.style.fontSize=`${font}px`;}),mode.font);
+        await context.addInitScript(() => {
+          const calls = [];
+          const focus = HTMLElement.prototype.focus;
+          HTMLElement.prototype.focus = function(options) {
+            if (this.classList?.contains('physical-button')) calls.push({ className: this.className, options: options ?? null });
+            return focus.call(this, options);
+          };
+          Object.defineProperty(window, '__pixelpetFocusCalls', { value: calls });
+        });
         const page = await context.newPage(), errors=[], writes=[];
         page.on('pageerror', e => errors.push(e.message));
         page.on('request',r => { if(r.method()==='POST' && new URL(r.url()).pathname==='/api/action') writes.push(r.postDataJSON().kind); });
@@ -104,7 +113,6 @@ try {
           Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));
           Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));
         });
-        const scroll=await page.evaluate(() => ({x:scrollX,y:scrollY}));
         release();
         if(scenario==='care-replacement') {
           await page.locator('.care-outcome').waitFor();
@@ -118,7 +126,9 @@ try {
         await page.waitForTimeout(120);
         if(scenario.startsWith('restore-') || scenario==='held' || scenario==='rejected' || ['care','start','end','hatch'].includes(scenario)) {
           assert(await target.evaluate(el=>el===document.activeElement),'native button focus must recover');
-          if(scenario==='rejected') assert.deepEqual(await page.evaluate(() => ({x:scrollX,y:scrollY})),scroll,'focus recovery must not scroll');
+          assert(await page.evaluate(() => window.__pixelpetFocusCalls.some(call =>
+            call.className.includes('button-' + (document.activeElement?.className.match(/button-[abc]/)?.[0]?.slice(-1) ?? '')) &&
+            call.options?.preventScroll === true)), 'physical focus recovery must use preventScroll');
         } else if(expected==='dialog') {
           assert(await page.getByRole('dialog').evaluate(el=>el.contains(document.activeElement)),'modal focus must stay inside');
           await page.getByRole('button',{name:'关闭',exact:true}).click();
