@@ -85,6 +85,7 @@
 - [成长／状态阅读视口](CARE_READING_VIEWPORT.md) · [暂停页阅读视口](PAUSE_READING_VIEWPORT.md)
 - [钓鱼暂停菜单大字号布局](FISHING_PAUSE_LAYOUT.md)
 - [阅读布局统一回归入口](READING_LAYOUT_REGRESSION.md)
+- [自然多日、实体手机、真实声音与真人读屏验收记录](REAL_DEVICE_ACCEPTANCE.md)
 
 ## 跨系统验证与实验边界
 
