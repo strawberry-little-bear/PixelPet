@@ -23,6 +23,7 @@ const hints = [
 afterEach(cleanup);
 describe("Tetris pause operation consequences", () => {
   it("shows the fixed beginner gravity speed without changing the game rules", () => {
+    expect(TetrisStepInterval).toBe(1800);
     const pet = fixture();
     const view = render(<TetrisGame pet={pet} now={now} active choice={0} />);
     const speed = view.container.querySelector('[data-speed-level="1"]');

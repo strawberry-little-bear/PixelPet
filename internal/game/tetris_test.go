@@ -66,6 +66,9 @@ func TestTetrisShapesAndBag(t *testing.T) {
 	}
 }
 func TestTetrisGravityPauseLeaseAndVersion(t *testing.T) {
+	if TetrisInterval != 1800 {
+		t.Fatalf("beginner gravity interval = %dms, want 1800ms", TetrisInterval)
+	}
 	s, now := blocksState(t)
 	n := s.Game.Tetris
 	if !n.Paused || n.Active.Y != 0 {
