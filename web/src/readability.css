@@ -292,6 +292,10 @@
    scrolled text must not show through the 7px gap at the LCD top. */
 .return-mode .return-panel > header { position: sticky; top: 0; padding-top: 7px; z-index: 1; background: #e3e9c9; }
 .return-mode .night .return-panel > header { background: #bac5a3; }
+@media (min-width: 701px) {
+  .reading-mode .content-home { padding-top: 4px; }
+  .reading-mode .content-home .pet-room { height: 120px; }
+}
 @media (max-width: 700px) {
   .device-stage.return-mode { height: 612px; }
   .return-mode .device { height: 592px; }

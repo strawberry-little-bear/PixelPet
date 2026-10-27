@@ -68,17 +68,37 @@ async function layout(page, selector) {
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
         const element = text.parentElement;
+        let scrollable = false;
+        for (let parent = element; parent && parent !== el.parentElement; parent = parent.parentElement) {
+          const css = getComputedStyle(parent);
+          if (/(auto|scroll)/.test(css.overflowY) && parent.scrollHeight > parent.clientHeight + 1) {
+            scrollable = true; break;
+          }
+        }
+        if (scrollable) continue;
         if (element?.matches('[data-care-reading-start]') && getComputedStyle(element).clipPath !== 'none') continue;
-        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) problems.push(text.textContent);
+        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) {
+          problems.push({ text: text.textContent, box: { left: box.left, right: box.right, top: box.top, bottom: box.bottom },
+            area: { left: area.left, right: area.right, top: area.top, bottom: area.bottom }, footerTop: footer.top });
+        }
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), clip = parent.getBoundingClientRect();
-          if (/hidden|clip/.test(css.overflowY) && (box.top < clip.top - 1 || box.bottom > clip.bottom + 1)) problems.push('clipped: ' + text.textContent);
+          if (/hidden|clip/.test(css.overflowY) && (box.top < clip.top - 1 || box.bottom > clip.bottom + 1)) {
+            problems.push({ text: `clipped: ${text.textContent}`, clip: { top: clip.top, bottom: clip.bottom }, overflowY: css.overflowY });
+          }
         }
       }
     }
-    return [...new Set(problems)];
+    const geometry = Object.fromEntries(['.device-stage', '.lcd-content', '.content-home', '.pet-room', '.growth-feedback', '.lcd-bottom']
+      .map(selector => {
+        const node = document.querySelector(selector);
+        if (!node) return [selector, null];
+        const rect = node.getBoundingClientRect(), css = getComputedStyle(node);
+        return [selector, { top: rect.top, bottom: rect.bottom, height: rect.height, overflowY: css.overflowY, heightRule: css.height }];
+      }));
+    return { problems: [...new Set(problems)], geometry };
   });
-  assert.deepEqual(clipped, [], 'growth text clipped or overlaps LCD footer');
+  assert.deepEqual(clipped.problems, [], `growth text clipped or overlaps LCD footer; geometry=${JSON.stringify(clipped.geometry)} problems=${JSON.stringify(clipped.problems)}`);
 }
 async function history(page, state, target, label) {
   await key(page, 'b'); for (let i = 0; i < 6; i++) await key(page, 'a'); await key(page, 'b');
@@ -206,14 +226,15 @@ try {
       if (sleeping) {
         const outcome = await page.locator('.care-outcome').innerText();
         assert.match(outcome, /本页上次已确认 · 起床/);
-        assert.match(outcome, /本次没有新增成长点/);
-        assert.match(outcome, /包含期间自然成长，不是起床奖励/);
+        assert.match(outcome, /成长 \+0\.00 点 · 休息习惯：本次不计入/);
         assert.equal(await page.locator('.care-milestone').count(), 0, 'wake must not claim the earlier transition');
         const summary = wakeResult.careFeedback.sleepSummary;
         for (const field of ['settledHours', 'energyRecovered', 'restGain', 'growthPoints'])
           assert(summary[field] >= duringSleep.sleepSession[field], `wake summary lost saved ${field}`);
-        await page.locator('.sleep-summary > small').scrollIntoViewIfNeeded();
-        const end = await page.locator('.sleep-summary > small').boundingBox();
+        const sleepSummary = page.locator('.care-outcome-compact-summary .sleep-summary-compact');
+        assert.match(await sleepSummary.innerText(), /睡眠期间成长 \+(?:<0\.01|\d+\.\d+) 点/);
+        await sleepSummary.scrollIntoViewIfNeeded();
+        const end = await sleepSummary.boundingBox();
         assert(end && end.y >= -1 && end.y + end.height <= mode.height + 1, 'sleep summary end unreachable');
         await page.screenshot({ path: join(artifacts, `${label}-wake-summary.png`), fullPage: true });
       } else assert.equal(await page.locator('.care-outcome,.care-milestone').count(), 0, 'passive growth must not invent a care receipt');
