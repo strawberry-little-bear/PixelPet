@@ -65,6 +65,7 @@
   min-height: 0;
   padding: 12px 0;
 }
+.play-space:has(.device-stage.treasure-mode) { min-height: 735px; }
 .treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .device {
   height: 699px;
   min-height: 0;
@@ -87,6 +88,7 @@
 }
 @media (max-width: 700px) {
   .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) { height: 612px; }
+  .play-space:has(.device-stage.treasure-mode) { min-height: 612px; }
   .treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
   .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
   .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
@@ -97,6 +99,9 @@
     position: static;
     padding: 4px 0;
   }
+}
+@media (max-width: 700px) and (max-height: 400px) {
+  .device-stage.treasure-mode .device-buttons { margin-top: -32px; }
 }
 @media (max-width: 340px) {
   /* At 200% text, repeat status labels waste the row height needed to compare

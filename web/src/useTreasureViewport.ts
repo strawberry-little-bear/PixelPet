@@ -30,6 +30,20 @@ export function useTreasureViewport(root: RefObject<HTMLElement | null>, request
       const visible = target.getBoundingClientRect();
       const missing = dock.getBoundingClientRect().bottom - visible.top - (window.innerHeight - 24);
       if (missing > 0) container.scrollTop -= Math.min(container.scrollTop, missing, Math.max(0, bottom - visible.bottom));
+      const readout = request.target === "selection" ? selection?.getBoundingClientRect() : undefined;
+      if (readout) {
+        const currentViewport = container.getBoundingClientRect();
+        const readoutTop = currentViewport.top + 12;
+        const readoutBottom = currentViewport.bottom - 12;
+        const currentTarget = target.getBoundingClientRect();
+        if (readout.top < readoutTop) {
+          const room = Math.max(0, currentViewport.bottom - 12 - currentTarget.bottom);
+          container.scrollTop -= Math.min(readoutTop - readout.top, room);
+        } else if (readout.bottom > readoutBottom) {
+          const room = Math.max(0, currentTarget.top - readoutTop);
+          container.scrollTop += Math.min(readout.bottom - readoutBottom, room);
+        }
+      }
     }
     const box = target.getBoundingClientRect(), controls = dock.getBoundingClientRect();
     if (!box.width || !box.height) return;

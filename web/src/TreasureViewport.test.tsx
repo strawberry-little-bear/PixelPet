@@ -10,16 +10,16 @@ function View({request, sessionKey = "one", enabled = true, target = true, selec
   return <div className="device-stage"><div ref={root} className="lcd-content">{target && <><div className="treasure-grid"><span aria-selected="true"/></div><p className="treasure-result"/><p className={`treasure-status${selection ? " treasure-selection" : ""}`}/></>}</div><div className="device-buttons"/></div>;
 }
 const destination = (target: TreasureDestination["target"] = "selection"): TreasureDestination => ({sessionKey:"one", target});
-let top: number, height: number, width: number, dockTop: number, containerTop: number, rootScrollHeight: number, rootClientHeight: number;
+let top: number, height: number, width: number, dockTop: number, containerTop: number, rootScrollHeight: number, rootClientHeight: number, selectionOffset: number;
 const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
 const clientHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
 beforeEach(() => {
-  top = -400; height = 100; width = 200; dockTop = 600; containerTop = 100; rootScrollHeight = 0; rootClientHeight = 0;
+  top = -400; height = 100; width = 200; dockTop = 600; containerTop = 100; rootScrollHeight = 0; rootClientHeight = 0; selectionOffset = 0;
   Object.defineProperty(document, "hidden", {configurable:true,value:false});
   vi.spyOn(window, "scrollBy").mockImplementation(() => {});
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
     if (this.matches(".treasure-selection")) {
-      const y = containerTop + rootClientHeight - 60;
+      const y = containerTop + rootClientHeight - 60 + selectionOffset - (this.closest(".lcd-content")?.scrollTop ?? 0);
       return {top:y,bottom:y+60,width,height:60,left:0,right:width,x:0,y,toJSON:()=>({})};
     }
     if (this.matches(".device-buttons")) {
@@ -103,4 +103,14 @@ it("reserves the selection readout before revealing a cell in the LCD", () => {
   render(<View request={destination()} selection/>);
   expect(document.querySelector(".lcd-content")?.scrollTop).toBe(102);
   expect(window.scrollBy).not.toHaveBeenCalled();
+});
+it("keeps the selected cell inside the LCD when the readout cannot fully fit", () => {
+  rootScrollHeight = 900; rootClientHeight = 300; top = 150; height = 80; dockTop = 500; selectionOffset = 50;
+  render(<View request={destination()} selection/>);
+  expect(document.querySelector(".lcd-content")?.scrollTop).toBe(38);
+});
+it("does not let the selection readout undo result positioning", () => {
+  rootScrollHeight = 900; rootClientHeight = 300; top = 350; height = 80; dockTop = 600;
+  render(<View request={destination("result")} selection/>);
+  expect(document.querySelector(".lcd-content")?.scrollTop).toBe(102);
 });

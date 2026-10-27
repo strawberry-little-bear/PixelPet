@@ -77,23 +77,38 @@ async function readable(page) {
 }
 // Do not scroll the target into view in the assertion: the A/B/C action must do it.
 async function feedbackVisible(page, selector) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const boxes = await page.evaluate(selector => {
     const target = document.querySelector(selector), dock = document.querySelector('.device-buttons');
     if (!target || !dock) return null;
     const a = target.getBoundingClientRect(), b = dock.getBoundingClientRect();
+    const stage = document.querySelector('.device-stage.treasure-mode')?.getBoundingClientRect();
+    const collection = document.querySelector('.collection')?.getBoundingClientRect();
     const lcd = target.closest('.lcd-content')?.getBoundingClientRect();
     const buttons = [...dock.querySelectorAll('button')].map(button => {
       const r = button.getBoundingClientRect(), hit = document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
-      return { visible: r.top >= 0 && r.bottom <= innerHeight, clear: hit === button || button.contains(hit) };
+      const hitPath = [];
+      for (let node = hit; node && node !== dock; node = node.parentElement) {
+        hitPath.push({ tag: node.tagName, className: typeof node.className === 'string' ? node.className : '' });
+      }
+      return { visible: r.top >= 0 && r.bottom <= innerHeight, clear: hit === button || button.contains(hit), hitPath };
     });
-    return { lcd: lcd ? {top:lcd.top,bottom:lcd.bottom} : null, target: {top:a.top,bottom:a.bottom}, dock: {top:b.top,bottom:b.bottom}, viewport: innerHeight, buttons };
+    const content = target.closest('.lcd-content');
+    return { lcd: lcd ? {top:lcd.top,bottom:lcd.bottom,scrollTop:content.scrollTop,scrollHeight:content.scrollHeight,clientHeight:content.clientHeight,overflow:getComputedStyle(content).overflowY} : null, target: {top:a.top,bottom:a.bottom}, dock: {top:b.top,bottom:b.bottom}, stage: stage ? {top:stage.top,bottom:stage.bottom} : null, collection: collection ? {top:collection.top,bottom:collection.bottom} : null, viewport: innerHeight, buttons };
   }, selector);
   assert(boxes, `missing feedback ${selector}`);
-  assert(boxes.target.top >= -1 && boxes.target.bottom <= boxes.dock.top + 1,
-    `${selector} not visible above controls: ${JSON.stringify(boxes)}`);
+  if (!(boxes.target.top >= -1 && boxes.target.bottom <= boxes.dock.top + 1)) {
+    await page.screenshot({path:join(dir,`failure-feedback-${Date.now()}.png`)});
+    assert.fail(`${selector} not visible above controls: ${JSON.stringify(boxes)}`);
+  }
   if (boxes.lcd) assert(boxes.target.top >= boxes.lcd.top - 1 && boxes.target.bottom <= boxes.lcd.bottom + 1,
     `${selector} outside LCD scrollport: ${JSON.stringify(boxes)}`);
-  assert(boxes.buttons.every(b => b.visible && b.clear), `covered/offscreen controls: ${JSON.stringify(boxes)}`);
+  if (boxes.stage && boxes.collection) assert(boxes.collection.top >= boxes.stage.bottom - 1,
+    `collection overlaps treasure device stage: ${JSON.stringify(boxes)}`);
+  if (!boxes.buttons.every(b => b.visible && b.clear)) {
+    await page.screenshot({ path: join(dir, `failure-controls-${Date.now()}.png`), fullPage: false });
+    assert.fail(`covered/offscreen controls: ${JSON.stringify(boxes)}`);
+  }
   return boxes;
 }
 // Keep the current cell's meaning readable alongside the selected tile and keys.
