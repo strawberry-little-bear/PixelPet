@@ -74,7 +74,7 @@ node scripts/check-build-cache.mjs
 
 浏览器脚本按专项文档运行，显式提供 `PIXELPET_TEST_BINARY`、`PIXELPET_TEST_WEB` 和 `PIXELPET_PLAYWRIGHT_MODULE`。可用脚本及保护规则见 [`browser-test-builds.mjs`](../scripts/browser-test-builds.mjs)；不要直接运行未知脚本并假定它不会触及共享构建。玩家库 `data/pixelpet.db` 不用于测试，也不通过导入或重置覆盖。
 
-阅读页的集中回归入口是 `node scripts/check-reading-layout.mjs`，会顺序调用普通阅读、小游戏、回访和异常恢复的专项脚本；也可以把一个或多个脚本名作为参数，只跑指定范围。覆盖矩阵与验收边界见[阅读布局统一回归](READING_LAYOUT_REGRESSION.md)。
+阅读页的集中回归入口是 `node scripts/check-reading-layout.mjs`，会顺序调用首次迎接、普通阅读、小游戏规则／游玩、提示、回访和异常恢复的专项脚本；也可以把一个或多个脚本名作为参数，只跑指定范围。覆盖矩阵与验收边界见[阅读布局统一回归](READING_LAYOUT_REGRESSION.md)。
 
 陪伴闲聊的专项回归是 `node scripts/check-quiet-memory.mjs`，同样需要上述三个隔离环境变量。它在临时库中导入阶段年龄夹具，再通过真实喂食、洗澡操作生成回忆，检查 A/B 双向回忆与首尾循环、C 返回陪伴选择再回小窝、重复回应的真实 CSS 动画（结束后／播放中再按 B）、普通读取不重播、减少动态效果、阅读区 Enter 不操作、分层返回、刷新、小屏文字可达和闲聊无写入；触摸机身键后核对当前标题、对白与回忆来源进入视口，阅读区切回触摸不漏按或重复，普通同步不重放定位；另通过独立客户端真实入睡／起床，核对三种睡眠陪伴、闭眼姿态、睡眠状态保持、刷新和同步后旧回应清除。加 `--items-only` 可单独检查四槽物品回忆：构造库存后通过真实使用／收起生成纪念，换装后仍聊起保存的旧物，并核对轮换、刷新、320px 双倍字号及无额外写入。加 `--room-only` 可单独检查已保存布置在陪伴场景中的显示、静止背景与宠物回应分层、外部换装／收起同步、刷新和睡眠，默认完整运行也包含这组检查。阶段与库存夹具不代表自然多日游玩或自然赚齐物品。
 

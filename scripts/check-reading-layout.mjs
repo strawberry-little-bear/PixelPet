@@ -8,15 +8,21 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(join(fileURLToPath(new URL('.', import.meta.url)), '..'));
 const allSuites = [
+  'check-welcome-reading',
   'check-care-menu-reading',
   'check-care-reading',
   'check-journal-reading',
+  'check-memory-reading-keyboard',
   'check-album-reading',
   'check-collection-reading',
   'check-shop-reading',
   'check-status-reading',
   'check-growth-response',
+  'check-arcade-reading',
   'check-game-reading-layout',
+  'check-stars-reading',
+  'check-tile-reading',
+  'check-reading-notices',
   'check-return-layout',
   'check-return-scroll',
   'check-return-viewport',

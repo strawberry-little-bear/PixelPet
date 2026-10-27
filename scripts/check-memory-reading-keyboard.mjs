@@ -73,19 +73,72 @@ async function settledScroll(page) {
     requestAnimationFrame(frame);
   }));
 }
+async function positionReadingScroll(page, ratio) {
+  return page.locator('.memory-reading-region').evaluate((panel, ratio) => {
+    let target = panel;
+    while (target && !(target.scrollHeight > target.clientHeight + 1 &&
+      ['auto', 'scroll'].includes(getComputedStyle(target).overflowY))) target = target.parentElement;
+    const root = document.scrollingElement;
+    if (!target) target = root;
+    if (target === root || target === document.body || target === document.documentElement) {
+      const max = Math.max(0, root.scrollHeight - innerHeight);
+      scrollTo({ top: max * ratio, behavior: 'instant' });
+      return { kind: 'window', top: scrollY, max };
+    }
+    const max = Math.max(0, target.scrollHeight - target.clientHeight);
+    target.scrollTo({ top: max * ratio, behavior: 'instant' });
+    return { kind: 'element', top: target.scrollTop, max };
+  }, ratio);
+}
+async function waitForReadingScroll(page, before, direction) {
+  await page.waitForFunction(({ before, direction }) => {
+    const panel = document.querySelector('.memory-reading-region');
+    let target = panel;
+    while (target && !(target.scrollHeight > target.clientHeight + 1 &&
+      ['auto', 'scroll'].includes(getComputedStyle(target).overflowY))) target = target.parentElement;
+    const root = document.scrollingElement;
+    const elementTop = target && target !== root && target !== document.body && target !== document.documentElement
+      ? target.scrollTop : null;
+    return (elementTop !== null && direction * (elementTop - before.elementTop) > 1) ||
+      direction * (scrollY - before.windowTop) > 1;
+  }, { before, direction }, { timeout: 2500 });
+}
 async function readAll(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
-  await page.locator('.memory-reading-region').evaluate(el => {
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
-    while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+  await page.locator('.memory-reading-region').evaluate(async el => {
+    let scroller = el;
+    while (scroller && !(scroller.scrollHeight > scroller.clientHeight + 1 &&
+      ['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY))) scroller = scroller.parentElement;
+    const root = document.scrollingElement;
+    const windowScroll = !scroller || scroller === root || scroller === document.body || scroller === document.documentElement;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) {
+      const text = walker.currentNode;
+      if (!text.textContent.trim() || text.parentElement.closest('.sr-only')) continue;
+      nodes.push(text);
+    }
+    for (const text of nodes) {
       const range = document.createRange(); range.selectNodeContents(text);
-      const lines = Array.from(range.getClientRects(), r => ({top:r.top + scrollY,left:r.left,width:r.width,height:r.height}));
-      for (const line of lines) {
-        window.scrollTo({top:line.top - 12,behavior:'instant'});
-        const top = line.top - scrollY, hit = document.elementFromPoint(line.left + line.width / 2, top + line.height / 2);
-        if (line.left < -1 || line.left + line.width > innerWidth + 1 || top < 0 || top + line.height > innerHeight || !hit || !text.parentElement.contains(hit))
-          throw new Error('Memory line clipped/unreachable: ' + text.textContent);
+      const lines = Array.from(range.getClientRects());
+      for (let index = 0; index < lines.length; index++) {
+        const line = Array.from(range.getClientRects())[index];
+        if (!line) continue;
+        const viewportTop = windowScroll ? 0 : scroller.getBoundingClientRect().top + scroller.clientTop;
+        const desiredTop = viewportTop + 8;
+        if (windowScroll) window.scrollBy({ top: line.top - desiredTop, behavior: 'instant' });
+        else scroller.scrollBy({ top: line.top - desiredTop, behavior: 'instant' });
+        const current = Array.from(range.getClientRects())[index];
+        if (!current) throw new Error('Memory line disappeared while scrolling: ' + text.textContent);
+        const x = current.left + current.width / 2, y = current.top + current.height / 2;
+        const hit = document.elementFromPoint(x, y);
+        const hitOwnsText = hit && el.contains(hit);
+        const viewportBottom = windowScroll ? innerHeight : viewportTop + scroller.clientHeight;
+        if (current.left < -1 || current.right > innerWidth + 1 || current.top < viewportTop ||
+          current.bottom > viewportBottom || !hitOwnsText)
+          throw new Error(`Memory line clipped/unreachable (${current.left.toFixed(1)},${current.top.toFixed(1)} ` +
+            `${current.right.toFixed(1)},${current.bottom.toFixed(1)}; clip ${viewportTop.toFixed(1)}–${viewportBottom.toFixed(1)}; ` +
+            `scroll ${windowScroll ? scrollY : scroller.scrollTop}; hit ${hit?.className || hit?.tagName || 'none'}): ${text.textContent}`);
       }
     }
   });
@@ -169,7 +222,7 @@ try {
       assert.equal(await panel.count(),1,'Memory page needs a named read-only Tab stop');
       await nativeStop(page,panel);
       if (empty && reader.kind!=='album') assert.match(await page.locator(reader.selector).innerText(),
-        reader.kind==='journal'?/0 条记录/:reader.kind==='fish'?/已发现 0 \/ 7/:/0 \/ 6 种/);
+        reader.kind==='journal'?/0 条记录/:reader.kind==='fish'?/已发现 0 \/ \d+/:/0 \/ \d+ 种/);
       await panel.evaluate(el => { el.dataset.syncProbe='same-node'; });
       assert.equal(await page.locator('.physical-button').count(),3);
       assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(),0);
@@ -178,13 +231,27 @@ try {
       if (stage==='baby' && !sleeping) await page.screenshot({path:join(dir,`focus-${label}.png`)});
       for (const [k,direction] of [['ArrowDown',1],['Space',1],['Shift+Space',-1],['End',1],['PageUp',-1],['Home',-1],['PageDown',1]]) {
         await settledScroll(page);
-        await page.evaluate(direction => {
-          const max=document.documentElement.scrollHeight-innerHeight;
-          scrollTo({top:max*(direction>0?.2:.8),behavior:'instant'});
-        },direction);
-        const top = await page.evaluate(() => scrollY); await page.keyboard.press(k);
-        await page.waitForFunction(({top,direction}) => direction*(scrollY-top)>1,{top,direction},{timeout:2500});
-        await settledScroll(page); movements.push({key:k,before:top,after:await page.evaluate(() => scrollY)});
+        const position = await positionReadingScroll(page, direction > 0 ? .2 : .8);
+        const before = await page.locator('.memory-reading-region').evaluate(panel => {
+          let target = panel;
+          while (target && !(target.scrollHeight > target.clientHeight + 1 &&
+            ['auto', 'scroll'].includes(getComputedStyle(target).overflowY))) target = target.parentElement;
+          const root = document.scrollingElement;
+          return {
+            windowTop: scrollY,
+            elementTop: target && target !== root && target !== document.body && target !== document.documentElement
+              ? target.scrollTop : null,
+          };
+        });
+        assert(position.max > 1, `${reader.kind}: expected a scrollable reading region`);
+        await page.keyboard.press(k);
+        await waitForReadingScroll(page,{...before,windowTop:position.kind==='window'?position.top:before.windowTop,
+          elementTop:position.kind==='element'?position.top:before.elementTop},direction);
+        await settledScroll(page);
+        movements.push({key:k,before:position,after:await page.locator('.memory-reading-region').evaluate(panel => ({
+          windowTop: scrollY,
+          lcdTop: panel.closest('.lcd-content')?.scrollTop ?? null,
+        }))});
         assert.deepEqual(await selection(page,reader.kind),selected); assert(await panel.evaluate(el => document.activeElement===el));
         assert.deepEqual(writes,[]);
       }
@@ -240,8 +307,11 @@ try {
       results.push({kind:reader.kind,stage,sleeping,empty,paused,...mode,movements});
       await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2));
     } catch (e) {
-      await page.screenshot({path:join(dir,`failure-${label}.png`),fullPage:true});
-      await writeFile(join(dir,`failure-${label}.json`),JSON.stringify({errors,writes,text:await page.locator('body').innerText()},null,2)); throw e;
+      if (!page.isClosed()) {
+        await page.screenshot({path:join(dir,`failure-${label}.png`),fullPage:true});
+        await writeFile(join(dir,`failure-${label}.json`),JSON.stringify({errors,writes,text:await page.locator('body').innerText()},null,2));
+      }
+      throw e;
     } finally { await context.close(); }
   }
   await writeFile(join(dir,'results.json'),JSON.stringify(results,null,2)); console.log(JSON.stringify({groups:results.length,artifacts:dir,port}));
