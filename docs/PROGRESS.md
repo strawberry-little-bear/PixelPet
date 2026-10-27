@@ -3305,3 +3305,10 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 同一轮真实布局检查又发现俄罗斯方块暂停侧栏的长文会撑高棋盘区；暂停棋盘固定 126px，侧栏在自身区域滚动，暂停说明仍由 LCD 滚动区承载，不裁切速度、奖励和按键说明。
 - 定向前端 **53/53**，状态阅读 **48/48**，七款游戏阅读布局 **21/21**；前端全量 **231 个测试文件／6060 项**、TypeScript `--noEmit`、独立 Vite 生产构建、Go `test -race ./...`、`go vet ./...` 和 `git diff --check` 全部通过。独立构建：`/tmp/pixelpet-continue-web.cmY3rQ/`、`/tmp/pixelpet-continue-bin.ljcS6d`；浏览器报告：`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-game-reading-layout-ZAoMAv`、`/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-status-reading-1Yp8xt`。
 - 本轮仅使用隔离浏览器、随机端口和临时 SQLite，未访问、重启或部署正式服务，未操作 `data/pixelpet.db`、共享 `web/dist` 或共享 `bin`。自动化视口检查不代替实体手机、真人读屏和自然多日游玩验收；持续迭代目标保留。
+- 复跑统一入口时发现成长回执专项仍在等待小窝页中 `aria-hidden` 的详细 `.care-learning`；当前产品在小窝页按设计显示可见的紧凑回执摘要。专项已改为等待并断言 `.care-outcome-compact-summary`，不改变产品行为。
+- 统一入口首次运行中，图鉴专项把 LCD 滚动区按当前视口和固定页脚判断全文是否裁切；已改为按滚动区虚拟内容范围检查，并在短屏暂停态先将标题滚入视口再检查末尾提示可达。图鉴专项随后 **48/48** 通过；统一入口其余 13 项分别通过，成长回执专项 **70/70**。
+# 2026-10-27 · 统一阅读布局回归入口
+
+- 新增 `scripts/check-reading-layout.mjs`，把照顾、日记、纪念册、图鉴、商店、状态、成长、七款小游戏、回访滚动／触摸和异常恢复等现有专项串成一个可重复入口，也支持按脚本名筛选。
+- 新增[阅读布局统一回归](READING_LAYOUT_REGRESSION.md)，明确桌面、390px、320px、200% 根字号、固定物理外壳、LCD 内滚动、三键可见性、无横向溢出和恢复界面不误套固定高度的验收边界。
+- 本批只补测试编排与文档，不改变玩法、奖励、成长、存档格式或 A / B / C 约束。每个专项继续使用隔离构建、随机端口和临时 SQLite，不访问、重置、导入或覆盖 `data/pixelpet.db`。

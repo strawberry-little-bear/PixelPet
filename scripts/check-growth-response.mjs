@@ -274,13 +274,15 @@ try {
       await v.page.goto(base); await v.page.locator('.content-home').waitFor();
       await key(v, 'a');
       if (kind === 'clean') { await key(v, 'a'); await key(v, 'a'); }
-      await key(v, 'b'); await v.page.locator('.care-learning').waitFor();
+      // Home renders the acknowledgement as the compact, visible summary;
+      // the detailed `.care-learning` block is intentionally aria-hidden there.
+      await key(v, 'b'); await v.page.locator('.care-outcome-compact-summary').waitFor();
       const expectedGain = (initial + 1) - initial;
       assert.equal(acknowledged.careFeedback.habitGain, expectedGain);
       assert.equal(acknowledged.careFeedback.reason, 'credited');
       const label = kind === 'feed' ? '喂食习惯' : '清洁习惯';
       assert((await v.page.locator('.growth-feedback.has-feedback strong').innerText()).endsWith(label + ' +1'));
-      assert((await v.page.locator('.care-learning').innerText()).includes(label + '：+1'));
+      assert((await v.page.locator('.care-outcome-compact-summary').innerText()).includes(label + '：+1'));
       assert.equal(await v.page.locator('.save-recovery').count(), 0);
       const after = (await get()).state;
       assert.equal(after.growth.care[habit], initial + 1); assert.equal(after.careCount, 1);

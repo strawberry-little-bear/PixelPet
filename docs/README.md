@@ -84,6 +84,7 @@
 - [长名字换行布局](NAME_LAYOUT.md) · [大字号图鉴阅读](COLLECTION_READING_VIEWPORT.md)
 - [成长／状态阅读视口](CARE_READING_VIEWPORT.md) · [暂停页阅读视口](PAUSE_READING_VIEWPORT.md)
 - [钓鱼暂停菜单大字号布局](FISHING_PAUSE_LAYOUT.md)
+- [阅读布局统一回归入口](READING_LAYOUT_REGRESSION.md)
 
 ## 跨系统验证与实验边界
 

@@ -60,7 +60,12 @@ async function readable(page, kind) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal page overflow');
   assert.equal(await page.locator(`.${kind}-album > header`).count(), 1);
   const problems = await page.locator(`.${kind}-album`).evaluate(el => {
-    const bounds = document.querySelector('.lcd-content').getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect();
+    // The LCD is a deliberate scrollport. Validate against its virtual
+    // content bounds instead of treating below-the-fold reading text as
+    // clipped by the current viewport or the physical footer.
+    const content = document.querySelector('.lcd-content'), box = content.getBoundingClientRect();
+    const bounds = { left: box.left, right: box.right, top: box.top - content.scrollTop,
+      bottom: box.top - content.scrollTop + content.scrollHeight };
     const header = el.querySelector('header').getBoundingClientRect(), next = el.querySelector('header').nextElementSibling.getBoundingClientRect(), problems = [];
     for (const child of el.querySelectorAll('header > *')) {
       const box = child.getBoundingClientRect();
@@ -72,8 +77,8 @@ async function readable(page, kind) {
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.top < bounds.top - 1 || box.bottom > Math.min(bounds.bottom, footer.top) + 1) problems.push(text.textContent);
-        for (let parent = text.parentElement; parent; parent = parent.parentElement) {
+        if (box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1) problems.push(text.textContent);
+        for (let parent = text.parentElement; parent && parent !== content; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
           if ((/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) ||
               (/hidden|clip|auto|scroll/.test(css.overflowX) && (box.left < rect.left - 1 || box.right > rect.right + 1))) problems.push('clipped: ' + text.textContent);
@@ -194,6 +199,7 @@ try {
       if (paused) {
         // Large text makes the pause menu taller than a short viewport. Check
         // its return target first, then that its final hint remains reachable.
+        await page.locator(`${pause} > strong`).scrollIntoViewIfNeeded();
         await visible(page, `${pause} > strong`);
         await visible(page, kind === 'fish' ? `${pause} li.selected` : `${pause} [data-selected="true"]`);
         await page.locator(`${pause} > small:last-child`).scrollIntoViewIfNeeded();
