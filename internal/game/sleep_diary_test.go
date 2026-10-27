@@ -70,9 +70,9 @@ func TestWakeDiaryDistinguishesZeroTinyAndUnavailableHistory(t *testing.T) {
 		s := sleepPet(t, now, 40)
 		sleepToggle(t, &s, now)
 		sleepToggle(t, &s, now.Add(elapsed))
-		want := "这一觉让体力恢复 +0.00，休息习惯 +0.00；睡梦里的成长 +0.00 点也记下来了。"
+		want := "这一觉睡得很踏实，醒来后感觉更有精神了。结算记录：体力恢复 +0.00，休息习惯 +0.00，睡梦里的成长 +0.00 点。"
 		if elapsed > 0 {
-			want = "这一觉让体力恢复 +<0.01，休息习惯 +<0.01；睡梦里的成长 +<0.01 点也记下来了。"
+			want = "这一觉睡得很踏实，醒来后感觉更有精神了。结算记录：体力恢复 +<0.01，休息习惯 +<0.01，睡梦里的成长 +<0.01 点。"
 		}
 		if !strings.Contains(s.Logs[0].Text, want) {
 			t.Fatalf("want %s: %s", want, s.Logs[0].Text)

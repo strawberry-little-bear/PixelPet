@@ -5,7 +5,7 @@ import type { JournalCursor, JournalLogs } from "./journal";
 function splitDiaryText(text: string) {
   // Only add visual breaks to saved prose; never reconstruct historical
   // amounts, reasons or milestones from the current pet. Unknown text stays whole.
-  const marker = "即时需求：";
+  const marker = text.includes("即时需求：") ? "即时需求：" : "结算记录：";
   const splitAt = text.indexOf(marker);
   if (splitAt <= 0) return { primary: text, detail: [] };
   const detail = text.slice(splitAt), parts: string[] = [];

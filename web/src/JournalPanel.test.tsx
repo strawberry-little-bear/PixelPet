@@ -15,6 +15,18 @@ it("keeps the diary sentence primary and presents numeric detail as secondary te
   expect(diary.querySelector(".journal-detail")?.tagName).toBe("SMALL");
 });
 
+it("keeps sleep settlement numbers secondary to the diary sentence", () => {
+  const text = "早安！这一觉睡得很踏实，醒来后感觉更有精神了。结算记录：体力恢复 +14.00，休息习惯 +0.50，睡梦里的成长 +1.18 点。";
+  const logs = [{ at: Date.parse("2026-10-20T01:20:00Z"), text }];
+  render(<JournalPanel logs={logs} cursor={startJournal(logs)} />);
+  const diary = screen.getByRole("region", { name: "成长日记" });
+  expect(diary.querySelector(".journal-primary")?.textContent)
+    .toBe("早安！这一觉睡得很踏实，醒来后感觉更有精神了。");
+  expect(diary.querySelector(".journal-detail")?.textContent)
+    .toContain("结算记录：体力恢复 +14.00");
+  expect(diary.textContent).toContain(text);
+});
+
 it.each([
   "今天一起在小窝里发了一会儿呆。",
   "即时需求：饱食+20.00。",

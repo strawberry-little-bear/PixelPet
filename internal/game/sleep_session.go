@@ -54,7 +54,10 @@ func sleepDiary(session *SleepSession, wokeAt int64) string {
 	if session == nil {
 		return "早安！这段休息没有完整记录，未估算恢复量；下次明确入睡后会记录。"
 	}
-	text := fmt.Sprintf("早安！这一觉让体力恢复 +%s，休息习惯 +%s；睡梦里的成长 +%s 点也记下来了。",
+	// Keep the diary's first sentence about the shared moment. Exact settlement
+	// values remain in a secondary sentence so the entry reads like a diary,
+	// while still preserving the canonical precision for review and export.
+	text := fmt.Sprintf("早安！这一觉睡得很踏实，醒来后感觉更有精神了。结算记录：体力恢复 +%s，休息习惯 +%s，睡梦里的成长 +%s 点。",
 		diaryAmount(session.EnergyRecovered), diaryAmount(session.RestGain), diaryAmount(session.GrowthPoints))
 	unsettled := float64(wokeAt-session.StartedAt)/3600000 - session.SettledHours
 	if unsettled > 1e-7 {
