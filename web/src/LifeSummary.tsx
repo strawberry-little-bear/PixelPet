@@ -1,6 +1,6 @@
 import { companionCompletionTotal, interestLimit, interestSummary, validInterestEntries } from "./companion";
 import { games } from "./games";
-import { savedGameHistory } from "./game-history";
+import { completionLabel, savedGameHistory } from "./game-history";
 import { memoryWords } from "./AlbumPanel";
 import { ownedKeepsakes } from "./KeepsakeCorner";
 import type { Memory, PetState } from "./types";
@@ -219,8 +219,18 @@ export function LifeSummary({ pet, now }: { pet: PetState; now: number }) {
       {summary.interestProgress && <p>{summary.interestProgress.titles.length === 1
         ? `${summary.interestProgress.titles[0]} · 熟悉度 ${summary.interestProgress.points} / ${interestLimit}`
         : `熟悉的游戏不止一种 · 最高熟悉度 ${summary.interestProgress.points} / ${interestLimit}`}</p>}
-      <small>这是共同经历的只读记录，不是任务，也不会改变成年形态；逐项局数收在成长手册的「共同游戏·兴趣记录」里。</small>
+      <small>这是共同经历的只读记录，不是任务，也不会改变成年形态。</small>
     </section>
+    {summary.gameHistorySince !== null && <section className="life-summary-games" aria-label="各款共同游戏完成次数">
+      <strong>各款共同游戏</strong>
+      <div className="life-summary-game-grid">
+        {summary.gameStats.map(game => <div key={game.id} data-game-completion={game.id}>
+          <b data-completion-count={game.id}>{completionLabel(game.completions!)}</b>
+          <span>{game.title}</span>
+        </div>)}
+      </div>
+      <small>只统计已经收好的游戏；不补写旧版经历，也不会变成任务或奖励目标。</small>
+    </section>}
     <section className="life-summary-next" aria-label={summary.adultDirections ? "可以继续的方向" : "一起生活的下一步"}>
       <strong>{summary.adultDirections ? "可以继续的方向" : "一起生活的下一步"}</strong>
       <p>{summary.nextStep}</p>

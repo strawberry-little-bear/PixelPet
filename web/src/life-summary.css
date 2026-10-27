@@ -23,6 +23,13 @@
 .life-summary-interest > strong { display: block; }
 .life-summary-interest p { margin: 5px 0; }
 .life-summary-interest small { display: block; line-height: 1.35; }
+.life-summary-games { margin: 10px 0; padding: 8px; border: 1px dashed currentColor; border-radius: 2px; }
+.life-summary-games > strong { display: block; }
+.life-summary-game-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(6em, 1fr)); gap: 5px; margin: 7px 0 5px; }
+.life-summary-game-grid > div { min-width: 0; display: grid; gap: 2px; text-align: center; }
+.life-summary-game-grid b { font-size: 1.05em; }
+.life-summary-game-grid span { line-height: 1.3; word-break: keep-all; }
+.life-summary-games small { display: block; line-height: 1.35; }
 .life-summary-details-heading { margin: 14px 0 6px; font-size: 1em; }
 .life-summary-next { margin: 10px 0; padding: 8px; border: 1px solid currentColor; border-radius: 2px; }
 .life-summary-next > strong { display: block; }
@@ -48,4 +55,5 @@
 @media (min-width: 341px) and (max-width: 700px) {
   .life-summary-grid { grid-template-columns: repeat(3, minmax(4.2em, 1fr)); }
   .life-summary-experience-grid { grid-template-columns: repeat(3, minmax(4.2em, 1fr)); }
+  .life-summary-game-grid { grid-template-columns: repeat(3, minmax(6em, 1fr)); }
 }

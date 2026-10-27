@@ -198,10 +198,12 @@ describe("saved shared-game completion counts", () => {
     current.companion!.interests = [{ kind: "stars", points: 5, lastAt: created }];
     const before = structuredClone(current);
     const { container } = render(<LifeSummary pet={current} now={created + day + 0.5} />);
-    expect(lifeSummary(current, created + day + 0.5).gameStats.map(game => game.completions))
-      .toEqual(kinds.map((_, i) => i + 1));
-    expect(container.querySelector(".life-summary-games")).toBeNull();
-    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("成长手册");
+    const summary = lifeSummary(current, created + day + 0.5);
+    expect(summary.gameStats.map(game => game.completions)).toEqual(kinds.map((_, i) => i + 1));
+    expect(container.querySelectorAll("[data-game-completion]")).toHaveLength(7);
+    expect(container.querySelector(".life-summary-games")?.textContent).toContain("接星星");
+    expect(container.querySelector('[data-completion-count="walk"]')?.textContent).toBe("6 局");
+    expect(container.querySelector(".life-summary-interest")?.textContent).not.toContain("成长手册");
     expect(current).toEqual(before);
   });
 
@@ -213,7 +215,7 @@ describe("saved shared-game completion counts", () => {
     const { container } = render(<LifeSummary pet={current} now={created + day} />);
     expect(container.querySelectorAll("[data-completion-count]")).toHaveLength(0);
     expect(container.querySelector(".life-summary-games")).toBeNull();
-    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("成长手册");
+    expect(container.querySelector(".life-summary-interest")?.textContent).not.toContain("成长手册");
     expect(lifeSummary(current, created).gameStats.every(game => game.completions === null)).toBe(true);
   });
 
@@ -224,7 +226,8 @@ describe("saved shared-game completion counts", () => {
     const { container } = render(<LifeSummary pet={current} now={created + day} />);
     expect(lifeSummary(current, created + day).gameStats.slice(0, 2).map(game => game.completions))
       .toEqual([0, Number.MAX_SAFE_INTEGER]);
-    expect(container.querySelector(".life-summary-games")).toBeNull();
+    expect(container.querySelector('[data-completion-count="stars"]')?.textContent).toBe("0 局");
+    expect(container.querySelector('[data-completion-count="tiles"]')?.textContent).toBe(`≥${Number.MAX_SAFE_INTEGER} 局`);
   });
 
   it.each(["negative", "fraction", "unsafe", "duplicate", "missing", "future", "before", "invalid time"])(

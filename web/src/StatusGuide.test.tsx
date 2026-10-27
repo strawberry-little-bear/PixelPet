@@ -152,7 +152,7 @@ describe("共同生活回顾", () => {
     expect(container.querySelector('[data-stat="fish-caught"]')?.textContent).toContain("2");
     expect(container.querySelector('[data-stat="fish-species"]')?.textContent).toContain("1");
     expect(container.querySelector(".life-summary-games")).toBeNull();
-    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("成长手册");
+    expect(container.querySelector(".life-summary-interest")?.textContent).not.toContain("成长手册");
     expect(container.querySelector(".life-summary-grid")?.textContent).toContain("3游戏记忆");
     expect(container.querySelector(".life-summary-experiences")?.textContent).toContain("只统计");
     expect(container.querySelector(".life-summary-memory")?.textContent).toContain("公园里走过的第一条小路");
@@ -214,7 +214,7 @@ describe("共同生活回顾", () => {
     expect(container.querySelector('[data-stat="walk-steps"]')?.textContent).toContain("0");
     expect(container.querySelector('[data-stat="fish-caught"]')?.textContent).toContain("0");
     expect(container.querySelector(".life-summary-games")).toBeNull();
-    expect(container.querySelector(".life-summary-interest")?.textContent).toContain("成长手册");
+    expect(container.querySelector(".life-summary-interest")?.textContent).not.toContain("成长手册");
     expect(container.querySelector(".life-summary-memory")).toBeNull();
     expect(summary).not.toContain("游戏记忆3");
     expect(current).toEqual(before);
