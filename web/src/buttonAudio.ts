@@ -4,6 +4,7 @@ export class ButtonAudio {
   private context: AudioContext | null = null;
   private resuming: { context: AudioContext; promise: Promise<void> } | null = null;
   private enabled = false;
+  private suspendRequested = false;
   private epoch = 0;
   private notes = new Set<{ oscillator: OscillatorNode; gain: GainNode }>();
 
@@ -20,6 +21,21 @@ export class ButtonAudio {
     }
   }
 
+  // Background pages should not keep an unlocked context running. The next
+  // user key may resume it through play(); no automatic resume is attempted.
+  suspend() {
+    this.cancel();
+    this.suspendRequested = true;
+    const context = this.context;
+    if (!context || context.state === "closed" || context.state === "suspended") return;
+    this.pauseContext(context);
+  }
+
+  private pauseContext(context: AudioContext) {
+    try { void context.suspend().catch(() => {}); }
+    catch { /* Audio is optional and browser lifecycle is outside gameplay. */ }
+  }
+
   private release(note: { oscillator: OscillatorNode; gain: GainNode }) {
     this.notes.delete(note);
     try { note.oscillator.disconnect(); } catch { /* Audio is optional. */ }
@@ -28,6 +44,7 @@ export class ButtonAudio {
 
   async play(confirm = false): Promise<void> {
     if (!this.enabled || document.hidden) return;
+    this.suspendRequested = false;
     const epoch = ++this.epoch;
     const pressedAt = performance.now();
     try {
@@ -38,6 +55,10 @@ export class ButtonAudio {
         this.resuming = attempt;
         try { await attempt.promise; }
         finally { if (this.resuming === attempt) this.resuming = null; }
+      }
+      if (this.suspendRequested) {
+        if (this.context === context && context.state === "running") this.pauseContext(context);
+        return;
       }
       if (!this.enabled || document.hidden || epoch !== this.epoch || performance.now() - pressedAt > 250 || this.context !== context || context.state !== "running") return;
       this.tone(context, confirm ? 740 : 520, 0.045, 0.09, 0.1);
@@ -80,6 +101,7 @@ export class ButtonAudio {
 
   dispose() {
     this.setEnabled(false);
+    this.suspendRequested = false;
     const context = this.context;
     this.context = null;
     this.resuming = null;

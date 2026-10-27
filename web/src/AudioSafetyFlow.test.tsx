@@ -12,6 +12,7 @@ class AudioStub {
   static instances: AudioStub[]=[];
   state='suspended';currentTime=1;destination={};
   resume=vi.fn(()=>new Promise<void>(resolve=>{resolveResume=()=>{this.state='running';resolve();};}));
+  suspend=vi.fn(async()=>{this.state='suspended';});
   close=vi.fn(async()=>{this.state='closed';});
   gain={gain:{setValueAtTime:vi.fn(),exponentialRampToValueAtTime:vi.fn()},connect:vi.fn(),disconnect:vi.fn()};
   createGain=vi.fn(()=>this.gain);
@@ -51,7 +52,14 @@ it('no delayed sound survives a mute/unmute, while three-key movement still work
 it('backgrounding cancels pending feedback even if the page is foreground again before permission arrives',async()=>{
   await mount();await key('a');hidden=true;await act(async()=>{document.dispatchEvent(new Event('visibilitychange'));});
   hidden=false;await act(async()=>{document.dispatchEvent(new Event('visibilitychange'));});
-  await resume();expect(context().createOscillator).not.toHaveBeenCalled();await key('a');expect(context().createOscillator).toHaveBeenCalledOnce();expect(writes()).toHaveLength(0);
+  await resume();expect(context().createOscillator).not.toHaveBeenCalled();await key('a');await resume();expect(context().createOscillator).toHaveBeenCalledOnce();expect(writes()).toHaveLength(0);
+});
+it('backgrounding suspends an unlocked context and the next key restores it',async()=>{
+  await mount();await key('a');await resume();const audio=context();
+  hidden=true;await act(async()=>{document.dispatchEvent(new Event('visibilitychange'));});
+  expect(audio.suspend).toHaveBeenCalledOnce();expect(audio.state).toBe('suspended');
+  hidden=false;await act(async()=>{document.dispatchEvent(new Event('visibilitychange'));});
+  await key('a');await resume();expect(audio.resume).toHaveBeenCalledTimes(2);expect(audio.createOscillator).toHaveBeenCalledTimes(2);
 });
 it('rejected permission is contained, and the next key still confirms care exactly once',async()=>{
   await mount();await key('a');await resume();context().state='suspended';context().resume.mockRejectedValueOnce(Error('denied'));

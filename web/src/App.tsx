@@ -1506,7 +1506,7 @@ export default function App() {
   }, [pet?.game, snakeSession, page, busy, tools, help, reset, abandoning]);
   useEffect(() => {
     const stop = () => {
-      audio.current?.cancel();
+      audio.current?.suspend();
       setTileLink(null);
       setTileHint(null);
       boardEpoch.current++;

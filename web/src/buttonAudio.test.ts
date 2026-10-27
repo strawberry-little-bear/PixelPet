@@ -9,6 +9,7 @@ class FakeContext {
   currentTime = 12;
   destination = {};
   resume = vi.fn(async () => { this.state = 'running'; });
+  suspend = vi.fn(async () => { this.state = 'suspended'; });
   close = vi.fn(async () => { this.state = 'closed'; });
   notes: ReturnType<FakeContext['createNote']>[] = [];
   private createNote() {
@@ -75,6 +76,22 @@ it('muting immediately stops and disconnects a playing note', async () => {
 });
 it('hidden presses cannot open an audio context', async () => {
   hidden=true; await audio.play(); expect(FakeContext.instances).toHaveLength(0);
+});
+it('suspends an unlocked context and resumes only after a later user key', async () => {
+  await audio.play(); const context = ctx(); audio.suspend();
+  expect(context.suspend).toHaveBeenCalledOnce(); expect(context.state).toBe('suspended');
+  await audio.play(); expect(context.resume).toHaveBeenCalledOnce();
+  expect(context.notes).toHaveLength(2);
+});
+it('contains a failed background suspend without affecting the next key', async () => {
+  await audio.play(); const context = ctx(); context.suspend.mockRejectedValueOnce(Error('blocked'));
+  expect(() => audio.suspend()).not.toThrow(); await Promise.resolve();
+  await audio.play(); expect(context.resume).not.toHaveBeenCalled();
+});
+it('finishes a pending resume as suspended when backgrounding races it', async () => {
+  const s = await suspended(); const playing = audio.play(); audio.suspend(); s.resolve(); await playing;
+  expect(s.context.suspend).toHaveBeenCalledOnce(); expect(s.context.notes).toHaveLength(1);
+  await audio.play(); expect(s.context.resume).toHaveBeenCalledTimes(2); expect(s.context.notes).toHaveLength(2);
 });
 it('disposal closes the owned context and later initialization can start cleanly', async () => {
   await audio.play(); const first=ctx(); audio.dispose(); expect(first.close).toHaveBeenCalledOnce();
