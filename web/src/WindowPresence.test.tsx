@@ -71,6 +71,34 @@ it("does not claim from an old poll completing after blur, but can claim on retu
   await event("focus"); expect(claims()).toHaveLength(1);
 });
 
+it("drops an in-flight read across pagehide and starts a fresh persisted pageshow read", async () => {
+  const oldRead = deferred<Result>(), freshRead = deferred<Result>();
+  api.mockReset(); api.mockReturnValueOnce(oldRead.promise).mockReturnValueOnce(freshRead.promise);
+  await mount();
+  expect(reads().map(([path]) => path)).toEqual(["visit"]);
+
+  await act(async () => {
+    window.dispatchEvent(new Event("pagehide"));
+    const show = new Event("pageshow");
+    Object.defineProperty(show, "persisted", { value: true });
+    window.dispatchEvent(show);
+  });
+  expect(reads().map(([path]) => path)).toEqual(["visit", "visit"]);
+
+  const freshState = structuredClone(saved);
+  freshState.name = "恢复后的陪伴"; freshState.needs.hunger = 41; freshState.revision++;
+  await act(async () => { freshRead.resolve({ ...result(), state: freshState }); });
+  expect(document.querySelector(".companion-title h2")?.textContent).toBe("恢复后的陪伴");
+
+  // The suspended pre-pagehide response is ignored even if the browser
+  // releases it after the restored page has already rendered fresh state.
+  const staleState = structuredClone(saved);
+  staleState.name = "过期的陪伴"; staleState.needs.hunger = 12; staleState.revision++;
+  await act(async () => { oldRead.resolve({ ...result(), state: staleState }); });
+  expect(document.querySelector(".companion-title h2")?.textContent).toBe("恢复后的陪伴");
+  expect(claims()).toHaveLength(0);
+});
+
 it("keeps an already saved claim in the menu rather than auto-presenting a late reply", async () => {
   pendingRecap(); const claim = deferred<Result>();
   api.mockImplementation(async path => path === "recap/read" ? claim.promise : result());

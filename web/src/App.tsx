@@ -869,12 +869,20 @@ export default function App() {
     // in-flight automatic step cannot continue after a restore, then perform
     // the same authoritative read on pageshow that a visible return uses.
     const pageHide = () => {
+      // A mobile browser may freeze an in-flight read and only release it
+      // after BFCache/process restoration. Invalidate that response now so it
+      // cannot occupy the read slot or win over the fresh pageshow read.
+      syncEpoch.current++;
       windowActive.current = false;
       setWindowFocused(false);
       left();
     };
-    const pageShow = () => {
+    const pageShow = (event: PageTransitionEvent) => {
       if (document.hidden) return;
+      // Some browsers can deliver a persisted pageshow without a matching
+      // pagehide to application code. Treat it as a fresh lifecycle boundary
+      // as well; the authoritative read below must not wait on stale work.
+      if (event.persisted) syncEpoch.current++;
       // pagehide clears foreground even when no visibility event follows.
       // Restore it here so queued growth and reading feedback can return.
       setForeground(true);
