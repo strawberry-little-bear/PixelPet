@@ -13,6 +13,21 @@ const pet = (growth?: Growth): PetState => ({
 afterEach(cleanup);
 const reaction = (container: HTMLElement) => container.querySelector(".quiet-moment-pet")!;
 
+it("announces only the current response, not the changing ambient reading scene", () => {
+  const saved = pet(emptyGrowth("baby"));
+  const { container, rerender } = render(<QuietMoment pet={saved} choice={1} replied={false} now={1000} />);
+  const response = container.querySelector(".quiet-moment-copy > p");
+  expect(response?.getAttribute("role")).toBe("status");
+  expect(response?.getAttribute("aria-live")).toBe("polite");
+  expect(response?.getAttribute("aria-atomic")).toBe("true");
+  expect(container.querySelector(".quiet-moment")?.hasAttribute("aria-live")).toBe(false);
+
+  const idle = response?.textContent;
+  rerender(<QuietMoment pet={saved} choice={1} replied={false} now={new Date(2026, 6, 1, 12).getTime()} />);
+  expect(container.querySelectorAll("[aria-live]")).toHaveLength(1);
+  expect(container.querySelector(".quiet-moment-copy > p")?.textContent).toBe(idle);
+});
+
 it("reserves the curious baby response for daydreaming, including the first explicit B", () => {
   const saved = pet(emptyGrowth("baby"));
   const { container, rerender } = render(<QuietMoment pet={saved} choice={1} replied={false} />);

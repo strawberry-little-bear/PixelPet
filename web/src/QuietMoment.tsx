@@ -97,7 +97,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
   const tendencyLine = !pet.sleeping ? growingTendencyLine(growth, choice, replied) : null;
   return <CareReadingRegion className="quiet-moment-reading" label="无目的互动阅读区"
     hint="Tab 聚焦：↑/↓ 或空格滚动；Enter 不操作，A/B/C 不变。">
-    <section className="quiet-moment" aria-live="polite" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
+    <section className="quiet-moment" data-choice={choice} data-replied={replied} data-sleeping={pet.sleeping}>
       <header><span>{browsing ? "一起聊聊回忆" : "不用完成什么"}</span><small>{choice + 1} / {quietMoments.length}</small></header>
       <div className="quiet-moment-scene">
         <div className="quiet-moment-room" aria-hidden="true">
@@ -127,7 +127,7 @@ export function QuietMoment({ pet, shop, choice, replied, responseId = 0, memory
         {memory?.discovery && <div className="quiet-discovery" aria-hidden="true">
           {memory.source === "fish" ? <FishArt id={memory.discovery} /> : <ParkArt id={memory.discovery} />}
         </div>}
-        <p>{replied ? reply : words.idle}</p>
+        <p role="status" aria-live="polite" aria-atomic="true">{replied ? reply : words.idle}</p>
         {tendencyLine && <small className="quiet-growth-tendency" data-form={tendencyLine.form}><span>当前偏向 · {formNames[tendencyLine.form]}</span>{tendencyLine.text}（还会随着照顾继续变化）</small>}
         {formLine && <small className="quiet-form-line" data-form={form}><span>成长留下的样子</span>{formLine}</small>}
         {interest && <small className="quiet-interest" data-game={interest.kind}><span>一起玩久了</span>{interest.text}</small>}
