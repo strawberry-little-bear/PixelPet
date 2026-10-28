@@ -2,7 +2,7 @@ import { RequestFailure } from "./requestFailure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
-import { ArcadePanel } from "./ArcadePanel";
+import { ArcadePanel, GameGuide } from "./ArcadePanel";
 import { gameAllowance, gameFinishInstruction, gameLesson, gameStartInstruction, games, guideSeen, rememberGuide } from "./games";
 import type { GameInfo } from "./games";
 import { emptyGrowth } from "./growth";
@@ -204,6 +204,41 @@ describe("shared UTC quota and wallet visibility", () => {
 });
 
 describe("saved game familiarity", () => {
+  it("announces the selected game title and position", () => {
+    const view = render(<ArcadePanel choice={0} now={Date.now()} shop={rules} economy={saved.economy} />);
+    const status = view.container.querySelector('[data-selection-status="arcade"]');
+    expect(status?.textContent).toContain("第 1 / 7 款，接星星");
+    expect(status?.textContent).toContain("A 下一款，B 看规则，C 返回小窝");
+    expect(status?.getAttribute("aria-live")).toBe("polite");
+
+    view.rerender(<ArcadePanel choice={1} now={Date.now()} shop={rules} economy={saved.economy} />);
+    expect(status?.textContent).toContain("第 2 / 7 款，连连看");
+  });
+
+  it("announces guide pages without putting the guide body in a live region", () => {
+    const view = render(<GameGuide game={games[0]} page={0} review shop={rules} now={Date.now()} />);
+    const status = view.container.querySelector('[data-selection-status="game-guide"]');
+    expect(status?.textContent).toContain("接星星，第 1 / 2 页");
+    expect(status?.textContent).toContain("A 翻页");
+    expect(view.container.querySelector(".guide-steps")?.closest("[aria-live]"))
+      .toBeNull();
+
+    view.rerender(<GameGuide game={games[0]} page={1} review shop={rules} now={Date.now()} />);
+    expect(status?.textContent).toContain("接星星，第 2 / 2 页");
+  });
+
+  it("keeps sleep and low-energy guide announcements from promising a start", () => {
+    const sleeping = render(<GameGuide game={games[0]} page={0} sleeping review shop={rules} now={Date.now()} />);
+    expect(sleeping.container.querySelector('[data-selection-status="game-guide"]')?.textContent)
+      .toContain("B 暂不可开始");
+    expect(sleeping.container.querySelector('[data-selection-status="game-guide"]')?.textContent)
+      .not.toContain("B 开始");
+
+    const lowEnergy = render(<GameGuide game={games[0]} page={0} energy={9.9} review shop={rules} now={Date.now()} />);
+    expect(lowEnergy.container.querySelector('[data-selection-status="game-guide"]')?.textContent)
+      .toContain("B 暂不可开始");
+  });
+
   it("announces only the selected game's concise summary when selection changes", () => {
     const companion = { since: Date.now(), interests: [{ kind: "tetris" as const, points: 3, lastAt: Date.now() }] };
     const growth = emptyGrowth("growing"); growth.care.play = 3;

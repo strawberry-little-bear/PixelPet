@@ -7,6 +7,7 @@ import type { GuideRewardContext } from "./GuideReward";
 import { gameLesson, gameStartBlock, gameStartInstruction, games, gameAllowance, guideSeen } from "./games";
 import type { GameInfo } from "./games";
 import { gameIsPreferred, gamePreference, gamePreferenceLabel } from "./gamePreference";
+import { SelectionStatus } from "./SelectionStatus";
 import type { Companion, Economy, Growth, PetState, Shop } from "./types";
 import "./arcade.css";
 
@@ -20,6 +21,7 @@ export function ArcadePanel({ choice, economy, companion, growth, shop, now, sle
   const allowance = gameAllowance(economy, shop, now);
   return <section className="arcade-panel" aria-label="一起玩耍">
     <header>和小伙伴一起玩 <small>{choice + 1} / {games.length}</small></header>
+    <SelectionStatus scope="arcade">第 {choice + 1} / {games.length} 款，{game.title}。A 下一款，B 看规则，C 返回小窝。</SelectionStatus>
     {selectionRemembered && <p className="arcade-memory-note" role="note" aria-label="上次游戏位置">上次选中：{game.title} · A 下一款 · B 看规则</p>}
     {blocked && <p className="game-start-note" role="status" aria-label="开局前的照顾提示">{blocked.note}{!sleeping && "可以先按 B 看规则。"}</p>}
     <div className="arcade-cards">
@@ -49,7 +51,9 @@ export function GameGuide({ game, page, review = false, paused = false, sleeping
   const blocked = paused ? null : gameStartBlock(sleeping, energy);
   const lesson = gameLesson(game, species);
   const notice = blocked && <p className="game-start-note" role="status" aria-label="开局前的照顾提示">{blocked.note}</p>;
+  const quickStartAction = blocked?.hint ?? gameStartInstruction(game, true);
   if (seen && !review && !paused) return <section className="game-guide game-quick-start" aria-label={`${game.title}开始准备`} data-guide={game.id}>
+    <SelectionStatus scope="game-guide">准备再玩，{game.title}。A 重看规则，B {quickStartAction.replace(/^B /, "")}，C 返回选游戏。</SelectionStatus>
     <header>准备再玩 · {game.title}</header>
     {notice}
     <strong>{game.summary} · {game.duration}</strong>
@@ -58,7 +62,11 @@ export function GameGuide({ game, page, review = false, paused = false, sleeping
     <p>{game.id === "stars" || game.id === "tiles" ? "按 B 才开局，不会自动操作。" : game.id === "fishing" ? "开局后按 B 手动抛竿，不会自动开始等待。" : "开局后保持暂停，按画面提示手动继续。"}</p>
     <small>A 重看规则 · {blocked?.hint ?? gameStartInstruction(game, seen)} · C 返回选游戏</small>
   </section>;
+  const guideAction = paused
+    ? "A / B 翻页 · C 返回暂停"
+    : `A 翻页 · ${blocked?.hint ?? gameStartInstruction(game, seen && !review)} · C 返回选游戏`;
   return <section className="game-guide" aria-label={`${game.title}玩法说明`} data-guide={game.id}>
+    <SelectionStatus scope="game-guide">{paused ? "本局玩法" : review ? "再看玩法" : "第一次一起玩"}，{game.title}，第 {page + 1} / 2 页。{guideAction}。</SelectionStatus>
     <header>{paused ? "本局玩法" : seen ? "再看玩法" : "第一次一起玩"} · {game.title}<small>{page + 1} / 2</small></header>
     {notice}
     <strong>{page === 0 ? game.controls : "暂停、离开与奖励"}</strong>
