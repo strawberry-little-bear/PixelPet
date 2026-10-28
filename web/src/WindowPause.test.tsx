@@ -93,6 +93,20 @@ describe.each(games)("visible-window pause for %s", kind => {
     await key("c"); await clock(stepWait(kind));
     expect(actions().at(-1)?.kind).toBe(`${prefix(kind)}-step`);
   });
+  it("stops beats across freeze/resume and requires a fresh key", async () => {
+    await mount(kind); await key("c"); await clock(stepWait(kind));
+    const count = actions().length, board = structuredClone(saved.game);
+    await act(async () => {
+      window.dispatchEvent(new Event("freeze"));
+      window.dispatchEvent(new Event("resume"));
+    });
+    await clock(3000);
+    expect(actions()).toHaveLength(count);
+    expect(saved.game).toEqual(board);
+    expect(overlay(kind)).toBeTruthy();
+    await key("c"); await clock(stepWait(kind));
+    expect(actions().at(-1)?.kind).toBe(`${prefix(kind)}-step`);
+  });
   it.each([false, true])("keeps an accepted beat without running the next after blur (return first=%s)", async returnFirst => {
     await mount(kind); await key("c"); const deliver = delay(`${prefix(kind)}-step`);
     await clock(stepWait(kind)); const committed = structuredClone(saved.game), count = actions().length;

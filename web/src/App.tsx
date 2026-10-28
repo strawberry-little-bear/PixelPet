@@ -890,11 +890,32 @@ export default function App() {
       setWindowFocused(true);
       returned();
     };
+    const freeze = () => {
+      // A mobile browser can freeze a focused page without a pagehide or
+      // blur. Treat it as a lifecycle boundary so old reads and running-game
+      // callbacks cannot resume with stale local permission after restore.
+      syncEpoch.current++;
+      windowActive.current = false;
+      setWindowFocused(false);
+      left();
+    };
+    const resume = () => {
+      if (document.hidden) return;
+      // The page may resume in place rather than emit pageshow. Start a fresh
+      // authoritative read and require an explicit key before any game beat.
+      syncEpoch.current++;
+      setForeground(true);
+      windowActive.current = true;
+      setWindowFocused(true);
+      returned();
+    };
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("focus", windowFocus);
     window.addEventListener("blur", windowBlur);
     window.addEventListener("pagehide", pageHide);
     window.addEventListener("pageshow", pageShow);
+    window.addEventListener("freeze", freeze);
+    window.addEventListener("resume", resume);
     return () => {
       returnReadPending.current = false;
       clearInterval(timer);
@@ -903,6 +924,8 @@ export default function App() {
       window.removeEventListener("blur", windowBlur);
       window.removeEventListener("pagehide", pageHide);
       window.removeEventListener("pageshow", pageShow);
+      window.removeEventListener("freeze", freeze);
+      window.removeEventListener("resume", resume);
     };
   }, [refresh]);
   useEffect(() => {
@@ -1535,10 +1558,12 @@ export default function App() {
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("blur", blur);
     window.addEventListener("pagehide", stop);
+    window.addEventListener("freeze", stop);
     return () => {
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("blur", blur);
       window.removeEventListener("pagehide", stop);
+      window.removeEventListener("freeze", stop);
       // A pulse may resolve after the component is gone; never write a queued
       // pause from a disposed page (including StrictMode cleanup).
       fishingEpoch.current++;

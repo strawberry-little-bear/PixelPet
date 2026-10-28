@@ -99,6 +99,30 @@ it("drops an in-flight read across pagehide and starts a fresh persisted pagesho
   expect(claims()).toHaveLength(0);
 });
 
+it("drops an in-flight read across freeze and starts a fresh resume read", async () => {
+  const oldRead = deferred<Result>(), freshRead = deferred<Result>();
+  api.mockReset(); api.mockReturnValueOnce(oldRead.promise).mockReturnValueOnce(freshRead.promise);
+  await mount();
+  expect(reads().map(([p]) => p)).toEqual(["visit"]);
+
+  await act(async () => {
+    window.dispatchEvent(new Event("freeze"));
+    window.dispatchEvent(new Event("resume"));
+  });
+  expect(reads().map(([p]) => p)).toEqual(["visit", "visit"]);
+
+  const freshState = structuredClone(saved);
+  freshState.name = "冻结后恢复的陪伴"; freshState.needs.hunger = 43; freshState.revision++;
+  await act(async () => { freshRead.resolve({ ...result(), state: freshState }); });
+  expect(document.querySelector(".companion-title h2")?.textContent).toBe("冻结后恢复的陪伴");
+
+  const staleState = structuredClone(saved);
+  staleState.name = "冻结前的旧陪伴"; staleState.needs.hunger = 9; staleState.revision++;
+  await act(async () => { oldRead.resolve({ ...result(), state: staleState }); });
+  expect(document.querySelector(".companion-title h2")?.textContent).toBe("冻结后恢复的陪伴");
+  expect(claims()).toHaveLength(0);
+});
+
 it("keeps an already saved claim in the menu rather than auto-presenting a late reply", async () => {
   pendingRecap(); const claim = deferred<Result>();
   api.mockImplementation(async path => path === "recap/read" ? claim.promise : result());
