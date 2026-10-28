@@ -2504,6 +2504,8 @@ export default function App() {
   // feedback belongs below it, so expiry cannot shift the device or cover keys.
   const recoveryVisible = uncertain || unavailable || (corrupt && !(page === "import-preview" && pendingImport));
   const readingNotice = !recoveryVisible && readingMode && !error;
+  const recoveryMode = uncertain || unavailable || corrupt || clockAhead;
+  const boundedReadingMode = readingMode && !recoveryMode;
   // Game pauses and results use the same bounded shell as other reading pages,
   // but need an explicit hook so game overlays cannot opt back into flow layout.
   // Recovery pages deliberately stay out of this class so their full message
@@ -2688,7 +2690,7 @@ export default function App() {
               </small>
             </div>
           </div>
-          <div className={`device-stage ${readingMode ? "reading-mode" : ""} ${gameReadingMode ? "game-reading-mode" : ""} ${(uncertain || unavailable || corrupt || clockAhead) ? "recovery-mode" : ""} ${page === "return" && returnRecap && pet && !uncertain && !unavailable && !corrupt && !clockAhead ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""} ${tileView ? "tiles-mode" : ""}`}>
+          <div className={`device-stage ${readingMode ? "reading-mode" : ""} ${boundedReadingMode ? "bounded-reading-mode" : ""} ${gameReadingMode ? "game-reading-mode" : ""} ${recoveryMode ? "recovery-mode" : ""} ${page === "return" && returnRecap && pet && !recoveryMode ? "return-mode" : ""} ${treasureView ? "treasure-mode" : ""} ${tileView ? "tiles-mode" : ""}`}>
             <span className="device-orbit orbit-one">✧</span>
             <span className="device-orbit orbit-two">+</span>
             <div className="device-shadow" />

@@ -61,22 +61,26 @@
    document flow, so their sticky tray cannot cover the third row before the
    player makes a selection. A/B/C can still reveal the current target. */
 .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) {
+  --reading-stage-height: 735px;
+  --reading-device-height: 699px;
+  --reading-screen-height: 460px;
+  --reading-content-height: 380px;
   height: 735px;
   min-height: 0;
   padding: 12px 0;
 }
 .play-space:has(.device-stage.treasure-mode) { min-height: 735px; }
 .treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .device {
-  height: 699px;
+  height: var(--reading-device-height);
   min-height: 0;
   padding-bottom: 38px;
 }
 .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel {
-  height: 460px;
+  height: var(--reading-screen-height);
   flex-shrink: 0;
 }
 .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content {
-  height: 380px;
+  height: var(--reading-content-height);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -87,11 +91,11 @@
   flex-shrink: 0;
 }
 @media (max-width: 700px) {
-  .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) { height: 612px; }
+  .device-stage.treasure-mode.bounded-reading-mode:not(.recovery-mode):not(.return-mode) { --reading-stage-height: 612px; --reading-device-height: 592px; --reading-screen-height: 364px; --reading-content-height: 284px; height: var(--reading-stage-height); }
   .play-space:has(.device-stage.treasure-mode) { min-height: 612px; }
-  .treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
-  .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
-  .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
+  .treasure-mode.bounded-reading-mode:not(.recovery-mode):not(.return-mode) .device { height: var(--reading-device-height); }
+  .device-stage.treasure-mode.bounded-reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: var(--reading-screen-height); }
+  .device-stage.treasure-mode.bounded-reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: var(--reading-content-height); }
 
   /* The active board is rendered before companion art and scrolled detail so
      every cell can be compared in the first LCD view. */

@@ -58,12 +58,18 @@
 /* Reading content belongs in the LCD viewport. Keep the physical shell fixed
    while long pauses, receipts and status pages scroll internally. Recovery
    screens opt out below because their explanation is allowed to size itself. */
-.device-stage.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) { height: 552px; min-height: 0; padding: 12px 0; }
-.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .device { height: 516px; min-height: 0; padding-bottom: 38px; }
+.device-stage.bounded-reading-mode {
+  --reading-stage-height: 552px;
+  --reading-device-height: 516px;
+  --reading-screen-height: 284px;
+  --reading-content-height: 204px;
+}
+.device-stage.bounded-reading-mode:not(.return-mode):not(.treasure-mode) { height: var(--reading-stage-height); min-height: 0; padding: 12px 0; }
+.bounded-reading-mode:not(.return-mode):not(.treasure-mode) .device { height: var(--reading-device-height); min-height: 0; padding-bottom: 38px; }
 .reading-mode .shell-brand, .reading-mode .device-model, .reading-mode .device-buttons { flex-shrink: 0; }
-.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .screen-bezel { height: 284px; min-height: 0; flex-shrink: 0; }
-.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
-.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .lcd-content { height: 204px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; font-size: .857143rem; line-height: 1.6; }
+.bounded-reading-mode:not(.return-mode):not(.treasure-mode) .screen-bezel { height: var(--reading-screen-height); min-height: 0; flex-shrink: 0; }
+.bounded-reading-mode:not(.return-mode):not(.treasure-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
+.bounded-reading-mode:not(.return-mode):not(.treasure-mode) .lcd-content { height: var(--reading-content-height); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; font-size: .857143rem; line-height: 1.6; }
 .reading-mode .lcd-content :is(p, small, strong, b, span, dt, dd, li, time, header, h3, .care-item, .lcd-meter, .companion-rows, .quiet-atmosphere, .quiet-event) {
   font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere;
 }
@@ -161,56 +167,49 @@
 /* Keep the shell contract explicit for game reading states. This is redundant
    with the generic reading rules above by design: later game-specific CSS must
    not be able to turn a pause or result back into an auto-height device. */
-.device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) { height: 552px; min-height: 0; padding: 12px 0; }
-.game-reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 516px; min-height: 0; padding-bottom: 38px; }
-.device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 284px; min-height: 0; flex-shrink: 0; }
-.game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
-.game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 204px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.device-stage.game-reading-mode.bounded-reading-mode:not(.return-mode) { height: var(--reading-stage-height); min-height: 0; padding: 12px 0; }
+.game-reading-mode.bounded-reading-mode:not(.return-mode) .device { height: var(--reading-device-height); min-height: 0; padding-bottom: 38px; }
+.device-stage.game-reading-mode.bounded-reading-mode:not(.return-mode) .screen-bezel { height: var(--reading-screen-height); min-height: 0; flex-shrink: 0; }
+.game-reading-mode.bounded-reading-mode:not(.return-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
+.game-reading-mode.bounded-reading-mode:not(.return-mode) .lcd-content { height: var(--reading-content-height); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 @media (max-width: 700px) {
-  .device-stage.reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) { height: 612px; }
-  .reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .device { height: 592px; }
-  .reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .screen-bezel { height: 364px; }
-  .reading-mode:not(.recovery-mode):not(.return-mode):not(.tiles-mode) .lcd-content { height: 284px; }
-  .device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) { height: 612px; }
-  .game-reading-mode:not(.recovery-mode):not(.return-mode) .device { height: 592px; }
-  .device-stage.game-reading-mode:not(.recovery-mode):not(.return-mode) .screen-bezel { height: 364px; }
-  .game-reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content { height: 284px; }
+  .device-stage.bounded-reading-mode { --reading-stage-height: 612px; --reading-device-height: 592px; --reading-screen-height: 364px; --reading-content-height: 284px; }
 }
 
 /* Link & Collect is untimed, but it still uses the same physical shell as
    every other reading page. Its board, hints and feedback scroll inside the
    LCD so a long message cannot stretch the device or move the three keys. */
-.device-stage.reading-mode.tiles-mode {
-  height: 552px;
+.device-stage.bounded-reading-mode.tiles-mode {
+  height: var(--reading-stage-height);
   min-height: 0;
   padding: 12px 0;
 }
-.reading-mode.tiles-mode .device {
-  height: 516px;
+.bounded-reading-mode.tiles-mode .device {
+  height: var(--reading-device-height);
   min-height: 0;
   padding-bottom: 38px;
 }
-.reading-mode.tiles-mode .screen-bezel {
-  height: 284px;
+.bounded-reading-mode.tiles-mode .screen-bezel {
+  height: var(--reading-screen-height);
   min-height: 0;
   flex-shrink: 0;
 }
-.reading-mode.tiles-mode .lcd {
+.bounded-reading-mode.tiles-mode .lcd {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
-.reading-mode.tiles-mode .lcd-content {
-  height: 204px;
+.bounded-reading-mode.tiles-mode .lcd-content {
+  height: var(--reading-content-height);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 @media (max-width: 700px) {
-  .device-stage.reading-mode.tiles-mode { height: 612px; }
-  .reading-mode.tiles-mode .device { height: 592px; }
-  .reading-mode.tiles-mode .screen-bezel { height: 364px; }
+  .device-stage.bounded-reading-mode.tiles-mode { height: var(--reading-stage-height); }
+  .bounded-reading-mode.tiles-mode .device { height: var(--reading-device-height); }
+  .bounded-reading-mode.tiles-mode .screen-bezel { height: var(--reading-screen-height); }
   /* The three-key tray is sticky on short screens. Leave enough scrollable
      tail inside the LCD for the final feedback lines to clear that tray. */
   .reading-mode.tiles-mode .lcd-content { height: 284px; padding-bottom: 280px; }
@@ -281,12 +280,13 @@
 
 /* Only an effective return recap opts in; recovery screens stay auto-height.
    Its larger desktop viewport is still fixed, so both pages share one shell. */
-.device-stage.return-mode { height: 735px; min-height: 0; padding: 12px 0; }
+.device-stage.bounded-reading-mode.return-mode { --reading-stage-height: 735px; --reading-device-height: 699px; --reading-screen-height: 460px; --reading-content-height: 380px; height: var(--reading-stage-height); min-height: 0; padding: 12px 0; }
 .return-mode .device { height: 699px; min-height: 0; padding-bottom: 38px; }
-.device-stage.return-mode .screen-bezel { height: 460px; min-height: 0; flex-shrink: 0; }
+.device-stage.bounded-reading-mode.return-mode .device { height: var(--reading-device-height); }
+.device-stage.bounded-reading-mode.return-mode .screen-bezel { height: var(--reading-screen-height); min-height: 0; flex-shrink: 0; }
 .device-stage.return-mode .lcd { height: 100%; display: flex; flex-direction: column; }
-.device-stage.return-mode .lcd-content { height: 380px; min-height: 0; flex-shrink: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.return-mode .return-panel { height: 100%; min-height: 0; padding-top: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.device-stage.bounded-reading-mode.return-mode .lcd-content { height: var(--reading-content-height); min-height: 0; flex-shrink: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.return-mode .return-panel { height: 100%; min-height: 0; padding-top: 0; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-gutter: stable; }
 .return-mode .return-panel:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 /* Keep the original inset inside the opaque sticky header, not above it:
    scrolled text must not show through the 7px gap at the LCD top. */
@@ -297,10 +297,7 @@
   .reading-mode .content-home .pet-room { height: 120px; }
 }
 @media (max-width: 700px) {
-  .device-stage.return-mode { height: 612px; }
-  .return-mode .device { height: 592px; }
-  .device-stage.return-mode .screen-bezel { height: 364px; }
-  .device-stage.return-mode .lcd-content { height: 284px; }
+  .device-stage.bounded-reading-mode.return-mode { --reading-stage-height: 612px; --reading-device-height: 592px; --reading-screen-height: 364px; --reading-content-height: 284px; }
 }
 /* At 320px the 200% reading layout can make one final note taller than the
    space below the sticky header. Let the header scroll with that document so

@@ -49,7 +49,12 @@ it("replacement respects physical-key focus and restores reading focus with prev
   focus.mockRestore();
 });
 it("only an effective return page opts in; A/B/C navigation stays unchanged", async () => {
-  await mount(); expect(mode()).toBeNull(); await review(); expect(mode()).not.toBeNull();
+  await mount();
+  expect(mode()).toBeNull();
+  expect(document.querySelector(".device-stage.bounded-reading-mode")).not.toBeNull();
+  await review();
+  expect(mode()).not.toBeNull();
+  expect(document.querySelector(".device-stage.return-mode.bounded-reading-mode")).not.toBeNull();
   panel().scrollTop = 200; panel().focus(); await key("a"); expect(panel().scrollTop).toBe(0); expect(panel().textContent).toContain("现在怎么照顾");
   expect(mode()).not.toBeNull(); await key("a"); expect(panel().textContent).toContain("离开了");
   await key("b"); expect(panel().textContent).toContain("现在怎么照顾"); await key("b"); expect(mode()).toBeNull();
@@ -59,7 +64,10 @@ it("only an effective return page opts in; A/B/C navigation stays unchanged", as
 it.each(["offline", "corrupt", "clock"])("%s recovery never inherits bounded return layout", async failure => {
   await mount(); await review(); expect(mode()).not.toBeNull();
   api.mockRejectedValueOnce(failure === "offline" ? new Error("offline") : new RequestFailure("unavailable", "rejected", failure === "clock" ? "clock_ahead" : "save_corrupt"));
-  await sync(); expect(mode()).toBeNull(); expect(document.querySelector(".save-recovery")).not.toBeNull(); expect(document.querySelector(".return-panel")).toBeNull();
+  await sync();
+  expect(mode()).toBeNull();
+  expect(document.querySelector(".device-stage.bounded-reading-mode")).toBeNull();
+  expect(document.querySelector(".save-recovery")).not.toBeNull(); expect(document.querySelector(".return-panel")).toBeNull();
   await key("b"); expect(document.querySelector(".save-recovery")).toBeNull();
 });
 it("same-record polling preserves scroll, replacement resets page and scroll, missing recap exits", async () => {
