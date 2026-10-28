@@ -204,6 +204,20 @@ describe("shared UTC quota and wallet visibility", () => {
 });
 
 describe("saved game familiarity", () => {
+  it("announces only the selected game's concise summary when selection changes", () => {
+    const companion = { since: Date.now(), interests: [{ kind: "tetris" as const, points: 3, lastAt: Date.now() }] };
+    const growth = emptyGrowth("growing"); growth.care.play = 3;
+    const view = render(<ArcadePanel choice={0} companion={companion} growth={growth} now={Date.now()} shop={rules} economy={saved.economy} />);
+    expect(view.container.querySelector(".arcade-details")?.hasAttribute("aria-live")).toBe(false);
+    expect(view.container.querySelector(".arcade-details > strong")?.getAttribute("aria-live")).toBe("polite");
+    expect(view.container.querySelector(".arcade-details > strong")?.getAttribute("aria-atomic")).toBe("true");
+    expect(view.container.querySelector(".arcade-familiar, .arcade-preference")?.closest("[aria-live]")).toBeNull();
+
+    view.rerender(<ArcadePanel choice={1} companion={companion} growth={growth} now={Date.now()} shop={rules} economy={saved.economy} />);
+    expect(view.container.querySelector(".arcade-details > strong")?.textContent).toBe(`${games[1].summary} · ${games[1].duration}`);
+    expect(view.container.querySelector(".arcade-familiar, .arcade-preference")?.closest("[aria-live]")).toBeNull();
+  });
+
   it("shows a selected game's saved familiarity without adding a new control", () => {
     const companion = { since: Date.now(), interests: [{ kind: "tetris" as const, points: 3, lastAt: Date.now() }] };
     const view = render(<ArcadePanel choice={3} companion={companion} now={Date.now()} shop={rules} economy={saved.economy} />);

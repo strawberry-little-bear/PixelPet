@@ -27,8 +27,8 @@ export function ArcadePanel({ choice, economy, companion, growth, shop, now, sle
         <span aria-hidden="true">{item.icon}</span><strong>{item.title}</strong>
       </div>)}
     </div>
-    <div className="arcade-details" aria-live="polite">
-      <strong>{game.summary} · {game.duration}</strong>
+    <div className="arcade-details">
+      <strong aria-live="polite" aria-atomic="true">{game.summary} · {game.duration}</strong>
       <p>{game.controls}</p><p>{game.reward}</p>
       {familiar && <p className="arcade-familiar" aria-label="共同游戏熟悉度">你们已经熟悉这款游戏：{familiar.points} / {interestLimit}。想继续时可以再玩，也可以换一款。</p>}
       {preference && <p className="arcade-preference" aria-label="成长倾向游戏提示"><strong>{gamePreferenceLabel(preference)}</strong>：{preference.text} {gameIsPreferred(preference, game.id) ? "这款正合它的心情。" : "也可以按你的心情来。"}</p>}
