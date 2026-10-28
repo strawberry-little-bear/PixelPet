@@ -197,6 +197,26 @@ async function assertReadingLayout(page, mode, id) {
   return { ...before, overflow };
 }
 
+async function assertPauseRoundTrip(page, mode, id, pausedMetrics) {
+  if (!['snake', 'tetris', 'fishing', 'walk'].includes(id)) return false;
+
+  await key(page, 'c');
+  await page.waitForFunction(() =>
+    !document.querySelector('.device-stage')?.classList.contains('reading-mode'),
+  { timeout: 15000 });
+  await key(page, 'c');
+  await page.waitForFunction(() =>
+    document.querySelector('.device-stage')?.classList.contains('game-reading-mode'),
+  { timeout: 15000 });
+
+  const resumed = await assertReadingLayout(page, mode, id);
+  for (const selector of ['.device-stage', '.device', '.screen-bezel', '.lcd']) {
+    assert(Math.abs(resumed[selector].height - pausedMetrics[selector].height) < 1,
+      `${id} ${selector} did not return to its original paused geometry after resume: ${resumed[selector].height} vs ${pausedMetrics[selector].height}`);
+  }
+  return true;
+}
+
 try {
   server = spawn(binary, [], {
     cwd: root,
@@ -263,6 +283,7 @@ try {
         await pauseIfNeeded(page, id);
         if (id === 'treasure' && mode.width <= 700) await assertTreasureBoardVisible(page, mode);
         const metrics = await assertReadingLayout(page, mode, id);
+        const roundTrip = await assertPauseRoundTrip(page, mode, id, metrics);
         const shell = Object.fromEntries(['.device-stage', '.device', '.screen-bezel', '.lcd']
           .map(selector => [selector, metrics[selector].height]));
         const shellKey = id === 'treasure' ? 'treasure' : 'standard';
@@ -276,7 +297,7 @@ try {
           shellBaselines.set(shellKey, shell);
         }
         assert.deepEqual(errors, [], `${id} emitted browser errors: ${errors.join('; ')}`);
-        results.push({ ...mode, id, overflow: metrics.overflow, passed: true });
+        results.push({ ...mode, id, overflow: metrics.overflow, roundTrip, passed: true });
       } catch (error) {
         await page.screenshot({ path: join(dir, `failure-${id}-${mode.width}-${mode.font}.png`), fullPage: true });
         throw error;
