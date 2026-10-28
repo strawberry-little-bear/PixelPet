@@ -33,6 +33,7 @@ const allSuites = [
   'check-return-viewport',
   'check-return-touch',
   'check-recovery-reading',
+  'check-game-keepsakes',
 ];
 
 const requested = process.argv.slice(2).map(value => value.replace(/\.mjs$/, ''));

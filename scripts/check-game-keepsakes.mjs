@@ -79,7 +79,11 @@ async function readable(page, panel = ".album-panel", targets = [".album-panel >
   while((node=walker.nextNode())){if(!node.textContent.trim()||node.parentElement.closest('.sr-only'))continue;const range=document.createRange();range.selectNodeContents(node);for(const b of range.getClientRects()){
    if(!b.width||!b.height)continue;
    if(b.left < -1 || b.right > innerWidth+1)bad.push(node.textContent);
-   for(let p=node.parentElement;p;p=p.parentElement){const style=getComputedStyle(p),clip=p.getBoundingClientRect();if(['hidden','clip','auto','scroll'].includes(style.overflowY)&&(b.top<clip.top-2||b.bottom>clip.bottom+2))bad.push(node.textContent);}
+   let canScroll=false;
+   for(let p=node.parentElement;p;p=p.parentElement){const style=getComputedStyle(p),clip=p.getBoundingClientRect();
+    if(['auto','scroll'].includes(style.overflowY)&&p.scrollHeight>p.clientHeight+1)canScroll=true;
+    if(['hidden','clip'].includes(style.overflowY)&&!canScroll&&(b.top<clip.top-2||b.bottom>clip.bottom+2))bad.push(node.textContent);
+   }
   }}return [...new Set(bad)];
  });assert.deepEqual(clipped,[],'card text clipped');
  for(const selector of [...targets,'.button-a','.button-b','.button-c']) {
@@ -124,7 +128,17 @@ async function corner(page, touch = false) {
   if(touch)await page.locator('.button-b').tap();else await key(page,'b');
   assert((await response).ok());await page.waitForFunction(()=>!document.querySelector('.button-b')?.disabled);
  }
- await openCorner();await key(page,'a');
+ await openCorner();
+ const shellGeometry=async()=>page.evaluate(()=>[
+  '.device-stage','.device','.screen-bezel','.lcd-content',
+ ].map(selector=>{
+  const node=document.querySelector(selector);
+  return node ? Math.round(node.getBoundingClientRect().height*10)/10 : null;
+ }));
+ const emptyGeometry=await shellGeometry();
+ assert(emptyGeometry.every(Number.isFinite),'all device shell and LCD layout nodes must exist');
+ await key(page,'a');
+ assert.deepEqual(await shellGeometry(),emptyGeometry,'choosing a keepsake must not resize the device shell or LCD');
  assert.equal(await page.locator('.keepsake-corner').getAttribute('data-corner-choice'),'star-ribbon');
  assert.match(await page.locator('.corner-action').innerText(),/B 摆在小窝/);
  await selectionStatus(page,'keepsake-corner',/第 2 \/ 2 项，接星星的小缎带。现在摆着：暂时留空/);
@@ -172,22 +186,27 @@ try {
   await page.setViewportSize({width:mode.width,height:mode.height});
   await page.emulateMedia({reducedMotion:'reduce',forcedColors:mode.font===28?'active':'none'});
   await page.evaluate(font=>{document.documentElement.style.fontSize=`${font}px`;},mode.font);
-  const card=page.getByRole('group',{name:'本次收好的游戏纪念物'});
-  assert.match(await card.ariaSnapshot(),/一起收好了「接星星的小缎带」/);
-  assert.match(await card.innerText(),/纪念册「一起玩过」.*「小窝纪念角」/);
-  const art=card.locator('[data-keepsake-art]');assert.equal(await art.count(),1);
-  assert.equal(await art.getAttribute('data-keepsake-art'),'star-ribbon');assert.equal(await art.getAttribute('aria-hidden'),'true');
-  assert(await art.evaluate(el=>{const b=el.getBoundingClientRect(),card=el.parentElement.getBoundingClientRect();
-   return b.width>=35&&b.height>=35&&b.left>=card.left&&b.right<=card.right&&b.top>=card.top&&b.bottom<=card.bottom;
-  }),'keepsake art must retain its size inside the card');
-  await readable(page,'.game-keepsake-result',['.game-keepsake-result > svg','.game-keepsake-result strong','.game-keepsake-result small']);
-  // Check the final prose line too: reaching the top of a tall paragraph
-  // does not prove its directions can be read in a short viewport.
-  assert(await card.locator('p').evaluate(el=>{
-   el.scrollIntoView({block:'end'});const range=document.createRange();range.selectNodeContents(el);const line=[...range.getClientRects()].at(-1);
-   return line&&line.top>=-1&&line.bottom<=innerHeight+1&&line.left>=-1&&line.right<=innerWidth+1;
-  }),'the last line of the album/corner directions must be reachable');
-  await card.screenshot({path:join(dir,`settlement-keepsake-${mode.width}-${mode.height}.png`)});
+  const full=page.locator('.game-outcome-full');
+  if(await full.getAttribute('aria-hidden')==='true') {
+   assert.match(await page.locator('.game-outcome-compact-meta').innerText(),/收好纪念物「接星星的小缎带」/);
+  } else {
+   const card=page.locator('.game-keepsake-result[role="group"][aria-label="本次收好的游戏纪念物"]');
+   assert.equal(await card.count(),1);
+   assert.match(await card.innerText(),/一起收好了「接星星的小缎带」/);
+   assert.match(await card.innerText(),/纪念册「一起玩过」.*「小窝纪念角」/);
+   const art=card.locator('[data-keepsake-art]');assert.equal(await art.count(),1);
+   assert.equal(await art.getAttribute('data-keepsake-art'),'star-ribbon');assert.equal(await art.getAttribute('aria-hidden'),'true');
+   assert(await art.evaluate(el=>{const b=el.getBoundingClientRect(),card=el.parentElement.getBoundingClientRect();
+    return b.width>=35&&b.height>=35&&b.left>=card.left&&b.right<=card.right&&b.top>=card.top&&b.bottom<=card.bottom;
+   }),'keepsake art must retain its size inside the card');
+   await readable(page,'.game-keepsake-result',['.game-keepsake-result > svg','.game-keepsake-result strong','.game-keepsake-result small']);
+   // Reaching the top of a tall paragraph does not prove its final line is readable.
+   assert(await card.locator('p').evaluate(el=>{
+    el.scrollIntoView({block:'end'});const range=document.createRange();range.selectNodeContents(el);const line=[...range.getClientRects()].at(-1);
+    return line&&line.top>=-1&&line.bottom<=innerHeight+1&&line.left>=-1&&line.right<=innerWidth+1;
+   }),'the last line of the album/corner directions must be reachable');
+   await card.screenshot({path:join(dir,`settlement-keepsake-${mode.width}-${mode.height}.png`)});
+  }
   assert.deepEqual(settlementWrites,[]);assert.deepEqual(cards((await api('state')).state),first);
   results.push({check:'real-new-keepsake-card-art-and-reading',...mode,passed:true});
  }
