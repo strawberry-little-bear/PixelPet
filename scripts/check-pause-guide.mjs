@@ -68,6 +68,11 @@ async function readable(page, selector) {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
       if (!text.textContent.trim()) continue;
+      // SelectionStatus intentionally exposes the current choice to assistive
+      // technology without rendering it in the LCD. Range geometry for clipped
+      // screen-reader text is still reported by Chromium, so it must not be
+      // treated as visible layout content here.
+      if (text.parentElement?.closest('.sr-only')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
