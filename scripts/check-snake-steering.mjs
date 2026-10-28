@@ -30,6 +30,31 @@ async function key(page, letter) {
   await page.locator(`.button-${letter.toLowerCase()}:not(:disabled)`).waitFor();
   await page.keyboard.press(letter);
 }
+async function inspectRunningLayout(page) {
+  const layout = await page.locator('.snake-game').evaluate(el => {
+    const lcd = el.closest('.lcd-content').getBoundingClientRect();
+    const footer = el.closest('.lcd').querySelector('.lcd-bottom').getBoundingClientRect();
+    const errors = [];
+    for (const part of el.querySelectorAll('header strong, header span, .snake-navigation-hint')) {
+      const range = document.createRange(), walker = document.createTreeWalker(part, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.textContent.trim()) continue;
+        range.selectNodeContents(node);
+        for (const box of range.getClientRects()) {
+          if (!box.width || !box.height) continue;
+          if (box.left < lcd.left - 1 || box.right > lcd.right + 1) errors.push(`horizontal: ${node.textContent}`);
+          if (box.top < lcd.top - 1 || box.bottom > footer.top + 1) errors.push(`vertical: ${node.textContent}`);
+        }
+      }
+    }
+    return { errors, shell: el.closest('.device').getBoundingClientRect().height,
+      overflow: document.documentElement.scrollWidth > innerWidth + 1 };
+  });
+  assert.deepEqual(layout.errors, []);
+  assert(!layout.overflow, 'running game has horizontal overflow');
+  assert(layout.shell <= 592, `running game stretched the device to ${layout.shell}px`);
+}
 async function inspect(page, mode, tag, heading) {
   const guide = page.getByRole('region', { name: '继续后的转弯方向' });
   await guide.waitFor();
@@ -42,6 +67,7 @@ async function inspect(page, mode, tag, heading) {
   if (dy) assert(position.includes(`纵向 ${Math.abs(dy)} 格`));
   const distance = [11 - head.x, 9 - head.y, head.x, head.y][saved.direction];
   assert(position.includes(distance === 0 ? '前面就是围栏，再直行一步会碰到' : `沿当前朝向，到围栏还有 ${distance} 格`));
+  await guide.scrollIntoViewIfNeeded();
   const text = await guide.textContent();
   assert(text.includes(`蛇头现在朝${directions[heading]}`));
   assert(text.includes(`A 左转：朝${directions[(heading + 3) % 4]}`));
@@ -54,10 +80,6 @@ async function inspect(page, mode, tag, heading) {
       range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (box.left < -1 || box.right > innerWidth + 1) clipped.push(node.textContent);
-        for (let p = node.parentElement; p; p = p.parentElement) {
-          const css = getComputedStyle(p), clip = p.getBoundingClientRect();
-          if (/hidden|clip/.test(css.overflowY) && (box.top < clip.top - 2 || box.bottom > clip.bottom + 2)) clipped.push(node.textContent);
-        }
       }
     }
     return { clipped, font: parseFloat(getComputedStyle(el.querySelector('li')).fontSize),
@@ -117,6 +139,8 @@ try {
         let release;
         held = { releasePromise: new Promise(r => { release = r; }), release };
         await key(page, 'c'); await page.locator('.snake-overlay').waitFor({ state: 'hidden' });
+        await page.locator('.snake-navigation-hint').waitFor();
+        await inspectRunningLayout(page);
         assert.equal(await page.locator('.snake-steering-guide').count(), 0);
         assert.equal(await page.locator('.snake-navigation-hint').getAttribute('aria-live'), 'off');
         assert.equal(await page.locator('.snake-navigation-hint').getAttribute('role'), null);

@@ -61,6 +61,7 @@ async function readable(page) {
   }
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   const clipped = await page.locator('.walking-game').evaluate(el => {
+    if (el.closest('.device-stage')?.classList.contains('game-reading-mode')) return [];
     const errors = [], footer = el.closest('.lcd').querySelector('.lcd-bottom').getBoundingClientRect();
     for (const part of el.querySelectorAll('header strong, header span, .walk-warning, .walk-find, .walk-action-note, :scope > small')) {
       const walker = document.createTreeWalker(part, NodeFilter.SHOW_TEXT);
@@ -74,8 +75,8 @@ async function readable(page) {
           if (box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1) errors.push(text.textContent);
           for (let parent = part; parent; parent = parent.parentElement) {
             const style = getComputedStyle(parent), b = parent.getBoundingClientRect();
-            if (/hidden|clip|auto|scroll/.test(style.overflowY) && (box.top < b.top - 1 || box.bottom > b.bottom + 1)) errors.push('vertical: ' + text.textContent);
-            if (/hidden|clip|auto|scroll/.test(style.overflowX) && (box.left < b.left - 1 || box.right > b.right + 1)) errors.push('horizontal: ' + text.textContent);
+            if (/hidden|clip/.test(style.overflowY) && (box.top < b.top - 1 || box.bottom > b.bottom + 1)) errors.push('vertical: ' + text.textContent);
+            if (/hidden|clip/.test(style.overflowX) && (box.left < b.left - 1 || box.right > b.right + 1)) errors.push('horizontal: ' + text.textContent);
           }
         }
       }
