@@ -23,7 +23,11 @@ async function api(path, body) {
   });
   assert(res.ok, await res.clone().text()); return res.json();
 }
-async function key(page, k) { await page.locator(`.button-${k.toLowerCase()}`).tap(); }
+async function key(page, k) {
+  await page.waitForFunction(() => !document.querySelector('.physical-button.is-pressed'));
+  await page.locator(`.button-${k.toLowerCase()}`).tap();
+  await page.waitForFunction(() => !document.querySelector('.physical-button.is-pressed'));
+}
 async function focusedKey(page) { return page.evaluate(() => ['a', 'b', 'c'].find(k => document.activeElement?.classList.contains(`button-${k}`)) ?? null); }
 async function visible(page, selector) {
   await wait(100);

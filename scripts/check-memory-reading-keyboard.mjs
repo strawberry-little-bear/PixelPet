@@ -43,7 +43,8 @@ async function start() {
   throw new Error('Server did not start: ' + log);
 }
 async function key(page, k) {
-  await page.locator(`.button-${k.toLowerCase()}`).tap();
+  const button = page.locator(`.button-${k.toLowerCase()}`);
+  await button.dispatchEvent('click');
   await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
 }
 async function focusedKey(page) {

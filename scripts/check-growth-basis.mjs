@@ -36,7 +36,11 @@ async function seed(stage, sleeping) {
   assert.deepEqual(reply.careRules.growth, expected);
   return reply.state;
 }
-async function key(page, key) { await page.locator('.button-' + key + ':not(:disabled)').tap(); }
+async function key(page, key) {
+  await page.waitForFunction(() => !document.querySelector('.physical-button.is-pressed'));
+  await page.locator('.button-' + key + ':not(:disabled)').tap();
+  await page.waitForFunction(() => !document.querySelector('.physical-button.is-pressed'));
+}
 async function open(page) { await key(page, 'a'); for (let i = 0; i < 6; i++) await key(page, 'a'); await key(page, 'b'); }
 async function inspect(page, mode, section = 'basis') {
   const flow = await assertReadingFlow(page, section === 'sleep' ? '.care-preview' : section === 'snapshot' ? '.growth-current' : '.growth-basis', `growth ${section}`);
