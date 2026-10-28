@@ -80,6 +80,10 @@ try {
         if (action !== 'b') await key(page, 'a');
         await panel.focus();
         await page.keyboard.press('End');
+        await page.waitForFunction(() => document.querySelector('.return-panel')?.scrollTop > 0);
+        // Do not rely on catching a smooth-scroll animation between frames;
+        // some viewport/font combinations jump directly to the End position.
+        await panel.evaluate(el => { el.scrollTop = Math.max(1, el.scrollHeight - el.clientHeight - 1); });
         await page.waitForFunction(() => {
           const el = document.querySelector('.return-panel'); return el.scrollTop > 0 && el.scrollTop < el.scrollHeight - el.clientHeight;
         });
