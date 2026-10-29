@@ -16,6 +16,22 @@ function fixture(): PetState {
 afterEach(cleanup);
 
 describe("discrete fishing bite announcement", () => {
+  it("exposes the pause menu as a named region and only its changing advice as live status", () => {
+    const pet = fixture(), n = pet.game!.fishing!;
+    n.phase = "wait";
+    const view = render(<FishingGame pet={pet} active={false} choice={1} />);
+    const pause = view.container.querySelector(".fishing-pause")!;
+    expect(pause.tagName).toBe("SECTION");
+    expect(pause.getAttribute("aria-label")).toBe("池塘暂停菜单");
+    expect(pause.hasAttribute("role")).toBe(false);
+    expect(pause.querySelectorAll('[aria-live="polite"], [role="status"]')).toHaveLength(1);
+    expect(pause.querySelector("li[aria-current=true]")?.textContent).toContain("鱼图鉴");
+
+    view.rerender(<FishingGame pet={pet} active={false} choice={2} />);
+    expect(pause.querySelector("li[aria-current=true]")?.textContent).toContain("放弃");
+    expect(pause.querySelectorAll('[aria-live="polite"], [role="status"]')).toHaveLength(1);
+  });
+
   it("establishes an empty status region before the first cast, then updates that same node on bite", () => {
     const pet = fixture(), before = structuredClone(pet), n = pet.game!.fishing!;
     const view = render(<FishingGame pet={pet} active choice={0} />);
