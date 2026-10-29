@@ -229,9 +229,7 @@ try {
           window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
           document.querySelector('.lcd-content')?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         });
-        if (kind === 'fishing') {
-          await page.locator(`${pause} > strong`).evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
-        }
+        await page.locator(`${pause} > strong`).evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
         await visible(page, `${pause} > strong`);
         const selectedPauseItem = kind === 'fishing' ? '.fishing-pause li.selected' : '.walk-pause [data-selected="true"]';
         await page.locator(selectedPauseItem).evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
@@ -244,9 +242,7 @@ try {
           window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
           document.querySelector('.lcd-content')?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         });
-        if (kind === 'fishing') {
-          await page.locator(`${pause} > strong`).evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
-        }
+        await page.locator(`${pause} > strong`).evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
         await visible(page, `${pause} > strong`);
         await page.reload(); await page.locator(pause).waitFor();
       }
