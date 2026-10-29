@@ -45,16 +45,35 @@ async function readable(page, selector) {
   const errors = await page.locator(selector).evaluate(el => {
     const content = document.querySelector('.lcd-content').getBoundingClientRect();
     const footer = document.querySelector('.lcd-bottom').getBoundingClientRect(), errors = [];
+    const scrollports = [el, ...(() => {
+      const parents = [];
+      for (let parent = el.parentElement; parent; parent = parent.parentElement) parents.push(parent);
+      return parents;
+    })()].filter(node => {
+      const css = getComputedStyle(node);
+      return /auto|scroll/.test(css.overflowY) && node.scrollHeight > node.clientHeight + 1;
+    });
+    const scrollToLine = (range, lineIndex, scrollport) => {
+      const line = range.getClientRects()[lineIndex];
+      if (!line) return;
+      const viewport = scrollport.getBoundingClientRect();
+      const target = scrollport.scrollTop + line.top - viewport.top - 12;
+      scrollport.scrollTop = Math.max(0, Math.min(scrollport.scrollHeight - scrollport.clientHeight, target));
+    };
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
+      if (!text.textContent.trim() || text.parentElement?.closest('.sr-only,[aria-hidden="true"]')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
-      for (const box of range.getClientRects()) {
+      const lineCount = range.getClientRects().length;
+      for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
+        for (const scrollport of scrollports) scrollToLine(range, lineIndex, scrollport);
+        const box = range.getClientRects()[lineIndex];
         if (!box.width || !box.height) continue;
         if (box.left < content.left - 1 || box.right > content.right + 1 || box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top) + 1) errors.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) errors.push('clipped: ' + text.textContent);
+          if (/hidden|clip/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) errors.push('clipped: ' + text.textContent);
+          if (/auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) errors.push('unreachable: ' + text.textContent);
         }
       }
     }

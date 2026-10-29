@@ -153,6 +153,10 @@
 }
 .game-reading-mode .fishing-pause strong,
 .game-reading-mode .fishing-pause small { align-self: center; }
+.game-reading-mode .walk-pause {
+  justify-content: flex-start;
+  padding: 8px 4px;
+}
 .game-reading-mode :is(.park-scene:has(.walk-pause), .pond-scene:has(.fishing-pause)) {
   height: 102px;
   min-height: 0;
