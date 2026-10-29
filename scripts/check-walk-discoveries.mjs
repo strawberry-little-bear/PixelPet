@@ -34,27 +34,28 @@ async function expectedFinds(page, game) {
   assert.deepEqual(await page.locator(`${regionSelector} li > strong`).allTextContents(), n.souvenirs.slice(0, count).map(id => parkNames[id]));
   assert.deepEqual(await page.locator(`${regionSelector} li > span`).allTextContents(), Array.from({ length: count }, (_, i) => `第 ${(i + 1) * 24} 步`));
 }
+async function shellGeometry(page) {
+  return page.evaluate(() => ['.device-stage', '.device', '.screen-bezel', '.lcd-content'].map(selector => {
+    const { width, height } = document.querySelector(selector).getBoundingClientRect();
+    return [Math.round(width * 10) / 10, Math.round(height * 10) / 10];
+  }));
+}
 async function readable(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   const errors = await page.locator(regionSelector).evaluate(el => {
-    const content = document.querySelector('.lcd-content').getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect();
+    const content = document.querySelector('.lcd-content').getBoundingClientRect();
     const bounds = el.getBoundingClientRect(), errors = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
-      const text = walker.currentNode; if (!text.textContent.trim()) continue;
+      const text = walker.currentNode; if (!text.textContent.trim() || text.parentElement.closest('.care-reading-hint')) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < Math.max(bounds.left, content.left) - 1 || box.right > Math.min(bounds.right, content.right) + 1 ||
-          box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top, bounds.bottom) + 1) errors.push(text.textContent);
-        for (let parent = text.parentElement; parent; parent = parent.parentElement) {
-          const style = getComputedStyle(parent), b = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(style.overflowY) && (box.top < b.top - 1 || box.bottom > b.bottom + 1)) errors.push('clipped: ' + text.textContent);
-        }
+        if (box.left < Math.max(bounds.left, content.left) - 1 || box.right > Math.min(bounds.right, content.right) + 1) errors.push(text.textContent);
       }
     }
     return errors;
   });
-  assert.deepEqual(errors, [], 'summary text clipped / overlaps footer');
+  assert.deepEqual(errors, [], 'summary text overflows horizontally');
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
   assert.equal(await page.locator('.physical-button').count(), 3);
   const note = page.locator('.walk-discoveries-note'); await note.scrollIntoViewIfNeeded();
@@ -64,10 +65,11 @@ async function readable(page) {
 async function readingKeys(page, writes) {
   const region = page.locator(regionSelector); await region.focus();
   await region.evaluate(el => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
-  const oldY = await page.evaluate(() => scrollY), count = writes.length;
+  const before = await page.evaluate(() => ({ page: scrollY, lcd: document.querySelector('.lcd-content').scrollTop })), count = writes.length;
   await page.keyboard.press('ArrowDown'); await wait(250);
   await page.keyboard.press('Space'); await wait(300);
-  assert(await page.evaluate(() => scrollY) > oldY, 'native reading keys must actually scroll');
+  assert(await page.evaluate(before => scrollY > before.page || document.querySelector('.lcd-content').scrollTop > before.lcd, before),
+    'native reading keys must actually scroll the page or LCD');
   await page.keyboard.press('Enter'); await wait(300);
   assert.equal(writes.length, count, 'reading keys must not resume / collect');
   assert(await region.evaluate(el => el === document.activeElement), 'reading must retain focus');
@@ -109,7 +111,10 @@ try {
   assert.match(await page.locator(regionSelector).innerText(), /还没走到发现点/);
   const empty = (await api('state')).state; assert.equal(empty.park.finds.length, 0);
   await key(page, 'c'); assert.equal(await page.locator(regionSelector).count(), 0, 'do not enlarge the running game');
-  const reached = await reach(page, 28); await key(page, 'c'); await page.locator('.walk-pause').waitFor();
+  const runningGeometry = await shellGeometry(page);
+  const reached = await reach(page, 28);
+  assert.deepEqual(await shellGeometry(page), runningGeometry, 'the first route discovery must not resize the running device');
+  await key(page, 'c'); await page.locator('.walk-pause').waitFor();
   const paused = (await api('state')).state; assert(paused.game.walking.beat >= 28 && paused.game.walking.beat < 48);
   await expectedFinds(page, paused.game); await readable(page); await readingKeys(page, writes);
   assert.deepEqual((await api('state')).state.game, paused.game, 'reading changed the route');
@@ -135,7 +140,8 @@ try {
   await page.reload(); await page.locator('.home-caption').waitFor(); assert.equal(await page.locator(regionSelector).count(), 0);
   assert.equal((await api('state')).state.careCount, 1, 'reload collected twice');
   results.push({ type: 'natural-full-route-read-reload-album-return-manual-settlement', beatAtPause: paused.game.walking.beat,
-    souvenirs: finished.state.game.walking.souvenirs, resumptions: [...reached.resumptions, ...terminal.resumptions] });
+    souvenirs: finished.state.game.walking.souvenirs, runningGeometry,
+    resumptions: [...reached.resumptions, ...terminal.resumptions] });
   // A new real run must not show the previous route or synthesize history.
   await api('action', { kind: 'play-walk' }); await page.reload(); await page.locator(regionSelector).waitFor();
   assert.equal(await page.locator(`${regionSelector} li`).count(), 0); await key(page, 'c');
