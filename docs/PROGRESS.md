@@ -1,3 +1,10 @@
+## 2026-10-29 · 阅读外壳高度审计与生命周期专项复核
+
+- 逐项审计 `readability.css`、`treasure.css` 和 `App.tsx` 的阅读模式入口与 `height: auto` 规则；确认自动高度只存在于 LCD 内部内容、页头或恢复说明，普通阅读、回访、寻宝和游戏阅读态的设备外壳仍由固定高度契约控制，恢复错误页继续不套用固定回访高度。
+- 定向运行 `WindowPause.test.tsx`、`WindowReturnSync.test.tsx`、`GrowthInterruption.test.tsx`、`AudioSafetyFlow.test.tsx`、`GrowthPresentation.test.tsx`、`LifeSummary.test.tsx`：**6 个文件／193 项全部通过**；TypeScript／Vite 生产构建通过。
+- `check-growth-pageshow.mjs`、`check-window-presence.mjs`、`check-passive-growth.mjs`、`check-offline-wallclock.mjs`、`check-return-layout.mjs`、`check-reading-layout.mjs` 均通过 Node 语法检查，`git diff --check` 通过。没有修改运行时代码、玩法、成长、奖励、存档或 A／B／C 三键约束。
+- 本轮没有访问、重置、导入或覆盖正式 `data/pixelpet.db`，也没有操作正式服务。自然多日成长、实体手机前后台／锁屏／系统回收、扬声器／耳机真实音量舒适度和 VoiceOver／TalkBack 真人读屏仍保持未实测。
+
 ## 2026-10-29 · 统一阅读布局全量复核与测试节奏确认
 
 - 使用新的仓库外隔离 Go 二进制、隔离 Vite 构建、随机端口、独立临时 SQLite 和 Chromium 重跑 `node scripts/check-reading-layout.mjs`；首轮 24/26 套件通过，`check-growth-basis` 与 `check-growth-meters` 只在长套件中分别遇到机身按钮稳定等待和页面 reload 等待超时，没有业务断言失败。
