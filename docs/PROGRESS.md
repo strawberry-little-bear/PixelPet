@@ -1,3 +1,10 @@
+## 2026-10-29 · 统一阅读布局全量复核与测试节奏确认
+
+- 使用新的仓库外隔离 Go 二进制、隔离 Vite 构建、随机端口、独立临时 SQLite 和 Chromium 重跑 `node scripts/check-reading-layout.mjs`；首轮 24/26 套件通过，`check-growth-basis` 与 `check-growth-meters` 只在长套件中分别遇到机身按钮稳定等待和页面 reload 等待超时，没有业务断言失败。
+- 使用同一份隔离构建单独重跑两项后，`check-growth-basis` **33/33**、`check-growth-meters` **71/71** 通过，故本轮统一阅读布局 **26/26 套件最终确认通过**。覆盖欢迎、照顾、日记、回忆、纪念册、图鉴、商店、状态、名称、成长量表／回执、习惯／休息、小游戏说明／暂停、七款小游戏实际阅读、回访布局／滚动／视口／触摸、异常恢复和小窝纪念角。
+- 回访第 1、2 页在桌面、390px／320px、普通／200% 根字号、清醒／睡眠下 `.device-stage`、`.device`、`.screen-bezel`、`.lcd` 与 `.lcd-content` 高度一致；第二页照顾建议可在 LCD 内滚动到，换页后 `scrollTop` 归零。未发现新的稳定布局、滚动、文字裁切、横向溢出、三键或功能问题。
+- 本轮只补充验证记录，没有修改运行时代码、玩法、成长、奖励、存档或 A／B／C 三键约束；测试期间没有访问、重置、导入或覆盖正式 `data/pixelpet.db`，也没有操作正式服务。自然多日成长、实体手机前后台／锁屏／系统回收、扬声器／耳机真实音量舒适度和 VoiceOver／TalkBack 真人读屏仍保持未实测。
+
 ## 2026-10-29 · 生命周期与回访固定布局当前提交复核
 
 - 在当前 `645f3c4` 提交上重跑移动生命周期与声音安全专项：`WindowPause.test.tsx`、`AudioSafetyFlow.test.tsx`、`GrowthInterruption.test.tsx`、`ReturnPanel.test.tsx` 共 **4 个文件／75 项全部通过**。覆盖 `blur`、`visibilitychange`、`pagehide/pageshow`、`freeze/resume`、迟到响应、音频挂起与恢复，以及游戏必须重新按键才继续。
