@@ -3561,3 +3561,9 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 复核 `treasure-mode` 的桌面、窄屏、短屏、200% 根字号和强制颜色规则；当前寻宝暂停、继续、错误提示、正常结果、刷新恢复和最终结算均保持固定阅读外壳，长内容在 LCD 内滚动，未发现新的稳定撑高问题。
 - 为 `scripts/check-treasure-viewport.mjs` 增加跨状态几何断言：继续后的基线与错误提示、结算结果、刷新后的暂停态、六次探索后的终局逐一比较 `.device-stage`、`.device`、`.screen-bezel`、`.lcd`、`.lcd-content` 的实际高度，并拒绝 `auto` 高度。
 - 隔离 Chrome 回归 **7/7 组合通过**；使用仓库外 Go／Vite 构建、随机端口和临时 SQLite，未访问或覆盖 `data/pixelpet.db`，未连接正式服务。该结果仍不替代实体手机布局、自然多日成长、真人听感或 VoiceOver／TalkBack 验收。
+
+## 2026-10-29 · 回访布局脚本当前运行时复验
+
+- 使用当前提交的仓库外隔离二进制、隔离网页、临时 SQLite 和独立 Chromium，重新执行 `scripts/check-return-layout.mjs`；通过临时模块适配当前 Playwright 运行时的导出形式，业务脚本本身未改动。
+- 回归 **12 组全部通过**：桌面、390px／320px、普通／200% 根字号、清醒／睡眠组合下，回访第 1、2 页的 `.device-stage`、`.device`、`.screen-bezel`、`.lcd` 与 `.lcd-content` 高度一致；第 2 页底部照顾建议可滚动到，页头在支持的宽度保持可见。
+- 本轮只补充回归记录，没有修改运行时代码、玩法、成长、奖励、存档或 A／B／C 三键约束；临时 Playwright 适配文件未保留。测试没有访问、重置、导入或覆盖正式 `data/pixelpet.db`，自然多日成长、实体手机生命周期、扬声器／耳机舒适度和 VoiceOver／TalkBack 真人读屏仍保持未实测。
