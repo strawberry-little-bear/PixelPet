@@ -58,6 +58,10 @@ async function readable(page, selector) {
       const playfield = node.parentElement?.closest('.tetris-playfield');
       if (playfield?.querySelector('.tetris-overlay') &&
           !node.parentElement?.closest('.tetris-overlay')) continue;
+      // Positioning an sr-only announcement outside the LCD is intentional;
+      // it must remain in the accessibility tree without participating in
+      // visible layout assertions.
+      if (node.parentElement?.closest('.sr-only')) continue;
       // Reading guidance is intentionally screen-reader-only until the region
       // receives keyboard focus. Do not mistake its 1px clipped box for a
       // product layout failure; when focused, clipPath becomes none and the
