@@ -157,6 +157,31 @@ async function initialGridVisible(page) {
     `treasure grid has horizontal overflow: ${JSON.stringify(boxes)}`);
   return boxes;
 }
+async function shellMetrics(page) {
+  return page.evaluate(() => Object.fromEntries(
+    ['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content'].map(selector => {
+      const element = document.querySelector(selector);
+      const box = element.getBoundingClientRect();
+      return [selector, {
+        height: box.height,
+        cssHeight: getComputedStyle(element).height,
+      }];
+    }),
+  ));
+}
+function assertShellContract(actual, label) {
+  for (const selector of ['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content']) {
+    assert.notEqual(actual[selector].cssHeight, 'auto', `${label}: ${selector} reverted to auto height`);
+    assert(actual[selector].height > 0, `${label}: ${selector} has no rendered height`);
+  }
+}
+function assertSameShell(actual, expected, label) {
+  assertShellContract(actual, label);
+  for (const selector of ['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content']) {
+    assert(Math.abs(actual[selector].height - expected[selector].height) < 1,
+      `${label}: ${selector} changed height from ${expected[selector].height} to ${actual[selector].height}`);
+  }
+}
 // Reading can scroll beyond the auto-positioned result. Verify that even the
 // final line of the longer reward explanation can be reached inside the LCD.
 async function ruleEndVisible(page) {
@@ -202,6 +227,8 @@ try {
     }
     await key(page,'C');
     const resume = await feedbackVisible(page,'.treasure-grid [aria-selected=true]');
+    const shell = await shellMetrics(page);
+    assertShellContract(shell, 'treasure resume baseline');
     await selectionVisible(page);
     // Native Enter/Space activation keeps focus on the same physical A button.
     await page.locator('.button-a').focus();
@@ -222,6 +249,7 @@ try {
     await page.screenshot({path:join(dir,`rejected-${width}-${height}-${font}.png`)});
     await page.getByRole('button',{name:'关闭提示'}).click();
     await key(page,'B'); await feedbackVisible(page,'.treasure-result');
+    assertSameShell(await shellMetrics(page), shell, 'treasure normal result');
     await page.screenshot({path:join(dir,`result-${width}-${height}-${font}.png`)});
     // A normal state read must not hijack document reading after an action.
     await page.evaluate(()=>{window.scrollTo(0,0);window.__jumps=0;const original=window.scrollBy;window.scrollBy=function(...args){window.__jumps++;return original.apply(this,args)}});
@@ -233,6 +261,7 @@ try {
     await key(page,'C'); await page.locator('.treasure-pause').waitFor();
     await key(page,'C'); await feedbackVisible(page,'.treasure-grid [aria-selected=true]');
     await page.reload(); await page.locator('.treasure-pause').waitFor();
+    assertSameShell(await shellMetrics(page), shell, 'treasure refresh pause');
     const count=(await api('state')).state.game.treasure.opened.length;
     await wait(100); assert.equal((await api('state')).state.game.treasure.opened.length,count);
     await key(page,'C'); await feedbackVisible(page,'.treasure-grid [aria-selected=true]');
@@ -243,6 +272,7 @@ try {
       await feedbackVisible(page,done?'.treasure-status':'.treasure-result');
     }
     assert.equal(await page.locator('.treasure-game').getAttribute('data-done'),'true','six accepted explorations must end the game');
+    assertSameShell(await shellMetrics(page), shell, 'treasure final result');
     await readable(page); await page.screenshot({path:join(dir,`done-${width}-${height}-${font}.png`)});
     const ruleEnd=await ruleEndVisible(page);
     await page.screenshot({path:join(dir,`rule-${width}-${height}-${font}.png`)});
