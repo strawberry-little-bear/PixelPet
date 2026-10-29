@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedTestBuilds } from './browser-test-builds.mjs';
+import { assertReadingFlow } from './reading-layout-assertions.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds({ root });
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
@@ -212,27 +213,12 @@ async function interruptedResponses(page, reduced, label) {
   assert.equal(await page.locator('.quiet-moment').getAttribute('data-replied'), 'false');
 }
 async function readable(page) {
-  const problems = await page.locator('.quiet-moment').evaluate(panel => {
-    const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT), problems = [];
-    let text;
-    while ((text = walker.nextNode())) {
-      if (!text.textContent.trim()) continue;
-      const range = document.createRange(); range.selectNodeContents(text);
-      for (const box of range.getClientRects()) {
-        if (box.left < -1 || box.right > innerWidth + 1) problems.push('horizontal: ' + text.textContent);
-        for (let parent = text.parentElement; parent; parent = parent.parentElement) {
-          const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1))
-            problems.push('clipped: ' + text.textContent);
-        }
-      }
-    }
-    return problems;
-  });
-  assert.deepEqual(problems, [], 'Chat text must remain readable');
+  // The LCD is the scrollport for long memories. Check hard clipping and
+  // prove both ends are reachable instead of treating the current scroll
+  // position as a failure.
+  await assertReadingFlow(page, '.quiet-moment', 'Quiet chat');
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
   assert.equal(await page.locator('.physical-button').count(), 3);
-  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 }
 try {
   server = spawn(binary, [], { cwd: root, env: { ...process.env, PIXELPET_ADDR: `127.0.0.1:${port}`,

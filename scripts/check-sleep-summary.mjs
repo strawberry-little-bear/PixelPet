@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import net from 'node:net';
+import { assertReadingFlow } from './reading-layout-assertions.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds();
 console.log(JSON.stringify({ testBuilds: { binary, web } }));
@@ -36,18 +37,37 @@ async function sleep(page) {
   for (const k of ['A', 'A', 'A', 'A']) await key(page, k);
   const reply = page.waitForResponse(r => new URL(r.url()).pathname === '/api/action' && r.request().postDataJSON()?.kind === 'sleep');
   await key(page, 'B'); const r = await reply; assert(r.ok());
-  const result = await r.json(); await key(page, 'C'); return result;
+  const result = await r.json();
+  if (!result.state.sleeping) {
+    // Let the short wake animation settle naturally before opening the full
+    // receipt in the status reading page; do not race its C skip shortcut.
+    await page.locator('.pet-scene[data-motion="idle"]').waitFor();
+  }
+  return result;
+}
+async function openStatus(page) {
+  await key(page, 'A');
+  for (let i = 0; i < 4; i++) await key(page, 'A');
+  await key(page, 'B');
+  await page.locator('.screen-status').waitFor();
 }
 // Read saved text using only the established A/B/C journal navigation. This
 // does not reconstruct the response receipt or infer a past sleep from totals.
 async function diary(page, entry, label) {
+  const logs = (await api('state')).state.logs ?? [];
+  const index = logs.findIndex(log => log.at === entry.at && log.text === entry.text);
+  assert(index >= 0, 'Acknowledged sleep diary entry must remain in the authoritative save');
   await key(page, 'A'); for (let i = 0; i < 5; i++) await key(page, 'A');
   await key(page, 'B'); await page.locator('.screen-journal').waitFor();
-  for (let i = 0; i < 30; i++) {
-    if (await page.locator('.screen-journal > p').innerText() === entry.text) break;
+  for (let i = 0; i < index; i++) {
+    const before = await page.locator('.screen-journal > p').innerText();
     await key(page, 'A');
+    await page.waitForFunction(previous => {
+      const paragraph = document.querySelector('.screen-journal > p');
+      return paragraph && paragraph.textContent !== previous;
+    }, before);
   }
-  assert.equal(await page.locator('.screen-journal > p').innerText(), entry.text);
+  assert.equal(await page.locator('.screen-journal > p').textContent(), entry.text);
   assert.equal(await page.locator('.screen-journal > time').getAttribute('datetime'), new Date(entry.at).toISOString());
   assert((await page.locator('.journal-note').innerText()).includes('最近 30 条'));
   await readable(page, '.screen-journal');
@@ -55,28 +75,10 @@ async function diary(page, entry, label) {
   await key(page, 'C'); await page.locator('.content-home').waitFor();
 }
 async function readable(page, selector = '.sleep-summary') {
-  const panel = page.locator(selector);
-  const issues = await panel.evaluate(el => {
-    const issues = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      const node = walker.currentNode; if (!node.textContent.trim()) continue;
-      const range = document.createRange(); range.selectNodeContents(node);
-      for (const box of range.getClientRects()) {
-        if (!box.width || !box.height) continue;
-        if (box.left < -1 || box.right > innerWidth + 1) issues.push(node.textContent);
-        for (let p = node.parentElement; p; p = p.parentElement) {
-          const style = getComputedStyle(p), clip = p.getBoundingClientRect();
-          if (['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowY) && (box.top < clip.top - 2 || box.bottom > clip.bottom + 2)) issues.push(node.textContent);
-        }
-      }
-    }
-    return [...new Set(issues)];
-  });
-  assert.deepEqual(issues, [], 'Sleep summary clipped or trapped');
-  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  await assertReadingFlow(page, selector, 'Sleep summary');
   assert.equal(await page.locator('.physical-button').count(), 3);
   assert.equal(await page.locator('.lcd button,.lcd input,.lcd a,.lcd [role=button]').count(), 0);
-  const tail = panel.locator(':scope > small');
+  const panel = page.locator(selector), tail = panel.locator(':scope > small');
   const end = await tail.count() ? tail.last() : panel;
   await end.scrollIntoViewIfNeeded();
   assert(await end.evaluate(el => {
@@ -125,6 +127,8 @@ try {
         close(summary.growthPoints, wake.state.growth.points - bed.state.growth.points);
         if (stage !== 'adult') assert(summary.energyRecovered > second.state.sleepSession.energyRecovered);
         else { assert.equal(summary.growthPoints, 0); assert.equal(wake.state.growth.form, initial.state.growth.form); }
+        await page.locator('.sleep-summary-compact').waitFor();
+        await openStatus(page);
         await page.locator('.sleep-summary').waitFor(); await readable(page);
         assert(await page.locator('.sleep-summary').evaluate((el, font) => parseFloat(getComputedStyle(el).fontSize) >= font * .85, font));
         const text = await page.locator('.sleep-summary').textContent();
@@ -139,7 +143,7 @@ try {
         await page.reload(); await page.locator('.home-caption').waitFor();
         assert.equal(await page.locator('.sleep-summary').count(), 0, 'Reload rebuilt old receipt from state');
         const entry = wake.state.logs[0];
-        assert(entry.text.includes('本段休息') && entry.text.includes('非起床奖励'));
+        assert(entry.text.includes('这一觉') && entry.text.includes('结算记录：') && entry.text.includes('睡梦里的成长'));
         await diary(page, entry, `${width}-${stage}`);
         assert.equal(writes.length, 2, 'Journal repeated care');
         assert.deepEqual(errors, []); results.push({ width, font, stage, summary, diaryAfterReload: true, passed: true });
@@ -167,7 +171,8 @@ try {
           }
           await route.fulfill({ response, json: body });
         });
-        await sleep(page); await page.locator('.sleep-summary').waitFor();
+        await sleep(page); await page.locator('.sleep-summary-compact').waitFor(); await openStatus(page);
+        await page.locator('.sleep-summary').waitFor();
         const text = await page.locator('.sleep-summary').textContent();
         assert(text.includes('入睡至起床：24.00 小时'));
         assert(text.includes(`实际结算：${settledHours.toFixed(2)} 小时`));
@@ -216,7 +221,9 @@ try {
       await readable(page, '.sleep-progress');
       await page.locator('.sleep-progress').screenshot({ path: join(dir, `amount-progress-${width}.png`) });
       const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/action' && r.request().postDataJSON()?.kind === 'sleep');
-      await key(page, 'B'); assert((await response).ok()); await key(page, 'C');
+      await key(page, 'B'); assert((await response).ok());
+      await page.locator('.pet-scene[data-motion="idle"]').waitFor();
+      await openStatus(page);
       await page.locator('.sleep-summary').waitFor();
       const text = await page.locator('.sleep-summary').innerText();
       assert(text.includes('恢复体力：+0.04') && text.includes('休息习惯：+<0.01'));
@@ -237,7 +244,13 @@ try {
     for (const source of ['schema16', 'current-backup']) {
       const initial = await seed('baby', false);
       let backup;
-      if (source === 'schema16') backup = { ...initial.state, schema: 16, sleeping: true };
+      if (source === 'schema16') {
+        backup = structuredClone(initial.state);
+        backup.schema = 16;
+        backup.sleeping = true;
+        delete backup.sleepSession;
+        if (backup.companion) delete backup.companion.history;
+      }
       else {
         const bed = await api('action', { kind: 'sleep', requestId: `import-bed-${width}` });
         assert(bed.state.sleepSession); backup = bed.state;
@@ -257,9 +270,11 @@ try {
         await readable(page, '.care-preview'); assert.equal(writes.length, 0);
         await page.locator('.care-preview').screenshot({ path: join(dir, `untracked-${width}-${source}-preview.png`) });
         const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/action' && r.request().postDataJSON()?.kind === 'sleep');
-        await key(page, 'B'); const wake = await (await response).json(); await key(page, 'C');
+        await key(page, 'B'); const wake = await (await response).json();
+        await page.locator('.pet-scene[data-motion="idle"]').waitFor();
         assert(!wake.state.sleeping); assert(!wake.careFeedback.sleepSummary);
         assert.deepEqual(wake.careFeedback.effect.before, wake.careFeedback.effect.after);
+        await openStatus(page);
         await page.locator('.sleep-summary-unavailable').waitFor();
         assert((await page.locator('.sleep-summary-unavailable').textContent()).includes('不代表睡着期间没有恢复'));
         assert.equal(await page.locator('.sleep-summary').count(), 0);
@@ -272,6 +287,7 @@ try {
         await diary(page, wake.state.logs[0], `${width}-${source}-untracked`);
         const nextBed = await sleep(page); assert(nextBed.state.sleepSession);
         const nextWake = await sleep(page); assert(nextWake.careFeedback.sleepSummary);
+        await openStatus(page);
         await page.locator('.sleep-summary').waitFor();
         assert.equal(await page.locator('.sleep-summary-unavailable').count(), 0);
         assert.equal(writes.length, 3); assert.deepEqual(errors, []);

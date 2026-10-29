@@ -104,7 +104,11 @@ try {
           assert((await panel.innerText()).includes('更新服务后')); assert.equal(await page.locator('.companion-memory').count(), 0);
         } else {
           assert((await page.locator('.companion-memory').innerText()).includes('已完成并收好'));
-          assert.equal(await panel.locator('[data-points="5"]').count(), 1); assert.equal(await panel.locator('[data-points="0"]').count(), 5);
+          const interests = panel.locator('[data-interest]');
+          const interestCount = await interests.count();
+          assert(interestCount > 0, 'shared-game interest rows must be rendered');
+          assert.equal(await panel.locator('[data-interest][data-points="5"]').count(), 1);
+          assert.equal(await panel.locator('[data-interest][data-points="0"]').count(), interestCount - 1);
         }
         assert.equal(await page.locator('.physical-button').count(), 3); assert.equal(await page.locator('.lcd button,.lcd input,.lcd a').count(), 0);
         const bounds = await panel.evaluate(el => {
