@@ -2554,6 +2554,7 @@ export default function App() {
           <button
             className="icon-button"
             aria-label={sound ? "关闭声音" : "打开声音"}
+            aria-pressed={sound}
             title={sound ? "关闭按键与咬钩提示音" : "打开按键与咬钩提示音（非必需）"}
             aria-describedby="sound-description"
             onClick={() => {
@@ -2706,6 +2707,7 @@ export default function App() {
                 <div className="bezel-screw screw-right" />
                 <div
                   className={`lcd ${pet?.sleeping ? "night" : ""}`}
+                  role="region"
                   aria-label="宠物屏幕，只能使用 A B C 按键操作"
                   aria-busy={busy}
                 >

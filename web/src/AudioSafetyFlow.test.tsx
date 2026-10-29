@@ -39,6 +39,12 @@ afterEach(()=>{cleanup();vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTi
 it('keeps default-off silent, with no eager AudioContext or extra save',async()=>{
   localStorage.clear();await mount();await key('a');await key('b');expect(saved.careCount).toBe(1);expect(AudioStub.instances).toHaveLength(0);expect(writes()).toHaveLength(1);
 });
+it('exposes the remembered sound state without changing the three-key surface',async()=>{
+  await mount();const toggleButton=screen.getByRole('button',{name:'关闭声音'});
+  expect(toggleButton.getAttribute('aria-pressed')).toBe('true');
+  await toggle();expect(screen.getByRole('button',{name:'打开声音'}).getAttribute('aria-pressed')).toBe('false');
+  expect(document.querySelectorAll('.lcd button,.lcd a,.lcd input,.lcd [role=button]')).toHaveLength(0);
+});
 it('does not await audio permission to navigate or save a confirmed care action',async()=>{
   await mount();await key('a');expect(document.querySelector('.content-menu')).toBeTruthy();expect(context().createOscillator).not.toHaveBeenCalled();
   await key('b');expect(saved.careCount).toBe(1);expect(writes()).toHaveLength(1);expect(context().resume).toHaveBeenCalledOnce();

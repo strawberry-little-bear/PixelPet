@@ -1343,7 +1343,8 @@ describe("keyboard reading and focus safety", () => {
     expect(document.querySelector(".care-menu")).toBeNull();
   });
   it("opts reading pages into reflow without adding LCD buttons", async () => {
-    await mount(); expect(document.querySelector(".device-stage.reading-mode")).not.toBeNull();
+    await mount(); expect(screen.getByRole("region", { name: "宠物屏幕，只能使用 A B C 按键操作" })).toBeTruthy();
+    expect(document.querySelector(".device-stage.reading-mode")).not.toBeNull();
     await choose(6);
     expect(document.querySelector(".device-stage.reading-mode")).not.toBeNull();
     expect(document.querySelector(".lcd button,.lcd a,.lcd input")).toBeNull();
