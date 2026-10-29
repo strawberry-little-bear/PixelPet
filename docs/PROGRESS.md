@@ -1,3 +1,10 @@
+## 2026-10-29 · 生命周期与回访固定布局当前提交复核
+
+- 在当前 `645f3c4` 提交上重跑移动生命周期与声音安全专项：`WindowPause.test.tsx`、`AudioSafetyFlow.test.tsx`、`GrowthInterruption.test.tsx`、`ReturnPanel.test.tsx` 共 **4 个文件／75 项全部通过**。覆盖 `blur`、`visibilitychange`、`pagehide/pageshow`、`freeze/resume`、迟到响应、音频挂起与恢复，以及游戏必须重新按键才继续。
+- 使用仓库外隔离 Go 二进制、隔离网页构建、临时 SQLite 和独立 Chromium 复核：窗口存在／回访恢复 **14/14 组**通过；回访固定布局 **12 组**通过；PWA manifest、PNG 图标、HTTP 缓存、三枚机身按键和刷新检查通过。桌面、390px／320px、普通／200% 根字号、清醒／睡眠下第 1、2 页的 `.device-stage`、`.device`、`.screen-bezel`、`.lcd` 与 `.lcd-content` 高度一致，第二页内容仍在 LCD 内滚动。
+- 本轮只补充验证记录，没有修改运行时代码、玩法、成长、奖励、存档或 A／B／C 三键约束。测试服务使用 `/var/folders/.../pixelpet-device.NxOpux/device-test.db`，没有访问、重置、导入或覆盖正式 `data/pixelpet.db`，正式服务保持不动。
+- 这些结果仍属于受控 Chromium／隔离服务证据，不替代自然多日成长、实体手机前后台／锁屏／系统回收、扬声器／耳机真实音量舒适度和 VoiceOver／TalkBack 真人读屏；上述项目继续保持未实测。
+
 ## 2026-10-29 · 重新完成统一阅读布局全量复跑
 
 - 在上一轮隔离构建上重新执行 `node scripts/check-reading-layout.mjs`，统一入口 **26/26 套件全部通过**。本次没有提前停止：覆盖欢迎、照顾、日记、回忆、纪念册、图鉴、商店、状态、名称、成长量表／回执、习惯／休息、小游戏说明／暂停、七款小游戏实际阅读、提示、回访布局／滚动／视口／触摸、异常恢复和小窝纪念角。
