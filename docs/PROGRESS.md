@@ -1,3 +1,10 @@
+## 2026-10-29 · 成长、生命周期、焦点与恢复回归复核
+
+- 定向前端回归 `WindowPause.test.tsx`、`WindowReturnSync.test.tsx`、`GrowthInterruption.test.tsx`、`AudioSafetyFlow.test.tsx`、`GrowthPresentation.test.tsx`、`LifeSummary.test.tsx`、`ReturnPanel.test.tsx`：**7 个文件／200 项全部通过**；TypeScript `--noEmit`、隔离 Vite 生产构建、Go `test -race -count=1 ./...` 与 `go vet ./...` 全部通过。
+- 使用仓库外隔离 Go 二进制、隔离网页构建、独立临时 SQLite 和 Chromium 重跑：实体键焦点／弹窗／三键 **64 组**、窗口离开与回访 **14 组**、回访固定高度 **12 组**、异常恢复阅读 **15 组**全部通过。回访在桌面、390px／320px、普通／200% 根字号、清醒／睡眠下第 1、2 页外壳高度一致；恢复错误页仍不套用固定回访高度。
+- 本轮没有发现新的稳定功能、布局、滚动、焦点、生命周期或 A／B／C 三键问题；没有修改运行时代码、玩法、成长、奖励或存档格式。测试未访问、重置、导入或覆盖正式 `data/pixelpet.db`，未连接或操作正式服务。
+- 以上仍是隔离自动化证据，不替代自然多日成长、实体手机前后台／锁屏／系统回收、扬声器／耳机真实舒适度和 VoiceOver／TalkBack 真人读屏；四项继续保持未实测。
+
 ## 2026-10-29 · 统一阅读布局回归的窄屏超时复核
 
 - 在当前隔离构建上重新执行 `node scripts/check-reading-layout.mjs`：首轮 **24/26** 套件通过；`check-return-scroll` 在 390px 普通字号的一次回访记录等待、`check-return-touch` 在 320px／200% 根字号的一次触摸稳定等待中达到 Playwright 默认 30 秒超时，均发生在业务断言前，没有形成布局失败或页面错误证据。
