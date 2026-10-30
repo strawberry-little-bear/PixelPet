@@ -129,6 +129,15 @@ it('disconnects a partially created oscillator when gain creation fails', async 
   await audio.play();expect(context.notes[1].oscillator.disconnect).toHaveBeenCalledOnce();expect(context.notes[1].oscillator.start).not.toHaveBeenCalled();
 });
 
+it('replaces a still-playing key tone instead of stacking rapid feedback', async () => {
+  await audio.play();
+  const first = ctx().notes[0].oscillator;
+  await audio.play(true);
+  expect(first.stop).toHaveBeenCalledWith();
+  expect(ctx().notes).toHaveLength(2);
+  expect(ctx().notes[1].oscillator.frequency.value).toBe(740);
+});
+
 
 it('a bite cannot create a context or request permission', () => {
   audio.bite(); expect(FakeContext.instances).toHaveLength(0);
@@ -159,6 +168,13 @@ it('a bite does not wait for pending audio permission', async () => {
 it('cancel stops a bite already playing', async () => {
   await audio.play(); audio.bite(); const note=ctx().notes[1]; audio.cancel();
   expect(note.oscillator.stop).toHaveBeenCalledWith(); expect(note.oscillator.disconnect).toHaveBeenCalledOnce(); expect(note.gain.disconnect).toHaveBeenCalledOnce();
+});
+it('replaces a repeated bite without changing key feedback', async () => {
+  await audio.play(); audio.bite(); const first = ctx().notes[1].oscillator;
+  audio.bite();
+  expect(first.stop).toHaveBeenCalledWith();
+  expect(ctx().notes).toHaveLength(3);
+  expect(ctx().notes[2].oscillator.frequency.value).toBe(1040);
 });
 it.each(['oscillator','gain','start','stop'])('bite %s failures are optional and isolated', async failure => {
   await audio.play(); const context=ctx();
