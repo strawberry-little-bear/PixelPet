@@ -170,12 +170,17 @@ try {
         const habit = { nutrition: '喂食习惯', clean: '清洁习惯', play: '陪玩习惯' }[result.careFeedback.habit];
         const title = `${result.careFeedback.points > 0 ? `成长 +${amount} · ` : ''}${habit} +${result.careFeedback.habitGain}`;
         await page.waitForFunction(title => document.querySelector('.growth-feedback strong')?.textContent === title, title);
-        assert((await page.getByRole('group', { name: '本次成长与习惯', exact: true }).innerText()).includes(amount === '0.00' ? '本次没有新增成长点' : `本次成长：+${amount} 点`),
+        // Home uses the compact receipt as the visible reading surface; the
+        // exact learning detail remains mounted in the intentionally hidden
+        // full receipt for the later reading/status flow.
+        const detail = page.locator('.care-outcome-full .care-learning[aria-label="本次成长与习惯"]');
+        assert.equal(await detail.count(), 1, 'detailed receipt must remain mounted');
+        assert((await detail.textContent()).includes(amount === '0.00' ? '本次没有新增成长点' : `本次成长：+${amount} 点`),
           'detailed receipt must agree with the short prompt and saved diary');
       }
       if (expectedResponse) {
         await page.waitForFunction(text => document.querySelector('.care-outcome-summary')?.textContent === text, expectedResponse);
-        assert.equal(await page.locator('.care-outcome-summary').count(), 1, 'one main care response');
+        assert.equal(await page.locator('.care-outcome-compact-summary .care-outcome-summary').count(), 1, 'one visible main care response');
       }
       return { result, body: saved.request().postDataJSON(), headers: await saved.request().allHeaders() };
     }
@@ -246,8 +251,8 @@ try {
       near(feed.result.careFeedback.effect.after.hunger - feed.result.careFeedback.effect.before.hunger, 20, 'actual meal');
       await scene(page, 'growing', 'eating'); // Saved stage changes before its deferred presentation.
       await scene(page, 'growing', 'celebrating'); await key(page, 'c'); await scene(page, 'growing', 'idle');
-      await page.locator('.care-milestone').scrollIntoViewIfNeeded();
-      assert((await page.locator('.care-milestone').innerText()).includes('这次照顾推动进入成长期'));
+      assert((await page.locator('.care-outcome-compact-summary').innerText()).includes('这次照顾推动进入成长期'));
+      assert((await page.locator('.care-outcome-full .care-milestone').textContent()).includes('这次照顾推动进入成长期'));
       await threeKeys(page); await reload('growing');
       await diary(grown.logs[0], form === 'gentle' ? 'growing' : undefined);
       // Skip the untested multi-day interval explicitly, preserving this very
@@ -268,8 +273,9 @@ try {
       assert.equal(milestoneCount(adult, 'adult'), 1); assert.equal(milestoneCount(adult, 'growing'), 1);
       await scene(page, 'adult', 'bathing', form); await scene(page, 'adult', 'celebrating', form);
       await key(page, 'c'); await scene(page, 'adult', 'idle', form);
-      await page.locator('.care-milestone').scrollIntoViewIfNeeded();
-      assert((await page.locator('.care-milestone').innerText()).includes(`这次照顾推动进入成年期 · ${forms[form]}已定型`));
+      const adultMilestone = `这次照顾推动进入成年期 · ${forms[form]}已定型`;
+      assert((await page.locator('.care-outcome-compact-summary').innerText()).includes(adultMilestone));
+      assert((await page.locator('.care-outcome-full .care-milestone').textContent()).includes(adultMilestone));
       if (form === 'gentle') await page.screenshot({ path: join(dir, `${label}-milestone.png`), fullPage: true });
       await threeKeys(page); await reload('adult');
       await diary(adult.logs[0], form === 'gentle' ? 'adult' : undefined);

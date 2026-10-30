@@ -8,7 +8,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { homeVoice } from '../web/src/homeVoice.ts';
+import { growingHomeVoice } from '../web/src/homeVoice.ts';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds({ root });
 assert.equal(process.argv.length, 2, 'No player URL or database arguments');
@@ -42,15 +42,29 @@ async function readable(page) {
   const issues = await page.locator('.growth-feedback').evaluate(el => {
     const issues = [], area = document.querySelector('.lcd-content').getBoundingClientRect();
     const footer = document.querySelector('.lcd-bottom').getBoundingClientRect();
+    const ancestors = [];
+    for (let node = el; node; node = node.parentElement) ancestors.push(node);
+    const scrollBox = ancestors.find(node => {
+      const style = getComputedStyle(node);
+      return ['auto', 'scroll'].includes(style.overflowY) && node.scrollHeight > node.clientHeight + 1;
+    });
+    const scrollRect = scrollBox?.getBoundingClientRect();
+    // The home LCD is a bounded reading viewport at enlarged root sizes. A
+    // voice may start below the initial fold, so bring the exact message into
+    // view before checking its line boxes rather than treating that as loss.
+    if (scrollBox) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let text;
     while ((text = walker.nextNode())) {
       if (!text.textContent.trim()) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > Math.min(area.bottom, footer.top) + 1) issues.push(text.textContent);
+        if (scrollRect && (box.bottom <= scrollRect.top || box.top >= scrollRect.bottom)) continue;
+        const bottom = scrollRect ? scrollRect.bottom : Math.min(area.bottom, footer.top);
+        if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > bottom + 1) issues.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
+          if (parent === scrollBox) continue;
           if (/hidden|clip|auto|scroll/.test(css.overflowY) && (box.top < rect.top - 1 || box.bottom > rect.bottom + 1)) issues.push('clipped: ' + text.textContent);
         }
       }
@@ -89,8 +103,9 @@ try {
       for (const kind of ['content', 'quiet']) {
         const label = `${mode.width}-${species}-${stage}-${kind}`;
         const before = await seed(species, stage, kind === 'quiet' ? { mood: 60, energy: 44 } : {});
-        const count = writes.length, voice = homeVoice(species, stage, kind, before.growth.form);
+        const count = writes.length; let voice;
         await page.goto(base); await page.locator('.home-caption').waitFor();
+        voice = growingHomeVoice(species, (await api('state')).state.growth, kind);
         assert.equal(await page.locator('.growth-feedback strong').innerText(), voice, label);
         assert(await page.locator(`.gesture-${kind}`).count() > 0, 'existing calm gesture missing');
         assert.equal(await page.locator('.growth-feedback').getAttribute('data-feedback'), 'idle');
@@ -117,7 +132,7 @@ try {
       fixture.growth.form = form;
       fixture.album.entries.find(m => m.kind === 'adult').form = form;
       const before = (await api('import', fixture)).state;
-      const label = `${mode.width}-adult-${form}`, voice = homeVoice(2, 'adult', 'content', form);
+      const label = `${mode.width}-adult-${form}`, voice = growingHomeVoice(2, before.growth, 'content');
       const count = writes.length;
       await page.goto(base); await page.locator('.home-caption').waitFor();
       assert.equal(await page.locator('.growth-feedback strong').innerText(), voice, label);
@@ -142,8 +157,9 @@ try {
       for (const k of ['A', 'B']) await key(page, k);
       await page.locator('.care-outcome').waitFor();
       assert.match(await page.locator('.growth-feedback strong').innerText(), /喂食习惯/);
-      await page.waitForFunction(expected => document.querySelector('.growth-feedback strong')?.textContent === expected,
-        homeVoice(2, stage, 'content', before.growth.form), { timeout: 12000 });
+      const expectedVoice = growingHomeVoice(2, (await api('state')).state.growth, 'content');
+        await page.waitForFunction(expected => document.querySelector('.growth-feedback strong')?.textContent === expected,
+        expectedVoice, { timeout: 12000 });
       await readable(page);
       const after = (await api('state')).state;
       assert.equal(after.careCount, before.careCount + 1);

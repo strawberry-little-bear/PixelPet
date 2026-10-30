@@ -126,6 +126,8 @@ async function assertReadingLayout(page, mode, id) {
   const before = await shellMetrics(page);
   const content = page.locator('.lcd-content');
   assert.equal(before['.lcd-content'].overflowY, 'auto', `${id} LCD content is not independently scrollable`);
+  assert.equal(await content.evaluate(element => getComputedStyle(element).flexShrink), '0',
+    `${id} LCD content may be compressed by the flex shell`);
   const expectedScreen = id === 'treasure'
     ? (mode.width <= 700 ? 364 : 460)
     : (mode.width <= 700 ? 364 : 284);

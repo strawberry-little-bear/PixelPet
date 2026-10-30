@@ -175,7 +175,14 @@
 .game-reading-mode.bounded-reading-mode:not(.return-mode) .device { height: var(--reading-device-height); min-height: 0; padding-bottom: 38px; }
 .device-stage.game-reading-mode.bounded-reading-mode:not(.return-mode) .screen-bezel { height: var(--reading-screen-height); min-height: 0; flex-shrink: 0; }
 .game-reading-mode.bounded-reading-mode:not(.return-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
-.game-reading-mode.bounded-reading-mode:not(.return-mode) .lcd-content { height: var(--reading-content-height); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.game-reading-mode.bounded-reading-mode:not(.return-mode) .lcd-content {
+  height: var(--reading-content-height);
+  min-height: 0;
+  flex-shrink: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
 @media (max-width: 700px) {
   .device-stage.bounded-reading-mode { --reading-stage-height: 612px; --reading-device-height: 592px; --reading-screen-height: 364px; --reading-content-height: 284px; }
 }
@@ -206,6 +213,7 @@
 .bounded-reading-mode.tiles-mode .lcd-content {
   height: var(--reading-content-height);
   min-height: 0;
+  flex-shrink: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;

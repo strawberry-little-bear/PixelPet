@@ -82,6 +82,7 @@
 .device-stage.treasure-mode.reading-mode:not(.recovery-mode):not(.return-mode) .lcd-content {
   height: var(--reading-content-height);
   min-height: 0;
+  flex-shrink: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;

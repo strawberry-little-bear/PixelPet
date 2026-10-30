@@ -52,15 +52,27 @@ async function readable(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   const issues = await page.locator('.sleep-progress').evaluate(el => {
     const issues = [], footer = document.querySelector('.lcd-bottom').getBoundingClientRect();
+    const ancestors = [];
+    for (let node = el; node; node = node.parentElement) ancestors.push(node);
+    const scrollBox = ancestors.find(node => {
+      const style = getComputedStyle(node);
+      return ['auto', 'scroll'].includes(style.overflowY) && node.scrollHeight > node.clientHeight + 1;
+    });
+    const scrollRect = scrollBox?.getBoundingClientRect();
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       const node = walker.currentNode; if (!node.textContent.trim()) continue;
       const range = document.createRange(); range.selectNodeContents(node);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
+        // Text below a bounded LCD viewport is intentionally outside the
+        // initial client rect. It is validated after scrolling to the end.
+        const outsideScrollViewport = scrollRect && (box.bottom <= scrollRect.top || box.top >= scrollRect.bottom);
+        if (outsideScrollViewport) continue;
         if (box.left < -1 || box.right > innerWidth + 1 || box.bottom > footer.top + 1) issues.push(node.textContent);
         for (let p = node.parentElement; p; p = p.parentElement) {
           const style = getComputedStyle(p), clip = p.getBoundingClientRect();
+          if (p === scrollBox) continue;
           if (['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowY) && (box.top < clip.top - 2 || box.bottom > clip.bottom + 2)) issues.push(node.textContent);
         }
       }
@@ -122,7 +134,7 @@ try {
         assert(nextBed.state.sleepSession.startedAt > bed.state.sleepSession.startedAt);
         const next = await sync(page); await matches(page, next); assert.equal(writes.length, 1);
         const wake = await sleepAction(page); assert(wake.careFeedback.sleepSummary); assert(!wake.state.sleepSession);
-        await page.locator('.sleep-summary').waitFor(); assert.equal(await page.locator('.sleep-progress').count(), 0);
+        await page.locator('.sleep-summary-compact').waitFor(); assert.equal(await page.locator('.sleep-progress').count(), 0);
         assert.equal(writes.length, 2); assert.deepEqual(errors, []);
         results.push({ stage, ...mode, passed: true });
       } catch (error) { await page.screenshot({ path: join(dir, `${label}-failure.png`), fullPage: true }); throw error;
