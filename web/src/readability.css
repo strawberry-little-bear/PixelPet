@@ -69,7 +69,7 @@
 .reading-mode .shell-brand, .reading-mode .device-model, .reading-mode .device-buttons { flex-shrink: 0; }
 .bounded-reading-mode:not(.return-mode):not(.treasure-mode) .screen-bezel { height: var(--reading-screen-height); min-height: 0; flex-shrink: 0; }
 .bounded-reading-mode:not(.return-mode):not(.treasure-mode) .lcd { height: 100%; display: flex; flex-direction: column; }
-.bounded-reading-mode:not(.return-mode):not(.treasure-mode) .lcd-content { height: var(--reading-content-height); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; font-size: .857143rem; line-height: 1.6; }
+.bounded-reading-mode:not(.return-mode):not(.treasure-mode) .lcd-content { height: var(--reading-content-height); min-height: 0; flex-shrink: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; font-size: .857143rem; line-height: 1.6; }
 .reading-mode .lcd-content :is(p, small, strong, b, span, dt, dd, li, time, header, h3, .care-item, .lcd-meter, .companion-rows, .quiet-atmosphere, .quiet-event) {
   font-size: .857143rem; line-height: 1.6; overflow-wrap: anywhere;
 }

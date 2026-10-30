@@ -25,6 +25,7 @@ const allSuites = [
   'check-arcade-reading',
   'check-pause-guide',
   'check-game-reading-layout',
+  'check-shell-contract',
   'check-stars-reading',
   'check-tile-reading',
   'check-reading-notices',
