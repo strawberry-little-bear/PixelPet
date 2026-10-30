@@ -21,16 +21,16 @@ export function ArcadePanel({ choice, economy, companion, growth, shop, now, sle
   const allowance = gameAllowance(economy, shop, now);
   return <section className="arcade-panel" aria-label="一起玩耍">
     <header>和小伙伴一起玩 <small>{choice + 1} / {games.length}</small></header>
-    <SelectionStatus scope="arcade">第 {choice + 1} / {games.length} 款，{game.title}。A 下一款，B 看规则，C 返回小窝。</SelectionStatus>
+    <SelectionStatus scope="arcade">第 {choice + 1} / {games.length} 款，{game.title}。{game.summary} · {game.duration}。{blocked ? `${blocked.note}。` : ""}A 下一款，B 看规则，C 返回小窝。</SelectionStatus>
     {selectionRemembered && <p className="arcade-memory-note" role="note" aria-label="上次游戏位置">上次选中：{game.title} · A 下一款 · B 看规则</p>}
-    {blocked && <p className="game-start-note" role="status" aria-label="开局前的照顾提示">{blocked.note}{!sleeping && "可以先按 B 看规则。"}</p>}
+    {blocked && <p className="game-start-note" aria-label="开局前的照顾提示">{blocked.note}{!sleeping && "可以先按 B 看规则。"}</p>}
     <div className="arcade-cards">
       {games.map((item, i) => <div key={item.id} className={`arcade-card ${choice === i ? "selected" : ""}`} data-game={item.id} aria-current={choice === i}>
         <span aria-hidden="true">{item.icon}</span><strong>{item.title}</strong>
       </div>)}
     </div>
     <div className="arcade-details">
-      <strong aria-live="polite" aria-atomic="true">{game.summary} · {game.duration}</strong>
+      <strong>{game.summary} · {game.duration}</strong>
       <p>{game.controls}</p><p>{game.reward}</p>
       {familiar && <p className="arcade-familiar" aria-label="共同游戏熟悉度">你们已经熟悉这款游戏：{familiar.points} / {interestLimit}。想继续时可以再玩，也可以换一款。</p>}
       {preference && <p className="arcade-preference" aria-label="成长倾向游戏提示"><strong>{gamePreferenceLabel(preference)}</strong>：{preference.text} {gameIsPreferred(preference, game.id) ? "这款正合它的心情。" : "也可以按你的心情来。"}</p>}
@@ -50,10 +50,10 @@ export function GameGuide({ game, page, review = false, paused = false, sleeping
   const seen = guideSeen(game.id);
   const blocked = paused ? null : gameStartBlock(sleeping, energy);
   const lesson = gameLesson(game, species);
-  const notice = blocked && <p className="game-start-note" role="status" aria-label="开局前的照顾提示">{blocked.note}</p>;
+  const notice = blocked && <p className="game-start-note" aria-label="开局前的照顾提示">{blocked.note}</p>;
   const quickStartAction = blocked?.hint ?? gameStartInstruction(game, true);
   if (seen && !review && !paused) return <section className="game-guide game-quick-start" aria-label={`${game.title}开始准备`} data-guide={game.id}>
-    <SelectionStatus scope="game-guide">准备再玩，{game.title}。A 重看规则，B {quickStartAction.replace(/^B /, "")}，C 返回选游戏。</SelectionStatus>
+    <SelectionStatus scope="game-guide">准备再玩，{game.title}。{game.summary} · {game.duration}。A 重看规则，B {quickStartAction.replace(/^B /, "")}，C 返回选游戏。{blocked ? ` ${blocked.note}` : ""}</SelectionStatus>
     <header>准备再玩 · {game.title}</header>
     {notice}
     <strong>{game.summary} · {game.duration}</strong>
@@ -66,7 +66,7 @@ export function GameGuide({ game, page, review = false, paused = false, sleeping
     ? "A / B 翻页 · C 返回暂停"
     : `A 翻页 · ${blocked?.hint ?? gameStartInstruction(game, seen && !review)} · C 返回选游戏`;
   return <section className="game-guide" aria-label={`${game.title}玩法说明`} data-guide={game.id}>
-    <SelectionStatus scope="game-guide">{paused ? "本局玩法" : review ? "再看玩法" : "第一次一起玩"}，{game.title}，第 {page + 1} / 2 页。{guideAction}。</SelectionStatus>
+    <SelectionStatus scope="game-guide">{paused ? "本局玩法" : review ? "再看玩法" : "第一次一起玩"}，{game.title}，第 {page + 1} / 2 页。{guideAction}。{blocked ? ` ${blocked.note}` : ""}</SelectionStatus>
     <header>{paused ? "本局玩法" : seen ? "再看玩法" : "第一次一起玩"} · {game.title}<small>{page + 1} / 2</small></header>
     {notice}
     <strong>{page === 0 ? game.controls : "暂停、离开与奖励"}</strong>

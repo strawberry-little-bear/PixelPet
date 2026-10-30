@@ -237,6 +237,9 @@ describe("saved game familiarity", () => {
     const lowEnergy = render(<GameGuide game={games[0]} page={0} energy={9.9} review shop={rules} now={Date.now()} />);
     expect(lowEnergy.container.querySelector('[data-selection-status="game-guide"]')?.textContent)
       .toContain("B 暂不可开始");
+    expect(lowEnergy.container.querySelector('[data-selection-status="game-guide"]')?.textContent)
+      .toContain("体力不足 10");
+    expect(lowEnergy.container.querySelectorAll('[aria-live="polite"], [role="status"]')).toHaveLength(1);
   });
 
   it("announces only the selected game's concise summary when selection changes", () => {
@@ -244,12 +247,16 @@ describe("saved game familiarity", () => {
     const growth = emptyGrowth("growing"); growth.care.play = 3;
     const view = render(<ArcadePanel choice={0} companion={companion} growth={growth} now={Date.now()} shop={rules} economy={saved.economy} />);
     expect(view.container.querySelector(".arcade-details")?.hasAttribute("aria-live")).toBe(false);
-    expect(view.container.querySelector(".arcade-details > strong")?.getAttribute("aria-live")).toBe("polite");
-    expect(view.container.querySelector(".arcade-details > strong")?.getAttribute("aria-atomic")).toBe("true");
+    expect(view.container.querySelector(".arcade-details > strong")?.hasAttribute("aria-live")).toBe(false);
+    expect(view.container.querySelector('[data-selection-status="arcade"]')?.textContent)
+      .toContain(`${games[0].summary} · ${games[0].duration}`);
+    expect(view.container.querySelectorAll('[aria-live="polite"], [role="status"]')).toHaveLength(1);
     expect(view.container.querySelector(".arcade-familiar, .arcade-preference")?.closest("[aria-live]")).toBeNull();
 
     view.rerender(<ArcadePanel choice={1} companion={companion} growth={growth} now={Date.now()} shop={rules} economy={saved.economy} />);
     expect(view.container.querySelector(".arcade-details > strong")?.textContent).toBe(`${games[1].summary} · ${games[1].duration}`);
+    expect(view.container.querySelector('[data-selection-status="arcade"]')?.textContent)
+      .toContain(`${games[1].summary} · ${games[1].duration}`);
     expect(view.container.querySelector(".arcade-familiar, .arcade-preference")?.closest("[aria-live]")).toBeNull();
   });
 
