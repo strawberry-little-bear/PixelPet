@@ -7,6 +7,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertBoundedReadingShell, assertSameReadingShell, readReadingShell } from './reading-shell-geometry.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds({ root });
 const { chromium } = await import(process.env.PIXELPET_PLAYWRIGHT_MODULE || 'playwright');
@@ -23,7 +24,14 @@ async function api(path, body) {
   });
   assert(res.ok, await res.clone().text()); return res.json();
 }
-async function key(page, k) { await page.locator(`.button-${k.toLowerCase()}`).tap(); }
+async function key(page, k) {
+  await page.locator(`.button-${k.toLowerCase()}:not(:disabled)`).tap();
+  // Let the controlled reading view commit before the next physical-key tap.
+  // Without this yield, a fast sequence can land on the previous home view
+  // while React is still replacing the care panel.
+  await page.waitForFunction(() => !document.querySelector('.button-b')?.disabled);
+  await page.waitForTimeout(40);
+}
 async function focusedKey(page) { return page.evaluate(() => ['a', 'b', 'c'].find(k => document.activeElement?.classList.contains(`button-${k}`)) ?? null); }
 async function visible(page, selector) {
   await wait(100);
@@ -162,12 +170,18 @@ try {
     try {
       await page.goto(base); await page.locator('.home-caption').waitFor();
       const preference = await page.evaluate(() => JSON.stringify(localStorage));
+      const shellBaselines = new Map();
       for (const kind of ['growth', 'status']) {
         await open(page, kind); const pages = kind === 'growth' ? 6 : 3;
         for (let n = 0; n < pages; n++) {
           const panel = page.locator(kind === 'growth' ? '.growth-panel' : '.screen-status');
           assert.equal(await panel.getAttribute(`data-${kind}-page`), String(n));
           await visible(page, '[data-care-reading-start]'); await visibleHeading(page, kind, n); await readable(page, kind);
+          const shell = await readReadingShell(page);
+          const shellBaseline = shellBaselines.get(kind);
+          if (!shellBaseline) shellBaselines.set(kind, shell);
+          else assertSameReadingShell(shell, shellBaseline, `${label}/${kind}/${n}`);
+          assertBoundedReadingShell(shell, `${label}/${kind}/${n}`);
           if (kind === 'growth' && n === 4 || kind === 'status' && n === 1) {
             nativeReading.push(await nativeRead(page, kind, panel, capture ? join(dir, `native-${kind}-${label}.png`) : null));
             // Resume the original reading/sync checks from the explicit start.

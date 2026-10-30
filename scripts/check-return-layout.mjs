@@ -8,6 +8,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertBoundedReadingShell, assertSameReadingShell, readReadingShell } from './reading-shell-geometry.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { binary, web } = await isolatedTestBuilds();
 console.log(JSON.stringify({ testBuilds: { binary, web } }));
@@ -21,10 +22,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 async function key(page, k) { await page.locator(`.button-${k}:not(:disabled)`).tap(); }
 async function review(page) { await key(page, 'a'); for (let i = 0; i < 7; i++) await key(page, 'a'); await key(page, 'b'); await page.locator('.return-panel').waitFor(); }
 async function size(page) {
-  return page.evaluate(() => Object.fromEntries(['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content'].map(s => {
-    const element = document.querySelector(s), style = getComputedStyle(element);
-    return [s, { height: element.getBoundingClientRect().height, cssHeight: style.height }];
-  })));
+  return readReadingShell(page);
 }
 async function sync(page) { await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); }
 async function bottom(page, width) {
@@ -89,15 +87,14 @@ try {
       });
       await page.goto(base); await page.locator('.home-caption').waitFor();
       await review(page); const panel = page.locator('.return-panel'), first = await size(page);
+      assertBoundedReadingShell(first, `${width}/${font}/${sleeping}/return-1`);
       assert.equal(await panel.evaluate(el => el.scrollTop), 0);
       const firstBounds = await textBounds(page); assert(firstBounds.inside && !firstBounds.overflow, JSON.stringify(firstBounds));
       await page.screenshot({ path: join(dir, `return-first-${width}-${font}-${sleeping ? 'sleep' : 'awake'}.png`), fullPage: true });
       await key(page, 'b'); const second = await size(page); console.log('SIZES', JSON.stringify({ width, font, sleeping, first, second }));
-      assert.deepEqual(first, second, 'changing recap page must not stretch any device/screen height');
+      assertSameReadingShell(second, first, `${width}/${font}/${sleeping}/return-pages`);
       assert.equal(second['.lcd-content'].height, width <= 700 ? 284 : 380);
-      for (const selector of ['.device-stage', '.device', '.screen-bezel', '.lcd', '.lcd-content']) {
-        assert.notEqual(second[selector].cssHeight, 'auto', `${selector} reverted to auto height in return mode`);
-      }
+      assertBoundedReadingShell(second, `${width}/${font}/${sleeping}/return-2`);
       assert.equal(await page.locator('.device-stage.return-mode').count(), 1);
       const bounds = await textBounds(page); assert(bounds.inside && !bounds.overflow, JSON.stringify(bounds));
       await page.screenshot({ path: join(dir, `return-top-${width}-${font}-${sleeping ? 'sleep' : 'awake'}.png`), fullPage: true });
