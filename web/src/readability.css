@@ -317,6 +317,32 @@
 @media (max-width: 340px) {
   .return-mode .return-panel > header { position: static; }
 }
+
+/* At 320px with 200% text, the key legend can legitimately wrap to two
+   lines. Keep that legend inside the LCD instead of letting flexbox compress
+   it back to 25px and clip the second line. The reading viewport gives back
+   the same space, so the physical shell remains the same height and the
+   longer page content continues to scroll internally. */
+@media (max-width: 340px) {
+  .device-stage.bounded-reading-mode { --reading-content-height: 240px; }
+  .device-stage.treasure-mode.bounded-reading-mode:not(.recovery-mode):not(.return-mode) {
+    --reading-content-height: 240px;
+  }
+  .device-stage.bounded-reading-mode.tiles-mode .lcd-content { height: 240px; }
+  .reading-mode .lcd-bottom {
+    min-height: 66px;
+    flex-shrink: 0;
+    align-items: flex-start;
+  }
+  .reading-mode .lcd-bottom > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .reading-mode .lcd-bottom > span:last-child {
+    line-height: 1;
+    margin-top: 2px;
+  }
+}
 @media (forced-colors: active) {
   .return-mode .return-panel > header, .return-mode .night .return-panel > header { background: Canvas; color: CanvasText; }
 }
