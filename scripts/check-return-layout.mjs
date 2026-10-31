@@ -41,7 +41,10 @@ async function bottom(page, width) {
     return { top: el.scrollTop, max: el.scrollHeight - el.clientHeight, visible: last.bottom <= box.bottom + 1 && last.top >= header.bottom - 1, headerTop: header.top, panelTop: box.top, sticky: header.top >= box.top - 1 && header.top <= box.top + parseFloat(getComputedStyle(el).paddingTop) + 1 };
   });
   const stickyRequired = width > 340;
-  assert(reading.top > 0 && reading.visible && (!stickyRequired || reading.sticky), JSON.stringify({ ...reading, stickyRequired }));
+  // Some compact viewports fit the complete second page without a scrollbar.
+  // In that case the bottom content is already reachable at scrollTop 0; do
+  // not turn a valid fixed-shell layout into a false regression.
+  assert((reading.top > 0 || reading.max <= 1) && reading.visible && (!stickyRequired || reading.sticky), JSON.stringify({ ...reading, stickyRequired }));
   return reading;
 }
 async function textBounds(page) {
@@ -98,8 +101,11 @@ try {
       assert.equal(await page.locator('.device-stage.return-mode').count(), 1);
       const bounds = await textBounds(page); assert(bounds.inside && !bounds.overflow, JSON.stringify(bounds));
       await page.screenshot({ path: join(dir, `return-top-${width}-${font}-${sleeping ? 'sleep' : 'awake'}.png`), fullPage: true });
-      await panel.hover(); await page.mouse.wheel(0, 160);
-      await page.waitForFunction(() => document.querySelector('.return-panel').scrollTop > 0);
+      const returnMax = await panel.evaluate(el => el.scrollHeight - el.clientHeight);
+      if (returnMax > 1) {
+        await panel.hover(); await page.mouse.wheel(0, 160);
+        await page.waitForFunction(() => document.querySelector('.return-panel').scrollTop > 0);
+      }
       const scrolled = await bottom(page, width); assert((await panel.innerText()).includes('这里不会自动照顾'));
       await page.keyboard.press('a'); assert.equal(await panel.evaluate(el => el.scrollTop), 0); assert.equal(await panel.locator('header span').innerText(), '1 / 2');
       await key(page, 'a'); await bottom(page, width);
