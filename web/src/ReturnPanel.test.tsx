@@ -10,6 +10,13 @@ const recap: ReturnRecap = {
   after: { needs: { hunger: 34, mood: 80, clean: 41, energy: 100 }, stage: "adult", form: "gentle", points: 72, rest: 48 / 28, trackedHours: 12 },
 };
 describe("truthful return summary", () => {
+  it("exposes a navigable heading and spoken page count", () => {
+    render(<ReturnPanel recap={recap} page={1} />);
+    const region = screen.getByLabelText("回访小结");
+    expect(screen.getByRole("heading", { name: "你回来啦", level: 2 })).toBeTruthy();
+    expect(region.querySelector("header span")?.getAttribute("aria-label")).toBe("第 2 页，共 2 页");
+  });
+
   it("keeps real absence separate from capped settlement and shows both stage crossings", () => {
     render(<ReturnPanel recap={recap} page={0} />);
     expect(screen.getByLabelText("回访小结").textContent).toContain("离开了 48 小时");

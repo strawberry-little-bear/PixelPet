@@ -38,7 +38,7 @@ export function ReturnPanel({ recap, page, updated = false, pet }: { recap: Retu
     ? (["hunger", "mood", "clean", "energy"] as const).some(key => tiny(after.needs[key] - before.needs[key], 1))
     : [after.points - before.points, Math.max(0, after.rest - before.rest), Math.max(0, after.trackedHours - before.trackedHours)].some(n => tiny(n, 2));
   return <section key={JSON.stringify([recap.id, page])} ref={panel} className="return-panel" aria-label="回访小结" tabIndex={0}>
-    <header><strong>你回来啦</strong><span>{page + 1} / {returnPageCount}</span></header>
+    <header><h2 id="return-heading">你回来啦</h2><span aria-label={`第 ${page + 1} 页，共 ${returnPageCount} 页`}>{page + 1} / {returnPageCount}</span></header>
     <small className="return-scroll-hint">可上下滚动阅读；聚焦后可用 ↑/↓ 或空格</small>
     {updated && <p className="return-sync-note" role="status">已更新为最新回访记录，本次从第一页开始。</p>}
     <div className="return-period" aria-label="记录时段（本地时间）">

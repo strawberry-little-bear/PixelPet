@@ -1,6 +1,7 @@
 .return-panel { padding: 7px 12px; color: #3e5142; font-size: 11px; }
 .return-panel header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #7e987b55; padding-bottom:5px; }
-.return-panel header strong { font-size:14px; }
+.return-panel header :is(strong, h2) { font-size:14px; }
+.return-panel header h2 { margin: 0; font-weight: bold; }
 .return-panel header span, .return-panel > small { font-size:9px; }
 .return-panel p { margin:7px 0; }
 .return-panel > small { display:block; line-height:1.5; }
