@@ -1,3 +1,10 @@
+## 2026-10-31 18:07 CST · 当前 main 全量验证复跑
+
+- 从当前 `main`、干净工作区重新执行前端全量测试：**231 个测试文件／6085 项全部通过**。使用项目附带的 Node 运行时执行，未因终端默认环境缺少 `node` 而跳过验证。
+- 同批 `tsc --noEmit` 和 Vite 生产构建通过；Go `test -race -count=1 ./...` 通过（`internal/game`、`internal/httpapi`、`internal/store`）。`git diff --check` 通过，提交前仓库级 author／committer 均为草莓小熊。
+- 本轮没有修改运行时代码、玩法、成长、奖励、存档格式或 A／B／C 三键约束，也没有访问、重置、导入或覆盖正式 `data/pixelpet.db`。
+- 自动化测试与构建仍不替代自然多日成长与阶段变化、实体手机前后台／锁屏／系统回收、真实扬声器／耳机听感或 VoiceOver／TalkBack 真人读屏；四项继续保持未实测，等待真实设备观察记录。
+
 ## 2026-10-31 17:57 CST · 阅读布局统一回归完成当前构建复跑
 
 - 使用仓库外隔离 Go 二进制 `/tmp/pixelpet-reading.yc5MHP/pixelpet`、隔离 Vite 构建、随机端口、临时 SQLite 和独立 Chromium，从当前 `main` 实际运行 `node scripts/check-reading-layout.mjs`，**27/27 套件通过**。未访问、重置、导入或覆盖正式 `data/pixelpet.db`，也未使用共享 `bin/pixelpet` 或 `web/dist`。
