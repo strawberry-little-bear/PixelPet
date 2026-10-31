@@ -1,3 +1,9 @@
+## 2026-10-31 16:52 CST · 项目级全量验证收尾
+
+- 在当前 `main`、仓库外隔离前端构建和临时测试环境上完成收尾验证：前端全量 **231 个测试文件／6085 项**通过，TypeScript `--noEmit`、Vite 生产构建、Go `test -race -count=1 ./...`、`go vet ./...` 和 `git diff --check` 全部通过。
+- 当前 `HEAD` 与 `origin/main` 均为 `a4d0a80`，工作区干净；本条只记录验证结果，没有修改运行时代码、玩法、成长、奖励、存档格式或 A／B／C 三键约束。
+- 27/27 阅读布局套件的专项结论仍见下一条记录；自动化浏览器、隔离数据库和受控时间不替代自然多日成长、实体手机前后台／锁屏／系统回收、真实扬声器／耳机听感或 VoiceOver／TalkBack 真人读屏，这些仍未实测。
+
 ## 2026-10-31 15:43 CST · 阅读布局与成长生命周期专项完整复验
 
 - 在仓库外隔离 Go 二进制 `/tmp/pixelpet-current-N6RKeO/pixelpet`、隔离 Vite 构建、随机端口、临时 SQLite 和 Chromium 上，从头执行 `node scripts/check-reading-layout.mjs`，**27/27 套件通过**。本轮没有沿用中途运行结果，也没有访问、重置、导入或覆盖正式 `data/pixelpet.db`。
