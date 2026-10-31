@@ -75,6 +75,15 @@ try {
       });
       await page.goto(base); await page.locator('.home-caption').waitFor();
       await review(page); const panel = page.locator('.return-panel');
+      const maxScroll = await panel.evaluate(el => el.scrollHeight - el.clientHeight);
+      if (maxScroll <= 1) {
+        // Compact viewports can fit the complete recap inside the fixed LCD.
+        // There is no native scroll target to exercise in that combination;
+        // the fixed-shell and bottom-content assertions live in the layout
+        // regression, so record the valid no-overflow boundary and continue.
+        results.push({ width, font, sleeping, skipped: 'no-overflow', maxScroll });
+        continue;
+      }
       for (const action of ['record', 'a', 'b', 'same']) for (let repeat = 0; repeat < 2; repeat++) {
         console.log('TRIAL', JSON.stringify({ width, font, sleeping, action, repeat }));
         if (action !== 'b') await key(page, 'a');
