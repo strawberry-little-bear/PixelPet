@@ -1,3 +1,9 @@
+## 2026-10-31 17:00 CST · 声音、焦点与窗口恢复回归收尾
+
+- 接续上轮未结束的定向回归：`buttonAudio.test.ts`、`AudioSafetyFlow.test.tsx`、`PhysicalButtonFocus.test.tsx`、`WindowPresence.test.tsx`、`WindowPause.test.tsx` 共 **5 个测试文件／124 项**通过。覆盖音频待播放反馈、窗口失焦与回窗、实体按键焦点、暂停恢复和 StrictMode 生命周期边界；失焦后不会延迟重播旧声音，回窗后的下一次 A / B / C 仍可正常工作。
+- 在临时 SQLite、随机端口、仓库外构建和独立 Chromium 上执行 `scripts/check-window-presence.mjs`，**14/14** 通过：幼年、成长期、成年期，清醒／睡眠，初始失焦、待处理回访、迟到读取和迟到认领响应均不会自动续玩或重复写入。
+- 本轮只补充验证记录，没有修改运行时代码、玩法、成长、奖励、存档格式或 A / B / C 三键约束；没有访问、重置、导入或覆盖正式 `data/pixelpet.db`。这些自动化结果仍不替代自然多日成长、实体手机前后台／锁屏／系统回收、真实扬声器／耳机听感或 VoiceOver／TalkBack 真人读屏，相关项目继续保持未实测。
+
 ## 2026-10-31 16:52 CST · 项目级全量验证收尾
 
 - 在当前 `main`、仓库外隔离前端构建和临时测试环境上完成收尾验证：前端全量 **231 个测试文件／6085 项**通过，TypeScript `--noEmit`、Vite 生产构建、Go `test -race -count=1 ./...`、`go vet ./...` 和 `git diff --check` 全部通过。
