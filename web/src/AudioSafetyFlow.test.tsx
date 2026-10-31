@@ -67,6 +67,22 @@ it('backgrounding suspends an unlocked context and the next key restores it',asy
   hidden=false;await act(async()=>{document.dispatchEvent(new Event('visibilitychange'));});
   await key('a');await resume();expect(audio.resume).toHaveBeenCalledTimes(2);expect(audio.createOscillator).toHaveBeenCalledTimes(2);
 });
+it('window blur cancels pending feedback, suspends unlocked audio, and never resumes it automatically',async()=>{
+  await mount();await key('a');const audio=context();
+  await act(async()=>{window.dispatchEvent(new Event('blur'));});
+  await resume();expect(audio.suspend).toHaveBeenCalledOnce();expect(audio.createOscillator).not.toHaveBeenCalled();
+  await act(async()=>{window.dispatchEvent(new Event('focus'));});
+  expect(audio.resume).toHaveBeenCalledOnce();expect(audio.createOscillator).not.toHaveBeenCalled();
+  await key('a');await resume();expect(audio.suspend).toHaveBeenCalledOnce();expect(audio.resume).toHaveBeenCalledTimes(2);expect(audio.createOscillator).toHaveBeenCalledOnce();
+});
+it('window blur suspends an already unlocked context without replaying its old note',async()=>{
+  await mount();await key('a');await resume();const audio=context();
+  await act(async()=>{window.dispatchEvent(new Event('blur'));});
+  expect(audio.suspend).toHaveBeenCalledOnce();expect(audio.state).toBe('suspended');
+  await act(async()=>{window.dispatchEvent(new Event('focus'));});
+  expect(audio.resume).toHaveBeenCalledOnce();expect(audio.createOscillator).toHaveBeenCalledOnce();
+  await key('a');await resume();expect(audio.resume).toHaveBeenCalledTimes(2);expect(audio.createOscillator).toHaveBeenCalledTimes(2);
+});
 it('pagehide cancels pending audio without visibilitychange and pageshow never resumes it automatically',async()=>{
   await mount();await key('a');const audio=context();
   await act(async()=>{window.dispatchEvent(new Event('pagehide'));});

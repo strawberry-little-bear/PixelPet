@@ -854,6 +854,9 @@ export default function App() {
       if (event.target !== event.currentTarget) return;
       windowActive.current = false;
       setWindowFocused(false);
+      // A visible but unfocused window must not keep an unlocked audio context
+      // running. The next physical A/B/C key is the only resume point.
+      audio.current?.suspend();
       shopReadingEpoch.current++;
       recapDisplayEpoch.current++;
       // Visible reading timers keep their established behavior. Presence,
