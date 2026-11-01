@@ -1,3 +1,8 @@
+## 2026-11-01 22:36 CST · 更新实体设备隔离服务状态
+
+- 核对仓库外隔离服务仍由 `/tmp/pixelpet-device-current-i0coD0/pixelpet` 运行，使用临时 SQLite `/tmp/pixelpet-device-current-i0coD0/device-test.db`，监听 `0.0.0.0:18082`；本机回环和当前局域网地址 `http://192.168.1.3:18082/` 均返回 HTTP 200。更新真人设备验收记录，标明此前的 `192.168.32.96` 已因网络变化失效。
+- 当前机器未检测到 `adb`、`idevice_id` 或可用 `xcrun simctl` 设备，因此没有把隔离服务可达性写成手机前后台、扬声器／耳机或 VoiceOver／TalkBack 通过；四项继续保持未实测。没有访问 `8080`，没有读取、重置、导入或覆盖正式 `data/pixelpet.db`。
+
 ## 2026-10-31 18:15 CST · 移动阅读与异常恢复专项复跑
 
 - 使用现有隔离二进制 `/tmp/pixelpet-device-current-i0coD0/pixelpet`、隔离前端 `/tmp/pixelpet-device-current-i0coD0/web`、随机端口和临时 SQLite 复跑专项脚本：外壳契约 **20/20**、钓鱼／散步暂停阅读与布局 **26 组**、阅读提示遮挡 **16 组**、异常恢复 **15/15** 全部通过。
