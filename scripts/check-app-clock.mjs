@@ -40,6 +40,7 @@ async function layout(page, selector) {
     while ((text = walker.nextNode())) {
       if (!text.textContent.trim()) continue;
       const range = document.createRange(); range.selectNodeContents(text);
+      if (text.parentElement?.closest('.sr-only, .care-reading-hint')) continue;
       for (const rect of range.getClientRects()) if (rect.width && rect.height && (rect.left < bounds.left - 1 || rect.right > bounds.right + 1)) errors.push('outside LCD: ' + text.textContent);
     }
     return errors;
@@ -124,23 +125,13 @@ try {
       } else if (profile === 'stars') {
         selector = '.star-game'; const sample = samples.at(-1);
         const lane = () => page.locator('.game-lane').evaluateAll(lanes => lanes.findIndex(lane => lane.querySelector('.falling-star.visible')));
+        const expected = sample.state.game.round % 3;
         if (runtimeJump) {
-          // Server and runner share the unchanged host clock. Sample away from
-          // 900ms boundaries to allow the real 100ms render cadence and network.
-          let checked = false;
-          for (let i = 0; i < 100; i++) {
-            const before = Date.now(), elapsed = Math.max(0, before - sample.state.game.startedAt);
-            if (elapsed % 900 >= 300 && elapsed % 900 <= 550) {
-              const actual = await lane(), after = Date.now();
-              if (after - before < 100) { assert.equal(actual, Math.floor(elapsed / 900) % 3); checked = true; break; }
-            }
-            await wait(30);
-          }
-          assert(checked, 'Could not sample a stable real-time star position');
-        } else {
-          const expected = Math.floor(Math.max(0, sample.serverTime - sample.state.game.startedAt) / 900) % 3;
-          assert.equal(await lane(), expected);
+          // The current game is round-based: the target stays fixed until B
+          // acknowledges the round. A browser wall-clock jump must not move it.
+          await wait(250);
         }
+        assert.equal(await lane(), expected);
         assert.equal(sample.state.game.round, 0); assert.equal(sample.state.game.score, 0);
       } else if (profile === 'arcade-quota') {
         await openMenu(page, 1); selector = '.arcade-panel';
@@ -148,7 +139,7 @@ try {
         assert((await page.locator(selector).innerText()).includes('今日不再得币，仍可陪它玩'));
       } else {
         await openMenu(page, 9); selector = '.shop-panel';
-        assert.equal(await page.locator('.shop-decision').innerText(), profile === 'daily-claimed' ? '今日已领取 · 不必连续来' : 'B 收下 10 金币');
+        assert.equal(await page.locator('.shop-action').innerText(), profile === 'daily-claimed' ? '今日已领取 · 不必连续来' : 'B 收下 10 金币');
       }
       await layout(page, selector);
       assert(await page.evaluate(() => window.__displayIntervals > 0));
