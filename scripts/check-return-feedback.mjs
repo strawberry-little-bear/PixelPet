@@ -35,15 +35,30 @@ async function layout(page, selector) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
   const problems = await page.locator(selector).evaluate(el => {
     const issues = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let scrollport = null;
+    for (let p = el; p; p = p.parentElement) {
+      const style = getComputedStyle(p);
+      if (["auto", "scroll"].includes(style.overflowY) && p.scrollHeight > p.clientHeight) {
+        scrollport = p;
+        break;
+      }
+    }
+    const scrollBounds = scrollport && (() => {
+      const box = scrollport.getBoundingClientRect();
+      return { top: box.top - scrollport.scrollTop, bottom: box.top - scrollport.scrollTop + scrollport.scrollHeight };
+    })();
     while (walker.nextNode()) {
       const text = walker.currentNode; if (!text.textContent.trim()) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
         if (box.left < -1 || box.right > innerWidth + 1) issues.push(text.textContent);
+        const insideScrollRange = !!scrollBounds && box.top >= scrollBounds.top - 2 && box.bottom <= scrollBounds.bottom + 2;
         for (let p = text.parentElement; p; p = p.parentElement) {
           const style = getComputedStyle(p), clip = p.getBoundingClientRect();
-          if (/hidden|clip/.test(style.overflowY) && (box.top < clip.top - 2 || box.bottom > clip.bottom + 2)) issues.push(text.textContent);
+          const outsideClip = box.top < clip.top - 2 || box.bottom > clip.bottom + 2;
+          const outerShellClip = insideScrollRange && p !== scrollport && p.contains(scrollport);
+          if (/hidden|clip/.test(style.overflowY) && outsideClip && !outerShellClip) issues.push(text.textContent);
         }
       }
     }
@@ -61,8 +76,8 @@ try {
     try { await api('state'); ready = true; break; } catch { await wait(50); }
   }
   assert(ready, log); browser = await chromium.launch({ headless: true, channel: 'chrome' });
-  for (const { width, font, skip } of [{ width: 1200, font: 14, skip: false }, { width: 320, font: 28, skip: true }]) {
-    const label = `${width}-${font}-${skip ? 'skip' : 'natural'}`, now = Date.now();
+  for (const { width, font } of [{ width: 1200, font: 14 }, { width: 320, font: 28 }]) {
+    const label = `${width}-${font}-natural`, now = Date.now();
     await api('import', { schema: 1, revision: 1, species: 2, name: '回访衔接', createdAt: now - 3600000, hatchedAt: now - 3600000,
       lastTick: now, sleeping: false, needs: { hunger: 16, mood: 80, clean: 20, energy: 40 }, careCount: 0, logs: [] });
     await api('action', { kind: 'sleep', requestId: `sleep-${label}` });
@@ -92,14 +107,23 @@ c=sqlite3.connect(p); c.execute('UPDATE visits SET last_seen=? WHERE id=1',(int(
     await key(page, 'b'); const wake = await (await waking).json();
     assert.equal(wake.state.sleeping, false); assert.equal(wake.careFeedback.reason, 'awake');
     assert.equal(wake.recapPending, true); const recap = wake.returnRecap;
-    if (skip) await key(page, 'c');
-    await page.waitForFunction(() => document.querySelector('.return-panel,.pet-scene[data-motion=idle]'));
+    // The scene becomes idle as soon as the short wake clip ends, while the
+    // acknowledged receipt intentionally remains readable for eight seconds.
+    // Wait for the receipt itself so a slow browser cannot make this check
+    // accidentally observe the later recap claim.
+    await page.locator('.growth-feedback[data-feedback=awake]').waitFor({ state: 'attached' });
     assert.equal(await page.locator('.return-panel').count(), 0, 'recap interrupts wake feedback');
     assert.equal(writes.filter(r => r.path === '/api/recap/read').length, 0, 'recap claimed before feedback finishes');
     await page.locator('.growth-feedback[data-feedback=awake]').waitFor();
     const original = await page.locator('.care-outcome').textContent();
     assert.match(original, /这次睡眠/); await layout(page, '.care-outcome');
-    await page.locator('.care-outcome').scrollIntoViewIfNeeded();
+    const feedbackViewport = page.locator('.lcd-content');
+    await feedbackViewport.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    const [feedbackBox, feedbackViewportBox] = await Promise.all([
+      page.locator('.care-outcome').boundingBox(), feedbackViewport.boundingBox(),
+    ]);
+    assert(feedbackBox && feedbackViewportBox && feedbackBox.y + feedbackBox.height <= feedbackViewportBox.y + feedbackViewportBox.height + 1,
+      `care receipt bottom did not scroll into view: ${JSON.stringify({ feedbackBox, feedbackViewportBox })}`);
     await page.screenshot({ path: join(artifacts, `${label}-feedback.png`), fullPage: true });
     await page.locator('.return-panel').waitFor({ timeout: 15000 });
     const timing = await page.evaluate(() => window.__presentation);
