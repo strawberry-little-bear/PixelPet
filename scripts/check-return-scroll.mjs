@@ -92,7 +92,12 @@ try {
         await page.waitForFunction(() => document.querySelector('.return-panel')?.scrollTop > 0);
         // Do not rely on catching a smooth-scroll animation between frames;
         // some viewport/font combinations jump directly to the End position.
-        await panel.evaluate(el => { el.scrollTop = Math.max(1, el.scrollHeight - el.clientHeight - 1); });
+        await panel.evaluate(el => {
+          // End may still be completing its native scroll when max-1 is set;
+          // start well inside the range so frame timing cannot clamp to max.
+          el.style.scrollBehavior = 'auto';
+          el.scrollTop = Math.floor((el.scrollHeight - el.clientHeight) / 2);
+        });
         await page.waitForFunction(() => {
           const el = document.querySelector('.return-panel'); return el.scrollTop > 0 && el.scrollTop < el.scrollHeight - el.clientHeight;
         });
