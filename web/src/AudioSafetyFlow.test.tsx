@@ -92,6 +92,15 @@ it('pagehide cancels pending audio without visibilitychange and pageshow never r
   await key('a');await resume();expect(audio.resume).toHaveBeenCalledTimes(2);expect(audio.createOscillator).toHaveBeenCalledOnce();
   expect(writes()).toHaveLength(0);
 });
+it('freeze cancels pending audio and resume never replays it automatically',async()=>{
+  await mount();await key('a');const audio=context();
+  await act(async()=>{window.dispatchEvent(new Event('freeze'));});
+  await resume();expect(audio.createOscillator).not.toHaveBeenCalled();
+  await act(async()=>{window.dispatchEvent(new Event('resume'));});
+  expect(audio.resume).toHaveBeenCalledOnce();expect(audio.createOscillator).not.toHaveBeenCalled();
+  await key('a');await resume();expect(audio.resume).toHaveBeenCalledTimes(2);expect(audio.createOscillator).toHaveBeenCalledOnce();
+  expect(writes()).toHaveLength(0);
+});
 it('rejected permission is contained, and the next key still confirms care exactly once',async()=>{
   await mount();await key('a');await resume();context().state='suspended';context().resume.mockRejectedValueOnce(Error('denied'));
   await key('b');expect(saved.careCount).toBe(1);expect(writes()).toHaveLength(1);expect(context().createOscillator).toHaveBeenCalledOnce();
