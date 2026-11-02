@@ -19,6 +19,7 @@
 | 已有交付与历史验收 | [开发进度](PROGRESS.md) · [原计划归档](NEXT_STEPS_HISTORY_2026-10-21.md) |
 | 总体路线与早期规划 | [路线图](ROADMAP.md) · [非小游戏完善计划](IMPROVEMENT_PLAN.md) |
 | 如何提供有用的试玩反馈 | [试玩记录与反馈问题](PLAYTEST.md) |
+| 真人设备验证（自然成长、手机、声音、读屏） | [真人设备验收记录](REAL_DEVICE_VALIDATION.md) |
 
 ## 玩法与内容
 
