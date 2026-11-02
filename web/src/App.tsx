@@ -2524,6 +2524,7 @@ export default function App() {
     <div
       className={`toast ${error ? "error" : ""} ${recoveryVisible ? "recovery-notice" : readingNotice ? "reading-notice" : ""}`}
       role={error ? "alert" : "status"}
+      aria-live={error ? "assertive" : "polite"}
     >
       {error ? <Cloud size={17} /> : <Check size={17} />}
       <span>{error || message}</span>

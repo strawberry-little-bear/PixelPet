@@ -42,6 +42,7 @@ it.each(cases)("keeps %s details in document flow before the device, without cha
   if (!initial) { await key("a"); await key("b"); }
   expect(document.querySelector(".save-recovery")).not.toBeNull();
   const notice = screen.getByRole("alert");
+  expect(notice.getAttribute("aria-live")).toBe("assertive");
   expect(notice.closest("main")).not.toBeNull();
   expect(notice.classList.contains("recovery-notice")).toBe(true);
   expect(notice.compareDocumentPosition(document.querySelector(".device-stage")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

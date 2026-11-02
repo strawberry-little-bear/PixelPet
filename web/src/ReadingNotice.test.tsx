@@ -30,6 +30,8 @@ it("puts exactly one successful notice after the device but before the collectio
   await mount(); await sleep();
   const notice = document.querySelector(".reading-notice")!, device = document.querySelector(".play-space")!, collection = document.querySelector(".collection")!;
   expect(notice.classList.contains("reading-notice")).toBe(true);
+  expect(notice.getAttribute("role")).toBe("status");
+  expect(notice.getAttribute("aria-live")).toBe("polite");
   expect(notice.parentElement?.tagName).toBe("MAIN");
   expect(device.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(notice.compareDocumentPosition(collection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
