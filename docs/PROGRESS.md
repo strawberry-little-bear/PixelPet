@@ -1,3 +1,9 @@
+## 2026-11-02 · 重新准备实体手机隔离试玩服务
+
+- 重新从当前 `main` 构建仓库外临时 Go 二进制和 Vite 前端，构建目录为 `/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-device-20261102.VB58qM/`；TypeScript 检查、Vite 生产构建和 Go 构建均通过。
+- 启动独立服务 `0.0.0.0:18082`，使用临时 SQLite `/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-device-20261102.VB58qM/device-test.db`；`127.0.0.1:18082` 与当前局域网 `192.168.1.3:18082` 均返回 HTTP 200，`/api/state` 可正常读取。
+- 本轮只完成服务可达性和隔离边界核对，没有手机、PWA、扬声器／耳机或 VoiceOver／TalkBack 的真人操作证据；自然多日成长、实体设备生命周期、真实听感和真人读屏仍保持“未实测”。服务地址只在可信私人 Wi-Fi 短时使用，结束后按开发文档停止。
+
 ## 2026-11-02 · 全量测试资源压力复核
 
 - 针对上一轮全量 Vitest 的资源性失败，先使用 `--no-file-parallelism --maxWorkers=1 --testTimeout=30000` 串行重跑受影响文件：`SleepFeedbackFlow.test.tsx` **8/8**、`ReturnCare.test.tsx` **31/31**、`QuietMomentAppearance.test.tsx` **32/32** 均通过；单独运行没有发现稳定的功能回归。
