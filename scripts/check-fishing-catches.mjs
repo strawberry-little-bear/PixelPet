@@ -36,36 +36,77 @@ async function catches(page, expected) {
 }
 async function readable(page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'horizontal overflow');
-  const errors = await page.locator(region).evaluate(el => {
-    const content = document.querySelector('.lcd-content').getBoundingClientRect(), footer = document.querySelector('.lcd-bottom').getBoundingClientRect();
+  const before = await page.evaluate(() => {
+    const content = document.querySelector('.lcd-content');
+    const stage = document.querySelector('.device-stage');
+    const device = document.querySelector('.device');
+    const bezel = document.querySelector('.screen-bezel');
+    const lcd = document.querySelector('.lcd');
+    if (!content || !stage || !device || !bezel || !lcd) return null;
+    content.scrollTop = 0;
+    const rect = element => element.getBoundingClientRect();
+    return {
+      overflowY: getComputedStyle(content).overflowY,
+      scrollHeight: content.scrollHeight,
+      clientHeight: content.clientHeight,
+      heights: [stage, device, bezel, lcd].map(rect).map(box => box.height),
+    };
+  });
+  assert(before, 'fishing reading shell is incomplete');
+  assert.match(before.overflowY, /auto|scroll/, 'fishing catches are not internally scrollable');
+  assert(before.clientHeight > 0, 'fishing catches have no readable viewport');
+  assert(before.scrollHeight >= before.clientHeight, 'fishing catches scroll metrics are invalid');
+
+  const visibleErrors = await page.locator(region).evaluate(el => {
+    const content = document.querySelector('.lcd-content').getBoundingClientRect();
+    const footer = document.querySelector('.lcd-bottom').getBoundingClientRect();
+    const viewport = { left: content.left, right: content.right, top: content.top, bottom: Math.min(content.bottom, footer.top) };
     const bounds = el.getBoundingClientRect(), errors = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       const text = walker.currentNode; if (!text.textContent.trim()) continue;
       const range = document.createRange(); range.selectNodeContents(text);
       for (const box of range.getClientRects()) {
         if (!box.width || !box.height) continue;
-        if (box.left < Math.max(bounds.left, content.left) - 1 || box.right > Math.min(bounds.right, content.right) + 1 ||
-          box.top < content.top - 1 || box.bottom > Math.min(content.bottom, footer.top, bounds.bottom) + 1) errors.push(text.textContent);
+        const visible = box.right > viewport.left && box.left < viewport.right && box.bottom > viewport.top && box.top < viewport.bottom;
+        if (visible && (box.left < Math.max(bounds.left, viewport.left) - 1 || box.right > Math.min(bounds.right, viewport.right) + 1 ||
+          box.top < viewport.top - 1 || box.bottom > Math.min(viewport.bottom, bounds.bottom) + 1)) errors.push(text.textContent);
         for (let parent = text.parentElement; parent; parent = parent.parentElement) {
-          const style = getComputedStyle(parent), b = parent.getBoundingClientRect();
-          if (/hidden|clip|auto|scroll/.test(style.overflowY) && (box.top < b.top - 1 || box.bottom > b.bottom + 1)) errors.push('clipped: ' + text.textContent);
+          const style = getComputedStyle(parent);
+          if (parent.matches('.lcd, .lcd-content, .care-reading-hint')) continue;
+          const b = parent.getBoundingClientRect();
+          if (/hidden|clip/.test(style.overflowY) && (box.top < b.top - 1 || box.bottom > b.bottom + 1)) errors.push('clipped: ' + text.textContent);
         }
       }
     }
     return errors;
   });
-  assert.deepEqual(errors, [], 'catch text clipped / overlaps footer');
+  assert.deepEqual(visibleErrors, [], 'visible catch text clipped / overlaps footer');
   assert.equal(await page.locator('.lcd button,.lcd a,.lcd input,.lcd [role=button]').count(), 0);
   assert.equal(await page.locator('.physical-button').count(), 3);
   const note = page.locator('.fishing-catches-note'); await note.scrollIntoViewIfNeeded();
-  const box = await note.boundingBox(); assert(box.y < page.viewportSize().height && box.y + box.height > 0, 'bottom note unreachable');
+  const bottom = await page.evaluate(() => {
+    const content = document.querySelector('.lcd-content');
+    const box = document.querySelector('.fishing-catches-note').getBoundingClientRect();
+    const viewport = content.getBoundingClientRect();
+    return {
+      visible: box.top >= viewport.top - 1 && box.bottom <= viewport.bottom + 1,
+      scrollTop: content.scrollTop,
+      maxScrollTop: content.scrollHeight - content.clientHeight,
+    };
+  });
+  assert(bottom.visible, `bottom note unreachable inside LCD: ${JSON.stringify(bottom)}`);
+  if (before.scrollHeight > before.clientHeight) assert(bottom.scrollTop > 0, 'LCD did not scroll to the bottom of the catch receipt');
+  const after = await page.evaluate(() => ['.device-stage', '.device', '.screen-bezel', '.lcd'].map(selector => document.querySelector(selector).getBoundingClientRect().height));
+  assert.deepEqual(after, before.heights, 'catch receipt changed the physical shell height while scrolling');
 }
 async function readingKeys(page, writes) {
   await page.locator(region).focus();
   await page.locator(region).evaluate(el => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
-  const oldY = await page.evaluate(() => scrollY), count = writes.length;
+  const before = await page.evaluate(() => ({ page: scrollY, lcd: document.querySelector('.lcd-content')?.scrollTop ?? 0 }));
+  const count = writes.length;
   await page.keyboard.press('ArrowDown'); await wait(250); await page.keyboard.press('Space'); await wait(300);
-  assert(await page.evaluate(() => scrollY) > oldY, 'reading keys must scroll');
+  const after = await page.evaluate(() => ({ page: scrollY, lcd: document.querySelector('.lcd-content')?.scrollTop ?? 0 }));
+  assert(after.page > before.page || after.lcd > before.lcd, 'reading keys must scroll');
   await page.keyboard.press('Enter'); await wait(200);
   assert.equal(writes.length, count, 'native reading resumed or collected');
   assert(await page.locator(region).evaluate(el => el === document.activeElement));
