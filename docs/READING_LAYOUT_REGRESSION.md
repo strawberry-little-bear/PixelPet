@@ -20,7 +20,7 @@ node scripts/check-reading-layout.mjs
 node scripts/check-reading-layout.mjs check-return-layout check-return-scroll check-recovery-reading
 ```
 
-统一入口按顺序调用现有专项脚本，不共享数据库、端口或浏览器上下文。每个脚本仍由 `browser-test-builds.mjs` 拒绝仓库的 `bin/`、`web/dist/` 及其别名，因此不能把玩家服务或正式构建误当成测试目标。
+统一入口当前按顺序调用 **28 套**专项脚本，不共享数据库、端口或浏览器上下文。每个脚本仍由 `browser-test-builds.mjs` 拒绝仓库的 `bin/`、`web/dist/` 及其别名，因此不能把玩家服务或正式构建误当成测试目标。
 
 ## 当前覆盖
 
@@ -30,6 +30,7 @@ node scripts/check-reading-layout.mjs check-return-layout check-return-scroll ch
 - 回访第 1／2 页等高、换页归零、滚动中替换内容不继承旧滚动目标、触摸边界不带动外层页面。
 - 桌面、390px 手机、320px 极窄视口，以及普通字号和 200% 根字号。
 - 三个物理按键的可见性、横向溢出、LCD 内没有新增可点击玩法控件。
+- 导入预览的有效／无效文件状态保持相同外壳高度，游戏纪念物卡片、纪念角和成年回看在真实存档往返后仍可阅读。
 - 断线、坏档和时间异常恢复界面保持自己的自然高度，不被固定阅读壳截断。
 
 图鉴的长文检查以 LCD 滚动区的完整可滚动内容范围为准；进入暂停菜单后，也会分别滚动验证标题和末尾提示可达，不把当前滚动位置误判为裁切。
