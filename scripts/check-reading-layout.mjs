@@ -34,6 +34,7 @@ const allSuites = [
   'check-return-viewport',
   'check-return-touch',
   'check-recovery-reading',
+  'check-import-preview-layout',
   'check-game-keepsakes',
 ];
 
