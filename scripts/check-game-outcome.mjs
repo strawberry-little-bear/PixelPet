@@ -288,17 +288,18 @@ try {
         assert(await region.evaluate(el => el === document.activeElement), 'Reading must keep focus');
         movements.push({ key, documentBefore: before, documentAfter: after });
       }
-      const position = await scrollport.evaluate(element => {
+      await scrollport.evaluate(element => {
         element.scrollTop = element.scrollHeight;
-        return element.scrollTop;
       });
       await settledScrollport(page);
+      const position = await scrollport.evaluate(element => element.scrollTop);
       assert(position > 0, 'Game receipt must expose an internally scrollable LCD reading');
       await region.evaluate(el => el.dataset.syncProbe = 'same-node');
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await wait(250);
       assert.equal(await region.getAttribute('data-sync-probe'), 'same-node');
       assert(await region.evaluate(el => el === document.activeElement));
-      assert.equal(await settledScrollport(page), position, 'Sync must preserve focused LCD reading position');
+      const syncedPosition = await settledScrollport(page);
+      assert.equal(syncedPosition, position, 'Sync must preserve focused LCD reading position');
       assert.equal(writes.length, count, 'Native reading must not submit an action');
       await page.screenshot({path:join(dir, `${label}-reading-viewport.png`)});
       await reachableLines(page, '.game-outcome');
