@@ -38,7 +38,10 @@ async function seed(stage, sleeping) {
 }
 async function key(page, key) {
   await page.waitForFunction(() => !document.querySelector('.physical-button.is-pressed'));
-  await page.locator('.button-' + key + ':not(:disabled)').tap();
+  // Reading assertions may leave the document in the middle of a native
+  // scroll animation. Keep the real touch event, but do not make the key
+  // regression depend on Playwright's unrelated geometry-stability wait.
+  await page.locator('.button-' + key + ':not(:disabled)').tap({ force: true });
   await page.waitForFunction(() => !document.querySelector('.physical-button.is-pressed'));
 }
 async function open(page) { await key(page, 'a'); for (let i = 0; i < 6; i++) await key(page, 'a'); await key(page, 'b'); }

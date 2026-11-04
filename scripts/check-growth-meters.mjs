@@ -87,7 +87,13 @@ try{
   p.on('pageerror',e=>errors.push(e.message));
   p.on('request',r=>{if(r.method()==='POST'&&!['/api/state','/api/visit'].includes(new URL(r.url()).pathname))writes.push(r.postDataJSON());});
   try {
-   await p.goto(base);await p.locator('.content-choose').waitFor();assert.equal(snapshot.hatchedAt,0);
+   await p.goto(base);await p.locator('.content-choose').waitFor();
+   // The page can render the choose view before the routed read callback has
+   // assigned its diagnostic snapshot. The state is read from the same
+   // temporary service, so this keeps the test deterministic without adding a
+   // write or changing the product flow.
+   if (!snapshot) snapshot=(await api('state')).state;
+   assert.equal(snapshot.hatchedAt,0);
    await key(p,'b');await p.locator('.hatch-view').waitFor();
    const hatchedResponse=p.waitForResponse(r=>new URL(r.url()).pathname==='/api/action');await key(p,'b');
    const hatchResponse=await hatchedResponse;assert(hatchResponse.ok());const hatched=(await hatchResponse.json()).state;
