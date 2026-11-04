@@ -6,7 +6,7 @@
 
 ## 2026-11-05 06:03 CST · 当前隔离试玩入口
 
-- 当前 `main`（revision `b8912dd0436eb9d808e47f6bbc5bad72ca722fcf`）已放入仓库外临时目录，并启动在 `0.0.0.0:18086`；同一可信 Wi-Fi 下手机访问：`http://192.168.1.3:18086/`。
+- 当前验收构建的应用代码 revision 为 `b8912dd0436eb9d808e47f6bbc5bad72ca722fcf`，已放入仓库外临时目录并启动在 `0.0.0.0:18086`；同一可信 Wi-Fi 下手机访问：`http://192.168.1.3:18086/`。
 - 本机回环和局域网请求均返回 **HTTP 200**，`/api/runtime` 报告 `modified: false`。临时数据库为 `/var/folders/12/7y0bpzpj5055788qjjnq3c9c0000gn/T/pixelpet-device-current.j1ppzy/device-test.db`，不是正式 `data/pixelpet.db`；测试结束后在服务终端按 `Ctrl+C`。
 - 这只是当前版本的真人验收入口，不代表四项验收已经通过。请记录手机型号、系统、浏览器／PWA 状态、开始和结束时间，再分别完成自然离开回访、前后台／锁屏、扬声器／耳机和 VoiceOver／TalkBack 四组步骤。
 - 若局域网地址变化，先在运行服务的电脑重新确认 IPv4；不要把 `18086` 暴露到公网，也不要在手机上访问正式 `8080`。
