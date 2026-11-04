@@ -2446,6 +2446,35 @@ export default function App() {
     ? "A 换回应　 B 聊聊回忆　 C 返回"
     : "A 换回应　 B 陪一会儿　 C 返回";
   const menuConfirmation = pet ? careMenuConfirmation(pet, items[selected].kind, careRules) : "B 确认";
+  const lcdTopLabel = clockAhead ? "CLOCK CHECK" : page === "import-preview" ? "BACKUP PREVIEW" : corrupt ? "SAVE RECOVERY" : page === "choose"
+    ? "HELLO, FRIEND"
+    : (page === "arcade" || page === "game-guide" || page === "pause-guide")
+      ? "PLAY TOGETHER"
+      : page === "menu"
+        ? "CARE MENU"
+        : page === "shop"
+          ? "LITTLE SHOP"
+          : (page === "album" || page === "keepsakes")
+            ? "OUR MEMORIES"
+            : page === "return"
+              ? "WELCOME BACK"
+              : page === "status"
+                ? "MY STATUS"
+                : page === "growth"
+                  ? "GROWTH BOOK"
+                  : page === "journal"
+                    ? "LITTLE DIARY"
+                    : page === "game"
+                      ? pet?.game?.kind === "treasure" ? "FOREST TOGETHER" : pet?.game?.kind === "walk" ? "PARK TOGETHER" : pet?.game?.kind === "fishing"
+                        ? "POND TOGETHER"
+                        : pet?.game?.kind === "tetris"
+                          ? "BLOCK GARDEN"
+                          : pet?.game?.kind === "snake"
+                            ? "ORCHARD SNAKE"
+                            : pet?.game?.kind === "tiles"
+                              ? "LINK & COLLECT"
+                              : "CATCH A STAR"
+                      : "PIXELPET / 01";
   const lcdHint = clockAhead ? "B 重新检查 · 不重置存档"
       : uncertain || unavailable ? checking ? "正在读取 · 不重做操作" : "B 读取存档 · 不重做操作"
       : page === "import-preview"
@@ -2520,6 +2549,33 @@ export default function App() {
     !clockAhead &&
     !treasureView &&
     !tileView;
+  const lcdPageLabel = clockAhead ? "服务时间校准"
+    : page === "import-preview" ? "备份预览"
+      : corrupt ? "存档修复"
+        : uncertain ? "存档核对"
+          : unavailable ? "小窝连接"
+            : !pet ? "小窝连接中"
+              : page === "choose" ? "选择小伙伴"
+                : page === "hatch" ? "唤醒小伙伴"
+                  : page === "home" ? "小窝首页"
+                    : page === "menu" ? "照顾菜单"
+                      : page === "status" ? `状态，第 ${statusPage + 1} / ${statusPageCount} 页`
+                        : page === "journal" ? "成长日记"
+                          : page === "game" ? `小游戏，${pet.game?.kind ? games.find(game => game.id === pet.game?.kind)?.title ?? "进行中" : "接星星"}`
+                            : page === "arcade" ? "一起玩耍"
+                              : page === "game-guide" ? `小游戏规则，${games[arcadeChoice]?.title ?? "当前游戏"}`
+                                : page === "pause-guide" ? "本局暂停说明"
+                                  : page === "growth" ? `成长手册，第 ${growthPage + 1} / ${growthPageCount} 页`
+                                    : page === "return" ? `回访小结，第 ${returnPage + 1} / ${returnPageCount} 页`
+                                      : page === "album" ? "永久纪念册"
+                                        : page === "keepsakes" ? "小窝纪念角"
+                                          : page === "shop" ? "小窝商店"
+                                            : page === "fish-album" ? "池塘鱼图鉴"
+                                              : page === "park-album" ? "公园沿途发现"
+                                                : page === "walk-trail" ? "散步小路选择"
+                                                  : page === "moment" ? "陪伴一会儿"
+                                                    : "宠物屏幕";
+  const lcdAccessibilityHint = `${lcdPageLabel}。${lcdHint}`;
   const notice = (message || error) && (
     <div
       className={`toast ${error ? "error" : ""} ${recoveryVisible ? "recovery-notice" : readingNotice ? "reading-notice" : ""}`}
@@ -2712,42 +2768,14 @@ export default function App() {
                 <div
                   className={`lcd ${pet?.sleeping ? "night" : ""}`}
                   role="region"
-                  aria-label="宠物屏幕，只能使用 A B C 按键操作"
+                  aria-labelledby="lcd-page-title"
+                  aria-describedby="lcd-controls-hint"
                   aria-busy={busy}
                 >
                   <div className="lcd-top">
-                    <span>
-                      {clockAhead ? "CLOCK CHECK" : page === "import-preview" ? "BACKUP PREVIEW" : corrupt ? "SAVE RECOVERY" : page === "choose"
-                        ? "HELLO, FRIEND"
-                        : (page === "arcade" || page === "game-guide" || page === "pause-guide")
-                          ? "PLAY TOGETHER"
-                          : page === "menu"
-                            ? "CARE MENU"
-                            : page === "shop"
-                              ? "LITTLE SHOP"
-                              : (page === "album" || page === "keepsakes")
-                                ? "OUR MEMORIES"
-                                : page === "return"
-                                  ? "WELCOME BACK"
-                                  : page === "status"
-                                    ? "MY STATUS"
-                                    : page === "growth"
-                                      ? "GROWTH BOOK"
-                                      : page === "journal"
-                                        ? "LITTLE DIARY"
-                                        : page === "game"
-                                          ? pet?.game?.kind === "treasure" ? "FOREST TOGETHER" : pet?.game?.kind === "walk" ? "PARK TOGETHER" : pet?.game?.kind === "fishing"
-                                            ? "POND TOGETHER"
-                                            : pet?.game?.kind === "tetris"
-                                            ? "BLOCK GARDEN"
-                                            : pet?.game?.kind === "snake"
-                                              ? "ORCHARD SNAKE"
-                                              : pet?.game?.kind === "tiles"
-                                                ? "LINK & COLLECT"
-                                                : "CATCH A STAR"
-                                          : "PIXELPET / 01"}
-                    </span>
-                    <span className="lcd-battery">
+                    <span id="lcd-page-title" className="sr-only">宠物屏幕：{lcdPageLabel}。只能使用 A、B、C 按键操作。</span>
+                    <span aria-hidden="true">{lcdTopLabel}</span>
+                    <span className="lcd-battery" aria-hidden="true">
                       <i />
                       <i />
                       <i />
@@ -3058,9 +3086,12 @@ export default function App() {
                   </div>
                   <div className="lcd-bottom">
                     <span>{lcdHint}</span>
-                    <span>{busy ? "···" : "♥"}</span>
+                    <span aria-hidden="true">{busy ? "···" : "♥"}</span>
                   </div>
-                  <div className="lcd-scanlines" />
+                  <div id="lcd-controls-hint" className="sr-only" aria-live={readingMode ? "polite" : undefined} aria-atomic={readingMode ? "true" : undefined}>
+                    {lcdAccessibilityHint}
+                  </div>
+                  <div className="lcd-scanlines" aria-hidden="true" />
                 </div>
               </div>
               <div className="device-model">

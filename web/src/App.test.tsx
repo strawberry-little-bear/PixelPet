@@ -1343,7 +1343,7 @@ describe("keyboard reading and focus safety", () => {
     expect(document.querySelector(".care-menu")).toBeNull();
   });
   it("opts reading pages into reflow without adding LCD buttons", async () => {
-    await mount(); expect(screen.getByRole("region", { name: "宠物屏幕，只能使用 A B C 按键操作" })).toBeTruthy();
+    await mount(); expect(screen.getByRole("region", { name: /宠物屏幕：小窝首页/ })).toBeTruthy();
     expect(document.querySelector(".device-stage.reading-mode")).not.toBeNull();
     await choose(6);
     expect(document.querySelector(".device-stage.reading-mode")).not.toBeNull();
@@ -1436,5 +1436,41 @@ describe("reset focus restoration", () => {
     await key("c");
     expect(document.querySelector(".care-menu")).toBeNull();
     expect(document.querySelector(".physical-button.button-c")).toBeTruthy();
+  });
+});
+
+describe("LCD screen-reader semantics", () => {
+  it("exposes one named screen with a separate low-frequency control announcement", async () => {
+    await mount();
+    const lcd = screen.getByRole("region", { name: /宠物屏幕：小窝首页/ });
+    expect(lcd.getAttribute("aria-labelledby")).toBe("lcd-page-title");
+    expect(lcd.getAttribute("aria-describedby")).toBe("lcd-controls-hint");
+    expect(document.getElementById("lcd-page-title")?.textContent).toContain("只能使用 A、B、C 按键操作");
+    const hint = document.getElementById("lcd-controls-hint");
+    expect(hint?.getAttribute("role")).toBeNull();
+    expect(hint?.getAttribute("aria-live")).toBe("polite");
+    expect(hint?.textContent).toContain("小窝首页");
+    expect(hint?.textContent).toContain("A / B 菜单");
+    expect(document.querySelector(".lcd-content")?.hasAttribute("aria-live")).toBe(false);
+    expect(document.querySelector(".lcd-battery")?.getAttribute("aria-hidden")).toBe("true");
+    expect(document.querySelector(".lcd-scanlines")?.getAttribute("aria-hidden")).toBe("true");
+    expect(document.querySelector(".lcd-bottom > span:last-child")?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("updates the announced page and controls without adding a fourth gameplay control", async () => {
+    await mount();
+    await key("a");
+    for (let i = 0; i < 4; i++) await key("a");
+    await key("b");
+    const lcd = screen.getByRole("region", { name: /宠物屏幕：状态，第 1 \/ 3 页/ });
+    const hint = document.getElementById("lcd-controls-hint");
+    expect(lcd).toBeTruthy();
+    expect(hint?.textContent).toContain("状态，第 1 / 3 页");
+    expect(hint?.textContent).toContain("A 换页");
+    expect(document.querySelectorAll(".physical-button")).toHaveLength(3);
+    expect(document.querySelector(".lcd button,.lcd a,.lcd input,[role=button]")).toBeNull();
+    await key("a");
+    expect(screen.getByRole("region", { name: /宠物屏幕：状态，第 2 \/ 3 页/ })).toBeTruthy();
+    expect(document.getElementById("lcd-controls-hint")?.textContent).toContain("状态，第 2 / 3 页");
   });
 });
