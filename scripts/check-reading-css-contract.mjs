@@ -2,15 +2,22 @@
 // browser suites catch computed geometry regressions; this check catches a
 // later CSS override that accidentally makes the physical shell auto-height.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(join(fileURLToPath(new URL('.', import.meta.url)), '..'));
-const [readability, treasure] = await Promise.all([
-  readFile(join(root, 'web/src/readability.css'), 'utf8'),
-  readFile(join(root, 'web/src/treasure.css'), 'utf8'),
-]);
+const cssFiles = (await readdir(join(root, 'web/src')))
+  .filter(file => file.endsWith('.css'))
+  .sort();
+const cssSources = await Promise.all(cssFiles.map(async file => [
+  file,
+  await readFile(join(root, 'web/src', file), 'utf8'),
+]));
+const sourceByFile = new Map(cssSources);
+const readability = sourceByFile.get('readability.css');
+const treasure = sourceByFile.get('treasure.css');
+assert(readability && treasure, 'reading CSS sources are missing');
 
 const requireSelector = (source, selector, label) => {
   assert(source.includes(selector), `missing bounded reading selector: ${label}`);
@@ -40,14 +47,29 @@ requireRule(treasure, /\.device-stage\.treasure-mode\.reading-mode:not\(\.recove
 requireRule(readability, /\.bounded-reading-mode\.tiles-mode \.lcd-content\s*\{[^}]*overflow-y:\s*auto/s, 'tiles LCD scroll');
 
 // Natural height is intentional for recovery explanations and wrapped child
-// content. It must never be reintroduced on the physical reading shell.
-const shellClass = /(?:^|\s|,)\.(?:device-stage|device|screen-bezel|lcd|lcd-content)(?![-\w])/;
-for (const [file, source] of [['readability.css', readability], ['treasure.css', treasure]]) {
+// content. It must never be reintroduced on the physical reading shell. The
+// shell class must be the final target compound; a child such as
+// `.lcd-content .journal-detail` is content and is allowed to grow naturally.
+const shellClasses = ['device-stage', 'device', 'screen-bezel', 'lcd', 'lcd-content'];
+const readingMode = /(?:^|[.\s])(?:reading-mode|bounded-reading-mode|game-reading-mode)(?:$|[-\s.:])/;
+const recoveryMode = /(?:^|[.\s])recovery-mode(?:$|[-\s.:])/;
+const targetsShell = selector => selector.split(',').some(part => {
+  const target = part.trim().replace(/\s+/g, ' ');
+  return shellClasses.some(shell => new RegExp(
+    `(?:^|[>+~\\s])\\.${shell}(?=$|[.#:\\[])[^\\s>+~]*$`,
+  ).test(target));
+});
+
+let autoHeightRules = 0;
+for (const [file, source] of cssSources) {
   for (const match of source.matchAll(/([^{}]+)\{([^{}]*height:\s*auto[^{}]*)\}/g)) {
-    const selector = match[1];
-    assert(!(selector.includes('reading-mode') && shellClass.test(selector)),
-      `${file}: reading shell must not use auto height (${selector.trim()})`);
+    const selector = match[1].trim();
+    if (!readingMode.test(selector) || !targetsShell(selector)) continue;
+    autoHeightRules += 1;
+    assert(recoveryMode.test(selector) && !selector.includes('return-mode'),
+      `${file}: reading shell must not use auto height outside recovery mode (${selector})`);
   }
 }
 
-console.log('Reading CSS shell contract: bounded shell rules and recovery auto-height boundary passed.');
+assert.equal(autoHeightRules, 0, 'unexpected non-recovery reading shell auto-height rule');
+console.log(`Reading CSS shell contract: ${cssFiles.length} CSS files scanned; bounded shell rules and recovery auto-height boundary passed.`);
