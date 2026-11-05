@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(join(fileURLToPath(new URL('.', import.meta.url)), '..'));
 const allSuites = [
+  'check-reading-css-contract',
   'check-welcome-reading',
   'check-care-menu-reading',
   'check-care-reading',

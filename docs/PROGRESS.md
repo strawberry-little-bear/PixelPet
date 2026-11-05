@@ -1,3 +1,10 @@
+## 2026-11-05 · 阅读外壳 CSS 契约回归补强
+
+- 新增 `scripts/check-reading-css-contract.mjs`，从源码层检查普通阅读页、游戏阅读页、寻宝、连连看和回访页的固定外壳高度、LCD 内部滚动，以及恢复／断线／损坏存档页面保留自然高度的边界。
+- `scripts/check-reading-layout.mjs` 已把该契约列为首个套件，避免后续 CSS 覆盖再次让 `.device-stage`、设备外壳、屏幕外壳或 LCD 通过 `height: auto` 被长内容撑高。
+- 该检查只约束物理阅读外壳；`.care-item`、`.growth-panel`、`.shop-preview`、`.screen-journal`、页头和恢复说明等内容区域仍允许自然换行和自然高度，保持 A／B／C 三键玩法不变。
+- 当前隔离构建上的完整阅读布局回归 **29/29 套件通过**；新增 CSS 契约、基础外壳、回访固定高度和异常恢复专项组合 **4/4 通过**。同批前端 **231 个测试文件／6088 项**、TypeScript、Vite 生产构建、Go `test -race -count=1 ./...`、`go vet ./...` 和 `git diff --check` 均通过。
+
 ## 2026-11-05 · 主分支同步后的完整基线复核
 
 - 通过已验证的代理地址同步 `origin/main`，确认 GitHub `main` 与本地 `268eb13` 一致；没有改写历史，也没有触碰正式 `data/pixelpet.db`、共享 `bin/pixelpet` 或 `web/dist`。
