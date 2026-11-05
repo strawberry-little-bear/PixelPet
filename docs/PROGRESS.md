@@ -4051,3 +4051,10 @@ Chrome探索根据真实服务端地图选择受控路线，并非真人盲玩�
 - 当前日常存档只读复核与 [REAL_DEVICE_ACCEPTANCE.md](REAL_DEVICE_ACCEPTANCE.md) 一致：revision 597，最后回访／结算为 2026-10-30 13:47 CST，阶段仍为成长期，SQLite `integrity_check` 为 `ok`。未启动正式服务，未写入、迁移、重置或导入存档；目前没有新的成年阶段或后续自然回访证据。
 - 定向验证重新通过：成长规则 `go test -race`、HTTP 幼年到成年旅程及旧边界存档兼容测试；音频生命周期／反馈前端 **61 项**；CSS 外壳契约扫描 **38 个文件**；跨页面几何 **20 个视图**，回访布局 **12 组**。未发现代码侧成长、音频生命周期或屏幕外壳高度回归。
 - 本轮没有运行时代码修改。自动化成长旅程不代替自然多日生活记录，音频断言不代替真实听感，桌面浏览器不代替实体手机后台、锁屏和真人读屏；四项人工验收继续保持未完成。
+
+## 2026-11-05 · 完整阅读矩阵与生命周期定向复测
+
+- 使用工作区 Node／Playwright 运行时和既有隔离构建重新执行 `scripts/check-reading-layout.mjs`，**30/30 套件全部通过**。覆盖 38 个 CSS 文件的外壳契约、普通阅读、三阶段成长、照顾／睡眠、七款小游戏、寻宝、回访、恢复、导入预览和纪念物；没有发现内容把设备外壳、屏幕外壳或 LCD 撑高的回归。
+- 回访专项再次确认桌面 LCD 内容区为 **380px**、窄屏内容区为 **284px**；第 1／2 页、清醒／睡眠、普通／200% 字号下设备外壳高度一致，回访第 2 页底部建议可在 LCD 内滚动到，换页后滚动位置归零。回访滚动 **96 组**、视口 **18 组**、触摸 **8 组**，跨页面壳体契约 **20 个视图**均通过。
+- 定向代码检查通过：`buttonAudio.test.ts`、`AudioSafetyFlow.test.tsx`、`WindowPause.test.tsx`、`WindowPresence.test.tsx`、`GrowthInterruption.test.tsx` 共 **129 项**；`go test -race -count=1 ./internal/game ./internal/store ./internal/httpapi` 通过；前端 `tsc --noEmit` 通过。所有浏览器与数据库操作均使用隔离临时环境，没有访问、重置、导入或覆盖正式 `data/pixelpet.db`。
+- 这些结果证明代码侧布局、成长边界和音频／窗口生命周期没有回归，但不替代自然多日成长、实体手机前后台／锁屏、扬声器／耳机真人听感或 VoiceOver／TalkBack 真人读屏。四项真人验收仍须按 [REAL_DEVICE_ACCEPTANCE.md](REAL_DEVICE_ACCEPTANCE.md) 记录，当前不能标记为通过。
