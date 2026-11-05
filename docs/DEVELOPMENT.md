@@ -52,19 +52,13 @@ PIXELPET_DB="$DEV_DIR/test.db" go run ./cmd/pet
 
 需要在手机上检查前后台、锁屏、扬声器／耳机或 VoiceOver／TalkBack 时，可临时把**独立构建**开放给同一可信 Wi-Fi 下的手机。此服务没有身份认证，只能用于一次性测试宠物和临时数据库；不要连接玩家存档，不要在公共 Wi-Fi 或公网使用。它是普通 HTTP 浏览器访问，不代表已验收 PWA 安装行为。
 
-从仓库根目录在终端前台运行，保持终端开启：
+从仓库根目录在终端前台运行，保持终端开启。脚本会把后端、前端和 SQLite 存档都放进新的系统临时目录，并在启动前打印本机与局域网入口：
 
 ```sh
-DEVICE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pixelpet-device.XXXXXX")"
-go build -o "$DEVICE_DIR/pixelpet" ./cmd/pet
-(cd web && pnpm exec tsc --noEmit && pnpm exec vite build --emptyOutDir --outDir "$DEVICE_DIR/web")
-PIXELPET_DB="$DEVICE_DIR/device-test.db" \
-PIXELPET_ADDR="0.0.0.0:18081" \
-PIXELPET_WEB="$DEVICE_DIR/web" \
-"$DEVICE_DIR/pixelpet"
+./scripts/device-test.sh
 ```
 
-若 `18081` 已被占用，换一个本机空闲端口。查看运行电脑当前 Wi-Fi 的局域网 IPv4 地址，在手机连接同一可信 Wi-Fi 后访问 `http://电脑的局域网IPv4:18081/`。只允许操作测试宠物；结束后在服务终端按 `Ctrl+C`。临时目录保留在本机，确认不再需要后可自行删除。详细步骤与结果记入[真人设备验收记录](REAL_DEVICE_ACCEPTANCE.md)。
+默认监听 `18081`；若端口被占用，可在启动前指定其他端口，例如 `PIXELPET_DEVICE_PORT=18087 ./scripts/device-test.sh`。也可用 `PIXELPET_HOST_IP=电脑的局域网IPv4` 覆盖脚本自动识别的地址。手机连接同一可信 Wi-Fi 后，只访问脚本打印的局域网入口；只允许操作测试宠物，结束后按 `Ctrl+C`。临时目录会保留在本机，确认不再需要后再删除。每次验收都应把本次 revision、临时目录、端口和实际手机 URL 记入[真人设备验收记录](REAL_DEVICE_ACCEPTANCE.md)，不要把旧记录中的地址当作当前入口。
 
 ### Windows 与 exFAT
 
