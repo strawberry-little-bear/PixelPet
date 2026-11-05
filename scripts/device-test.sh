@@ -22,6 +22,7 @@ fi
 PORT=${PIXELPET_DEVICE_PORT:-18081}
 ADDR=${PIXELPET_DEVICE_ADDR:-0.0.0.0:$PORT}
 DEVICE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pixelpet-device.XXXXXX")
+REVISION=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
 
 cleanup() {
   status=$?
@@ -32,6 +33,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "构建后端到：$DEVICE_DIR/pixelpet"
+echo "代码 revision：$REVISION"
 "$GO_BIN" build -o "$DEVICE_DIR/pixelpet" ./cmd/pet
 
 echo "构建前端到：$DEVICE_DIR/web"

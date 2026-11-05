@@ -1,3 +1,10 @@
+## 2026-11-05 · 完整阅读矩阵与动态实体设备入口
+
+- 从当前 `main` 重新生成仓库外临时 Go 二进制和 Vite 构建，在独立临时 SQLite、随机端口和 Chromium 中完整执行 `scripts/check-reading-layout.mjs`，**30/30 套件全部通过**。覆盖首页、照顾、状态、成长、日记、纪念册、图鉴、商店、七款小游戏规则／暂停／结算、回访两页、异常恢复、导入预览和纪念物；回访两页在桌面、320／390px、短屏、200% 字号和睡眠状态下均保持固定设备高度并在 LCD 内滚动。
+- 新增 [`scripts/device-test.sh`](../scripts/device-test.sh)，统一构建仓库外临时后端／前端和临时 SQLite，打印本机／局域网入口，支持 `PIXELPET_DEVICE_PORT` 与 `PIXELPET_HOST_IP` 覆盖；脚本已用 `18088` 完成构建、HTTP 状态和运行信息冒烟验证，没有访问或覆盖正式 `data/pixelpet.db`。
+- 更新[开发说明](DEVELOPMENT.md)和[真人设备验收记录](REAL_DEVICE_ACCEPTANCE.md)，不再把固定 IP、端口或临时目录当作当前入口；历史地址明确标注为历史，每轮真人验收都从脚本启动并记录实际 revision、URL 和设备信息。
+- 本轮提交为 `8884e09`，提交与推送身份均为 **草莓小熊**；本轮没有修改运行时代码、玩法、成长规则、奖励或存档格式。自然多日成长、实体手机前后台／锁屏／系统回收、扬声器／耳机真人听感和 VoiceOver／TalkBack 真人读屏仍保持“未实测”。
+
 ## 2026-11-05 · 全部 CSS 文件阅读外壳契约扫描
 
 - 将 `scripts/check-reading-css-contract.mjs` 从只读取 `readability.css`／`treasure.css` 扩展为扫描 `web/src` 下全部 **38 个 CSS 文件**；后续新增小游戏、商店、图鉴或组件样式时，只要把物理阅读外壳误写成 `height: auto`，就会在源码契约阶段失败。
