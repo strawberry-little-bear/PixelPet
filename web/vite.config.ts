@@ -15,10 +15,15 @@ function webBuild() {
 }
 
 export default defineConfig(({ command }) => ({
+  base: process.env.VITE_BASE_PATH ?? "/",
   plugins: [react()],
   define: { __PIXELPET_WEB_BUILD__: JSON.stringify(command === "build" ? webBuild() : { development: true }) },
   build: {
     rollupOptions: {
+      input: {
+        app: fileURLToPath(new URL("./index.html", import.meta.url)),
+        pagesDemo: fileURLToPath(new URL("./pages-demo.html", import.meta.url)),
+      },
       output: {
         // Keep the stable runtime cacheable across game/content updates. This
         // is an eager dependency, not lazy gameplay or a lower first-load total.

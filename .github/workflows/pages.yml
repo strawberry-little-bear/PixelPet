@@ -1,0 +1,50 @@
+name: Deploy GitHub Pages demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Build web app
+        working-directory: web
+        env:
+          VITE_BASE_PATH: /PixelPet/
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+      - name: Make the demo the Pages home
+        run: cp web/dist/pages-demo.html web/dist/index.html
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

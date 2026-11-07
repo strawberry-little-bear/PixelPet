@@ -6,6 +6,8 @@
 
 [快速开始](#快速开始) · [三键操作](#三键操作) · [内置小游戏](#内置小游戏) · [文档导航](docs/README.md) · [后续计划](docs/NEXT_STEPS.md)
 
+想先试玩：打开 [GitHub Pages 演示](https://strawberry-little-bear.github.io/PixelPet/)。这是一个浏览器本地演示，不连接下面的 Go + SQLite 正式服务，也不会与本地存档互通。
+
 ![PixelPet 本地版界面预览](docs/preview.png)
 
 ## 可以做什么
@@ -18,6 +20,8 @@
 - **安心离开再回来**：SQLite 自动存档、离开后的状态结算、回访小结，以及可预览确认的 JSON 备份恢复。
 
 当前为**本地单玩家、一只宠物**；没有 AI 对话、登录、云存档或联网社交。节奏拍手仍是[独立实验原型](prototypes/rhythm/README.md)，不在正式游戏菜单中。
+
+GitHub Pages 只承载静态试玩入口：演示保留 A / B / C 三键约束，包含照顾、幼年/成长期/成年展示和接星星小游戏，进度保存在访问者自己的浏览器中。完整七款小游戏、离线结算、备份和 SQLite 存档仍需要本地 Go 服务。
 
 ## 快速开始
 
